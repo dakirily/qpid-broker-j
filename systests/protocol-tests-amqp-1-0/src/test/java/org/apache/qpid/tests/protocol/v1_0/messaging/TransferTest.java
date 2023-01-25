@@ -51,6 +51,7 @@ import com.google.common.collect.Sets;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import org.apache.qpid.server.bytebuffer.QpidByteBuffer;
 import org.apache.qpid.server.protocol.v1_0.type.Binary;
@@ -88,6 +89,7 @@ import org.apache.qpid.tests.utils.BrokerAdminUsingTestBase;
 import org.apache.qpid.tests.utils.BrokerSpecific;
 import org.apache.qpid.tests.utils.ConfigItem;
 
+@TestInstance(TestInstance.Lifecycle.PER_METHOD)
 @ConfigItem(name = "qpid.tests.mms.messagestore.persistence", value = "false", jvm = true)
 public class TransferTest extends BrokerAdminUsingTestBase
 {

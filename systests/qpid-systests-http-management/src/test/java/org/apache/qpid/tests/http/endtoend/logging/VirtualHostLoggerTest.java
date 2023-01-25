@@ -38,6 +38,7 @@ import java.util.stream.Collectors;
 
 import com.google.common.io.CharStreams;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import org.apache.qpid.server.logging.logback.VirtualHostFileLogger;
 import org.apache.qpid.server.logging.logback.VirtualHostNameAndLevelLogInclusionRule;
@@ -46,7 +47,8 @@ import org.apache.qpid.server.model.State;
 import org.apache.qpid.tests.http.HttpRequestConfig;
 import org.apache.qpid.tests.http.HttpTestBase;
 
-@HttpRequestConfig(useVirtualHostAsHost = true)
+@HttpRequestConfig()
+@TestInstance(TestInstance.Lifecycle.PER_METHOD)
 public class VirtualHostLoggerTest extends HttpTestBase
 {
     private static final String LOGGER_NAME = "testLogger1";
@@ -77,17 +79,14 @@ public class VirtualHostLoggerTest extends HttpTestBase
     @Test
     public void dynamicConfiguration() throws Exception
     {
-        final String loggerUrl = String.format("virtualhostlogger/%s", LOGGER_NAME);
-        final String loggerRuleUrl = String.format("virtualhostloginclusionrule/%s/%s", LOGGER_NAME, LOGGER_RULE);
+        final String loggerUrl = String.format("virtualhostlogger/%s", getTestClass() + "_" + getTestName() + "_" + LOGGER_NAME);
+        final String loggerRuleUrl = String.format("virtualhostloginclusionrule/%s/%s", getTestClass() + "_" + getTestName() + "_" + LOGGER_NAME, LOGGER_RULE);
 
         Map<String, Object> loggerAttributes = new HashMap<>();
         loggerAttributes.put(ConfiguredObject.NAME, LOGGER_NAME);
         loggerAttributes.put(ConfiguredObject.TYPE, VirtualHostFileLogger.TYPE);
 
-        getHelper().submitRequest(loggerUrl,
-                                  "PUT",
-                                  loggerAttributes,
-                                  SC_CREATED);
+        getHelper().submitRequest(loggerUrl, "PUT", loggerAttributes, SC_CREATED);
 
         Map<String, Object> ruleAttributes = new HashMap<>();
         ruleAttributes.put(ConfiguredObject.NAME, LOGGER_RULE);

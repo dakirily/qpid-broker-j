@@ -25,6 +25,7 @@ import java.net.InetSocketAddress;
 
 import ch.qos.logback.classic.LoggerContext;
 import com.google.common.util.concurrent.ListenableFuture;
+import org.slf4j.ILoggerFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -200,7 +201,11 @@ public class LoggingBrokerAdminDecorator implements BrokerAdmin
 
     private void setClassQualifiedTestName(final String name)
     {
-        final LoggerContext loggerContext = ((ch.qos.logback.classic.Logger) LOGGER).getLoggerContext();
-        loggerContext.putProperty(LogbackPropertyValueDiscriminator.CLASS_QUALIFIED_TEST_NAME, name);
+        final ILoggerFactory iLoggerFactory = LoggerFactory.getILoggerFactory();
+        if (iLoggerFactory instanceof LoggerContext)
+        {
+            final LoggerContext loggerContext = (LoggerContext) iLoggerFactory;
+            loggerContext.putProperty(LogbackPropertyValueDiscriminator.CLASS_QUALIFIED_TEST_NAME, name);
+        }
     }
 }
