@@ -1,5 +1,8 @@
 # Apache Qpid Broker-J
 
+[![License](https://img.shields.io/github/license/apache/qpid-broker-j)](https://github.com/apache/qpid-broker-j/blob/main/LICENSE)
+[![Maven Central](https://img.shields.io/maven-central/v/org.apache.qpid/qpid-broker.svg)](https://central.sonatype.com/artifact/org.apache.qpid/qpid-broker)
+
 ---
 
 | CI Process              | Status                                                                                                                                                                                         |
@@ -12,8 +15,8 @@
 [Website](http://qpid.apache.org/) |
 [Wiki](https://cwiki.apache.org/confluence/display/qpid) |
 [Documentation](http://qpid.apache.org/documentation.html) |
-[Developer Mailing List](mailto:dev@qpid.apache.org) |
-[User Mailing List](mailto:users@qpid.apache.org) |
+[Developer Mailing List](mailto:dev@qpid.apache.org) ([Archive](https://lists.apache.org/list.html?dev@qpid.apache.org)) |
+[User Mailing List](mailto:users@qpid.apache.org) ([Archive](https://lists.apache.org/list.html?users@qpid.apache.org)) |
 [Open Issues](https://issues.apache.org/jira/issues/?jql=project%20%3D%20QPID%20AND%20resolution%20%3D%20Unresolved%20AND%20component%20%3D%20Broker-J%20ORDER%20BY%20key%20DESC)
 
 # Qpid Broker-J
