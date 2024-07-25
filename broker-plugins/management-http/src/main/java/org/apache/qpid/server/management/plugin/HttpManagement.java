@@ -54,7 +54,10 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import org.eclipse.jetty.ee10.servlet.ErrorPageErrorHandler;
+import org.eclipse.jetty.ee10.servlet.ServletHandler;
+import org.eclipse.jetty.ee10.servlet.SessionHandler;
 import org.eclipse.jetty.http.HttpFields;
+import org.eclipse.jetty.http.UriCompliance;
 import org.eclipse.jetty.io.Connection;
 import org.eclipse.jetty.io.ssl.SslHandshakeListener;
 import org.eclipse.jetty.rewrite.handler.CompactPathRule;
@@ -333,6 +336,7 @@ public class HttpManagement extends AbstractPluginAdapter<HttpManagement> implem
         rewriteHandler.addRule(new CompactPathRule());
 
         final ServletContextHandler root = new ServletContextHandler("/",  ServletContextHandler.SESSIONS);
+        ((ServletHandler) ((SessionHandler) root.getHandler()).getHandler()).setDecodeAmbiguousURIs(true);
         root.setHandler(rewriteHandler);
         server.setHandler(root);
 
@@ -614,6 +618,13 @@ public class HttpManagement extends AbstractPluginAdapter<HttpManagement> implem
             }
         };
 
+        connector.getConnectionFactories().stream()
+                .filter(factory -> factory instanceof HttpConnectionFactory)
+                .forEach(factory ->
+                {
+                    HttpConfiguration httpConfig = ((HttpConnectionFactory) factory).getHttpConfiguration();
+                    httpConfig.setUriCompliance(UriCompliance.from(Set.of(UriCompliance.Violation.AMBIGUOUS_PATH_ENCODING)));
+                });
         connector.setAcceptQueueSize(port.getAcceptBacklogSize());
         final String bindingAddress = port.getBindingAddress();
         if (bindingAddress != null && !bindingAddress.trim().equals("") && !bindingAddress.trim().equals("*"))
