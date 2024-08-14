@@ -119,6 +119,7 @@ public class ServerSession extends SessionInvoker
     private final Object commandsLock = new Object();
     private final Object stateLock = new Object();
     private final Map<String, ConsumerTarget_0_10> _subscriptions = new ConcurrentHashMap<>();
+    private final Set<ConsumerTarget_0_10> _subscriptionsNeedFlush = ConcurrentHashMap.newKeySet();
     private final AtomicReference<LogMessage> _forcedCloseLogMessage = new AtomicReference<>();
     private final long _blockingTimeout;
     private final ServerConnection connection;
@@ -850,6 +851,11 @@ public class ServerSession extends SessionInvoker
         super.sessionAttached(name, options);
     }
 
+    public void addConsumerTargetNeedingFlush(final ConsumerTarget_0_10 consumerTarget)
+    {
+        _subscriptionsNeedFlush.add(consumerTarget);
+    }
+
     public enum State { NEW, DETACHED, RESUMING, OPEN, CLOSING, CLOSED }
 
     public interface MessageDispositionChangeListener
@@ -1558,10 +1564,11 @@ public class ServerSession extends SessionInvoker
     {
         runAsSubject(() ->
         {
-            final Collection<ConsumerTarget_0_10> subscriptions = getSubscriptions();
-            for (ConsumerTarget_0_10 subscription_0_10 : subscriptions)
+            for (final Iterator<ConsumerTarget_0_10> iterator = _subscriptionsNeedFlush.iterator(); iterator.hasNext();)
             {
+                final ConsumerTarget_0_10 subscription_0_10 = iterator.next();
                 subscription_0_10.flushCreditState(false);
+                iterator.remove();
             }
             awaitCommandCompletion();
             return null;

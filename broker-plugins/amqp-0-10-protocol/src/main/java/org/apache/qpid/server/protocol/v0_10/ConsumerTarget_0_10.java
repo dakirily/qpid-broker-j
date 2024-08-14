@@ -349,7 +349,7 @@ public class ConsumerTarget_0_10 extends AbstractConsumerTarget<ConsumerTarget_0
     {
         _deferredMessageCredit += deferredMessageCredit;
         _deferredSizeCredit += deferredSizeCredit;
-
+        _session.addConsumerTargetNeedingFlush(this);
     }
 
     public void flushCreditState(boolean strict)
