@@ -19,11 +19,10 @@
 
 package org.apache.qpid.server.management.plugin.servlet.rest;
 
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 
 import org.apache.qpid.server.management.plugin.RequestType;
 
@@ -77,11 +76,11 @@ public class RequestInfo
     {
         _type = type;
         _operationName = operationName;
-        _modelParts = ImmutableList.copyOf(modelParts);
+        _modelParts = new ArrayList<>(modelParts);
         _hierarchySatisfied = hierarchySatisfied;
         _hasWildcard = _modelParts.contains("*");
-        _preferencesParts = ImmutableList.copyOf(preferencesParts);
-        _queryParameters = ImmutableMap.copyOf(queryParameters);
+        _preferencesParts = new ArrayList<>(preferencesParts);
+        _queryParameters = new LinkedHashMap<>(queryParameters);
     }
 
     public RequestType getType()

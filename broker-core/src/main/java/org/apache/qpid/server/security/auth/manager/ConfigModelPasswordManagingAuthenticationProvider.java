@@ -28,12 +28,10 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
 import javax.security.auth.login.AccountNotFoundException;
-
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
 
 import org.apache.qpid.server.configuration.updater.Task;
 import org.apache.qpid.server.model.ConfiguredObject;
@@ -218,8 +216,8 @@ public abstract class ConfigModelPasswordManagingAuthenticationProvider<X extend
     }
 
     @Override
-    protected <C extends ConfiguredObject> ListenableFuture<C> addChildAsync(final Class<C> childClass,
-                                                                          final Map<String, Object> attributes)
+    protected <C extends ConfiguredObject> CompletableFuture<C> addChildAsync(final Class<C> childClass,
+                                                                              final Map<String, Object> attributes)
     {
         if(childClass == User.class)
         {
@@ -231,7 +229,7 @@ public abstract class ConfigModelPasswordManagingAuthenticationProvider<X extend
             attributes.put(User.PASSWORD, createStoredPassword((String) attributes.get(User.PASSWORD)));
             ManagedUser user = new ManagedUser(attributes, ConfigModelPasswordManagingAuthenticationProvider.this);
             user.create();
-            return Futures.immediateFuture((C)getUser(username));
+            return CompletableFuture.completedFuture((C)getUser(username));
         }
         else
         {
