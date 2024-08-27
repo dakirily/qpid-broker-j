@@ -120,7 +120,7 @@ public class SortedQueueEntryListTest extends QueueEntryListTestBase
         for (final String key : KEYS)
         {
             final ServerMessage<?> msg = generateTestMessage(messageId++, key);
-            _sqel.add(msg, null);
+            _sqel.add(msg);
         }
     }
 
@@ -221,7 +221,7 @@ public class SortedQueueEntryListTest extends QueueEntryListTestBase
         while (messageId < 200)
         {
             final ServerMessage<?> msg = generateTestMessage(messageId++, "samekey");
-            _sqel.add(msg, null);
+            _sqel.add(msg);
         }
 
         final QueueEntryIterator iter = getTestList().iterator();
@@ -244,7 +244,7 @@ public class SortedQueueEntryListTest extends QueueEntryListTestBase
         while (messageId < 200)
         {
             final ServerMessage<?> msg = generateTestMessage(messageId++, null);
-            _sqel.add(msg, null);
+            _sqel.add(msg);
         }
 
         final QueueEntryIterator iter = getTestList().iterator();
@@ -268,7 +268,7 @@ public class SortedQueueEntryListTest extends QueueEntryListTestBase
         {
             final ServerMessage<?> msg = generateTestMessage(messageId, textKey);
             messageId++;
-            _sqel.add(msg, null);
+            _sqel.add(msg);
         }
 
         final QueueEntryIterator iter = getTestList().iterator();
@@ -293,7 +293,7 @@ public class SortedQueueEntryListTest extends QueueEntryListTestBase
         {
             final ServerMessage<?> msg = generateTestMessage(messageId, TEXTKEYS[i]);
             messageId++;
-            _sqel.add(msg, null);
+            _sqel.add(msg);
         }
 
         final QueueEntryIterator iter = getTestList().iterator();
@@ -313,13 +313,13 @@ public class SortedQueueEntryListTest extends QueueEntryListTestBase
         _sqel = new SelfValidatingSortedQueueEntryList(_testQueue);
 
         ServerMessage<?> msg = generateTestMessage(1, "A");
-        _sqel.add(msg, null);
+        _sqel.add(msg);
 
         SortedQueueEntry entry = _sqel.next(_sqel.getHead());
         validateEntry(entry, "A", 1);
 
         msg = generateTestMessage(2, "B");
-        _sqel.add(msg, null);
+        _sqel.add(msg);
 
         entry = _sqel.next(_sqel.getHead());
         validateEntry(entry, "A", 1);
@@ -334,13 +334,13 @@ public class SortedQueueEntryListTest extends QueueEntryListTestBase
         _sqel = new SelfValidatingSortedQueueEntryList(_testQueue);
 
         ServerMessage<?> msg = generateTestMessage(1, "B");
-        _sqel.add(msg, null);
+        _sqel.add(msg);
 
         SortedQueueEntry entry = _sqel.next(_sqel.getHead());
         validateEntry(entry, "B", 1);
 
         msg = generateTestMessage(2, "A");
-        _sqel.add(msg, null);
+        _sqel.add(msg);
 
         entry = _sqel.next(_sqel.getHead());
         validateEntry(entry, "A", 2);
@@ -355,12 +355,12 @@ public class SortedQueueEntryListTest extends QueueEntryListTestBase
         _sqel = new SelfValidatingSortedQueueEntryList(_testQueue);
 
         ServerMessage<?> msg = generateTestMessage(1, "A");
-        _sqel.add(msg, null);
+        _sqel.add(msg);
         SortedQueueEntry entry = _sqel.next(_sqel.getHead());
         validateEntry(entry, "A", 1);
 
         msg = generateTestMessage(2, "C");
-        _sqel.add(msg, null);
+        _sqel.add(msg);
 
         entry = _sqel.next(_sqel.getHead());
         validateEntry(entry, "A", 1);
@@ -369,7 +369,7 @@ public class SortedQueueEntryListTest extends QueueEntryListTestBase
         validateEntry(entry, "C", 2);
 
         msg = generateTestMessage(3, "B");
-        _sqel.add(msg, null);
+        _sqel.add(msg);
 
         entry = _sqel.next(_sqel.getHead());
         validateEntry(entry, "A", 1);
@@ -387,13 +387,13 @@ public class SortedQueueEntryListTest extends QueueEntryListTestBase
         _sqel = new SelfValidatingSortedQueueEntryList(_testQueue);
 
         ServerMessage<?> msg = generateTestMessage(1, "B");
-        _sqel.add(msg, null);
+        _sqel.add(msg);
 
         SortedQueueEntry entry = _sqel.next(_sqel.getHead());
         validateEntry(entry, "B", 1);
 
         msg = generateTestMessage(2, "D");
-        _sqel.add(msg, null);
+        _sqel.add(msg);
 
         entry = _sqel.next(_sqel.getHead());
         validateEntry(entry, "B", 1);
@@ -402,7 +402,7 @@ public class SortedQueueEntryListTest extends QueueEntryListTestBase
         validateEntry(entry, "D", 2);
 
         msg = generateTestMessage(3, "C");
-        _sqel.add(msg, null);
+        _sqel.add(msg);
 
         entry = _sqel.next(_sqel.getHead());
         validateEntry(entry, "B", 1);
@@ -414,7 +414,7 @@ public class SortedQueueEntryListTest extends QueueEntryListTestBase
         validateEntry(entry, "D", 2);
 
         msg = generateTestMessage(4, "A");
-        _sqel.add(msg, null);
+        _sqel.add(msg);
 
         entry = _sqel.next(_sqel.getHead());
         validateEntry(entry, "A", 4);
@@ -434,16 +434,16 @@ public class SortedQueueEntryListTest extends QueueEntryListTestBase
     {
         final SortedQueueEntryList list = new SortedQueueEntryList(_testQueue, _testQueue.getQueueStatistics());
 
-        final SortedQueueEntry entry1 = list.add(generateTestMessage(1, "B"), null);
+        final SortedQueueEntry entry1 = list.add(generateTestMessage(1, "B"));
         assertEquals(entry1, list.getLeastSignificantOldestEntry(), "Unexpected last entry");
 
-        list.add(generateTestMessage(2, "C"), null);
+        list.add(generateTestMessage(2, "C"));
         assertEquals(entry1, list.getLeastSignificantOldestEntry(), "Unexpected last entry");
 
-        list.add(generateTestMessage(3, null), null);
+        list.add(generateTestMessage(3, null));
         assertEquals(entry1, list.getLeastSignificantOldestEntry(), "Unexpected last entry");
 
-        list.add(generateTestMessage(4, "A"), null);
+        list.add(generateTestMessage(4, "A"));
         assertEquals(entry1, list.getLeastSignificantOldestEntry(), "Unexpected last entry");
     }
 

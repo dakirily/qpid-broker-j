@@ -42,7 +42,6 @@ import org.apache.qpid.server.queue.QueueEntry;
 import org.apache.qpid.server.queue.QueueEntryIterator;
 import org.apache.qpid.server.queue.QueueEntryVisitor;
 import org.apache.qpid.server.store.MessageDurability;
-import org.apache.qpid.server.store.MessageEnqueueRecord;
 import org.apache.qpid.server.util.Deletable;
 import org.apache.qpid.server.virtualhost.QueueManagingVirtualHost;
 
@@ -635,7 +634,7 @@ public interface Queue<X extends Queue<X>> extends ConfiguredObject<X>,
 
     void completeRecovery();
 
-    void recover(ServerMessage<?> message, MessageEnqueueRecord enqueueRecord);
+    void recover(ServerMessage<?> message);
 
     boolean isHeld(QueueEntry queueEntry, final long evaluationTime);
 

@@ -96,7 +96,7 @@ public class FlowToDiskOverflowPolicyHandlerTest extends UnitTestBase
         for (int i = 0; i < 15; i ++)
         {
             messages.add(createMessage(10L));
-            _queue.enqueue(messages.get(i), null, null);
+            _queue.enqueue(messages.get(i), null);
         }
 
         for (int i = 0; i < 10; i ++)
@@ -145,7 +145,7 @@ public class FlowToDiskOverflowPolicyHandlerTest extends UnitTestBase
         for (int i = 0; i < 15; i ++)
         {
             messages.add(createMessage(10L));
-            _queue.enqueue(messages.get(i), null, null);
+            _queue.enqueue(messages.get(i), null);
         }
 
         for (int i = 0; i < 5; i ++)
@@ -189,12 +189,12 @@ public class FlowToDiskOverflowPolicyHandlerTest extends UnitTestBase
     {
         _queue.setAttributes(Map.of(Queue.MAXIMUM_QUEUE_DEPTH_BYTES, 10));
         final ServerMessage<?> message = createMessage(10L);
-        _queue.enqueue(message, null, null);
+        _queue.enqueue(message, null);
         StoredMessage<?> storedMessage = message.getStoredMessage();
         verify(storedMessage, never()).flowToDisk();
 
         final ServerMessage<?> message2 = createMessage(10L);
-        _queue.enqueue(message2, null, null);
+        _queue.enqueue(message2, null);
         final StoredMessage<?> storedMessage2 = message2.getStoredMessage();
         verify(storedMessage2).flowToDisk();
     }
@@ -204,7 +204,7 @@ public class FlowToDiskOverflowPolicyHandlerTest extends UnitTestBase
     {
         _queue.setAttributes(Map.of(Queue.MAXIMUM_QUEUE_DEPTH_BYTES, 0));
         final ServerMessage<?> message = createMessage(1L);
-        _queue.enqueue(message, null, null);
+        _queue.enqueue(message, null);
         final StoredMessage<?> storedMessage = message.getStoredMessage();
         verify(storedMessage).flowToDisk();
     }
@@ -214,7 +214,7 @@ public class FlowToDiskOverflowPolicyHandlerTest extends UnitTestBase
     {
         _queue.setAttributes(Map.of(Queue.MAXIMUM_QUEUE_DEPTH_MESSAGES, 0));
         final ServerMessage<?> message = createMessage(1L);
-        _queue.enqueue(message, null, null);
+        _queue.enqueue(message, null);
         final StoredMessage<?> storedMessage = message.getStoredMessage();
         verify(storedMessage).flowToDisk();
     }
@@ -225,7 +225,7 @@ public class FlowToDiskOverflowPolicyHandlerTest extends UnitTestBase
         _queue.setAttributes(Map.of(Queue.MAXIMUM_QUEUE_DEPTH_MESSAGES, 10));
         _queue.setAttributes(Map.of(Queue.MAXIMUM_QUEUE_DEPTH_BYTES, 10));
         final ServerMessage<?> message = createMessage(1L);
-        _queue.enqueue(message, null, null);
+        _queue.enqueue(message, null);
         final StoredMessage<?> storedMessage = message.getStoredMessage();
         verify(storedMessage, never()).flowToDisk();
     }
@@ -240,7 +240,7 @@ public class FlowToDiskOverflowPolicyHandlerTest extends UnitTestBase
         for (int i = 0; i < 10; i ++)
         {
             messages.add(createMessage(10L));
-            _queue.enqueue(messages.get(i), null, null);
+            _queue.enqueue(messages.get(i), null);
         }
 
         for (int i = 0; i < 5; i ++)
@@ -330,7 +330,7 @@ public class FlowToDiskOverflowPolicyHandlerTest extends UnitTestBase
         for (int i = 0; i < 15; i ++)
         {
             messages.add(createMessage(10L));
-            _queue.enqueue(messages.get(i), null, null);
+            _queue.enqueue(messages.get(i), null);
         }
         assertEquals(15, _queue.getQueueDepthMessages());
 
@@ -384,7 +384,7 @@ public class FlowToDiskOverflowPolicyHandlerTest extends UnitTestBase
         for (int i = 0; i < 15; i ++)
         {
             messages.add(createMessage(10L));
-            _queue.enqueue(messages.get(i), null, null);
+            _queue.enqueue(messages.get(i), null);
         }
         assertEquals(15, _queue.getQueueDepthMessages());
 
@@ -448,7 +448,7 @@ public class FlowToDiskOverflowPolicyHandlerTest extends UnitTestBase
         for (int i = 0; i < 15; i ++)
         {
             messages.add(createMessage(10L));
-            _queue.enqueue(messages.get(i), null, null);
+            _queue.enqueue(messages.get(i), null);
         }
         assertEquals(15, _queue.getQueueDepthMessages());
 

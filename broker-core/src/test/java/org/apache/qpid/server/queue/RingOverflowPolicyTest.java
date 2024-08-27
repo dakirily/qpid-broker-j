@@ -51,7 +51,6 @@ import org.apache.qpid.server.model.OverflowPolicy;
 import org.apache.qpid.server.model.Queue;
 import org.apache.qpid.server.model.VirtualHost;
 import org.apache.qpid.server.model.VirtualHostNode;
-import org.apache.qpid.server.store.MessageEnqueueRecord;
 import org.apache.qpid.server.virtualhost.AbstractVirtualHost;
 import org.apache.qpid.server.virtualhost.QueueManagingVirtualHost;
 import org.apache.qpid.server.virtualhost.TestMemoryVirtualHost;
@@ -167,27 +166,8 @@ public class RingOverflowPolicyTest extends UnitTestBase
     private ServerMessage<?> enqueueTestMessage(final Queue<?> queue)
     {
         final ServerMessage<?> message = createMessage(_messageId.incrementAndGet(), queue.getName());
-        final MessageEnqueueRecord record = createMessageEnqueueRecord(queue.getId(), message.getMessageNumber());
-        queue.enqueue(message, null, record);
+        queue.enqueue(message, null);
         return message;
-    }
-
-    private MessageEnqueueRecord createMessageEnqueueRecord(final UUID queueId, final long messageNumber)
-    {
-        return new MessageEnqueueRecord()
-        {
-            @Override
-            public UUID getQueueId()
-            {
-                return queueId;
-            }
-
-            @Override
-            public long getMessageNumber()
-            {
-                return messageNumber;
-            }
-        };
     }
 
     private ServerMessage<?> createMessage(final long messageNumber, final String queueName)

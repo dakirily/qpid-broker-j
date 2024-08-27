@@ -135,7 +135,7 @@ public class QueueStatisticsTest extends UnitTestBase
     public void resetStatistics()
     {
         final ServerMessage<?> message = BrokerTestHelper.createMessage(0L);
-        _queue.enqueue(message, null, null);
+        _queue.enqueue(message, null);
 
         Map<String, Object> statistics = _queue.getStatistics();
 

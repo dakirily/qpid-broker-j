@@ -32,7 +32,6 @@ import org.slf4j.LoggerFactory;
 
 import org.apache.qpid.server.message.MessageInstanceConsumer;
 import org.apache.qpid.server.message.ServerMessage;
-import org.apache.qpid.server.store.MessageEnqueueRecord;
 import org.apache.qpid.server.txn.AutoCommitTransaction;
 import org.apache.qpid.server.txn.ServerTransaction;
 
@@ -61,10 +60,9 @@ public class LastValueQueueList extends OrderedQueueEntryList
     }
 
     @Override
-    protected ConflationQueueEntry createQueueEntry(ServerMessage message,
-                                                    final MessageEnqueueRecord enqueueRecord)
+    protected ConflationQueueEntry createQueueEntry(ServerMessage message)
     {
-        return new ConflationQueueEntry(this, message, enqueueRecord);
+        return new ConflationQueueEntry(this, message);
     }
 
 
@@ -73,9 +71,9 @@ public class LastValueQueueList extends OrderedQueueEntryList
      * Updates the list using super.add and also updates {@link #_latestValuesMap} and discards entries as necessary.
      */
     @Override
-    public ConflationQueueEntry add(final ServerMessage message, final MessageEnqueueRecord enqueueRecord)
+    public ConflationQueueEntry add(final ServerMessage message)
     {
-        final ConflationQueueEntry addedEntry = (ConflationQueueEntry) super.add(message, enqueueRecord);
+        final ConflationQueueEntry addedEntry = (ConflationQueueEntry) super.add(message);
 
         final Object keyValue = message.getMessageHeader().getHeader(_conflationKey);
         if (keyValue != null)
@@ -203,10 +201,9 @@ public class LastValueQueueList extends OrderedQueueEntryList
         }
 
         public ConflationQueueEntry(LastValueQueueList queueEntryList,
-                                    ServerMessage message,
-                                    final MessageEnqueueRecord messageEnqueueRecord)
+                                    ServerMessage message)
         {
-            super(queueEntryList, message, messageEnqueueRecord);
+            super(queueEntryList, message);
         }
 
         @Override

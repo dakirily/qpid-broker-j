@@ -41,7 +41,6 @@ import org.apache.qpid.server.message.ServerMessage;
 import org.apache.qpid.server.model.LifetimePolicy;
 import org.apache.qpid.server.model.Queue;
 import org.apache.qpid.server.store.MessageDurability;
-import org.apache.qpid.server.store.MessageEnqueueRecord;
 import org.apache.qpid.server.virtualhost.QueueManagingVirtualHost;
 
 public class StandardQueueTest extends AbstractQueueTestBase
@@ -62,7 +61,7 @@ public class StandardQueueTest extends AbstractQueueTestBase
                 .addConsumer(getConsumerTarget(), null, message.getClass(), "test",
                 EnumSet.of(ConsumerOption.ACQUIRES, ConsumerOption.SEES_REQUEUES), 0);
 
-        getQueue().enqueue(message, null, null);
+        getQueue().enqueue(message, null);
         consumer.close();
         assertTrue(getQueue().isDeleted(), "Queue was not deleted when consumer was removed");
     }
@@ -223,8 +222,7 @@ public class StandardQueueTest extends AbstractQueueTestBase
          * dequeued!
          */
         @Override
-        protected DequeuedQueueEntry createQueueEntry(final ServerMessage<?> message,
-                                                      final MessageEnqueueRecord enqueueRecord)
+        protected DequeuedQueueEntry createQueueEntry(final ServerMessage<?> message)
         {
             return new DequeuedQueueEntry(this, message);
         }
@@ -248,7 +246,7 @@ public class StandardQueueTest extends AbstractQueueTestBase
 
         public DequeuedQueueEntry(final DequeuedQueueEntryList list, final ServerMessage<?> message)
         {
-            super(list, message, null);
+            super(list, message);
             _message = message;
         }
 

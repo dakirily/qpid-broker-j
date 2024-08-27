@@ -83,7 +83,6 @@ import org.apache.qpid.server.model.OverflowPolicy;
 import org.apache.qpid.server.model.Queue;
 import org.apache.qpid.server.model.QueueNotificationListener;
 import org.apache.qpid.server.queue.AbstractQueue.QueueEntryFilter;
-import org.apache.qpid.server.store.MessageEnqueueRecord;
 import org.apache.qpid.server.store.StoredMessage;
 import org.apache.qpid.server.store.TransactionLogResource;
 import org.apache.qpid.server.util.Action;
@@ -184,7 +183,7 @@ abstract class AbstractQueueTestBase extends UnitTestBase
         assertEquals(1, (long) _queue.getConsumerCountWithCredit(), "Queue does not have active consumer");
 
         // Check sending a message ends up with the subscriber
-        _queue.enqueue(messageA, null, null);
+        _queue.enqueue(messageA, null);
         while(_consumerTarget.processPending());
 
         assertEquals(messageA, _consumer.getQueueContext().getLastSeenEntry().getMessage());
@@ -197,7 +196,7 @@ abstract class AbstractQueueTestBase extends UnitTestBase
         assertNotEquals(1, _queue.getConsumerCountWithCredit(), "Queue still has active consumer");
 
         final ServerMessage<?> messageB = createMessage(25L);
-        _queue.enqueue(messageB, null, null);
+        _queue.enqueue(messageB, null);
         assertNull(_consumer.getQueueContext());
     }
 
@@ -205,7 +204,7 @@ abstract class AbstractQueueTestBase extends UnitTestBase
     public void testEnqueueMessageThenRegisterConsumer() throws Exception
     {
         final ServerMessage<?> messageA = createMessage(24L);
-        _queue.enqueue(messageA, null, null);
+        _queue.enqueue(messageA, null);
         _consumer = (QueueConsumer<?,?>) _queue
                 .addConsumer(_consumerTarget, null, messageA.getClass(), "test",
                 EnumSet.of(ConsumerOption.ACQUIRES, ConsumerOption.SEES_REQUEUES), 0);
@@ -222,8 +221,8 @@ abstract class AbstractQueueTestBase extends UnitTestBase
     {
         final ServerMessage<?> messageA = createMessage(24L);
         final ServerMessage<?> messageB = createMessage(25L);
-        _queue.enqueue(messageA, null, null);
-        _queue.enqueue(messageB, null, null);
+        _queue.enqueue(messageA, null);
+        _queue.enqueue(messageB, null);
         _consumer = (QueueConsumer<?,?>) _queue
                 .addConsumer(_consumerTarget, null, messageA.getClass(), "test",
                 EnumSet.of(ConsumerOption.ACQUIRES, ConsumerOption.SEES_REQUEUES), 0);
@@ -247,7 +246,7 @@ abstract class AbstractQueueTestBase extends UnitTestBase
         final ServerMessage<?> messageA = createMessage(24L);
         final AMQMessageHeader messageHeader = messageA.getMessageHeader();
         when(messageHeader.getNotValidBefore()).thenReturn(System.currentTimeMillis()+20000L);
-        _queue.enqueue(messageA, null, null);
+        _queue.enqueue(messageA, null);
         _consumer = (QueueConsumer<?,?>) _queue
                 .addConsumer(_consumerTarget, null, messageA.getClass(), "test",
                 EnumSet.of(ConsumerOption.ACQUIRES, ConsumerOption.SEES_REQUEUES), 0);
@@ -276,7 +275,7 @@ abstract class AbstractQueueTestBase extends UnitTestBase
         final ServerMessage<?> messageA = createMessage(24L);
         final AMQMessageHeader messageHeader = messageA.getMessageHeader();
         when(messageHeader.getNotValidBefore()).thenReturn(System.currentTimeMillis()+20000L);
-        _queue.enqueue(messageA, null, null);
+        _queue.enqueue(messageA, null);
         _consumer = (QueueConsumer<?,?>) _queue
                 .addConsumer(_consumerTarget, null, messageA.getClass(), "test",
                 EnumSet.of(ConsumerOption.ACQUIRES, ConsumerOption.SEES_REQUEUES), 0);
@@ -300,9 +299,9 @@ abstract class AbstractQueueTestBase extends UnitTestBase
         final ServerMessage<?> messageA = createMessage(24L);
         final AMQMessageHeader messageHeader = messageA.getMessageHeader();
         when(messageHeader.getNotValidBefore()).thenReturn(System.currentTimeMillis()+20000L);
-        _queue.enqueue(messageA, null, null);
+        _queue.enqueue(messageA, null);
         final ServerMessage<?> messageB = createMessage(25L);
-        _queue.enqueue(messageB, null, null);
+        _queue.enqueue(messageB, null);
 
         _consumer = (QueueConsumer<?,?>) _queue
                 .addConsumer(_consumerTarget, null, messageA.getClass(), "test",
@@ -343,9 +342,9 @@ abstract class AbstractQueueTestBase extends UnitTestBase
 
         /* Enqueue three messages */
 
-        _queue.enqueue(messageA, postEnqueueAction, null);
-        _queue.enqueue(messageB, postEnqueueAction, null);
-        _queue.enqueue(messageC, postEnqueueAction, null);
+        _queue.enqueue(messageA, postEnqueueAction);
+        _queue.enqueue(messageB, postEnqueueAction);
+        _queue.enqueue(messageC, postEnqueueAction);
 
         while(_consumerTarget.processPending());
 
@@ -414,7 +413,7 @@ abstract class AbstractQueueTestBase extends UnitTestBase
         final long expiration = System.currentTimeMillis() + 100L;
         when(messageA.getExpiration()).thenReturn(expiration);
 
-        _queue.enqueue(messageA, postEnqueueAction, null);
+        _queue.enqueue(messageA, postEnqueueAction);
 
         assertTrue(sendIndicator.await(5000, TimeUnit.MILLISECONDS),
                 "Message was not sent during expected time interval");
@@ -482,9 +481,9 @@ abstract class AbstractQueueTestBase extends UnitTestBase
 
         /* Enqueue three messages */
 
-        _queue.enqueue(messageA, postEnqueueAction, null);
-        _queue.enqueue(messageB, postEnqueueAction, null);
-        _queue.enqueue(messageC, postEnqueueAction, null);
+        _queue.enqueue(messageA, postEnqueueAction);
+        _queue.enqueue(messageB, postEnqueueAction);
+        _queue.enqueue(messageC, postEnqueueAction);
 
         while(_consumerTarget.processPending());
 
@@ -535,8 +534,8 @@ abstract class AbstractQueueTestBase extends UnitTestBase
 
         /* Enqueue two messages */
 
-        _queue.enqueue(messageA, postEnqueueAction, null);
-        _queue.enqueue(messageB, postEnqueueAction, null);
+        _queue.enqueue(messageA, postEnqueueAction);
+        _queue.enqueue(messageB, postEnqueueAction);
 
         while(target1.processPending());
         while(target2.processPending());
@@ -603,7 +602,7 @@ abstract class AbstractQueueTestBase extends UnitTestBase
         assertEquals(1, (long) _queue.getConsumerCountWithCredit(), "Queue does not have active consumer");
 
         // Check sending a message ends up with the subscriber
-        _queue.enqueue(messageA, null, null);
+        _queue.enqueue(messageA, null);
 
         while(_consumerTarget.processPending());
 
@@ -751,10 +750,10 @@ abstract class AbstractQueueTestBase extends UnitTestBase
         _queue.setNotificationListener(listener);
         _queue.setAttributes(Map.of(Queue.ALERT_THRESHOLD_QUEUE_DEPTH_MESSAGES,2));
 
-        _queue.enqueue(createMessage(24L), null, null);
+        _queue.enqueue(createMessage(24L), null);
         verifyNoInteractions(listener);
 
-        _queue.enqueue(createMessage(25L), null, null);
+        _queue.enqueue(createMessage(25L), null);
 
         verify(listener, atLeastOnce()).notifyClients(eq(NotificationCheck.MESSAGE_COUNT_ALERT), eq(_queue), contains("Maximum count on queue threshold"));
     }
@@ -764,9 +763,9 @@ abstract class AbstractQueueTestBase extends UnitTestBase
     {
         final QueueNotificationListener  listener = mock(QueueNotificationListener .class);
 
-        _queue.enqueue(createMessage(24L), null, null);
-        _queue.enqueue(createMessage(25L), null, null);
-        _queue.enqueue(createMessage(26L), null, null);
+        _queue.enqueue(createMessage(24L), null);
+        _queue.enqueue(createMessage(25L), null);
+        _queue.enqueue(createMessage(26L), null);
 
         _queue.setNotificationListener(listener);
         _queue.setAttributes(Map.of(Queue.ALERT_THRESHOLD_QUEUE_DEPTH_MESSAGES, 2));
@@ -857,9 +856,9 @@ abstract class AbstractQueueTestBase extends UnitTestBase
     public void testOldestMessage()
     {
         final Queue<?> queue = getQueue();
-        queue.enqueue(createMessage(1L, (byte)1, Map.of("sortKey", "Z"), 10L), null, null);
-        queue.enqueue(createMessage(2L, (byte)4, Map.of("sortKey", "M"), 100L), null, null);
-        queue.enqueue(createMessage(3L, (byte)9, Map.of("sortKey", "A"), 1000L), null, null);
+        queue.enqueue(createMessage(1L, (byte)1, Map.of("sortKey", "Z"), 10L), null);
+        queue.enqueue(createMessage(2L, (byte)4, Map.of("sortKey", "M"), 100L), null);
+        queue.enqueue(createMessage(3L, (byte)9, Map.of("sortKey", "A"), 1000L), null);
 
         assertEquals(10L, queue.getOldestMessageArrivalTime());
     }
@@ -876,13 +875,13 @@ abstract class AbstractQueueTestBase extends UnitTestBase
 
         ServerMessage<?> message = createMessage(24L, 50, 50);
         when(message.getArrivalTime()).thenReturn(10L);
-        queue.enqueue(message, null, null);
+        queue.enqueue(message, null);
         message = createMessage(25L, 50, 50);
         when(message.getArrivalTime()).thenReturn(50L);
-        queue.enqueue(message, null, null);
+        queue.enqueue(message, null);
         message = createMessage(26L, 50, 50);
         when(message.getArrivalTime()).thenReturn(200L);
-        queue.enqueue(message, null, null);
+        queue.enqueue(message, null);
 
         assertEquals(3, (long) queue.getQueueDepthMessages(), "Wrong number of messages in queue");
         assertEquals(300, queue.getQueueDepthBytes(), "Wrong size of messages in queue");
@@ -902,19 +901,19 @@ abstract class AbstractQueueTestBase extends UnitTestBase
 
         ServerMessage<?> message = createMessage(24L, 10, 10);
         when(message.getArrivalTime()).thenReturn(10L);
-        queue.enqueue(message, null, null);
+        queue.enqueue(message, null);
         message = createMessage(25L, 10, 10);
         when(message.getArrivalTime()).thenReturn(50L);
-        queue.enqueue(message, null, null);
+        queue.enqueue(message, null);
         message = createMessage(26L, 10, 10);
         when(message.getArrivalTime()).thenReturn(200L);
-        queue.enqueue(message, null, null);
+        queue.enqueue(message, null);
         message = createMessage(27L, 10, 10);
         when(message.getArrivalTime()).thenReturn(500L);
-        queue.enqueue(message, null, null);
+        queue.enqueue(message, null);
         message = createMessage(28L, 10, 10);
         when(message.getArrivalTime()).thenReturn(1000L);
-        queue.enqueue(message, null, null);
+        queue.enqueue(message, null);
 
         assertEquals(4, (long) queue.getQueueDepthMessages(), "Wrong number of messages in queue");
         assertEquals(80, queue.getQueueDepthBytes(), "Wrong size of messages in queue");
@@ -935,23 +934,23 @@ abstract class AbstractQueueTestBase extends UnitTestBase
 
         ServerMessage<?> message = createMessage(24L, 10, 10);
         when(message.getArrivalTime()).thenReturn(10L);
-        queue.enqueue(message, null, null);
+        queue.enqueue(message, null);
         message = createMessage(25L, 10, 10);
         when(message.getArrivalTime()).thenReturn(50L);
-        queue.enqueue(message, null, null);
+        queue.enqueue(message, null);
         message = createMessage(26L, 20, 10);
         when(message.getArrivalTime()).thenReturn(200L);
-        queue.enqueue(message, null, null);
+        queue.enqueue(message, null);
         message = createMessage(27L, 20, 10);
         when(message.getArrivalTime()).thenReturn(200L);
-        queue.enqueue(message, null, null);
+        queue.enqueue(message, null);
 
         assertEquals(4, (long) queue.getQueueDepthMessages(), "Wrong number of messages in queue");
         assertEquals(100, queue.getQueueDepthBytes(), "Wrong size of messages in queue");
 
         message = createMessage(27L, 20, 10);
         when(message.getArrivalTime()).thenReturn(500L);
-        queue.enqueue(message, null, null);
+        queue.enqueue(message, null);
 
         assertEquals(3, (long) queue.getQueueDepthMessages(), "Wrong number of messages in queue");
         assertEquals(90, queue.getQueueDepthBytes(), "Wrong size of messages in queue");
@@ -1091,7 +1090,7 @@ abstract class AbstractQueueTestBase extends UnitTestBase
         when(message.getArrivalTime()).thenReturn(arrivalTime);
         when(message.getExpiration()).thenReturn(arrivalTime + 5000L);
         when(message.isResourceAcceptable(any())).thenReturn(true);
-        queue.enqueue(message,null, null);
+        queue.enqueue(message,null);
 
         assertEquals(1, queue.getQueueDepthMessages(), "Unexpected queue depth");
 
@@ -1106,9 +1105,9 @@ abstract class AbstractQueueTestBase extends UnitTestBase
     {
         final Queue<?> target = _virtualHost.createChild(Queue.class, Map.of(Queue.NAME, getTestName() + "_target"));
 
-        _queue.enqueue(createMessage(1L), null, null);
-        _queue.enqueue(createMessage(2L), null, null);
-        _queue.enqueue(createMessage(3L), null, null);
+        _queue.enqueue(createMessage(1L), null);
+        _queue.enqueue(createMessage(2L), null);
+        _queue.enqueue(createMessage(3L), null);
 
         assertEquals(3, (long) _queue.getQueueDepthMessages(),
                 "Unexpected number of messages on source queue");
@@ -1142,9 +1141,9 @@ abstract class AbstractQueueTestBase extends UnitTestBase
 
         final Queue<?> target = _virtualHost.createChild(Queue.class, attributes);
 
-        _queue.enqueue(createMessage(1L), null, null);
-        _queue.enqueue(createMessage(2L), null, null);
-        _queue.enqueue(createMessage(3L), null, null);
+        _queue.enqueue(createMessage(1L), null);
+        _queue.enqueue(createMessage(2L), null);
+        _queue.enqueue(createMessage(3L), null);
 
         assertEquals(3, (long) _queue.getQueueDepthMessages(),
                 "Unexpected number of messages on source queue");
@@ -1169,7 +1168,7 @@ abstract class AbstractQueueTestBase extends UnitTestBase
         final StoredMessage<?> storedMessage = message2.getStoredMessage();
         when(storedMessage.getInMemorySize()).thenReturn(sizeIncludingHeader);
 
-        _queue.enqueue(message2, null, null);
+        _queue.enqueue(message2, null);
 
         verify(storedMessage).getInMemorySize();
         verify(storedMessage).flowToDisk();
@@ -1188,7 +1187,7 @@ abstract class AbstractQueueTestBase extends UnitTestBase
         when(storedMessage.getInMemorySize()).thenReturn(sizeIncludingHeader);
         when(message2.checkValid()).thenReturn(false);
 
-        _queue.enqueue(message2, null, null);
+        _queue.enqueue(message2, null);
 
         verify(storedMessage).getInMemorySize();
         verify(storedMessage, never()).flowToDisk();
@@ -1200,7 +1199,7 @@ abstract class AbstractQueueTestBase extends UnitTestBase
     public void testVisit()
     {
         final ServerMessage<?> message = createMessage(1L, 2, 3);
-        _queue.enqueue(message, null, null);
+        _queue.enqueue(message, null);
 
         final QueueEntryVisitor visitor = mock(QueueEntryVisitor.class);
         _queue.visit(visitor);
@@ -1248,21 +1247,18 @@ abstract class AbstractQueueTestBase extends UnitTestBase
     @Test
     public void testDeleteEntryNotPersistent() throws Exception
     {
-        deleteEntry(1L, null);
+        deleteEntry(1L);
     }
 
     @Test
     public void testDeleteEntryPersistent() throws Exception
     {
         long messageNumber = 1L;
-        final MessageEnqueueRecord record = mock(MessageEnqueueRecord.class);
-        when(record.getMessageNumber()).thenReturn(messageNumber);
-        when(record.getQueueId()).thenReturn(_queue.getId());
 
-        deleteEntry(messageNumber, record);
+        deleteEntry(messageNumber);
     }
 
-    private void deleteEntry(final long messageNumber, final MessageEnqueueRecord record) throws InterruptedException
+    private void deleteEntry(final long messageNumber) throws InterruptedException
     {
         final CountDownLatch messageDeleteDetector = new CountDownLatch(1);
         final ServerMessage<?> message = createMessage(messageNumber, 2, 3);
@@ -1273,7 +1269,7 @@ abstract class AbstractQueueTestBase extends UnitTestBase
             return null;
         }).when(reference).release();
 
-        _queue.enqueue(message, null, record);
+        _queue.enqueue(message, null);
 
         _queue.visit(entry ->
         {
@@ -1293,7 +1289,7 @@ abstract class AbstractQueueTestBase extends UnitTestBase
                                                                        "test",
                                                                        true,
                                                                        _qname);
-        _queue.enqueue(message, null, null);
+        _queue.enqueue(message, null);
         assertEquals(1, _queue.getQueueDepthMessages(), "Unexpected number of messages on the queue");
         _virtualHost.setTargetSize(1L);
         assertTrue(_virtualHost.isOverTargetSize());
@@ -1306,7 +1302,7 @@ abstract class AbstractQueueTestBase extends UnitTestBase
         final ServerMessage<?> message = createMessage(1L);
         when(message.getArrivalTime()).thenReturn(arrivalTime);
         when(message.getExpiration()).thenReturn(expiration);
-        queue.enqueue(message,null, null);
+        queue.enqueue(message,null);
         queue.visit(entry ->
         {
             entries.add(entry);
@@ -1364,7 +1360,7 @@ abstract class AbstractQueueTestBase extends UnitTestBase
             final ServerMessage<?> message = createMessage((long)i);
 
             // Put message on queue
-            queue.enqueue(message,null, null);
+            queue.enqueue(message,null);
         }
     }
 

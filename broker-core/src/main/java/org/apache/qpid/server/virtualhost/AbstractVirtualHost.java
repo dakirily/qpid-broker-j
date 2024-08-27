@@ -2292,9 +2292,9 @@ public abstract class AbstractVirtualHost<X extends AbstractVirtualHost<X>> exte
                 txn.enqueue(queue, message, new ServerTransaction.EnqueueAction()
                 {
                     @Override
-                    public void postCommit(MessageEnqueueRecord... records)
+                    public void postCommit()
                     {
-                        queue.enqueue(message, null, records[0]);
+                        queue.enqueue(message, null);
                     }
 
                     @Override
@@ -2316,9 +2316,9 @@ public abstract class AbstractVirtualHost<X extends AbstractVirtualHost<X>> exte
                                 {
 
                                     @Override
-                                    public void postCommit(MessageEnqueueRecord... records)
+                                    public void postCommit()
                                     {
-                                        queue.enqueue(message, null, records[0]);
+                                        queue.enqueue(message, null);
                                     }
 
                                     @Override

@@ -28,7 +28,6 @@ import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 
 import org.apache.qpid.server.message.ServerMessage;
 import org.apache.qpid.server.model.Queue;
-import org.apache.qpid.server.store.MessageEnqueueRecord;
 
 public abstract class OrderedQueueEntryList extends AbstractQueueEntryList
 {
@@ -87,9 +86,9 @@ public abstract class OrderedQueueEntryList extends AbstractQueueEntryList
 
 
     @Override
-    public QueueEntry add(ServerMessage message, final MessageEnqueueRecord enqueueRecord)
+    public QueueEntry add(ServerMessage message)
     {
-        final OrderedQueueEntry node = createQueueEntry(message, enqueueRecord);
+        final OrderedQueueEntry node = createQueueEntry(message);
         updateStatsOnEnqueue(node);
         for (;;)
         {
@@ -115,8 +114,7 @@ public abstract class OrderedQueueEntryList extends AbstractQueueEntryList
         }
     }
 
-    abstract protected OrderedQueueEntry createQueueEntry(ServerMessage<?> message,
-                                                          final MessageEnqueueRecord enqueueRecord);
+    abstract protected OrderedQueueEntry createQueueEntry(ServerMessage<?> message);
 
     @Override
     public QueueEntry next(QueueEntry node)

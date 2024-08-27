@@ -81,7 +81,7 @@ public class PriorityQueueListTest extends UnitTestBase
             when(ref.getMessage()).thenReturn(message);
             when(header.getPriority()).thenReturn(PRIORITIES[i]);
 
-            entries[i] = _list.add(message, null);
+            entries[i] = _list.add(message);
         }
 
         _priority4message1 = entries[0];
@@ -161,7 +161,7 @@ public class PriorityQueueListTest extends UnitTestBase
         when(ref.getMessage()).thenReturn(message);
         when(header.getPriority()).thenReturn((byte)3);
 
-        final QueueEntry newEntry = _list.add(message, null);
+        final QueueEntry newEntry = _list.add(message);
 
         assertEquals(newEntry, _list.getLeastSignificantOldestEntry(), "Unexpected last entry");
     }

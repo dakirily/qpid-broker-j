@@ -143,23 +143,18 @@ public class AutoCommitTransaction implements ServerTransaction
         Transaction txn = null;
         try
         {
-            final MessageEnqueueRecord record;
             if(queue.getMessageDurability().persist(message.isPersistent()))
             {
                 LOGGER.debug("Enqueue of message number {} to transaction log. Queue : {}", message.getMessageNumber(), queue.getName());
 
                 txn = _messageStore.newTransaction();
-                record = txn.enqueueMessage(queue, message);
+                txn.enqueueMessage(queue, message);
                 txn.commitTran();
                 txn = null;
             }
-            else
-            {
-                record = null;
-            }
             if(postTransactionAction != null)
             {
-                postTransactionAction.postCommit(record);
+                postTransactionAction.postCommit();
             }
             postTransactionAction = null;
         }
@@ -194,8 +189,6 @@ public class AutoCommitTransaction implements ServerTransaction
         Transaction txn = null;
         try
         {
-            MessageEnqueueRecord[] enqueueRecords = new MessageEnqueueRecord[queues.size()];
-            int i = 0;
             for(BaseQueue queue : queues)
             {
                 if (queue.getMessageDurability().persist(message.isPersistent()))
@@ -206,11 +199,8 @@ public class AutoCommitTransaction implements ServerTransaction
                     {
                         txn = _messageStore.newTransaction();
                     }
-                    enqueueRecords[i] = txn.enqueueMessage(queue, message);
-
-
+                    txn.enqueueMessage(queue, message);
                 }
-                i++;
             }
             if (txn != null)
             {
@@ -220,7 +210,7 @@ public class AutoCommitTransaction implements ServerTransaction
 
             if(postTransactionAction != null)
             {
-                postTransactionAction.postCommit(enqueueRecords);
+                postTransactionAction.postCommit();
             }
             postTransactionAction = null;
 
@@ -284,7 +274,4 @@ public class AutoCommitTransaction implements ServerTransaction
             postTransactionAction.onRollback();
         }
     }
-
-
-
 }

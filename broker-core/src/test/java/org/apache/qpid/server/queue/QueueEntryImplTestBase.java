@@ -305,7 +305,7 @@ public abstract class QueueEntryImplTestBase extends UnitTestBase
             when(reference.getMessage()).thenReturn(message);
             when(message.newReference()).thenReturn(reference);
             when(message.newReference(any(TransactionLogResource.class))).thenReturn(reference);
-            final QueueEntryImpl entry = (QueueEntryImpl) queueEntryList.add(message, null);
+            final QueueEntryImpl entry = (QueueEntryImpl) queueEntryList.add(message);
             entries[i] = entry;
         }
 

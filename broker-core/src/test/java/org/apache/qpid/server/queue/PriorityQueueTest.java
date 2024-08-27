@@ -58,19 +58,19 @@ public class PriorityQueueTest extends AbstractQueueTestBase
     {
         // Enqueue messages in order
         final PriorityQueue<?> queue = (PriorityQueue<?>) getQueue();
-        queue.enqueue(createMessage(1L, (byte) 10), null, null);
-        queue.enqueue(createMessage(2L, (byte) 4), null, null);
-        queue.enqueue(createMessage(3L, (byte) 0), null, null);
+        queue.enqueue(createMessage(1L, (byte) 10), null);
+        queue.enqueue(createMessage(2L, (byte) 4), null);
+        queue.enqueue(createMessage(3L, (byte) 0), null);
 
         // Enqueue messages in reverse order
-        queue.enqueue(createMessage(4L, (byte) 0), null, null);
-        queue.enqueue(createMessage(5L, (byte) 4), null, null);
-        queue.enqueue(createMessage(6L, (byte) 10), null, null);
+        queue.enqueue(createMessage(4L, (byte) 0), null);
+        queue.enqueue(createMessage(5L, (byte) 4), null);
+        queue.enqueue(createMessage(6L, (byte) 10), null);
 
         // Enqueue messages out of order
-        queue.enqueue(createMessage(7L, (byte) 4), null, null);
-        queue.enqueue(createMessage(8L, (byte) 10), null, null);
-        queue.enqueue(createMessage(9L, (byte) 0), null, null);
+        queue.enqueue(createMessage(7L, (byte) 4), null);
+        queue.enqueue(createMessage(8L, (byte) 10), null);
+        queue.enqueue(createMessage(9L, (byte) 0), null);
 
         final List<MessageInstance> msgs = consumeMessages(queue);
         try
@@ -101,9 +101,9 @@ public class PriorityQueueTest extends AbstractQueueTestBase
         final InternalMessage internalMessage1 = createInternalMessage((byte) 3, 0);
         final InternalMessage internalMessage2 = createInternalMessage((byte) 3, 1);
         final InternalMessage internalMessage3 = createInternalMessage((byte) 4, 2);
-        queue.enqueue(internalMessage1, null, null);
-        queue.enqueue(internalMessage2, null, null);
-        queue.enqueue(internalMessage3, null, null);
+        queue.enqueue(internalMessage1, null);
+        queue.enqueue(internalMessage2, null);
+        queue.enqueue(internalMessage3, null);
 
         final long result = queue.reenqueueMessageForPriorityChange(internalMessage2.getMessageNumber(), (byte)5);
         assertEquals(internalMessage3.getMessageNumber() + 1, result, "Unexpected operation result");
@@ -128,9 +128,9 @@ public class PriorityQueueTest extends AbstractQueueTestBase
         final InternalMessage internalMessage1 = createInternalMessage((byte) 3, 0);
         final InternalMessage internalMessage2 = createInternalMessage((byte) 5, 1);
         final InternalMessage internalMessage3 = createInternalMessage((byte) 4, 2);
-        queue.enqueue(internalMessage1, null, null);
-        queue.enqueue(internalMessage2, null, null);
-        queue.enqueue(internalMessage3, null, null);
+        queue.enqueue(internalMessage1, null);
+        queue.enqueue(internalMessage2, null);
+        queue.enqueue(internalMessage3, null);
 
         final long result = queue.reenqueueMessageForPriorityChange(internalMessage3.getMessageNumber() + 1, (byte)6);
         assertEquals(-1, result, "Unexpected operation result");
@@ -155,9 +155,9 @@ public class PriorityQueueTest extends AbstractQueueTestBase
         final InternalMessage internalMessage1 = createInternalMessage((byte) 3, 0);
         final InternalMessage internalMessage2 = createInternalMessage((byte) 3, 1);
         final InternalMessage internalMessage3 = createInternalMessage((byte) 4, 2);
-        queue.enqueue(internalMessage1, null, null);
-        queue.enqueue(internalMessage2, null, null);
-        queue.enqueue(internalMessage3, null, null);
+        queue.enqueue(internalMessage1, null);
+        queue.enqueue(internalMessage2, null);
+        queue.enqueue(internalMessage3, null);
 
         final List<Long> result = queue.reenqueueMessagesForPriorityChange("id in ('2','0')", (byte)5);
         assertEquals(2, result.size(), "Unexpected operation result");
@@ -185,9 +185,9 @@ public class PriorityQueueTest extends AbstractQueueTestBase
         final InternalMessage internalMessage1 = createInternalMessage((byte) 3, 0);
         final InternalMessage internalMessage2 = createInternalMessage((byte) 4, 1);
         final InternalMessage internalMessage3 = createInternalMessage((byte) 3, 2);
-        queue.enqueue(internalMessage1, null, null);
-        queue.enqueue(internalMessage2, null, null);
-        queue.enqueue(internalMessage3, null, null);
+        queue.enqueue(internalMessage1, null);
+        queue.enqueue(internalMessage2, null);
+        queue.enqueue(internalMessage3, null);
 
         final List<Long> result = queue.reenqueueMessagesForPriorityChange("id in ('3','2')", (byte)5);
         assertEquals(1, result.size(), "Unexpected operation result");

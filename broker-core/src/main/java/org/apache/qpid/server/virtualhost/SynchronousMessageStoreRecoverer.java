@@ -233,7 +233,7 @@ public class SynchronousMessageStoreRecoverer implements MessageStoreRecoverer
 
                     _queueRecoveries.merge(queue, 1, (old, unused) -> old + 1);
 
-                    queue.recover(message, record);
+                    queue.recover(message);
 
                     dequeueMessageInstance = false;
                 }
@@ -313,15 +313,14 @@ public class SynchronousMessageStoreRecoverer implements MessageStoreRecoverer
                     if(message != null)
                     {
                         final MessageReference<?> ref = message.newReference();
-                        final MessageEnqueueRecord[] records = new MessageEnqueueRecord[1];
 
-                        branch.enqueue(queue, message, record1 -> records[0] = record1);
+                        branch.enqueue(queue, message);
                         branch.addPostTransactionAction(new ServerTransaction.Action()
                         {
                             @Override
                             public void postCommit()
                             {
-                                queue.enqueue(message, null, records[0]);
+                                queue.enqueue(message, null);
                                 ref.release();
                             }
 

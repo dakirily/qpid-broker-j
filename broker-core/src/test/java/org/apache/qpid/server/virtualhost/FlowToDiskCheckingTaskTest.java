@@ -70,7 +70,7 @@ public class FlowToDiskCheckingTaskTest extends UnitTestBase
                                                      mock(AMQMessageHeader.class),
                                                      "test",
                                                      true,
-                                                     _queue.getName()), null, null);
+                                                     _queue.getName()), null);
     }
 
     @AfterEach
@@ -86,7 +86,7 @@ public class FlowToDiskCheckingTaskTest extends UnitTestBase
     public void testFlowToDiskInMemoryMessage()
     {
         final ServerMessage<?> message = createMessage(10, 20);
-        _queue.enqueue(message, null, null);
+        _queue.enqueue(message, null);
 
         makeVirtualHostTargetSizeExceeded();
 
@@ -102,7 +102,7 @@ public class FlowToDiskCheckingTaskTest extends UnitTestBase
                                                          mock(AMQMessageHeader.class),
                                                          "test",
                                                          true,
-                                                         _queue.getName()), null, null);
+                                                         _queue.getName()), null);
         }
         _virtualHost.setTargetSize(1L);
         assertTrue(_virtualHost.isOverTargetSize());

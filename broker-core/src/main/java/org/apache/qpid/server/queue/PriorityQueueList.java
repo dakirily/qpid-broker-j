@@ -21,7 +21,6 @@
 package org.apache.qpid.server.queue;
 
 import org.apache.qpid.server.message.ServerMessage;
-import org.apache.qpid.server.store.MessageEnqueueRecord;
 
 abstract public class PriorityQueueList extends OrderedQueueEntryList
 {
@@ -72,7 +71,7 @@ abstract public class PriorityQueueList extends OrderedQueueEntryList
         }
 
         @Override
-        public PriorityQueueEntry add(ServerMessage message, final MessageEnqueueRecord enqueueRecord)
+        public PriorityQueueEntry add(ServerMessage message)
         {
             int index = message.getMessageHeader().getPriority() - _priorityOffset;
             if(index >= _priorities)
@@ -83,13 +82,12 @@ abstract public class PriorityQueueList extends OrderedQueueEntryList
             {
                 index = 0;
             }
-            return (PriorityQueueEntry) _priorityLists[index].add(message, enqueueRecord);
+            return (PriorityQueueEntry) _priorityLists[index].add(message);
 
         }
 
         @Override
-        protected PriorityQueueEntry createQueueEntry(final ServerMessage<?> message,
-                                                      final MessageEnqueueRecord enqueueRecord)
+        protected PriorityQueueEntry createQueueEntry(final ServerMessage<?> message)
         {
             throw new UnsupportedOperationException();
         }
@@ -235,10 +233,9 @@ abstract public class PriorityQueueList extends OrderedQueueEntryList
         }
 
         @Override
-        protected PriorityQueueEntry createQueueEntry(ServerMessage<?> message,
-                                                      final MessageEnqueueRecord enqueueRecord)
+        protected PriorityQueueEntry createQueueEntry(ServerMessage<?> message)
         {
-            return new PriorityQueueEntry(this, message, enqueueRecord);
+            return new PriorityQueueEntry(this, message);
         }
 
         public int getListPriority()
@@ -261,10 +258,9 @@ abstract public class PriorityQueueList extends OrderedQueueEntryList
         }
 
         public PriorityQueueEntry(PriorityQueueEntrySubList queueEntryList,
-                                  ServerMessage<?> message,
-                                  final MessageEnqueueRecord messageEnqueueRecord)
+                                  ServerMessage<?> message)
         {
-            super(queueEntryList, message, messageEnqueueRecord);
+            super(queueEntryList, message);
         }
 
         @Override

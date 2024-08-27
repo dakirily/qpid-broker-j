@@ -204,20 +204,19 @@ public class AsyncAutoCommitTransaction implements ServerTransaction
         try
         {
             ListenableFuture<Void> future;
-            final MessageEnqueueRecord enqueueRecord;
+
             if(queue.getMessageDurability().persist(message.isPersistent()))
             {
                 LOGGER.debug("Enqueue of message number {} to transaction log. Queue : {}", message.getMessageNumber(), queue.getName());
 
                 txn = _messageStore.newTransaction();
-                enqueueRecord = txn.enqueueMessage(queue, message);
+                txn.enqueueMessage(queue, message);
                 future = txn.commitTranAsync(null);
                 txn = null;
             }
             else
             {
                 future = Futures.immediateFuture(null);
-                enqueueRecord = null;
             }
             final EnqueueAction underlying = postTransactionAction;
             addEnqueueFuture(future, new Action()
@@ -225,7 +224,7 @@ public class AsyncAutoCommitTransaction implements ServerTransaction
                 @Override
                 public void postCommit()
                 {
-                    underlying.postCommit(enqueueRecord);
+                    underlying.postCommit();
                 }
 
                 @Override
@@ -268,8 +267,6 @@ public class AsyncAutoCommitTransaction implements ServerTransaction
         Transaction txn = null;
         try
         {
-            final MessageEnqueueRecord[] records = new MessageEnqueueRecord[queues.size()];
-            int i = 0;
             for(BaseQueue queue : queues)
             {
                 if (queue.getMessageDurability().persist(message.isPersistent()))
@@ -280,11 +277,8 @@ public class AsyncAutoCommitTransaction implements ServerTransaction
                     {
                         txn = _messageStore.newTransaction();
                     }
-                    records[i] = txn.enqueueMessage(queue, message);
-
-
+                    txn.enqueueMessage(queue, message);
                 }
-                i++;
             }
 
             ListenableFuture<Void> future;
@@ -305,7 +299,7 @@ public class AsyncAutoCommitTransaction implements ServerTransaction
                 {
                     if(underlying != null)
                     {
-                        underlying.postCommit(records);
+                        underlying.postCommit();
                     }
                 }
 

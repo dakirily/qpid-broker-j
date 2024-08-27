@@ -22,7 +22,6 @@ package org.apache.qpid.server.queue;
 
 import org.apache.qpid.server.message.ServerMessage;
 import org.apache.qpid.server.queue.SortedQueueEntry.Colour;
-import org.apache.qpid.server.store.MessageEnqueueRecord;
 import org.apache.qpid.server.util.ServerScopedRuntimeException;
 
 /**
@@ -56,7 +55,7 @@ public class SortedQueueEntryList extends AbstractQueueEntryList
     }
 
     @Override
-    public SortedQueueEntry add(final ServerMessage message, final MessageEnqueueRecord enqueueRecord)
+    public SortedQueueEntry add(final ServerMessage message)
     {
         synchronized(_lock)
         {
@@ -67,7 +66,7 @@ public class SortedQueueEntryList extends AbstractQueueEntryList
                 key = val.toString();
             }
 
-            final SortedQueueEntry entry = new SortedQueueEntry(this,message, ++_entryId, enqueueRecord);
+            final SortedQueueEntry entry = new SortedQueueEntry(this,message, ++_entryId);
             updateStatsOnEnqueue(entry);
 
             entry.setKey(key);

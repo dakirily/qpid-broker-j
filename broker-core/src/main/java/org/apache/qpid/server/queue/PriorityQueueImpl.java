@@ -36,7 +36,6 @@ import org.apache.qpid.server.message.ServerMessageMutator;
 import org.apache.qpid.server.message.ServerMessageMutatorFactory;
 import org.apache.qpid.server.model.ManagedAttributeField;
 import org.apache.qpid.server.model.ManagedObjectFactoryConstructor;
-import org.apache.qpid.server.store.MessageEnqueueRecord;
 import org.apache.qpid.server.store.MessageStore;
 import org.apache.qpid.server.txn.LocalTransaction;
 import org.apache.qpid.server.txn.ServerTransaction;
@@ -150,9 +149,9 @@ public class PriorityQueueImpl extends OutOfOrderQueue<PriorityQueueImpl> implem
                     new ServerTransaction.EnqueueAction()
                     {
                         @Override
-                        public void postCommit(MessageEnqueueRecord... records)
+                        public void postCommit()
                         {
-                            PriorityQueueImpl.this.enqueue(newMessage, null, records[0]);
+                            PriorityQueueImpl.this.enqueue(newMessage, null);
                         }
 
                         @Override

@@ -133,7 +133,6 @@ import org.apache.qpid.server.security.access.Operation;
 import org.apache.qpid.server.security.auth.AuthenticatedPrincipal;
 import org.apache.qpid.server.session.AMQPSession;
 import org.apache.qpid.server.store.MessageDurability;
-import org.apache.qpid.server.store.MessageEnqueueRecord;
 import org.apache.qpid.server.store.StorableMessageMetaData;
 import org.apache.qpid.server.store.StoredMessage;
 import org.apache.qpid.server.transport.AMQPConnection;
@@ -1252,7 +1251,7 @@ public abstract class AbstractQueue<X extends AbstractQueue<X>>
     // ------ Enqueue / Dequeue
 
     @Override
-    public final void enqueue(ServerMessage message, Action<? super MessageInstance> action, MessageEnqueueRecord enqueueRecord)
+    public final void enqueue(ServerMessage message, Action<? super MessageInstance> action)
     {
         final QueueEntry entry;
         if(_recovering.get() != RECOVERED)
@@ -1264,7 +1263,7 @@ public abstract class AbstractQueue<X extends AbstractQueue<X>>
             {
                 if(addedToRecoveryQueue = (_recovering.get() == RECOVERING))
                 {
-                    _postRecoveryQueue.add(new EnqueueRequest(message, action, enqueueRecord));
+                    _postRecoveryQueue.add(new EnqueueRequest(message, action));
                 }
             }
             finally
@@ -1278,7 +1277,7 @@ public abstract class AbstractQueue<X extends AbstractQueue<X>>
                 {
                     Thread.yield();
                 }
-                entry = doEnqueue(message, action, enqueueRecord);
+                entry = doEnqueue(message, action);
             }
             else
             {
@@ -1287,7 +1286,7 @@ public abstract class AbstractQueue<X extends AbstractQueue<X>>
         }
         else
         {
-            entry = doEnqueue(message, action, enqueueRecord);
+            entry = doEnqueue(message, action);
         }
 
         final StoredMessage storedMessage = message.getStoredMessage();
@@ -1314,9 +1313,9 @@ public abstract class AbstractQueue<X extends AbstractQueue<X>>
     }
 
     @Override
-    public final void recover(ServerMessage message, final MessageEnqueueRecord enqueueRecord)
+    public final void recover(ServerMessage message)
     {
-        doEnqueue(message, null, enqueueRecord);
+        doEnqueue(message, null);
     }
 
 
@@ -1347,14 +1346,14 @@ public abstract class AbstractQueue<X extends AbstractQueue<X>>
         {
             EnqueueRequest request = _postRecoveryQueue.poll();
             MessageReference<?> messageReference = request.getMessage();
-            doEnqueue(messageReference.getMessage(), request.getAction(), request.getEnqueueRecord());
+            doEnqueue(messageReference.getMessage(), request.getAction());
             messageReference.release();
         }
     }
 
-    protected QueueEntry doEnqueue(final ServerMessage message, final Action<? super MessageInstance> action, MessageEnqueueRecord enqueueRecord)
+    protected QueueEntry doEnqueue(final ServerMessage message, final Action<? super MessageInstance> action)
     {
-        final QueueEntry entry = getEntries().add(message, enqueueRecord);
+        final QueueEntry entry = getEntries().add(message);
         updateExpiration(entry);
 
         try
@@ -3478,13 +3477,10 @@ public abstract class AbstractQueue<X extends AbstractQueue<X>>
     {
         private final MessageReference<?> _message;
         private final Action<? super MessageInstance> _action;
-        private final MessageEnqueueRecord _enqueueRecord;
 
         public EnqueueRequest(final ServerMessage message,
-                              final Action<? super MessageInstance> action,
-                              final MessageEnqueueRecord enqueueRecord)
+                              final Action<? super MessageInstance> action)
         {
-            _enqueueRecord = enqueueRecord;
             _message = message.newReference();
             _action = action;
         }
@@ -3497,11 +3493,6 @@ public abstract class AbstractQueue<X extends AbstractQueue<X>>
         public Action<? super MessageInstance> getAction()
         {
             return _action;
-        }
-
-        public MessageEnqueueRecord getEnqueueRecord()
-        {
-            return _enqueueRecord;
         }
     }
 

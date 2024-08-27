@@ -76,12 +76,7 @@ public class MemoryMessageStore implements MessageStore
         @Override
         public MessageEnqueueRecord enqueueMessage(TransactionLogResource queue, EnqueueableMessage message)
         {
-            Set<Long> messageIds = _localEnqueueMap.get(queue.getId());
-            if (messageIds == null)
-            {
-                messageIds = new HashSet<>();
-                _localEnqueueMap.put(queue.getId(), messageIds);
-            }
+            Set<Long> messageIds = _localEnqueueMap.computeIfAbsent(queue.getId(), k -> new HashSet<>());
             messageIds.add(message.getMessageNumber());
             return new MemoryEnqueueRecord(queue.getId(), message.getMessageNumber());
         }

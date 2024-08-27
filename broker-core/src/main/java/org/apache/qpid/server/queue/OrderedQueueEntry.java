@@ -21,7 +21,6 @@
 package org.apache.qpid.server.queue;
 
 import org.apache.qpid.server.message.ServerMessage;
-import org.apache.qpid.server.store.MessageEnqueueRecord;
 
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 
@@ -40,10 +39,9 @@ public abstract class OrderedQueueEntry extends QueueEntryImpl
     }
 
     public OrderedQueueEntry(OrderedQueueEntryList queueEntryList,
-                             ServerMessage message,
-                             final MessageEnqueueRecord messageEnqueueRecord)
+                             ServerMessage message)
     {
-        super(queueEntryList, message, messageEnqueueRecord);
+        super(queueEntryList, message);
     }
 
     @Override

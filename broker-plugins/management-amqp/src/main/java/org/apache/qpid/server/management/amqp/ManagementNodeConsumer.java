@@ -227,8 +227,7 @@ class ManagementNodeConsumer<T extends ConsumerTarget> implements MessageInstanc
 
     @Override
     public void enqueue(final ServerMessage message,
-                        final Action<? super MessageInstance> action,
-                        final MessageEnqueueRecord record)
+                        final Action<? super MessageInstance> action)
     {
         final InternalMessage internalMessage = (InternalMessage) message;
         final ManagementResponse responseEntry = new ManagementResponse(this, internalMessage);

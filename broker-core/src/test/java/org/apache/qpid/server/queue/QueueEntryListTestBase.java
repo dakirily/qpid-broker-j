@@ -67,7 +67,7 @@ public abstract class QueueEntryListTestBase extends UnitTestBase
     public void testAddSpecificMessage() throws Exception
     {
         final QueueEntryList list = getTestList();
-        list.add(getTestMessageToAdd(), null);
+        list.add(getTestMessageToAdd());
 
         final QueueEntryIterator iter = list.iterator();
         int count = 0;
@@ -90,7 +90,7 @@ public abstract class QueueEntryListTestBase extends UnitTestBase
     {
         final QueueEntryList list = getTestList();
         final ServerMessage<?> message = createServerMessage(666L);
-        list.add(message, null);
+        list.add(message);
 
         final QueueEntryIterator iter = list.iterator();
         int count = 0;
@@ -240,8 +240,8 @@ public abstract class QueueEntryListTestBase extends UnitTestBase
         final QueueEntryList list = getTestList(true);
         int i = 0;
 
-        final QueueEntry queueEntry1 = list.add(createServerMessage(i++), null);
-        final QueueEntry queueEntry2 = list.add(createServerMessage(i), null);
+        final QueueEntry queueEntry1 = list.add(createServerMessage(i++));
+        final QueueEntry queueEntry2 = list.add(createServerMessage(i));
 
         assertSame(queueEntry2, list.next(queueEntry1));
         assertNull(list.next(queueEntry2));

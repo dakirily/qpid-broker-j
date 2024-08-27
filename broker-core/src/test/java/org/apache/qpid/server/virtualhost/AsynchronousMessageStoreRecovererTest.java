@@ -140,7 +140,7 @@ public class AsynchronousMessageStoreRecovererTest extends UnitTestBase
         verify(orphanedMessage, times(1)).remove();
         verify(newMessage, times(0)).remove();
         verify(queue).recover(argThat(serverMessage ->
-                serverMessage.getMessageNumber() == storedMessage.getMessageNumber()), same(messageEnqueueRecord));
+                serverMessage.getMessageNumber() == storedMessage.getMessageNumber()));
     }
 
     private StoredMessage<?> createTestMessage(final long messageNumber)

@@ -286,17 +286,10 @@ public class DtxBranch
 
         for(final EnqueueRecord enqueue : _enqueueRecords)
         {
-            final MessageEnqueueRecord record;
             if(enqueue.isDurable())
             {
-                record = _transaction.enqueueMessage(enqueue.getResource(), enqueue.getMessage());
-
+                _transaction.enqueueMessage(enqueue.getResource(), enqueue.getMessage());
             }
-            else
-            {
-                record = null;
-            }
-            enqueue.getEnqueueAction().performAction(record);
         }
 
 
@@ -322,10 +315,9 @@ public class DtxBranch
     }
 
     public void enqueue(TransactionLogResource queue,
-                        EnqueueableMessage message,
-                        final Action<MessageEnqueueRecord> enqueueAction)
+                        EnqueueableMessage message)
     {
-        _enqueueRecords.add(new EnqueueRecord(queue, message, enqueueAction));
+        _enqueueRecords.add(new EnqueueRecord(queue, message));
     }
 
     private static class DequeueRecord implements Transaction.DequeueRecord
@@ -351,20 +343,12 @@ public class DtxBranch
         private final TransactionLogResource _resource;
         private final EnqueueableMessage _message;
 
-        private final Action<MessageEnqueueRecord> _enqueueAction;
 
         public EnqueueRecord(final TransactionLogResource resource,
-                             final EnqueueableMessage message,
-                             final Action<MessageEnqueueRecord> enqueueAction)
+                             final EnqueueableMessage message)
         {
             _resource = resource;
             _message = message;
-            _enqueueAction = enqueueAction;
-        }
-
-        public Action<MessageEnqueueRecord> getEnqueueAction()
-        {
-            return _enqueueAction;
         }
 
         @Override

@@ -45,11 +45,11 @@ public class LastValueQueueTest extends AbstractQueueTestBase
     public void testOldestMessage()
     {
         final Queue<?> queue = getQueue();
-        queue.enqueue(createMessage(1L, (byte)1, Map.of("lvqKey", "Z"), 10L), null, null);
+        queue.enqueue(createMessage(1L, (byte)1, Map.of("lvqKey", "Z"), 10L), null);
         assertEquals(10L, queue.getOldestMessageArrivalTime());
-        queue.enqueue(createMessage(2L, (byte)4, Map.of("lvqKey", "M"), 100L), null, null);
+        queue.enqueue(createMessage(2L, (byte)4, Map.of("lvqKey", "M"), 100L), null);
         assertEquals(10L, queue.getOldestMessageArrivalTime());
-        queue.enqueue(createMessage(3L, (byte)9, Map.of("lvqKey", "Z"), 1000L), null, null);
+        queue.enqueue(createMessage(3L, (byte)9, Map.of("lvqKey", "Z"), 1000L), null);
         assertEquals(100L, queue.getOldestMessageArrivalTime());
     }
 }

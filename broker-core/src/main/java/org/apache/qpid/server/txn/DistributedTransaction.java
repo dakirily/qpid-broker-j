@@ -109,14 +109,14 @@ public class DistributedTransaction implements ServerTransaction
     {
         if(_branch != null)
         {
-            final MessageEnqueueRecord[] enqueueRecords = new MessageEnqueueRecord[1];
-            _branch.enqueue(queue, message, record -> enqueueRecords[0] = record);
+
+            _branch.enqueue(queue, message);
             addPostTransactionAction(new Action()
             {
                 @Override
                 public void postCommit()
                 {
-                    postTransactionAction.postCommit(enqueueRecords);
+                    postTransactionAction.postCommit();
                 }
 
                 @Override
@@ -138,20 +138,17 @@ public class DistributedTransaction implements ServerTransaction
     {
         if(_branch != null)
         {
-            final MessageEnqueueRecord[] enqueueRecords = new MessageEnqueueRecord[queues.size()];
-            int i = 0;
+
             for(BaseQueue queue : queues)
             {
-                final int pos = i;
-                _branch.enqueue(queue, message, record -> enqueueRecords[pos] = record);
-                i++;
+                _branch.enqueue(queue, message);
             }
             addPostTransactionAction(new Action()
             {
                 @Override
                 public void postCommit()
                 {
-                    postTransactionAction.postCommit(enqueueRecords);
+                    postTransactionAction.postCommit();
                 }
 
                 @Override

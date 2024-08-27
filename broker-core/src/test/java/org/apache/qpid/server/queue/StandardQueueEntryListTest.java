@@ -67,7 +67,7 @@ public class StandardQueueEntryListTest extends QueueEntryListTestBase
         _sqel = _testQueue.getEntries();
         for (int i = 1; i <= 100; i++)
         {
-            final QueueEntry bleh = _sqel.add(createServerMessage(i), null);
+            final QueueEntry bleh = _sqel.add(createServerMessage(i));
             assertNotNull(bleh, "QE should not have been null");
         }
     }
@@ -130,7 +130,7 @@ public class StandardQueueEntryListTest extends QueueEntryListTestBase
         //Add messages to generate QueueEntry's
         for (int i = 1; i <= 100 ; i++)
         {
-            final QueueEntry bleh = sqel.add(createServerMessage(i), null);
+            final QueueEntry bleh = sqel.add(createServerMessage(i));
             assertNotNull(bleh, "QE should not have been null");
             entriesMap.put(i,bleh);
         }
@@ -231,7 +231,7 @@ public class StandardQueueEntryListTest extends QueueEntryListTestBase
         // create test entries
         for (int i = 0; i < numberOfEntries; i++)
         {
-            entries[i] = (OrderedQueueEntry) queueEntryList.add(createServerMessage(i), null);
+            entries[i] = (OrderedQueueEntry) queueEntryList.add(createServerMessage(i));
         }
 
         // test getNext for not acquired entries
@@ -268,13 +268,13 @@ public class StandardQueueEntryListTest extends QueueEntryListTestBase
     public void testGetLesserOldestEntry()
     {
         final StandardQueueEntryList queueEntryList = new StandardQueueEntryList(_testQueue, _testQueue.getQueueStatistics());
-        final QueueEntry entry1 =  queueEntryList.add(createServerMessage(1), null);
+        final QueueEntry entry1 =  queueEntryList.add(createServerMessage(1));
         assertEquals(entry1, queueEntryList.getLeastSignificantOldestEntry(), "Unexpected last message");
 
-        queueEntryList.add(createServerMessage(2), null);
+        queueEntryList.add(createServerMessage(2));
         assertEquals(entry1, queueEntryList.getLeastSignificantOldestEntry(), "Unexpected last message");
 
-        queueEntryList.add(createServerMessage(3), null);
+        queueEntryList.add(createServerMessage(3));
         assertEquals(entry1, queueEntryList.getLeastSignificantOldestEntry(), "Unexpected last message");
     }
 

@@ -309,15 +309,13 @@ public class AsynchronousMessageStoreRecoverer implements MessageStoreRecoverer
                         {
                             final MessageReference<?> ref = message.newReference();
 
-                            final MessageEnqueueRecord[] records = new MessageEnqueueRecord[1];
-
-                            branch.enqueue(queue, message, record1 -> records[0] = record1);
+                            branch.enqueue(queue, message);
                             branch.addPostTransactionAction(new ServerTransaction.Action()
                             {
                                 @Override
                                 public void postCommit()
                                 {
-                                    queue.enqueue(message, null, records[0]);
+                                    queue.enqueue(message, null);
                                     ref.release();
                                 }
 
@@ -524,7 +522,7 @@ public class AsynchronousMessageStoreRecoverer implements MessageStoreRecoverer
                     {
                         LOGGER.debug("Delivering message id '{}' to queue '{}'", message.getMessageNumber(), queueName);
 
-                        _queue.recover(message, record);
+                        _queue.recover(message);
                         _recoveredCount++;
                     }
                     else

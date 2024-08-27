@@ -57,7 +57,7 @@ public interface ServerTransaction
 
     public static interface EnqueueAction
     {
-        public void postCommit(MessageEnqueueRecord... records);
+        public void postCommit();
 
         public void onRollback();
     }

@@ -23,7 +23,6 @@ import static org.junit.jupiter.api.Assertions.fail;
 
 import org.apache.qpid.server.message.ServerMessage;
 import org.apache.qpid.server.queue.SortedQueueEntry.Colour;
-import org.apache.qpid.server.store.MessageEnqueueRecord;
 
 /**
  * Test extension of SortedQueueEntryList that provides data structure validation tests.
@@ -45,10 +44,10 @@ public class SelfValidatingSortedQueueEntryList extends SortedQueueEntryList
     /** Overridden to automatically check queue properties before and after. */
     @Override
     @SuppressWarnings("rawtypes")
-    public SortedQueueEntry add(final ServerMessage message, final MessageEnqueueRecord enqueueRecord)
+    public SortedQueueEntry add(final ServerMessage message)
     {
         assertQueueProperties(); //before add
-        final SortedQueueEntry result = super.add(message, enqueueRecord);
+        final SortedQueueEntry result = super.add(message);
         assertQueueProperties(); //after add
         return result;
     }

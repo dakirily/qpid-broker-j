@@ -64,7 +64,7 @@ public class SimpleQueueEntryImplTest extends QueueEntryImplTestBase
         when(reference.getMessage()).thenReturn(message);
         when(message.newReference()).thenReturn(reference);
         when(message.newReference(any(TransactionLogResource.class))).thenReturn(reference);
-        return (QueueEntryImpl) queueEntryList.add(message, null);
+        return (QueueEntryImpl) queueEntryList.add(message);
     }
 
     @Test

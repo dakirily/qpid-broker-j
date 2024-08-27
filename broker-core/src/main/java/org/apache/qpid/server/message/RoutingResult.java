@@ -34,7 +34,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import org.apache.qpid.server.queue.BaseQueue;
-import org.apache.qpid.server.store.MessageEnqueueRecord;
 import org.apache.qpid.server.store.StorableMessageMetaData;
 import org.apache.qpid.server.txn.ServerTransaction;
 import org.apache.qpid.server.util.Action;
@@ -126,13 +125,13 @@ public class RoutingResult<M extends ServerMessage<? extends StorableMessageMeta
             final MessageReference _reference = _message.newReference();
 
             @Override
-            public void postCommit(MessageEnqueueRecord... records)
+            public void postCommit()
             {
                 try
                 {
-                    for(int i = 0; i < queues.length; i++)
+                    for (final BaseQueue queue : queues)
                     {
-                        queues[i].enqueue(_message, postEnqueueAction, records[i]);
+                        queue.enqueue(_message, postEnqueueAction);
                     }
                 }
                 finally

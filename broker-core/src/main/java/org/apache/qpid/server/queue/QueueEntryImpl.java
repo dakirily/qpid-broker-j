@@ -23,6 +23,7 @@ package org.apache.qpid.server.queue;
 import java.util.Collections;
 import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
@@ -102,11 +103,11 @@ public abstract class QueueEntryImpl implements QueueEntry
     @SuppressWarnings("unused")
     private volatile long _entryId;
 
-    private static final int REDELIVERED_FLAG = 1;
-    private static final int PERSISTENT_FLAG = 2;
-    private static final int MANDATORY_FLAG = 4;
-    private static final int IMMEDIATE_FLAG = 8;
-    private int _flags;
+    private static final byte REDELIVERED_FLAG = 1;
+    private static final byte PERSISTENT_FLAG = 2;
+    private static final byte MANDATORY_FLAG = 4;
+    private static final byte IMMEDIATE_FLAG = 8;
+    private byte _flags;
     private long _expiration;
 
     /** Number of times this message has been delivered */
@@ -114,20 +115,15 @@ public abstract class QueueEntryImpl implements QueueEntry
     private static final AtomicIntegerFieldUpdater<QueueEntryImpl> _deliveryCountUpdater = AtomicIntegerFieldUpdater
                     .newUpdater(QueueEntryImpl.class, "_deliveryCount");
 
-    private final MessageEnqueueRecord _enqueueRecord;
-
-
     QueueEntryImpl(QueueEntryList queueEntryList)
     {
-        this(queueEntryList, null, Long.MIN_VALUE, null);
+        this(queueEntryList, null, Long.MIN_VALUE);
         _state = DELETED_STATE;
     }
 
-
     QueueEntryImpl(QueueEntryList queueEntryList,
                    ServerMessage message,
-                   final long entryId,
-                   final MessageEnqueueRecord enqueueRecord)
+                   final long entryId)
     {
         _queueEntryList = queueEntryList;
 
@@ -135,17 +131,14 @@ public abstract class QueueEntryImpl implements QueueEntry
 
         _entryIdUpdater.set(this, entryId);
         populateInstanceProperties();
-        _enqueueRecord = enqueueRecord;
     }
 
     QueueEntryImpl(QueueEntryList queueEntryList,
-                   ServerMessage message,
-                   final MessageEnqueueRecord enqueueRecord)
+                   ServerMessage message)
     {
         _queueEntryList = queueEntryList;
         _message = message == null ? null :  message.newReference(queueEntryList.getQueue());
         populateInstanceProperties();
-        _enqueueRecord = enqueueRecord;
     }
 
     private void populateInstanceProperties()
@@ -823,6 +816,19 @@ public abstract class QueueEntryImpl implements QueueEntry
     @Override
     public MessageEnqueueRecord getEnqueueRecord()
     {
-        return _enqueueRecord;
+        return new MessageEnqueueRecord()
+        {
+            @Override
+            public UUID getQueueId()
+            {
+                return _queueEntryList.getQueue().getId();
+            }
+
+            @Override
+            public long getMessageNumber()
+            {
+                return _message.getMessage().getMessageNumber();
+            }
+        };
     }
 }

@@ -25,7 +25,6 @@ import org.apache.qpid.server.message.MessageInstance;
 import org.apache.qpid.server.message.ServerMessage;
 import org.apache.qpid.server.model.ManagedAttributeField;
 import org.apache.qpid.server.model.ManagedObjectFactoryConstructor;
-import org.apache.qpid.server.store.MessageEnqueueRecord;
 import org.apache.qpid.server.util.Action;
 import org.apache.qpid.server.virtualhost.QueueManagingVirtualHost;
 
@@ -55,12 +54,11 @@ public class SortedQueueImpl extends OutOfOrderQueue<SortedQueueImpl> implements
 
     @Override
     protected QueueEntry doEnqueue(final ServerMessage message,
-                        final Action<? super MessageInstance> action,
-                        MessageEnqueueRecord record)
+                        final Action<? super MessageInstance> action)
     {
         synchronized (_sortedQueueLock)
         {
-            return super.doEnqueue(message, action, record);
+            return super.doEnqueue(message, action);
         }
     }
 

@@ -103,7 +103,7 @@ public class SynchronousMessageStoreRecovererTest extends UnitTestBase
         recoverer.recover(_virtualHost);
 
         final ServerMessage<?> message = storedMessage.getMetaData().getType().createMessage(storedMessage);
-        verify(queue, times(1)).recover(eq(message), any(MessageEnqueueRecord.class));
+        verify(queue, times(1)).recover(eq(message));
     }
 
     @SuppressWarnings("unchecked")
@@ -140,7 +140,7 @@ public class SynchronousMessageStoreRecovererTest extends UnitTestBase
         final SynchronousMessageStoreRecoverer recoverer = new SynchronousMessageStoreRecoverer();
         recoverer.recover(_virtualHost);
 
-        verify(queue, never()).enqueue(any(ServerMessage.class), any(Action.class), any(MessageEnqueueRecord.class));
+        verify(queue, never()).enqueue(any(ServerMessage.class), any(Action.class));
         verify(transaction).dequeueMessage(argThat(new MessageEnqueueRecordMatcher(queue.getId(), messageId)));
         verify(transaction, times(1)).commitTranAsync((Void) null);
     }
@@ -289,7 +289,7 @@ public class SynchronousMessageStoreRecovererTest extends UnitTestBase
         branch.commit();
 
         final ServerMessage<?> message = storedMessage.getMetaData().getType().createMessage(storedMessage);
-        verify(queue, times(1)).enqueue(eq(message), isNull(), isNull());
+        verify(queue, times(1)).enqueue(eq(message), isNull());
         verify(transaction).commitTran();
     }
 

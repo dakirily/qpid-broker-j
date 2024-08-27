@@ -80,7 +80,7 @@ public class LastValueQueueListTest extends UnitTestBase
     public void testAddMessageWithoutConflationKeyValue()
     {
         final ServerMessage<?> message = createTestServerMessage(null);
-        _list.add(message, null);
+        _list.add(message);
         final int numberOfEntries = countEntries(_list);
         assertEquals(1, (long) numberOfEntries);
     }
@@ -89,7 +89,7 @@ public class LastValueQueueListTest extends UnitTestBase
     public void testAddAndDiscardMessageWithoutConflationKeyValue()
     {
         final ServerMessage<?> message = createTestServerMessage(null);
-        final QueueEntry addedEntry = _list.add(message, null);
+        final QueueEntry addedEntry = _list.add(message);
         addedEntry.acquire();
         addedEntry.delete();
 
@@ -101,7 +101,7 @@ public class LastValueQueueListTest extends UnitTestBase
     public void testAddMessageWithConflationKeyValue()
     {
         final ServerMessage<?> message = createTestServerMessage(TEST_KEY_VALUE);
-        _list.add(message, null);
+        _list.add(message);
         final int numberOfEntries = countEntries(_list);
         assertEquals(1, (long) numberOfEntries);
     }
@@ -110,7 +110,7 @@ public class LastValueQueueListTest extends UnitTestBase
     public void testAddAndRemoveMessageWithConflationKeyValue()
     {
         final ServerMessage<?> message = createTestServerMessage(TEST_KEY_VALUE);
-        final QueueEntry addedEntry = _list.add(message, null);
+        final QueueEntry addedEntry = _list.add(message);
         addedEntry.acquire();
         addedEntry.delete();
 
@@ -124,8 +124,8 @@ public class LastValueQueueListTest extends UnitTestBase
         final ServerMessage<?> message1 = createTestServerMessage(TEST_KEY_VALUE1);
         final ServerMessage<?> message2 = createTestServerMessage(TEST_KEY_VALUE2);
 
-        _list.add(message1, null);
-        _list.add(message2, null);
+        _list.add(message1);
+        _list.add(message2);
 
         final int numberOfEntries = countEntries(_list);
         assertEquals(2, (long) numberOfEntries);
@@ -137,8 +137,8 @@ public class LastValueQueueListTest extends UnitTestBase
         final ServerMessage<?> message1 = createTestServerMessage(TEST_KEY_VALUE);
         final ServerMessage<?> message2 = createTestServerMessage(TEST_KEY_VALUE);
 
-        _list.add(message1, null);
-        _list.add(message2, null);
+        _list.add(message1);
+        _list.add(message2);
 
         final int numberOfEntries = countEntries(_list);
         assertEquals(1, (long) numberOfEntries);
@@ -149,10 +149,10 @@ public class LastValueQueueListTest extends UnitTestBase
     {
         final ServerMessage<?> message1 = createTestServerMessage(TEST_KEY_VALUE);
         final ServerMessage<?> message2 = createTestServerMessage(TEST_KEY_VALUE);
-        final QueueEntry entry1 = _list.add(message1, null);
+        final QueueEntry entry1 = _list.add(message1);
         entry1.acquire(); // simulate an in-progress delivery to consumer
 
-        _list.add(message2, null);
+        _list.add(message2);
 
         assertFalse(entry1.isDeleted());
         assertEquals(2, (long) countEntries(_list));
@@ -169,7 +169,7 @@ public class LastValueQueueListTest extends UnitTestBase
         assertEquals(0, (long) _list.getLatestValuesMap().size());
 
         final ServerMessage<?> message = createTestServerMessage(TEST_KEY_VALUE);
-        final QueueEntry addedEntry = _list.add(message, null);
+        final QueueEntry addedEntry = _list.add(message);
 
         assertEquals(1, (long) countEntries(_list));
         assertEquals(1, (long) _list.getLatestValuesMap().size());
@@ -188,8 +188,8 @@ public class LastValueQueueListTest extends UnitTestBase
 
         final ServerMessage<?> message1 = createTestServerMessage(TEST_KEY_VALUE1);
         final ServerMessage<?> message2 = createTestServerMessage(TEST_KEY_VALUE2);
-        final QueueEntry addedEntry1 = _list.add(message1, null);
-        final QueueEntry addedEntry2 = _list.add(message2, null);
+        final QueueEntry addedEntry1 = _list.add(message1);
+        final QueueEntry addedEntry2 = _list.add(message2);
 
         assertEquals(2, (long) countEntries(_list));
         assertEquals(2, (long) _list.getLatestValuesMap().size());
@@ -208,16 +208,16 @@ public class LastValueQueueListTest extends UnitTestBase
     {
         final LastValueQueueList queueEntryList = new LastValueQueueList(_queue, _queue.getQueueStatistics());
 
-        final QueueEntry entry1 =  queueEntryList.add(createTestServerMessage(TEST_KEY_VALUE1), null);
+        final QueueEntry entry1 =  queueEntryList.add(createTestServerMessage(TEST_KEY_VALUE1));
         assertEquals(entry1, queueEntryList.getLeastSignificantOldestEntry(), "Unexpected last message");
 
-        final QueueEntry entry2 =  queueEntryList.add(createTestServerMessage(TEST_KEY_VALUE2), null);
+        final QueueEntry entry2 =  queueEntryList.add(createTestServerMessage(TEST_KEY_VALUE2));
         assertEquals(entry1, queueEntryList.getLeastSignificantOldestEntry(), "Unexpected last message");
 
-        final QueueEntry entry3 =  queueEntryList.add(createTestServerMessage(TEST_KEY_VALUE1), null);
+        final QueueEntry entry3 =  queueEntryList.add(createTestServerMessage(TEST_KEY_VALUE1));
         assertEquals(entry2, queueEntryList.getLeastSignificantOldestEntry(), "Unexpected last message");
 
-        queueEntryList.add(createTestServerMessage(TEST_KEY_VALUE2), null);
+        queueEntryList.add(createTestServerMessage(TEST_KEY_VALUE2));
         assertEquals(entry3, queueEntryList.getLeastSignificantOldestEntry(), "Unexpected last message");
     }
 

@@ -228,7 +228,7 @@ public class LocalTransaction implements ServerTransaction
                 }
 
                 beginTranIfNecessary();
-                final MessageEnqueueRecord record = _transaction.enqueueMessage(queue, message);
+                _transaction.enqueueMessage(queue, message);
                 if(postTransactionAction != null)
                 {
                     final EnqueueAction underlying = postTransactionAction;
@@ -238,7 +238,7 @@ public class LocalTransaction implements ServerTransaction
                         @Override
                         public void postCommit()
                         {
-                            underlying.postCommit(record);
+                            underlying.postCommit();
                         }
 
                         @Override
@@ -283,7 +283,7 @@ public class LocalTransaction implements ServerTransaction
                     @Override
                     public void postCommit()
                     {
-                        underlying.postCommit((MessageEnqueueRecord)null);
+                        underlying.postCommit();
                     }
 
                     @Override
@@ -305,8 +305,6 @@ public class LocalTransaction implements ServerTransaction
         _transactionObserver.onMessageEnqueue(this, message);
         try
         {
-            final MessageEnqueueRecord[] records = new MessageEnqueueRecord[queues.size()];
-            int i = 0;
             for(BaseQueue queue : queues)
             {
                 if(queue.getMessageDurability().persist(message.isPersistent()))
@@ -317,10 +315,9 @@ public class LocalTransaction implements ServerTransaction
                     }
 
                     beginTranIfNecessary();
-                    records[i] = _transaction.enqueueMessage(queue, message);
+                    _transaction.enqueueMessage(queue, message);
 
                 }
-                i++;
             }
             if(postTransactionAction != null)
             {
@@ -331,7 +328,7 @@ public class LocalTransaction implements ServerTransaction
                     @Override
                     public void postCommit()
                     {
-                        underlying.postCommit(records);
+                        underlying.postCommit();
                     }
 
                     @Override

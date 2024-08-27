@@ -132,7 +132,7 @@ public class AsyncAutoCommitTransactionTest extends UnitTestBase
         asyncAutoCommitTransaction.enqueue(_queue, _message, _postTransactionAction);
 
         verifyNoInteractions(_storeTransaction);
-        verify(_postTransactionAction).postCommit((MessageEnqueueRecord)null);
+        verify(_postTransactionAction).postCommit();
         verifyNoInteractions(_futureRecorder);
     }
 
