@@ -21,12 +21,10 @@
 package org.apache.qpid.server.management.plugin;
 
 import java.io.IOException;
-import java.io.StringWriter;
 import java.io.Writer;
 import java.net.BindException;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumSet;
@@ -49,10 +47,13 @@ import jakarta.servlet.MultipartConfigElement;
 import jakarta.servlet.http.HttpServletRequest;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.base.Joiner;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import org.eclipse.jetty.ee10.servlet.ErrorPageErrorHandler;
+import org.eclipse.jetty.ee10.servlet.ServletHandler;
+import org.eclipse.jetty.http.HttpFields;
+import org.eclipse.jetty.http.UriCompliance;
 import org.eclipse.jetty.io.Connection;
 import org.eclipse.jetty.io.ssl.SslHandshakeListener;
 import org.eclipse.jetty.rewrite.handler.CompactPathRule;
@@ -62,16 +63,16 @@ import org.eclipse.jetty.server.DetectorConnectionFactory;
 import org.eclipse.jetty.server.HttpConfiguration;
 import org.eclipse.jetty.server.HttpConnectionFactory;
 import org.eclipse.jetty.server.NetworkConnector;
+import org.eclipse.jetty.server.Request;
 import org.eclipse.jetty.server.SecureRequestCustomizer;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.ServerConnector;
 import org.eclipse.jetty.server.SslConnectionFactory;
 import org.eclipse.jetty.server.handler.ContextHandlerCollection;
-import org.eclipse.jetty.server.handler.ErrorHandler;
-import org.eclipse.jetty.servlet.FilterHolder;
-import org.eclipse.jetty.servlet.ServletContextHandler;
-import org.eclipse.jetty.servlet.ServletHolder;
-import org.eclipse.jetty.servlets.CrossOriginFilter;
+import org.eclipse.jetty.ee10.servlet.FilterHolder;
+import org.eclipse.jetty.ee10.servlet.ServletContextHandler;
+import org.eclipse.jetty.ee10.servlet.ServletHolder;
+import org.eclipse.jetty.server.handler.CrossOriginHandler;
 import org.eclipse.jetty.util.annotation.Name;
 import org.eclipse.jetty.util.ssl.SslContextFactory;
 import org.eclipse.jetty.util.thread.ExecutorThreadPool;
@@ -153,7 +154,7 @@ public class HttpManagement extends AbstractPluginAdapter<HttpManagement> implem
     private static final String JSESSIONID_COOKIE_PREFIX = "JSESSIONID_";
 
     private static final String[] STATIC_FILE_TYPES = { "*.js", "*.css", "*.html", "*.png", "*.gif", "*.jpg",
-                                                        "*.jpeg", "*.json", "*.txt", "*.xsl", "*.svg" };
+            "*.jpeg", "*.json", "*.txt", "*.xsl", "*.svg" };
 
     private Server _server;
 
@@ -173,13 +174,13 @@ public class HttpManagement extends AbstractPluginAdapter<HttpManagement> implem
     private int _sessionTimeout;
 
     @ManagedAttributeField
-    public String _corsAllowOrigins;
+    public Set<String> _corsAllowOrigins;
 
     @ManagedAttributeField
     public Set<String> _corsAllowMethods;
 
     @ManagedAttributeField
-    public String _corsAllowHeaders;
+    public Set<String> _corsAllowHeaders;
 
     @ManagedAttributeField
     public Set<String> _allowedResponseHeaders;
@@ -189,6 +190,9 @@ public class HttpManagement extends AbstractPluginAdapter<HttpManagement> implem
 
     @ManagedAttributeField
     private boolean _compressResponses;
+
+    @ManagedAttributeField
+    private boolean _useLegacyUriCompliance;
 
     private final Map<HttpPort<?>, ServerConnector> _portConnectorMap = new ConcurrentHashMap<>();
     private final Map<HttpPort<?>, SslContextFactory.Server> _sslContextFactoryMap = new ConcurrentHashMap<>();
@@ -280,7 +284,7 @@ public class HttpManagement extends AbstractPluginAdapter<HttpManagement> implem
     }
 
     @Override
-    public String getCorsAllowOrigins()
+    public Set<String> getCorsAllowOrigins()
     {
         return _corsAllowOrigins;
     }
@@ -292,7 +296,7 @@ public class HttpManagement extends AbstractPluginAdapter<HttpManagement> implem
     }
 
     @Override
-    public String getCorsAllowHeaders()
+    public Set<String> getCorsAllowHeaders()
     {
         return _corsAllowHeaders;
     }
@@ -326,14 +330,23 @@ public class HttpManagement extends AbstractPluginAdapter<HttpManagement> implem
         }
 
         final ContextHandlerCollection contextCollection = new ContextHandlerCollection();
+
         final RewriteHandler rewriteHandler = new RewriteHandler();
         rewriteHandler.setHandler(contextCollection);
         rewriteHandler.addRule(new CompactPathRule());
 
-        final ServletContextHandler root = new ServletContextHandler(rewriteHandler,"/",  ServletContextHandler.SESSIONS);
+        final CrossOriginHandler corsHandler = new CrossOriginHandler();
+        corsHandler.setHandler(rewriteHandler);
+        corsHandler.setAllowedOriginPatterns(getCorsAllowOrigins());
+        corsHandler.setAllowedMethods(getCorsAllowMethods());
+        corsHandler.setAllowedHeaders(getCorsAllowHeaders());
+        corsHandler.setAllowCredentials(getCorsAllowCredentials());
+
+        final ServletContextHandler root = new ServletContextHandler("/",  ServletContextHandler.SESSIONS);
+        root.setHandler(corsHandler);
         server.setHandler(root);
 
-        final ErrorHandler errorHandler = new ErrorHandler()
+        final ErrorPageErrorHandler errorHandler = new ErrorPageErrorHandler()
         {
             @Override
             protected void writeErrorPageBody(HttpServletRequest request, Writer writer, int code, String message, boolean showStacks)
@@ -356,14 +369,6 @@ public class HttpManagement extends AbstractPluginAdapter<HttpManagement> implem
         root.getServletContext().setAttribute(HttpManagementUtil.ATTR_MANAGEMENT_CONFIGURATION, this);
 
         root.addFilter(new FilterHolder(new ExceptionHandlingFilter()), "/*", EnumSet.allOf(DispatcherType.class));
-
-        final FilterHolder corsFilter = new FilterHolder(new CrossOriginFilter());
-        corsFilter.setInitParameter(CrossOriginFilter.ALLOWED_ORIGINS_PARAM, getCorsAllowOrigins());
-        corsFilter.setInitParameter(CrossOriginFilter.ALLOWED_METHODS_PARAM, Joiner.on(",").join(getCorsAllowMethods()));
-        corsFilter.setInitParameter(CrossOriginFilter.ALLOWED_HEADERS_PARAM, getCorsAllowHeaders());
-        corsFilter.setInitParameter(CrossOriginFilter.ALLOW_CREDENTIALS_PARAM, String.valueOf(getCorsAllowCredentials()));
-        root.addFilter(corsFilter, "/*", EnumSet.of(DispatcherType.REQUEST));
-
         root.addFilter(new FilterHolder(new MethodFilter()), "/*", EnumSet.of(DispatcherType.REQUEST));
 
         addFiltersAndServletsForRest(root);
@@ -375,6 +380,12 @@ public class HttpManagement extends AbstractPluginAdapter<HttpManagement> implem
         root.getSessionHandler().getSessionCookieConfig().setName(JSESSIONID_COOKIE_PREFIX + lastPort);
         root.getSessionHandler().getSessionCookieConfig().setHttpOnly(true);
         root.getSessionHandler().setMaxInactiveInterval(getSessionTimeout());
+
+        if (_useLegacyUriCompliance)
+        {
+            server.getContainedBeans(ServletHandler.class)
+                    .forEach(handler -> handler.setDecodeAmbiguousURIs(true));
+        }
 
         return server;
     }
@@ -418,9 +429,7 @@ public class HttpManagement extends AbstractPluginAdapter<HttpManagement> implem
                 root.addFilter(restAuthorizationFilter, "/" + path, EnumSet.of(DispatcherType.REQUEST));
                 root.addFilter(restAuthorizationFilter, "/" + path  + "/*", EnumSet.of(DispatcherType.REQUEST));
             }
-
         });
-
     }
 
     private void addFiltersAndServletsForUserInterfaces(final ServletContextHandler root)
@@ -483,22 +492,22 @@ public class HttpManagement extends AbstractPluginAdapter<HttpManagement> implem
     @Override
     public int getBoundPort(final HttpPort httpPort)
     {
-        final NetworkConnector c = _portConnectorMap.get(httpPort);
-        return c != null ? c.getLocalPort() : -1;
+        final NetworkConnector networkConnector = _portConnectorMap.get(httpPort);
+        return networkConnector != null ? networkConnector.getLocalPort() : -1;
     }
 
     @Override
     public int getNumberOfAcceptors(final HttpPort httpPort)
     {
-        final ServerConnector c = _portConnectorMap.get(httpPort);
-        return c != null ? c.getAcceptors() : -1;
+        final ServerConnector serverConnector = _portConnectorMap.get(httpPort);
+        return serverConnector != null ? serverConnector.getAcceptors() : -1;
     }
 
     @Override
     public int getNumberOfSelectors(final HttpPort httpPort)
     {
-        final ServerConnector c = _portConnectorMap.get(httpPort);
-        return c != null ? c.getSelectorManager().getSelectorCount() : -1;
+        final ServerConnector serverConnector = _portConnectorMap.get(httpPort);
+        return serverConnector != null ? serverConnector.getSelectorManager().getSelectorCount() : -1;
     }
 
     @Override
@@ -512,26 +521,26 @@ public class HttpManagement extends AbstractPluginAdapter<HttpManagement> implem
     public boolean updateSSLContext(final HttpPort httpPort)
     {
         final SslContextFactory.Server sslContextFactory = getSslContextFactory(httpPort);
-        if (sslContextFactory != null)
+        if (sslContextFactory == null)
         {
-            try
-            {
-                final SSLContext sslContext = createSslContext(httpPort);
-                sslContextFactory.reload(f ->
-                {
-                    final SslContextFactory.Server server = (SslContextFactory.Server) f;
-                    server.setSslContext(sslContext);
-                    server.setNeedClientAuth(httpPort.getNeedClientAuth());
-                    server.setWantClientAuth(httpPort.getWantClientAuth());
-                });
-                return true;
-            }
-            catch (Exception e)
-            {
-                throw new IllegalConfigurationException("Unexpected exception on reload of ssl context factory", e);
-            }
+            return false;
         }
-        return false;
+        try
+        {
+            final SSLContext sslContext = createSslContext(httpPort);
+            sslContextFactory.reload(sslContextFactory1 ->
+            {
+                final SslContextFactory.Server server = (SslContextFactory.Server) sslContextFactory1;
+                server.setSslContext(sslContext);
+                server.setNeedClientAuth(httpPort.getNeedClientAuth());
+                server.setWantClientAuth(httpPort.getWantClientAuth());
+            });
+            return true;
+        }
+        catch (Exception e)
+        {
+            throw new IllegalConfigurationException("Unexpected exception on reload of ssl context factory", e);
+        }
     }
 
     private SslContextFactory.Server getSslContextFactory(final HttpPort httpPort)
@@ -552,30 +561,41 @@ public class HttpManagement extends AbstractPluginAdapter<HttpManagement> implem
         final HttpConnectionFactory httpConnectionFactory = new HttpConnectionFactory();
         httpConnectionFactory.getHttpConfiguration().setSendServerVersion(false);
         httpConnectionFactory.getHttpConfiguration().setSendXPoweredBy(false);
-        HttpConfiguration.Customizer requestAttributeCustomizer = (connector, httpConfiguration, request) ->
-                HttpManagementUtil.getPortAttributeAction(port).performAction(request);
+        HttpConfiguration.Customizer requestAttributeCustomizer = (Request request, HttpFields.Mutable responseHeaders) ->
+        {
+            HttpManagementUtil.getPortAttributeAction(port).performAction(request);
+            return request;
+        };
 
         httpConnectionFactory.getHttpConfiguration().addCustomizer(requestAttributeCustomizer);
 
         httpConnectionFactory.getHttpConfiguration().addCustomizer(new SecureRequestCustomizer());
+
+        if (_useLegacyUriCompliance)
+        {
+            final Set<UriCompliance.Violation> violations = Set.of(UriCompliance.Violation.AMBIGUOUS_PATH_SEPARATOR,
+                    UriCompliance.Violation.AMBIGUOUS_PATH_ENCODING);
+            final UriCompliance uriCompliance = UriCompliance.from(violations);
+            httpConnectionFactory.getHttpConfiguration().setUriCompliance(uriCompliance);
+        }
 
         ConnectionFactory[] connectionFactories;
         Collection<Transport> transports = port.getTransports();
         SslContextFactory.Server sslContextFactory = null;
         if (!transports.contains(Transport.SSL))
         {
-            connectionFactories = new ConnectionFactory[]{httpConnectionFactory};
+            connectionFactories = new ConnectionFactory[]{ httpConnectionFactory };
         }
         else if (transports.contains(Transport.SSL))
         {
             sslContextFactory = createSslContextFactory(port);
-            ConnectionFactory sslConnectionFactory =
+            ConnectionFactory.Detecting sslConnectionFactory =
                     new SslConnectionFactory(sslContextFactory, httpConnectionFactory.getProtocol());
             if (port.getTransports().contains(Transport.TCP))
             {
-                sslConnectionFactory = new DetectorConnectionFactory((ConnectionFactory.Detecting) sslConnectionFactory);
+                sslConnectionFactory = new DetectorConnectionFactory(sslConnectionFactory);
             }
-            connectionFactories = new ConnectionFactory[]{sslConnectionFactory, httpConnectionFactory};
+            connectionFactories = new ConnectionFactory[]{ sslConnectionFactory, httpConnectionFactory };
         }
         else
         {
@@ -583,13 +603,12 @@ public class HttpManagement extends AbstractPluginAdapter<HttpManagement> implem
         }
 
         final ServerConnector connector = new ServerConnector(server,
-                                                        new QBBTrackingThreadPool(port.getThreadPoolMaximum(),
-                                                                                  port.getThreadPoolMinimum()),
-                                                        null,
-                                                        null,
-                                                        port.getDesiredNumberOfAcceptors(),
-                                                        port.getDesiredNumberOfSelectors(),
-                                                        connectionFactories)
+                new QBBTrackingThreadPool(port.getThreadPoolMaximum(), port.getThreadPoolMinimum()),
+                null,
+                null,
+                port.getDesiredNumberOfAcceptors(),
+                port.getDesiredNumberOfSelectors(),
+                connectionFactories)
         {
             @Override
             public void open() throws IOException
@@ -610,7 +629,7 @@ public class HttpManagement extends AbstractPluginAdapter<HttpManagement> implem
 
         connector.setAcceptQueueSize(port.getAcceptBacklogSize());
         final String bindingAddress = port.getBindingAddress();
-        if (bindingAddress != null && !bindingAddress.trim().equals("") && !bindingAddress.trim().equals("*"))
+        if (bindingAddress != null && !bindingAddress.trim().isEmpty() && !bindingAddress.trim().equals("*"))
         {
             connector.setHost(bindingAddress.trim());
         }
@@ -624,19 +643,15 @@ public class HttpManagement extends AbstractPluginAdapter<HttpManagement> implem
                 public void handshakeFailed(final Event event, final Throwable failure)
                 {
                     final SSLEngine sslEngine = event.getSSLEngine();
+                    final String hostname = sslEngine.getPeerHost();
+                    final int port = sslEngine.getPeerPort();
                     if (LOGGER.isDebugEnabled())
                     {
-                        LOGGER.info("TLS handshake failed: host='{}', port={}",
-                                    sslEngine.getPeerHost(),
-                                    sslEngine.getPeerPort(),
-                                    failure);
+                        LOGGER.info("TLS handshake failed: host='{}', port={}", hostname, port, failure);
                     }
                     else
                     {
-                        LOGGER.info("TLS handshake failed: host='{}', port={}: {}",
-                                    sslEngine.getPeerHost(),
-                                    sslEngine.getPeerPort(),
-                                    String.valueOf(failure));
+                        LOGGER.info("TLS handshake failed: host='{}', port={}: {}", hostname, port, String.valueOf(failure));
                     }
                 }
             });
@@ -688,12 +703,8 @@ public class HttpManagement extends AbstractPluginAdapter<HttpManagement> implem
                     sslParameters.setUseCipherSuitesOrder(true);
                     sslEngine.setSSLParameters(sslParameters);
                 }
-                SSLUtil.updateEnabledCipherSuites(sslEngine,
-                                                  port.getTlsCipherSuiteAllowList(),
-                                                  port.getTlsCipherSuiteDenyList());
-                SSLUtil.updateEnabledTlsProtocols(sslEngine,
-                                                  port.getTlsProtocolAllowList(),
-                                                  port.getTlsProtocolDenyList());
+                SSLUtil.updateEnabledCipherSuites(sslEngine, port.getTlsCipherSuiteAllowList(), port.getTlsCipherSuiteDenyList());
+                SSLUtil.updateEnabledTlsProtocols(sslEngine, port.getTlsProtocolAllowList(), port.getTlsProtocolDenyList());
             }
         };
         factory.setSslContext(createSslContext(port));
@@ -818,8 +829,7 @@ public class HttpManagement extends AbstractPluginAdapter<HttpManagement> implem
 
     private void logOperationalShutdownMessage(final int localPort)
     {
-        getBroker().getEventLogger().message(ManagementConsoleMessages.SHUTTING_DOWN(Protocol.HTTP.name(),
-                                                                                     localPort));
+        getBroker().getEventLogger().message(ManagementConsoleMessages.SHUTTING_DOWN(Protocol.HTTP.name(), localPort));
     }
 
     private Collection<HttpPort<?>> getEligibleHttpPorts(final Collection<Port<?>> ports)
@@ -827,9 +837,8 @@ public class HttpManagement extends AbstractPluginAdapter<HttpManagement> implem
         final Collection<HttpPort<?>> httpPorts = new HashSet<>();
         for (final Port<?> port : ports)
         {
-            if (State.ACTIVE == port.getDesiredState() &&
-                State.ERRORED != port.getState() &&
-                port.getProtocols().contains(Protocol.HTTP))
+            if (State.ACTIVE == port.getDesiredState() && State.ERRORED != port.getState() &&
+                    port.getProtocols().contains(Protocol.HTTP))
             {
                 httpPorts.add((HttpPort<?>) port);
             }
@@ -862,6 +871,12 @@ public class HttpManagement extends AbstractPluginAdapter<HttpManagement> implem
     }
 
     @Override
+    public boolean isUseLegacyUriCompliance()
+    {
+        return _useLegacyUriCompliance;
+    }
+
+    @Override
     public boolean isCompressResponses()
     {
         return _compressResponses;
@@ -877,7 +892,7 @@ public class HttpManagement extends AbstractPluginAdapter<HttpManagement> implem
     @SuppressWarnings("unused")
     public static Set<String> getAllAvailableCorsMethodCombinations()
     {
-        final List<String> methods = Arrays.asList("OPTIONS", "HEAD", "GET", "POST", "PUT", "DELETE");
+        final List<String> methods = List.of("OPTIONS", "HEAD", "GET", "POST", "PUT", "DELETE");
         final Set<Set<String>> combinations = new HashSet<>();
         final int n = methods.size();
         assert n < 31 : "Too many combination to calculate";
@@ -886,8 +901,10 @@ public class HttpManagement extends AbstractPluginAdapter<HttpManagement> implem
             final Set<String> currentCombination = new HashSet<>();
             // each bit in the variable i represents an item of the sequence
             // if the bit is set the item should appear in this particular combination
-            for (int index = 0; index < n; ++index) {
-                if ((i & (1 << index)) != 0) {
+            for (int index = 0; index < n; ++index)
+            {
+                if ((i & (1 << index)) != 0)
+                {
                     currentCombination.add(methods.get(index));
                 }
             }
@@ -896,12 +913,11 @@ public class HttpManagement extends AbstractPluginAdapter<HttpManagement> implem
 
         final Set<String> combinationsAsString = new HashSet<>(combinations.size());
         ObjectMapper mapper = new ObjectMapper();
-        for(Set<String> combination : combinations)
+        for (Set<String> combination : combinations)
         {
-            try(StringWriter writer = new StringWriter())
+            try
             {
-                mapper.writeValue(writer, combination);
-                combinationsAsString.add(writer.toString());
+                combinationsAsString.add(mapper.writeValueAsString(combination));
             }
             catch (IOException e)
             {
@@ -923,20 +939,13 @@ public class HttpManagement extends AbstractPluginAdapter<HttpManagement> implem
         super.validateChange(proxyForValidation, changedAttributes);
 
         HttpManagementConfiguration<?> updated = (HttpManagementConfiguration<?>)proxyForValidation;
-        if(changedAttributes.contains(HttpManagement.NAME))
+        if (changedAttributes.contains(HttpManagement.NAME) && !getName().equals(updated.getName()))
         {
-            if(!getName().equals(updated.getName()))
-            {
-                throw new IllegalConfigurationException("Changing the name of http management plugin is not allowed");
-            }
+            throw new IllegalConfigurationException("Changing the name of http management plugin is not allowed");
         }
-        if (changedAttributes.contains(TIME_OUT))
+        if (changedAttributes.contains(TIME_OUT) && updated.getSessionTimeout() < 0)
         {
-            int value = updated.getSessionTimeout();
-            if (value < 0)
-            {
-                throw new IllegalConfigurationException("Only positive integer value can be specified for the session time out attribute");
-            }
+            throw new IllegalConfigurationException("Only positive integer value can be specified for the session time out attribute");
         }
     }
 
@@ -1047,8 +1056,7 @@ public class HttpManagement extends AbstractPluginAdapter<HttpManagement> implem
                                 {
                                     LOGGER.debug("Connector still has {} connection(s)", tracker.getConnectionCount());
                                     connector.getConnectedEndPoints().forEach(endPoint -> endPoint.setIdleTimeout(1));
-                                    tracker.getAllClosedFuture()
-                                           .addListener(this, taskExecutor);
+                                    tracker.getAllClosedFuture().addListener(this, taskExecutor);
                                 }
                             }
                         }, taskExecutor);
@@ -1056,7 +1064,6 @@ public class HttpManagement extends AbstractPluginAdapter<HttpManagement> implem
                 }
             }
         }
-
     }
 
     private static class ConnectionTrackingListener implements Connection.Listener
