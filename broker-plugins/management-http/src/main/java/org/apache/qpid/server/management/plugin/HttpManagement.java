@@ -53,6 +53,8 @@ import com.google.common.base.Joiner;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import org.eclipse.jetty.ee10.servlet.ErrorPageErrorHandler;
+import org.eclipse.jetty.http.HttpFields;
 import org.eclipse.jetty.io.Connection;
 import org.eclipse.jetty.io.ssl.SslHandshakeListener;
 import org.eclipse.jetty.rewrite.handler.CompactPathRule;
@@ -62,16 +64,16 @@ import org.eclipse.jetty.server.DetectorConnectionFactory;
 import org.eclipse.jetty.server.HttpConfiguration;
 import org.eclipse.jetty.server.HttpConnectionFactory;
 import org.eclipse.jetty.server.NetworkConnector;
+import org.eclipse.jetty.server.Request;
 import org.eclipse.jetty.server.SecureRequestCustomizer;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.ServerConnector;
 import org.eclipse.jetty.server.SslConnectionFactory;
 import org.eclipse.jetty.server.handler.ContextHandlerCollection;
-import org.eclipse.jetty.server.handler.ErrorHandler;
-import org.eclipse.jetty.servlet.FilterHolder;
-import org.eclipse.jetty.servlet.ServletContextHandler;
-import org.eclipse.jetty.servlet.ServletHolder;
-import org.eclipse.jetty.servlets.CrossOriginFilter;
+import org.eclipse.jetty.ee10.servlet.FilterHolder;
+import org.eclipse.jetty.ee10.servlet.ServletContextHandler;
+import org.eclipse.jetty.ee10.servlet.ServletHolder;
+import org.eclipse.jetty.ee10.servlets.CrossOriginFilter;
 import org.eclipse.jetty.util.annotation.Name;
 import org.eclipse.jetty.util.ssl.SslContextFactory;
 import org.eclipse.jetty.util.thread.ExecutorThreadPool;
@@ -330,10 +332,11 @@ public class HttpManagement extends AbstractPluginAdapter<HttpManagement> implem
         rewriteHandler.setHandler(contextCollection);
         rewriteHandler.addRule(new CompactPathRule());
 
-        final ServletContextHandler root = new ServletContextHandler(rewriteHandler,"/",  ServletContextHandler.SESSIONS);
+        final ServletContextHandler root = new ServletContextHandler("/",  ServletContextHandler.SESSIONS);
+        root.setHandler(rewriteHandler);
         server.setHandler(root);
 
-        final ErrorHandler errorHandler = new ErrorHandler()
+        final ErrorPageErrorHandler errorHandler = new ErrorPageErrorHandler()
         {
             @Override
             protected void writeErrorPageBody(HttpServletRequest request, Writer writer, int code, String message, boolean showStacks)
@@ -552,8 +555,11 @@ public class HttpManagement extends AbstractPluginAdapter<HttpManagement> implem
         final HttpConnectionFactory httpConnectionFactory = new HttpConnectionFactory();
         httpConnectionFactory.getHttpConfiguration().setSendServerVersion(false);
         httpConnectionFactory.getHttpConfiguration().setSendXPoweredBy(false);
-        HttpConfiguration.Customizer requestAttributeCustomizer = (connector, httpConfiguration, request) ->
-                HttpManagementUtil.getPortAttributeAction(port).performAction(request);
+        HttpConfiguration.Customizer requestAttributeCustomizer = (Request request, HttpFields.Mutable responseHeaders) ->
+        {
+            HttpManagementUtil.getPortAttributeAction(port).performAction(request);
+            return request;
+        };
 
         httpConnectionFactory.getHttpConfiguration().addCustomizer(requestAttributeCustomizer);
 
