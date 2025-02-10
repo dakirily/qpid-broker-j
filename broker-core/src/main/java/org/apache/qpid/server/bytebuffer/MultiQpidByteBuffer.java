@@ -30,10 +30,7 @@ import java.nio.channels.ScatteringByteChannel;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.google.common.primitives.Chars;
-import com.google.common.primitives.Ints;
-import com.google.common.primitives.Longs;
-import com.google.common.primitives.Shorts;
+import org.apache.qpid.server.util.PrimitivesUtils;
 
 class MultiQpidByteBuffer implements QpidByteBuffer
 {
@@ -55,7 +52,7 @@ class MultiQpidByteBuffer implements QpidByteBuffer
         {
             throw new IllegalArgumentException();
         }
-        _fragments = fragments.toArray(new SingleQpidByteBuffer[fragments.size()]);
+        _fragments = fragments.toArray(new SingleQpidByteBuffer[0]);
     }
 
     //////////////////
@@ -71,28 +68,28 @@ class MultiQpidByteBuffer implements QpidByteBuffer
     @Override
     public QpidByteBuffer putShort(final int index, final short value)
     {
-        byte[] valueArray = Shorts.toByteArray(value);
+        byte[] valueArray = PrimitivesUtils.toByteArray(value);
         return put(index, valueArray);
     }
 
     @Override
     public QpidByteBuffer putChar(final int index, final char value)
     {
-        byte[] valueArray = Chars.toByteArray(value);
+        byte[] valueArray = PrimitivesUtils.toByteArray(value);
         return put(index, valueArray);
     }
 
     @Override
     public QpidByteBuffer putInt(final int index, final int value)
     {
-        byte[] valueArray = Ints.toByteArray(value);
+        byte[] valueArray = PrimitivesUtils.toByteArray(value);
         return put(index, valueArray);
     }
 
     @Override
     public QpidByteBuffer putLong(final int index, final long value)
     {
-        byte[] valueArray = Longs.toByteArray(value);
+        byte[] valueArray = PrimitivesUtils.toByteArray(value);
         return put(index, valueArray);
     }
 
@@ -172,7 +169,7 @@ class MultiQpidByteBuffer implements QpidByteBuffer
     @Override
     public final QpidByteBuffer putShort(final short value)
     {
-        byte[] valueArray = Shorts.toByteArray(value);
+        byte[] valueArray = PrimitivesUtils.toByteArray(value);
         return put(valueArray);
     }
 
@@ -186,14 +183,14 @@ class MultiQpidByteBuffer implements QpidByteBuffer
     @Override
     public final QpidByteBuffer putChar(final char value)
     {
-        byte[] valueArray = Chars.toByteArray(value);
+        byte[] valueArray = PrimitivesUtils.toByteArray(value);
         return put(valueArray);
     }
 
     @Override
     public final QpidByteBuffer putInt(final int value)
     {
-        byte[] valueArray = Ints.toByteArray(value);
+        byte[] valueArray = PrimitivesUtils.toByteArray(value);
         return put(valueArray);
     }
 
@@ -207,7 +204,7 @@ class MultiQpidByteBuffer implements QpidByteBuffer
     @Override
     public final QpidByteBuffer putLong(final long value)
     {
-        byte[] valueArray = Longs.toByteArray(value);
+        byte[] valueArray = PrimitivesUtils.toByteArray(value);
         return put(valueArray);
     }
 
@@ -304,9 +301,8 @@ class MultiQpidByteBuffer implements QpidByteBuffer
 
         int written = 0;
         final SingleQpidByteBuffer[] fragments;
-        if (qpidByteBuffer instanceof SingleQpidByteBuffer)
+        if (qpidByteBuffer instanceof final SingleQpidByteBuffer srcFragment)
         {
-            final SingleQpidByteBuffer srcFragment = (SingleQpidByteBuffer) qpidByteBuffer;
             for (int i = 0; i < _fragments.length && written != valueWidth; i++)
             {
                 final SingleQpidByteBuffer dstFragment = _fragments[i];
@@ -333,9 +329,8 @@ class MultiQpidByteBuffer implements QpidByteBuffer
         {
             fragments = ((MultiQpidByteBuffer) qpidByteBuffer)._fragments;
             int i = 0;
-            for (int i1 = 0; i1 < fragments.length; i1++)
+            for (final SingleQpidByteBuffer srcFragment : fragments)
             {
-                final SingleQpidByteBuffer srcFragment = fragments[i1];
                 for (; i < _fragments.length; i++)
                 {
                     final SingleQpidByteBuffer dstFragment = _fragments[i];
@@ -390,7 +385,7 @@ class MultiQpidByteBuffer implements QpidByteBuffer
     public short getShort(final int index)
     {
         final byte[] byteArray = getByteArray(index, 2);
-        return Shorts.fromByteArray(byteArray);
+        return PrimitivesUtils.shortFromByteArray(byteArray);
     }
 
     @Override
@@ -403,21 +398,21 @@ class MultiQpidByteBuffer implements QpidByteBuffer
     public char getChar(final int index)
     {
         final byte[] byteArray = getByteArray(index, 2);
-        return Chars.fromByteArray(byteArray);
+        return PrimitivesUtils.charFromByteArray(byteArray);
     }
 
     @Override
     public int getInt(final int index)
     {
         final byte[] byteArray = getByteArray(index, 4);
-        return Ints.fromByteArray(byteArray);
+        return PrimitivesUtils.intFromByteArray(byteArray);
     }
 
     @Override
     public long getLong(final int index)
     {
         final byte[] byteArray = getByteArray(index, 8);
-        return Longs.fromByteArray(byteArray);
+        return PrimitivesUtils.longFromByteArray(byteArray);
     }
 
     @Override
@@ -500,7 +495,7 @@ class MultiQpidByteBuffer implements QpidByteBuffer
     {
         byte[] value = new byte[2];
         get(value, 0, value.length);
-        return Shorts.fromByteArray(value);
+        return PrimitivesUtils.shortFromByteArray(value);
     }
 
     @Override
@@ -514,7 +509,7 @@ class MultiQpidByteBuffer implements QpidByteBuffer
     {
         byte[] value = new byte[2];
         get(value, 0, value.length);
-        return Chars.fromByteArray(value);
+        return PrimitivesUtils.charFromByteArray(value);
     }
 
     @Override
@@ -522,7 +517,7 @@ class MultiQpidByteBuffer implements QpidByteBuffer
     {
         byte[] value = new byte[4];
         get(value, 0, value.length);
-        return Ints.fromByteArray(value);
+        return PrimitivesUtils.intFromByteArray(value);
     }
 
     @Override
@@ -536,7 +531,7 @@ class MultiQpidByteBuffer implements QpidByteBuffer
     {
         byte[] value = new byte[8];
         get(value, 0, value.length);
-        return Longs.fromByteArray(value);
+        return PrimitivesUtils.longFromByteArray(value);
     }
 
     @Override
@@ -614,9 +609,8 @@ class MultiQpidByteBuffer implements QpidByteBuffer
         {
             throw new BufferOverflowException();
         }
-        for (int i = 0, fragmentsSize = _fragments.length; i < fragmentsSize; i++)
+        for (final SingleQpidByteBuffer fragment : _fragments)
         {
-            final SingleQpidByteBuffer fragment = _fragments[i];
             dst.put(fragment.getUnderlyingBuffer().duplicate());
         }
     }
@@ -629,18 +623,16 @@ class MultiQpidByteBuffer implements QpidByteBuffer
         {
             throw new BufferOverflowException();
         }
-        if (qpidByteBuffer instanceof MultiQpidByteBuffer)
+        if (qpidByteBuffer instanceof final MultiQpidByteBuffer source)
         {
-            MultiQpidByteBuffer source = (MultiQpidByteBuffer) qpidByteBuffer;
             for (int i = 0, fragmentsSize = source._fragments.length; i < fragmentsSize; i++)
             {
                 final SingleQpidByteBuffer srcFragment = source._fragments[i];
                 put(srcFragment.getUnderlyingBuffer().duplicate());
             }
         }
-        else if (qpidByteBuffer instanceof SingleQpidByteBuffer)
+        else if (qpidByteBuffer instanceof final SingleQpidByteBuffer source)
         {
-            SingleQpidByteBuffer source = (SingleQpidByteBuffer) qpidByteBuffer;
             put(source.getUnderlyingBuffer().duplicate());
         }
         else
@@ -652,9 +644,8 @@ class MultiQpidByteBuffer implements QpidByteBuffer
     @Override
     public final boolean isDirect()
     {
-        for (int i = 0, fragmentsSize = _fragments.length; i < fragmentsSize; i++)
+        for (final SingleQpidByteBuffer fragment : _fragments)
         {
-            final SingleQpidByteBuffer fragment = _fragments[i];
             if (!fragment.isDirect())
             {
                 return false;
@@ -672,9 +663,8 @@ class MultiQpidByteBuffer implements QpidByteBuffer
     @Override
     public final void dispose()
     {
-        for (int i = 0, fragmentsSize = _fragments.length; i < fragmentsSize; i++)
+        for (final SingleQpidByteBuffer fragment : _fragments)
         {
-            final SingleQpidByteBuffer fragment = _fragments[i];
             fragment.dispose();
         }
     }
@@ -723,9 +713,8 @@ class MultiQpidByteBuffer implements QpidByteBuffer
     public QpidByteBuffer rewind()
     {
         _resetFragmentIndex = -1;
-        for (int i = 0, fragmentsSize = _fragments.length; i < fragmentsSize; i++)
+        for (final SingleQpidByteBuffer fragment : _fragments)
         {
-            final SingleQpidByteBuffer fragment = _fragments[i];
             fragment.rewind();
         }
         return this;
@@ -746,9 +735,9 @@ class MultiQpidByteBuffer implements QpidByteBuffer
     @Override
     public QpidByteBuffer clear()
     {
-        for (int i = 0, fragmentsSize = _fragments.length; i < fragmentsSize; i++)
+        for (final SingleQpidByteBuffer fragment : _fragments)
         {
-            _fragments[i].clear();
+            fragment.clear();
         }
         return this;
     }
@@ -776,9 +765,8 @@ class MultiQpidByteBuffer implements QpidByteBuffer
     public int position()
     {
         int totalPosition = 0;
-        for (int i = 0, fragmentsSize = _fragments.length; i < fragmentsSize; i++)
+        for (final SingleQpidByteBuffer fragment : _fragments)
         {
-            final SingleQpidByteBuffer fragment = _fragments[i];
             totalPosition += fragment.position();
             if (fragment.position() != fragment.limit())
             {
@@ -824,9 +812,8 @@ class MultiQpidByteBuffer implements QpidByteBuffer
     public int limit()
     {
         int totalLimit = 0;
-        for (int i = 0, fragmentsSize = _fragments.length; i < fragmentsSize; i++)
+        for (final SingleQpidByteBuffer fragment : _fragments)
         {
-            final SingleQpidByteBuffer fragment = _fragments[i];
             final int fragmentLimit = fragment.limit();
             totalLimit += fragmentLimit;
             if (fragmentLimit != fragment.capacity())
@@ -841,9 +828,8 @@ class MultiQpidByteBuffer implements QpidByteBuffer
     @Override
     public QpidByteBuffer limit(int newLimit)
     {
-        for (int i = 0, fragmentsSize = _fragments.length; i < fragmentsSize; i++)
+        for (final SingleQpidByteBuffer fragment : _fragments)
         {
-            final SingleQpidByteBuffer fragment = _fragments[i];
             final int fragmentCapacity = fragment.capacity();
             final int fragmentLimit = Math.min(newLimit, fragmentCapacity);
             fragment.limit(fragmentLimit);
@@ -874,9 +860,8 @@ class MultiQpidByteBuffer implements QpidByteBuffer
     public final int remaining()
     {
         int remaining = 0;
-        for (int i = 0, fragmentsSize = _fragments.length; i < fragmentsSize; i++)
+        for (final SingleQpidByteBuffer fragment : _fragments)
         {
-            final SingleQpidByteBuffer fragment = _fragments[i];
             remaining += fragment.remaining();
         }
         return remaining;
@@ -896,9 +881,8 @@ class MultiQpidByteBuffer implements QpidByteBuffer
             return true;
         }
         int remaining = 0;
-        for (int i = 0, fragmentsSize = _fragments.length; i < fragmentsSize; i++)
+        for (final SingleQpidByteBuffer fragment : _fragments)
         {
-            final SingleQpidByteBuffer fragment = _fragments[i];
             remaining += fragment.remaining();
             if (remaining >= atLeast)
             {
@@ -911,9 +895,8 @@ class MultiQpidByteBuffer implements QpidByteBuffer
     @Override
     public QpidByteBuffer flip()
     {
-        for (int i = 0, fragmentsSize = _fragments.length; i < fragmentsSize; i++)
+        for (final SingleQpidByteBuffer fragment : _fragments)
         {
-            final SingleQpidByteBuffer fragment = _fragments[i];
             fragment.flip();
         }
         return this;
@@ -923,9 +906,9 @@ class MultiQpidByteBuffer implements QpidByteBuffer
     public int capacity()
     {
         int totalCapacity = 0;
-        for (int i = 0, fragmentsSize = _fragments.length; i < fragmentsSize; i++)
+        for (final SingleQpidByteBuffer fragment : _fragments)
         {
-            totalCapacity += _fragments[i].capacity();
+            totalCapacity += fragment.capacity();
         }
         return totalCapacity;
     }
@@ -991,9 +974,8 @@ class MultiQpidByteBuffer implements QpidByteBuffer
     @Override
     public boolean isSparse()
     {
-        for (int i = 0, fragmentsSize = _fragments.length; i < fragmentsSize; i++)
+        for (final SingleQpidByteBuffer fragment : _fragments)
         {
-            final SingleQpidByteBuffer fragment = _fragments[i];
             if (fragment.isSparse())
             {
                 return true;

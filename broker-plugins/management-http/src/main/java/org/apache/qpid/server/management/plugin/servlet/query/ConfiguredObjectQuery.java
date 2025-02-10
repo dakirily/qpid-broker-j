@@ -341,7 +341,7 @@ public final class ConfiguredObjectQuery
         orderedObjects.addAll(unorderedResults);
         Comparator<Object> comparator =
                 new OrderByComparator(orderByExpressions, headersAndValue.getValueExpressions());
-        Collections.sort(orderedObjects, comparator);
+        orderedObjects.sort(comparator);
         return orderedObjects;
     }
 
@@ -358,7 +358,7 @@ public final class ConfiguredObjectQuery
                 if (headersAndValue.hasHeader(propertyName))
                 {
                     Expression expression = headersAndValue.getValueExpressionForHeader(propertyName);
-                    return object -> expression.evaluate(object);
+                    return expression::evaluate;
                 }
                 else
                 {

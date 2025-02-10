@@ -187,9 +187,8 @@ public class GenericPrincipal implements Principal, Serializable
         {
             otherPrincipal = new GenericPrincipal((QpidPrincipal) otherPrincipal);
         }
-        if (otherPrincipal instanceof GenericPrincipal)
+        if (otherPrincipal instanceof final GenericPrincipal otherGenericPrincipal)
         {
-            GenericPrincipal otherGenericPrincipal = (GenericPrincipal) otherPrincipal;
             return (genericPrincipal.getName().equals(otherGenericPrincipal.getName())
                     && genericPrincipal.getOriginType().equals(otherGenericPrincipal.getOriginType())
                     && genericPrincipal.getOriginName().equals(otherGenericPrincipal.getOriginName()));

@@ -46,6 +46,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -62,9 +63,6 @@ import javax.naming.NamingException;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.io.ByteStreams;
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -244,11 +242,11 @@ public class SpawnBrokerAdmin implements BrokerAdmin, Closeable
     }
 
     @Override
-    public ListenableFuture<Void> restart()
+    public CompletableFuture<Void> restart()
     {
         stop();
         start();
-        return Futures.immediateFuture(null);
+        return CompletableFuture.completedFuture(null);
     }
 
     @Override
@@ -465,8 +463,7 @@ public class SpawnBrokerAdmin implements BrokerAdmin, Closeable
 
     public String dumpThreads()
     {
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        try
+        try (ByteArrayOutputStream baos = new ByteArrayOutputStream())
         {
             Process process = Runtime.getRuntime().exec("jstack " + _pid);
             InputStream is = process.getInputStream();
@@ -480,20 +477,10 @@ public class SpawnBrokerAdmin implements BrokerAdmin, Closeable
         }
         catch (Exception e)
         {
-            LOGGER.error("Error whilst collecting thread dump for " + _pid, e);
+            LOGGER.error("Error whilst collecting thread dump for {}", _pid, e);
             return "";
         }
-        finally
-        {
-            try
-            {
-                baos.close();
-            }
-            catch (IOException e)
-            {
-                // ignore
-            }
-        }
+        // ignore
     }
 
     private Map<String, Object> getNodeAttributes(final String virtualHostNodeName, final String nodeType)
@@ -650,7 +637,7 @@ public class SpawnBrokerAdmin implements BrokerAdmin, Closeable
                 throw new BrokerAdminException("Broker PID is not detected");
             }
 
-            if (_ports.size() == 0)
+            if (_ports.isEmpty())
             {
                 throw new BrokerAdminException("Broker port is not detected");
             }
@@ -727,7 +714,7 @@ public class SpawnBrokerAdmin implements BrokerAdmin, Closeable
             try (InputStream is = getClass().getClassLoader().getResourceAsStream(config);
                  OutputStream os = new FileOutputStream(testInitialConfiguration))
             {
-                ByteStreams.copy(is, os);
+                is.transferTo(os);
             }
         }
         else
@@ -785,9 +772,9 @@ public class SpawnBrokerAdmin implements BrokerAdmin, Closeable
                                                                           String.format("%s=%s", key, value))));
 
         LOGGER.debug("Spawning broker JVM :", jvmArguments);
-        String[] cmd = jvmArguments.toArray(new String[jvmArguments.size()]);
+        String[] cmd = jvmArguments.toArray(new String[0]);
 
-        LOGGER.debug("command line:" + String.join(" ", jvmArguments));
+        LOGGER.debug("command line:{}", String.join(" ", jvmArguments));
         ProcessBuilder ps = new ProcessBuilder(cmd);
         ps.environment().put("CLASSPATH", classpath);
         return ps;
@@ -858,7 +845,7 @@ public class SpawnBrokerAdmin implements BrokerAdmin, Closeable
             }
             catch (IOException e)
             {
-                LOGGER.error("Error whilst killing process " + _pid, e);
+                LOGGER.error("Error whilst killing process {}", _pid, e);
             }
         }
     }
@@ -883,7 +870,7 @@ public class SpawnBrokerAdmin implements BrokerAdmin, Closeable
         try
         {
             _process.waitFor();
-            LOGGER.info("broker exited: " + _process.exitValue());
+            LOGGER.info("broker exited: {}", _process.exitValue());
         }
         catch (InterruptedException e)
         {
@@ -977,8 +964,8 @@ public class SpawnBrokerAdmin implements BrokerAdmin, Closeable
             }
             catch (IOException e)
             {
-                LOGGER.warn(e.getMessage()
-                            + " : Broker stream from unexpectedly closed; last log lines written by Broker may be lost.");
+                LOGGER.warn("{} : Broker stream from unexpectedly closed; last log lines written by Broker may be lost.",
+                            e.getMessage());
             }
         }
 

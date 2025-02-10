@@ -586,7 +586,7 @@ public abstract class AbstractLinkEndpoint<S extends BaseSource, T extends BaseT
 
     public void setCapabilities(Collection<Symbol> capabilities)
     {
-        _capabilities = capabilities == null ? null : capabilities.toArray(new Symbol[capabilities.size()]);
+        _capabilities = capabilities == null ? null : capabilities.toArray(new Symbol[0]);
     }
 
     public boolean isErrored()

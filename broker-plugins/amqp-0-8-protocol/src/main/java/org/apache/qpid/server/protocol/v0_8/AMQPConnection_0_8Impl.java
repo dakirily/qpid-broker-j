@@ -112,7 +112,7 @@ public class AMQPConnection_0_8Impl
      * Used so we know which channels we need to call {@link AMQChannel#receivedComplete()}
      * on after handling the frames.
      */
-    private final Set<AMQChannel> _channelsForCurrentMessage = Collections.newSetFromMap(new ConcurrentHashMap<>());
+    private final Set<AMQChannel> _channelsForCurrentMessage = ConcurrentHashMap.newKeySet();
 
     private final ServerDecoder _decoder;
 
@@ -157,8 +157,7 @@ public class AMQPConnection_0_8Impl
     private volatile boolean _transportBlockedForWriting;
     private volatile SubjectAuthenticationResult _successfulAuthenticationResult;
 
-    private final Set<AMQPSession<?,?>> _sessionsWithWork =
-            Collections.newSetFromMap(new ConcurrentHashMap<>());
+    private final Set<AMQPSession<?,?>> _sessionsWithWork = ConcurrentHashMap.newKeySet();
 
     private volatile int _heartBeatDelay;
     private volatile String _closeCause;
@@ -271,8 +270,9 @@ public class AMQPConnection_0_8Impl
                 {
                     exception = exceptionForThisChannel;
                 }
-                LOGGER.info("Error informing channel that receiving is complete. Channel: " + channel,
-                              exceptionForThisChannel);
+                LOGGER.info("Error informing channel that receiving is complete. Channel: {}",
+                            channel,
+                            exceptionForThisChannel);
             }
         }
 
@@ -302,7 +302,7 @@ public class AMQPConnection_0_8Impl
             StringBuilder mechanismBuilder = new StringBuilder();
             for(String mechanismName : getPort().getAuthenticationProvider().getAvailableMechanisms(getTransport().isSecure()))
             {
-                if(mechanismBuilder.length() != 0)
+                if(!mechanismBuilder.isEmpty())
                 {
                     mechanismBuilder.append(' ');
                 }
@@ -345,7 +345,7 @@ public class AMQPConnection_0_8Impl
     {
         if(LOGGER.isDebugEnabled())
         {
-            LOGGER.debug("SEND: " + frame);
+            LOGGER.debug("SEND: {}", frame);
         }
 
         frame.writePayload(_sender);
@@ -872,7 +872,7 @@ public class AMQPConnection_0_8Impl
     {
         if(LOGGER.isDebugEnabled())
         {
-            LOGGER.debug("RECV[" + channelId + "] ChannelOpen");
+            LOGGER.debug("RECV[{}] ChannelOpen", channelId);
         }
         assertState(ConnectionState.OPEN);
 
@@ -1001,7 +1001,11 @@ public class AMQPConnection_0_8Impl
     {
         if(LOGGER.isDebugEnabled())
         {
-            LOGGER.debug("RECV ConnectionClose[" +" replyCode: " + replyCode + " replyText: " + replyText + " classId: " + classId + " methodId: " + methodId + " ]");
+            LOGGER.debug("RECV ConnectionClose[ replyCode: {} replyText: {} classId: {} methodId: {} ]",
+                         replyCode,
+                         replyText,
+                         classId,
+                         methodId);
         }
 
         try
@@ -1017,7 +1021,7 @@ public class AMQPConnection_0_8Impl
         }
         catch (Exception e)
         {
-            LOGGER.error("Error closing connection for " + getRemoteAddressString(), e);
+            LOGGER.error("Error closing connection for {}", getRemoteAddressString(), e);
         }
         finally
         {
@@ -1064,15 +1068,10 @@ public class AMQPConnection_0_8Impl
     {
         if (LOGGER.isDebugEnabled())
         {
-            LOGGER.debug("RECV ConnectionStartOk["
-                          + " clientProperties: "
-                          + clientProperties
-                          + " mechanism: "
-                          + mechanism
-                          + " response: ********"
-                          + " locale: "
-                          + locale
-                          + " ]");
+            LOGGER.debug("RECV ConnectionStartOk[ clientProperties: {} mechanism: {} response: ******** locale: {} ]",
+                         clientProperties,
+                         mechanism,
+                         locale);
         }
 
         assertState(ConnectionState.AWAIT_START_OK);
@@ -1167,7 +1166,10 @@ public class AMQPConnection_0_8Impl
     {
         if(LOGGER.isDebugEnabled())
         {
-            LOGGER.debug("RECV ConnectionTuneOk[" +" channelMax: " + channelMax + " frameMax: " + frameMax + " heartbeat: " + heartbeat + " ]");
+            LOGGER.debug("RECV ConnectionTuneOk[ channelMax: {} frameMax: {} heartbeat: {} ]",
+                         channelMax,
+                         frameMax,
+                         heartbeat);
         }
 
         assertState(ConnectionState.AWAIT_TUNE_OK);
@@ -1318,7 +1320,7 @@ public class AMQPConnection_0_8Impl
 
         if(LOGGER.isDebugEnabled())
         {
-            LOGGER.debug("RECV ProtocolHeader [" + protocolInitiation + " ]");
+            LOGGER.debug("RECV ProtocolHeader [{} ]", protocolInitiation);
         }
 
         protocolInitiationReceived(protocolInitiation);

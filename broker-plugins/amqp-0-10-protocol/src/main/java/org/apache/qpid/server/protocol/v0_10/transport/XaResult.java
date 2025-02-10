@@ -31,29 +31,29 @@ public final class XaResult extends Struct {
     public static final int TYPE = 1537;
 
     @Override
-    public final int getStructType() {
+    public int getStructType() {
         return TYPE;
     }
 
     @Override
-    public final int getSizeWidth() {
+    public int getSizeWidth() {
         return 4;
     }
 
     @Override
-    public final int getPackWidth() {
+    public int getPackWidth() {
         return 2;
     }
 
-    public final boolean hasPayload() {
+    public boolean hasPayload() {
         return false;
     }
 
-    public final byte getEncodedTrack() {
+    public byte getEncodedTrack() {
         return -1;
     }
 
-    public final boolean isConnectionControl()
+    public boolean isConnectionControl()
     {
         return false;
     }
@@ -75,29 +75,29 @@ public final class XaResult extends Struct {
 
 
 
-    public final boolean hasStatus() {
+    public boolean hasStatus() {
         return (packing_flags & 256) != 0;
     }
 
-    public final XaResult clearStatus() {
+    public XaResult clearStatus() {
         packing_flags &= ~256;
         this.status = null;
         setDirty(true);
         return this;
     }
 
-    public final DtxXaStatus getStatus() {
+    public DtxXaStatus getStatus() {
         return status;
     }
 
-    public final XaResult setStatus(DtxXaStatus value) {
+    public XaResult setStatus(DtxXaStatus value) {
         this.status = value;
         packing_flags |= 256;
         setDirty(true);
         return this;
     }
 
-    public final XaResult status(DtxXaStatus value) {
+    public XaResult status(DtxXaStatus value) {
         return setStatus(value);
     }
 

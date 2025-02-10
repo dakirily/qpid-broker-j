@@ -44,15 +44,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 
 import javax.naming.InvalidNameException;
 import javax.naming.ldap.LdapName;
 import javax.naming.ldap.Rdn;
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.KeyManagerFactory;
-
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -176,11 +174,11 @@ public class NonJavaKeyStoreImpl extends AbstractKeyStore<NonJavaKeyStoreImpl> i
     }
 
     @StateTransition(currentState = {State.UNINITIALIZED, State.ERRORED}, desiredState = State.ACTIVE)
-    protected ListenableFuture<Void> doActivate()
+    protected CompletableFuture<Void> doActivate()
     {
         initializeExpiryChecking();
         setState(State.ACTIVE);
-        return Futures.immediateFuture(null);
+        return CompletableFuture.completedFuture(null);
     }
 
     @Override
@@ -205,7 +203,7 @@ public class NonJavaKeyStoreImpl extends AbstractKeyStore<NonJavaKeyStoreImpl> i
             if(keyStore.getIntermediateCertificateUrl() != null)
             {
                 allCerts.addAll(Arrays.asList(SSLUtil.readCertificates(getUrlFromString(keyStore.getIntermediateCertificateUrl()))));
-                certs = allCerts.toArray(new X509Certificate[allCerts.size()]);
+                certs = allCerts.toArray(new X509Certificate[0]);
             }
             final PublicKey publicKey = certs[0].getPublicKey();
             if (privateKey instanceof RSAPrivateKey && publicKey instanceof RSAPublicKey)
@@ -237,7 +235,7 @@ public class NonJavaKeyStoreImpl extends AbstractKeyStore<NonJavaKeyStoreImpl> i
                 if(_intermediateCertificateUrl != null)
                 {
                     allCerts.addAll(Arrays.asList(SSLUtil.readCertificates(getUrlFromString(_intermediateCertificateUrl))));
-                    certs = allCerts.toArray(new X509Certificate[allCerts.size()]);
+                    certs = allCerts.toArray(new X509Certificate[0]);
                 }
                 checkCertificateExpiry(certs);
                 java.security.KeyStore inMemoryKeyStore = java.security.KeyStore.getInstance(java.security.KeyStore.getDefaultType());
@@ -276,7 +274,7 @@ public class NonJavaKeyStoreImpl extends AbstractKeyStore<NonJavaKeyStoreImpl> i
                 {
                     List<X509Certificate> allCerts = new ArrayList<>(Arrays.asList(certs));
                     allCerts.addAll(Arrays.asList(SSLUtil.readCertificates(getUrlFromString(_intermediateCertificateUrl))));
-                    certs = allCerts.toArray(new X509Certificate[allCerts.size()]);
+                    certs = allCerts.toArray(new X509Certificate[0]);
                 }
                 checkCertificateExpiry(certs);
             }

@@ -104,12 +104,10 @@ public final class AuthenticatedPrincipal implements QpidPrincipal
             return true;
         }
 
-        if (!(obj instanceof AuthenticatedPrincipal))
+        if (!(obj instanceof final AuthenticatedPrincipal other))
         {
             return false;
         }
-
-        AuthenticatedPrincipal other = (AuthenticatedPrincipal) obj;
 
         return _wrappedPrincipal.equals(other._wrappedPrincipal);
     }

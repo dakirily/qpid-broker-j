@@ -77,9 +77,9 @@ public class Logback1027WorkaroundTurboFilter extends TurboFilter
             {
                 Set<Throwable> seenCopy = Collections.newSetFromMap(new IdentityHashMap<>(seen.size()));
                 seenCopy.addAll(seen);
-                for (int i = 0; i < allSuppressedLength; ++i)
+                for (final Throwable throwable : allSuppressed)
                 {
-                    if (hasRecursiveThrowableReference(allSuppressed[i], seenCopy))
+                    if (hasRecursiveThrowableReference(throwable, seenCopy))
                     {
                         return true;
                     }

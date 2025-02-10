@@ -31,32 +31,32 @@ public final class ConnectionOpenOk extends Method {
     public static final int TYPE = 264;
 
     @Override
-    public final int getStructType() {
+    public int getStructType() {
         return TYPE;
     }
 
     @Override
-    public final int getSizeWidth() {
+    public int getSizeWidth() {
         return 0;
     }
 
     @Override
-    public final int getPackWidth() {
+    public int getPackWidth() {
         return 2;
     }
 
     @Override
-    public final boolean hasPayload() {
+    public boolean hasPayload() {
         return false;
     }
 
     @Override
-    public final byte getEncodedTrack() {
+    public byte getEncodedTrack() {
         return Frame.L1;
     }
 
     @Override
-    public final boolean isConnectionControl()
+    public boolean isConnectionControl()
     {
         return true;
     }
@@ -73,13 +73,23 @@ public final class ConnectionOpenOk extends Method {
             setKnownHosts(knownHosts);
         }
 
-        for (int i=0; i < _options.length; i++) {
-            switch (_options[i]) {
-            case SYNC: this.setSync(true); break;
-            case BATCH: this.setBatch(true); break;
-            case UNRELIABLE: this.setUnreliable(true); break;
-            case NONE: break;
-            default: throw new IllegalArgumentException("invalid option: " + _options[i]);
+        for (final Option option : _options)
+        {
+            switch (option)
+            {
+                case SYNC:
+                    this.setSync(true);
+                    break;
+                case BATCH:
+                    this.setBatch(true);
+                    break;
+                case UNRELIABLE:
+                    this.setUnreliable(true);
+                    break;
+                case NONE:
+                    break;
+                default:
+                    throw new IllegalArgumentException("invalid option: " + option);
             }
         }
 
@@ -91,29 +101,29 @@ public final class ConnectionOpenOk extends Method {
     }
 
 
-    public final boolean hasKnownHosts() {
+    public boolean hasKnownHosts() {
         return (packing_flags & 256) != 0;
     }
 
-    public final ConnectionOpenOk clearKnownHosts() {
+    public ConnectionOpenOk clearKnownHosts() {
         packing_flags &= ~256;
         this.knownHosts = null;
         setDirty(true);
         return this;
     }
 
-    public final java.util.List<Object> getKnownHosts() {
+    public java.util.List<Object> getKnownHosts() {
         return knownHosts;
     }
 
-    public final ConnectionOpenOk setKnownHosts(java.util.List<Object> value) {
+    public ConnectionOpenOk setKnownHosts(java.util.List<Object> value) {
         this.knownHosts = value;
         packing_flags |= 256;
         setDirty(true);
         return this;
     }
 
-    public final ConnectionOpenOk knownHosts(java.util.List<Object> value) {
+    public ConnectionOpenOk knownHosts(java.util.List<Object> value) {
         return setKnownHosts(value);
     }
 

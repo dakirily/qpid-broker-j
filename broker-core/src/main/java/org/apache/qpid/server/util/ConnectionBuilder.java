@@ -126,9 +126,8 @@ public class ConnectionBuilder
                 try
                 {
                     final Certificate cert = sslSession.getPeerCertificates()[0];
-                    if (cert instanceof X509Certificate)
+                    if (cert instanceof final X509Certificate x509Certificate)
                     {
-                        final X509Certificate x509Certificate = (X509Certificate) cert;
                         SSLUtil.verifyHostname(hostname, x509Certificate);
                         return true;
                     }

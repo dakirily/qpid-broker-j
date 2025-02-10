@@ -42,9 +42,8 @@ public abstract class ArithmeticExpression<T> extends BinaryExpression<T>
             @Override
             protected Object evaluate(Object lvalue, Object rvalue)
             {
-                if (lvalue instanceof String)
+                if (lvalue instanceof final String text)
                 {
-                    String text = (String) lvalue;
                     String answer = text + rvalue;
 
                     return answer;

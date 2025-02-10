@@ -48,11 +48,9 @@ public class ChartWriter
 
     public void writeChartToFileSystem(JFreeChart chart, ChartingDefinition chartDef)
     {
-        OutputStream pngOutputStream = null;
-        try
+        final File pngFile = new File(_chartDirectory, chartDef.getChartStemName() + ".png");
+        try (final OutputStream pngOutputStream = new BufferedOutputStream(new FileOutputStream(pngFile)))
         {
-            File pngFile = new File(_chartDirectory, chartDef.getChartStemName() + ".png");
-            pngOutputStream = new BufferedOutputStream(new FileOutputStream(pngFile));
             ChartUtilities.writeChartAsPNG(pngOutputStream, chart, 600, 400, true, 0);
             pngOutputStream.close();
 
@@ -63,20 +61,6 @@ public class ChartWriter
         catch (IOException e)
         {
             throw new ChartingException("Failed to create chart", e);
-        }
-        finally
-        {
-            if (pngOutputStream != null)
-            {
-                try
-                {
-                    pngOutputStream.close();
-                }
-                catch (IOException e)
-                {
-                    throw new ChartingException("Failed to create chart", e);
-                }
-            }
         }
     }
 
@@ -102,7 +86,9 @@ public class ChartWriter
                         "</html>");
 
         File summaryFile = new File(_chartDirectory, SUMMARY_FILE_NAME);
-        LOGGER.debug("About to produce HTML summary file " + summaryFile.getAbsolutePath() + " from charts " + _chartFilesToChartDef);
+        LOGGER.debug("About to produce HTML summary file {} from charts {}",
+                     summaryFile.getAbsolutePath(),
+                     _chartFilesToChartDef);
         try(BufferedWriter writer = new BufferedWriter(new FileWriter(summaryFile)))
         {
             writer.write(htmlHeader);

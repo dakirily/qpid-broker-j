@@ -35,6 +35,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
@@ -56,7 +57,6 @@ import javax.jms.TextMessage;
 import javax.jms.TransactionRolledBackException;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.base.Objects;
 import com.sleepycat.je.Durability;
 import com.sleepycat.je.EnvironmentConfig;
 import com.sleepycat.je.rep.ReplicatedEnvironment;
@@ -421,7 +421,7 @@ public class MultiNodeTest extends GroupJmsTestBase
                             Message message = session.createTextMessage(messageText);
                             producer1.send(message);
                             session.commit();
-                            LOGGER.debug("Sent message " + count);
+                            LOGGER.debug("Sent message {}", count);
 
                             producedOneBefore.countDown();
 
@@ -528,7 +528,7 @@ public class MultiNodeTest extends GroupJmsTestBase
                 consumerSession.createConsumer(destination).setMessageListener(message -> {
                     try
                     {
-                        LOGGER.info("Message received: " + ((TextMessage) message).getText());
+                        LOGGER.info("Message received: {}", ((TextMessage) message).getText());
                     }
                     catch (JMSException e)
                     {
@@ -584,7 +584,7 @@ public class MultiNodeTest extends GroupJmsTestBase
                         for (int port : inactivePorts)
                         {
                             final int inactiveBrokerPort = port;
-                            LOGGER.info("Stop node for inactive broker on port " + inactiveBrokerPort);
+                            LOGGER.info("Stop node for inactive broker on port {}", inactiveBrokerPort);
 
                             executorService.submit(() -> {
                                 try
@@ -631,7 +631,7 @@ public class MultiNodeTest extends GroupJmsTestBase
                         LOGGER.info("Start stopped nodes");
                         for (int port : inactivePorts)
                         {
-                            LOGGER.info("Starting node for inactive broker on port " + port);
+                            LOGGER.info("Starting node for inactive broker on port {}", port);
                             try
                             {
                                 getBrokerAdmin().setNodeAttributes(port,
@@ -641,7 +641,7 @@ public class MultiNodeTest extends GroupJmsTestBase
                             }
                             catch (Exception e)
                             {
-                                LOGGER.error("Failed to start node on broker with port " + port, e);
+                                LOGGER.error("Failed to start node on broker with port {}", port, e);
                             }
                         }
 
@@ -946,7 +946,7 @@ public class MultiNodeTest extends GroupJmsTestBase
             {
                 final Message message = consumer.receive(getReceiveTimeout());
                 assumeTrue(message instanceof TextMessage,"Message should be a text message");
-                assumeTrue(Objects.equal(m, ((TextMessage) message).getText()),"Message text should be " + m);
+                assumeTrue(Objects.equals(m, ((TextMessage) message).getText()),"Message text should be " + m);
             }
         }
         finally
@@ -989,7 +989,7 @@ public class MultiNodeTest extends GroupJmsTestBase
         {
             if (!_failoverCompletionLatch.await(delay, TimeUnit.MILLISECONDS))
             {
-                LOGGER.warn("Failover did not occur, dumping threads:\n\n" + TestUtils.dumpThreads() + "\n");
+                LOGGER.warn("Failover did not occur, dumping threads:\n\n{}\n", TestUtils.dumpThreads());
                 Map<Integer, String> threadDumps = getBrokerAdmin().groupThreadDumps();
                 for (Map.Entry<Integer, String> entry : threadDumps.entrySet())
                 {

@@ -54,8 +54,6 @@ import javax.jms.TextMessage;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import com.google.common.collect.Sets;
-
 import org.junit.jupiter.api.Test;
 
 import org.slf4j.Logger;
@@ -278,7 +276,7 @@ public class MessagingACLTest extends JmsTestBase
             catch (JMSException e)
             {
                 final String expectedMessage =
-                        Sets.newHashSet(Protocol.AMQP_1_0, Protocol.AMQP_0_10).contains(getProtocol())
+                        Set.of(Protocol.AMQP_1_0, Protocol.AMQP_0_10).contains(getProtocol())
                                 ? "Permission CREATE is denied for : Consumer"
                                 : "403(access refused)";
                 assertJMSExceptionMessageContains(e, expectedMessage);
@@ -850,7 +848,7 @@ public class MessagingACLTest extends JmsTestBase
             }
         }
 
-        configureACL(aclRules.toArray(new AclRule[aclRules.size()]));
+        configureACL(aclRules.toArray(new AclRule[0]));
     }
 
     private void configureACL(AclRule... rules) throws Exception

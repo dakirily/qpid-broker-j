@@ -129,8 +129,9 @@ public class Controller
         _stopClientsResponseLatch.countDown();
         if (response.hasError())
         {
-            LOGGER.error("Client " + response.getRegisteredClientName() + " reported exception in response to command : " +
-                    response.getErrorMessage());
+            LOGGER.error("Client {} reported exception in response to command : {}",
+                         response.getRegisteredClientName(),
+                         response.getErrorMessage());
         }
     }
 

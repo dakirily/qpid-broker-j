@@ -33,6 +33,7 @@ import java.lang.management.ThreadMXBean;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
@@ -140,7 +141,8 @@ public abstract class AbstractContainer<X extends AbstractContainer<X>> extends 
         }
         catch (ClassNotFoundException | NoSuchMethodException | IllegalAccessException | IllegalArgumentException e)
         {
-            LOGGER.debug("Cannot determine direct memory max size using com.sun.management.HotSpotDiagnosticMXBean: " + e.getMessage());
+            LOGGER.debug("Cannot determine direct memory max size using com.sun.management.HotSpotDiagnosticMXBean: {}",
+                         e.getMessage());
         }
         catch (InvocationTargetException e)
         {
@@ -505,7 +507,7 @@ public abstract class AbstractContainer<X extends AbstractContainer<X>> extends 
         {
             if (_threadStackTraces != null)
             {
-                outputStream.write(_threadStackTraces.getBytes(Charset.forName("UTF-8")));
+                outputStream.write(_threadStackTraces.getBytes(StandardCharsets.UTF_8));
             }
         }
 

@@ -35,6 +35,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
@@ -43,10 +44,6 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import javax.security.auth.Subject;
 
-import com.google.common.util.concurrent.FutureCallback;
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.SettableFuture;
 import com.sleepycat.je.DatabaseException;
 import com.sleepycat.je.LogWriteException;
 import com.sleepycat.je.rep.NodeState;
@@ -323,11 +320,11 @@ public class BDBHAVirtualHostNodeImpl extends AbstractVirtualHostNode<BDBHAVirtu
     }
 
     @Override
-    protected ListenableFuture<Void> activate()
+    protected CompletableFuture<Void> activate()
     {
         if (LOGGER.isDebugEnabled())
         {
-            LOGGER.debug("Activating virtualhost node " + this);
+            LOGGER.debug("Activating virtualhost node {}", this);
         }
 
         // activating the environment does not cause a state change.  Adjust the role
@@ -374,47 +371,33 @@ public class BDBHAVirtualHostNodeImpl extends AbstractVirtualHostNode<BDBHAVirtu
             environmentFacade.setPermittedNodes(_permittedNodes);
         }
 
-        return Futures.immediateFuture(null);
+        return CompletableFuture.completedFuture(null);
     }
 
     @Override
     @StateTransition( currentState = { State.UNINITIALIZED, State.ACTIVE, State.ERRORED }, desiredState = State.STOPPED )
-    protected ListenableFuture<Void> doStop()
+    protected CompletableFuture<Void> doStop()
     {
-        final SettableFuture<Void> returnVal = SettableFuture.create();
+        final CompletableFuture<Void> returnVal = new CompletableFuture<>();
 
-        ListenableFuture<Void> superFuture = super.doStop();
-        addFutureCallback(superFuture, new FutureCallback<>()
+        CompletableFuture<Void> superFuture = super.doStop();
+        superFuture.whenCompleteAsync((result, error) ->
         {
-            @Override
-            public void onSuccess(final Void result)
+            try
             {
-                doFinally();
+                closeEnvironment();
+
+                // closing the environment does not cause a state change.  Adjust the role
+                // so that our observers will see DETACHED rather than our previous role in the group.
+                _lastRole.set(NodeRole.DETACHED);
+                attributeSet(ROLE, _role, NodeRole.DETACHED);
             }
-
-            @Override
-            public void onFailure(final Throwable t)
+            finally
             {
-                doFinally();
-            }
-
-            private void doFinally()
-            {
-                try
-                {
-                    closeEnvironment();
-
-                    // closing the environment does not cause a state change.  Adjust the role
-                    // so that our observers will see DETACHED rather than our previous role in the group.
-                    _lastRole.set(NodeRole.DETACHED);
-                    attributeSet(ROLE, _role, NodeRole.DETACHED);
-                }
-                finally
-                {
-                    returnVal.set(null);
-                }
+                returnVal.complete(null);
             }
         }, getTaskExecutor());
+
         return returnVal;
     }
 
@@ -435,48 +418,49 @@ public class BDBHAVirtualHostNodeImpl extends AbstractVirtualHostNode<BDBHAVirtu
     }
 
     @Override
-    protected ListenableFuture<Void> beforeDelete()
+    protected CompletableFuture<Void> beforeDelete()
     {
         _isClosedOrDeleted = true;
         return super.beforeDelete();
     }
 
     @Override
-    protected ListenableFuture<Void> onDelete()
+    protected CompletableFuture<Void> onDelete()
     {
         final Set<InetSocketAddress> helpers = getRemoteNodeAddresses();
 
-        return doAfterAlways(closeVirtualHostIfExists(),
-                             () -> {
+        return closeVirtualHostIfExists().whenComplete((result, error) ->
+        {
 
-                                 closeEnvironment();
+            closeEnvironment();
 
-                                 DurableConfigurationStore configurationStore = getConfigurationStore();
-                                 if (configurationStore != null)
-                                 {
-                                     configurationStore.closeConfigurationStore();
-                                     configurationStore.onDelete(BDBHAVirtualHostNodeImpl.this);
-                                     getEventLogger().message(getVirtualHostNodeLogSubject(),
-                                                              HighAvailabilityMessages.DELETE(getName(),
-                                                                                              String.valueOf(Outcome.SUCCESS)));
-                                 }
+            DurableConfigurationStore configurationStore = getConfigurationStore();
+            if (configurationStore != null)
+            {
+                configurationStore.closeConfigurationStore();
+                configurationStore.onDelete(BDBHAVirtualHostNodeImpl.this);
+                getEventLogger().message(getVirtualHostNodeLogSubject(),
+                                         HighAvailabilityMessages.DELETE(getName(), String.valueOf(Outcome.SUCCESS)));
+            }
 
-                                 if (!helpers.isEmpty())
-                                 {
-                                     try
-                                     {
-                                         new ReplicationGroupAdmin(_groupName, helpers).removeMember(getName());
-                                     }
-                                     catch(DatabaseException e)
-                                     {
-                                         LOGGER.warn(String.format(
-                                                 "The deletion of node %s on remote nodes failed due to: %s. To finish deletion a "
-                                                 + "removal of the node from any of remote nodes (%s) is required.",
-                                                 this, e.getMessage(), helpers));
-                                     }
-                                 }
-                                 onCloseOrDelete();
-                             });
+            if (!helpers.isEmpty())
+            {
+                try
+                {
+                    new ReplicationGroupAdmin(_groupName, helpers).removeMember(getName());
+                }
+                catch(DatabaseException e)
+                {
+                    LOGGER.warn(
+                            "The deletion of node {} on remote nodes failed due to: {}. To finish deletion a "
+                            + "removal of the node from any of remote nodes ({}) is required.",
+                            this,
+                                                 e.getMessage(),
+                                                 helpers);
+                }
+            }
+            onCloseOrDelete();
+        });
     }
 
     private Set<InetSocketAddress> getRemoteNodeAddresses()
@@ -494,9 +478,9 @@ public class BDBHAVirtualHostNodeImpl extends AbstractVirtualHostNode<BDBHAVirtu
     }
 
     @Override
-    protected ListenableFuture<Void> onClose()
+    protected CompletableFuture<Void> onClose()
     {
-        return doAfterAlways(super.onClose(), this::closeEnvironment);
+        return super.onClose().whenComplete((result, error) -> closeEnvironment());
     }
 
     @Override
@@ -631,7 +615,7 @@ public class BDBHAVirtualHostNodeImpl extends AbstractVirtualHostNode<BDBHAVirtu
             {
                 if (LOGGER.isDebugEnabled())
                 {
-                    LOGGER.debug("Creating new virtualhost with name : " + getGroupName());
+                    LOGGER.debug("Creating new virtualhost with name : {}", getGroupName());
                 }
                 Map<String, Object> hostAttributes = new HashMap<>();
 
@@ -645,7 +629,7 @@ public class BDBHAVirtualHostNodeImpl extends AbstractVirtualHostNode<BDBHAVirtu
             {
                 if (LOGGER.isDebugEnabled())
                 {
-                    LOGGER.debug("Recovered virtualhost with name : " +  getGroupName());
+                    LOGGER.debug("Recovered virtualhost with name : {}", getGroupName());
                 }
 
                 final VirtualHost<?> recoveredHost = host;
@@ -724,7 +708,7 @@ public class BDBHAVirtualHostNodeImpl extends AbstractVirtualHostNode<BDBHAVirtu
         createChild(VirtualHost.class, hostAttributes);
     }
 
-    protected ListenableFuture<Void> closeVirtualHostIfExist()
+    protected CompletableFuture<Void> closeVirtualHostIfExist()
     {
         final VirtualHost<?> virtualHost = getVirtualHost();
         if (virtualHost != null)
@@ -733,12 +717,12 @@ public class BDBHAVirtualHostNodeImpl extends AbstractVirtualHostNode<BDBHAVirtu
         }
         else
         {
-            return Futures.immediateFuture(null);
+            return CompletableFuture.completedFuture(null);
         }
     }
 
     @Override
-    protected ListenableFuture<Void> beforeClose()
+    protected CompletableFuture<Void> beforeClose()
     {
         _isClosedOrDeleted = true;
         return super.beforeClose();
@@ -814,7 +798,7 @@ public class BDBHAVirtualHostNodeImpl extends AbstractVirtualHostNode<BDBHAVirtu
                         closeVirtualHostIfExist().get();
                         break;
                     default:
-                        LOGGER.error("Unexpected state change: " + state);
+                        LOGGER.error("Unexpected state change: {}", state);
                 }
             }
             catch (InterruptedException | ExecutionException e)
@@ -965,7 +949,7 @@ public class BDBHAVirtualHostNodeImpl extends AbstractVirtualHostNode<BDBHAVirtu
 
     private void validatePermittedNodes(Collection<String> proposedPermittedNodes)
     {
-        if (getRemoteReplicationNodes().size() > 0 && getRole() != NodeRole.MASTER && !(getState() == State.STOPPED || getState() == State.ERRORED))
+        if (!getRemoteReplicationNodes().isEmpty() && getRole() != NodeRole.MASTER && !(getState() == State.STOPPED || getState() == State.ERRORED))
         {
             throw new IllegalArgumentException(String.format("Attribute '%s' can only be set on '%s' node or node in '%s' or '%s' state", PERMITTED_NODES, NodeRole.MASTER, State.STOPPED, State.ERRORED));
         }
@@ -1100,8 +1084,7 @@ public class BDBHAVirtualHostNodeImpl extends AbstractVirtualHostNode<BDBHAVirtu
             if (remoteNode != null)
             {
                 remoteNode.setNodeLeft(true);
-                doAfter(remoteNode.deleteNoChecks(),
-                        () -> getEventLogger().message(getGroupLogSubject(),
+                remoteNode.deleteNoChecks().whenComplete((result, error) ->getEventLogger().message(getGroupLogSubject(),
                                                  HighAvailabilityMessages.REMOVED(remoteNode.getName(),
                                                                                   remoteNode.getAddress())));
             }
@@ -1166,8 +1149,11 @@ public class BDBHAVirtualHostNodeImpl extends AbstractVirtualHostNode<BDBHAVirtu
                                     setAttributes(Collections.singletonMap(PERMITTED_NODES, new ArrayList<>(permittedNodes)));
                                 } else
                                 {
-                                    LOGGER.warn("Cannot accept the new permitted node list from the master as the master '" + remoteNode.getName()
-                                            + "' (" + remoteNode.getAddress() + ") was not in previous permitted list " + _permittedNodes);
+                                    LOGGER.warn(
+                                            "Cannot accept the new permitted node list from the master as the master '{}' ({}) was not in previous permitted list {}",
+                                            remoteNode.getName(),
+                                            remoteNode.getAddress(),
+                                            _permittedNodes);
                                 }
                             }
                         }
@@ -1175,7 +1161,9 @@ public class BDBHAVirtualHostNodeImpl extends AbstractVirtualHostNode<BDBHAVirtu
                         {
                             if (LOGGER.isDebugEnabled())
                             {
-                                LOGGER.debug(String.format("Application state returned by JE was 'null' so skipping permitted node handling: %s", nodeState));
+                                LOGGER.debug(
+                                        "Application state returned by JE was 'null' so skipping permitted node handling: {}",
+                                        nodeState);
                             }
                         }
                     }
@@ -1215,13 +1203,13 @@ public class BDBHAVirtualHostNodeImpl extends AbstractVirtualHostNode<BDBHAVirtu
             }
             else
             {
-                LOGGER.error(String.format("Intruder node '%s' from '%s' detected. Shutting down virtual host node " +
-                                           "'%s' (last role %s) owing to the presence of a node not in permitted nodes '%s'",
-                                           node.getName(),
-                                           hostAndPort,
-                                           BDBHAVirtualHostNodeImpl.this.getName(),
-                                           _lastRole.get(),
-                                           String.valueOf(BDBHAVirtualHostNodeImpl.this.getPermittedNodes()) ));
+                LOGGER.error("Intruder node '{}' from '{}' detected. Shutting down virtual host node " +
+                             "'{}' (last role {}) owing to the presence of a node not in permitted nodes '{}'",
+                             node.getName(),
+                             hostAndPort,
+                             BDBHAVirtualHostNodeImpl.this.getName(),
+                             _lastRole.get(),
+                             String.valueOf(BDBHAVirtualHostNodeImpl.this.getPermittedNodes()));
                 getTaskExecutor().submit(new Task<Void, RuntimeException>()
                 {
                     @Override
@@ -1300,29 +1288,22 @@ public class BDBHAVirtualHostNodeImpl extends AbstractVirtualHostNode<BDBHAVirtu
 
     protected void shutdownOnIntruder(String intruderHostAndPort)
     {
-        LOGGER.info("Intruder detected (" + intruderHostAndPort + "), stopping and setting state to ERRORED");
+        LOGGER.info("Intruder detected ({}), stopping and setting state to ERRORED", intruderHostAndPort);
 
         final State initialState = getState();
 
 
-        ListenableFuture<Void> future = doAfterAlways(stopAndSetStateTo(State.ERRORED), () ->
+        CompletableFuture<Void> future = stopAndSetStateTo(State.ERRORED).whenCompleteAsync((result, error) ->
         {
             _lastRole.set(NodeRole.DETACHED);
             attributeSet(ROLE, _role, NodeRole.DETACHED);
             notifyStateChanged(initialState, State.ERRORED);
-        });
-
-        addFutureCallback(future, new FutureCallback<>()
+        }, getTaskExecutor())
+        .whenCompleteAsync((result, error) ->
         {
-            @Override
-            public void onSuccess(final Void result)
+            if (error != null)
             {
-            }
-
-            @Override
-            public void onFailure(final Throwable t)
-            {
-                LOGGER.error("Failed to close children when handling intruder", t);
+                LOGGER.error("Failed to close children when handling intruder", error);
             }
         }, getTaskExecutor());
     }

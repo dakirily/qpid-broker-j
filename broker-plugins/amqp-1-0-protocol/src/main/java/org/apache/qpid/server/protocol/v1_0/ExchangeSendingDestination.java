@@ -114,7 +114,7 @@ public class ExchangeSendingDestination extends StandardSendingDestination
 
         sourceCapabilities.add(TOPIC_CAPABILITY);
 
-        _capabilities = sourceCapabilities.toArray(new Symbol[sourceCapabilities.size()]);
+        _capabilities = sourceCapabilities.toArray(new Symbol[0]);
     }
 
     private static BindingInfo createBindingInfo(final Exchange<?> exchange,
@@ -324,19 +324,17 @@ public class ExchangeSendingDestination extends StandardSendingDestination
                 for(Map.Entry<Symbol,Filter> entry : filters.entrySet())
                 {
                     if(!hasBindingFilter
-                       && entry.getValue() instanceof ExactSubjectFilter
+                       && entry.getValue() instanceof final ExactSubjectFilter filter
                        && exchange.getType().equals(ExchangeDefaults.DIRECT_EXCHANGE_CLASS))
                     {
-                        ExactSubjectFilter filter = (ExactSubjectFilter) entry.getValue();
                         binding = filter.getValue();
                         _actualFilters.put(entry.getKey(), filter);
                         hasBindingFilter = true;
                     }
                     else if(!hasBindingFilter
-                            && entry.getValue() instanceof MatchingSubjectFilter
+                            && entry.getValue() instanceof final MatchingSubjectFilter filter
                             && exchange.getType().equals(ExchangeDefaults.TOPIC_EXCHANGE_CLASS))
                     {
-                        MatchingSubjectFilter filter = (MatchingSubjectFilter) entry.getValue();
                         binding = filter.getValue();
                         _actualFilters.put(entry.getKey(), filter);
                         hasBindingFilter = true;
@@ -347,10 +345,8 @@ public class ExchangeSendingDestination extends StandardSendingDestination
                         arguments.put(AMQPFilterTypes.NO_LOCAL.toString(), true);
                     }
                     else if (!hasMessageFilter
-                             && entry.getValue() instanceof org.apache.qpid.server.protocol.v1_0.type.messaging.JMSSelectorFilter)
+                             && entry.getValue() instanceof final org.apache.qpid.server.protocol.v1_0.type.messaging.JMSSelectorFilter selectorFilter)
                     {
-                        org.apache.qpid.server.protocol.v1_0.type.messaging.JMSSelectorFilter selectorFilter =
-                                (org.apache.qpid.server.protocol.v1_0.type.messaging.JMSSelectorFilter) entry.getValue();
 
                         // TODO: QPID-7642 - due to inconsistent handling of invalid filters
                         // by different exchange implementations

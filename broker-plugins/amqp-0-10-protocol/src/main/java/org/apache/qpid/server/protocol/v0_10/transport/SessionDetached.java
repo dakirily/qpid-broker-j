@@ -31,32 +31,32 @@ public final class SessionDetached extends Method {
     public static final int TYPE = 516;
 
     @Override
-    public final int getStructType() {
+    public int getStructType() {
         return TYPE;
     }
 
     @Override
-    public final int getSizeWidth() {
+    public int getSizeWidth() {
         return 0;
     }
 
     @Override
-    public final int getPackWidth() {
+    public int getPackWidth() {
         return 2;
     }
 
     @Override
-    public final boolean hasPayload() {
+    public boolean hasPayload() {
         return false;
     }
 
     @Override
-    public final byte getEncodedTrack() {
+    public byte getEncodedTrack() {
         return Frame.L2;
     }
 
     @Override
-    public final boolean isConnectionControl()
+    public boolean isConnectionControl()
     {
         return false;
     }
@@ -77,13 +77,23 @@ public final class SessionDetached extends Method {
             setCode(code);
         }
 
-        for (int i=0; i < _options.length; i++) {
-            switch (_options[i]) {
-            case SYNC: this.setSync(true); break;
-            case BATCH: this.setBatch(true); break;
-            case UNRELIABLE: this.setUnreliable(true); break;
-            case NONE: break;
-            default: throw new IllegalArgumentException("invalid option: " + _options[i]);
+        for (final Option option : _options)
+        {
+            switch (option)
+            {
+                case SYNC:
+                    this.setSync(true);
+                    break;
+                case BATCH:
+                    this.setBatch(true);
+                    break;
+                case UNRELIABLE:
+                    this.setUnreliable(true);
+                    break;
+                case NONE:
+                    break;
+                default:
+                    throw new IllegalArgumentException("invalid option: " + option);
             }
         }
 
@@ -95,55 +105,55 @@ public final class SessionDetached extends Method {
     }
 
 
-    public final boolean hasName() {
+    public boolean hasName() {
         return (packing_flags & 256) != 0;
     }
 
-    public final SessionDetached clearName() {
+    public SessionDetached clearName() {
         packing_flags &= ~256;
         this.name = null;
         setDirty(true);
         return this;
     }
 
-    public final byte[] getName() {
+    public byte[] getName() {
         return name;
     }
 
-    public final SessionDetached setName(byte[] value) {
+    public SessionDetached setName(byte[] value) {
         this.name = value;
         packing_flags |= 256;
         setDirty(true);
         return this;
     }
 
-    public final SessionDetached name(byte[] value) {
+    public SessionDetached name(byte[] value) {
         return setName(value);
     }
 
-    public final boolean hasCode() {
+    public boolean hasCode() {
         return (packing_flags & 512) != 0;
     }
 
-    public final SessionDetached clearCode() {
+    public SessionDetached clearCode() {
         packing_flags &= ~512;
         this.code = null;
         setDirty(true);
         return this;
     }
 
-    public final SessionDetachCode getCode() {
+    public SessionDetachCode getCode() {
         return code;
     }
 
-    public final SessionDetached setCode(SessionDetachCode value) {
+    public SessionDetached setCode(SessionDetachCode value) {
         this.code = value;
         packing_flags |= 512;
         setDirty(true);
         return this;
     }
 
-    public final SessionDetached code(SessionDetachCode value) {
+    public SessionDetached code(SessionDetachCode value) {
         return setCode(value);
     }
 

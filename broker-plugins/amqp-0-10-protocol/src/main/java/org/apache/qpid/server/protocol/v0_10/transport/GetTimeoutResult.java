@@ -31,29 +31,29 @@ public final class GetTimeoutResult extends Struct {
     public static final int TYPE = 1538;
 
     @Override
-    public final int getStructType() {
+    public int getStructType() {
         return TYPE;
     }
 
     @Override
-    public final int getSizeWidth() {
+    public int getSizeWidth() {
         return 4;
     }
 
     @Override
-    public final int getPackWidth() {
+    public int getPackWidth() {
         return 2;
     }
 
-    public final boolean hasPayload() {
+    public boolean hasPayload() {
         return false;
     }
 
-    public final byte getEncodedTrack() {
+    public byte getEncodedTrack() {
         return -1;
     }
 
-    public final boolean isConnectionControl()
+    public boolean isConnectionControl()
     {
         return false;
     }
@@ -73,29 +73,29 @@ public final class GetTimeoutResult extends Struct {
 
 
 
-    public final boolean hasTimeout() {
+    public boolean hasTimeout() {
         return (packing_flags & 256) != 0;
     }
 
-    public final GetTimeoutResult clearTimeout() {
+    public GetTimeoutResult clearTimeout() {
         packing_flags &= ~256;
         this.timeout = 0;
         setDirty(true);
         return this;
     }
 
-    public final long getTimeout() {
+    public long getTimeout() {
         return timeout;
     }
 
-    public final GetTimeoutResult setTimeout(long value) {
+    public GetTimeoutResult setTimeout(long value) {
         this.timeout = value;
         packing_flags |= 256;
         setDirty(true);
         return this;
     }
 
-    public final GetTimeoutResult timeout(long value) {
+    public GetTimeoutResult timeout(long value) {
         return setTimeout(value);
     }
 

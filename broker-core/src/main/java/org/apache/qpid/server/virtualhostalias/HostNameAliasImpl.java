@@ -159,8 +159,10 @@ public class HostNameAliasImpl
             }
             catch (SocketException | UnknownHostException e)
             {
-                LOG.error("Unable to correctly calculate host name aliases for port " + getPort().getName()
-                         + ". This may lead to connection failures.", e);
+                LOG.error(
+                        "Unable to correctly calculate host name aliases for port {}. This may lead to connection failures.",
+                        getPort().getName(),
+                        e);
             }
             finally
             {

@@ -205,11 +205,7 @@ public class ResultsDbWriter implements ResultsWriter
             }
             return (String) url;
         }
-        catch (NamingException e)
-        {
-            throw constructorRethrow(e, environment);
-        }
-        catch (ClassNotFoundException e)
+        catch (NamingException | ClassNotFoundException e)
         {
             throw constructorRethrow(e, environment);
         }
@@ -224,29 +220,15 @@ public class ResultsDbWriter implements ResultsWriter
     {
         try
         {
-            Connection connection = null;
-            try
+            try (Connection connection = DriverManager.getConnection(_url))
             {
-                connection = DriverManager.getConnection(_url);
-                if(!tableExists(RESULTS_TABLE_NAME, connection))
+                if (!tableExists(RESULTS_TABLE_NAME, connection))
                 {
-                    Statement statement = connection.createStatement();
-                    try
+                    try (Statement statement = connection.createStatement())
                     {
-                        LOGGER.info("About to create results table using SQL: " + CREATE_RESULTS_TABLE);
+                        LOGGER.info("About to create results table using SQL: {}", CREATE_RESULTS_TABLE);
                         statement.execute(CREATE_RESULTS_TABLE);
                     }
-                    finally
-                    {
-                        statement.close();
-                    }
-                }
-            }
-            finally
-            {
-                if(connection != null)
-                {
-                    connection.close();
                 }
             }
         }
@@ -259,23 +241,13 @@ public class ResultsDbWriter implements ResultsWriter
 
     private boolean tableExists(final String tableName, final Connection conn) throws SQLException
     {
-        PreparedStatement stmt = conn.prepareStatement(TABLE_EXISTENCE_QUERY);
-        try
+        try (PreparedStatement stmt = conn.prepareStatement(TABLE_EXISTENCE_QUERY))
         {
             stmt.setString(1, tableName);
-            ResultSet rs = stmt.executeQuery();
-            try
+            try (ResultSet rs = stmt.executeQuery())
             {
                 return rs.next();
             }
-            finally
-            {
-                rs.close();
-            }
-        }
-        finally
-        {
-            stmt.close();
         }
     }
 
@@ -297,7 +269,7 @@ public class ResultsDbWriter implements ResultsWriter
         {
             throw new RuntimeException("Couldn't write results " + results, e);
         }
-        LOGGER.info(this + " wrote " + results.getTestResults().size() + " results to database");
+        LOGGER.info("{} wrote {} results to database", this, results.getTestResults().size());
     }
 
     @Override
@@ -308,10 +280,8 @@ public class ResultsDbWriter implements ResultsWriter
 
     private void writeResultsThrowingException(ResultsForAllTests results) throws SQLException
     {
-        Connection connection = null;
-        try
+        try (Connection connection = DriverManager.getConnection(_url))
         {
-            connection = DriverManager.getConnection(_url);
 
             for (ITestResult testResult : results.getTestResults())
             {
@@ -321,20 +291,13 @@ public class ResultsDbWriter implements ResultsWriter
                 }
             }
         }
-        finally
-        {
-            if(connection != null)
-            {
-                connection.close();
-            }
-        }
     }
 
     private void writeParticipantResult(Connection connection, ParticipantResult participantResult) throws SQLException
     {
         if(LOGGER.isDebugEnabled())
         {
-            LOGGER.debug("About to write to DB the following participant result: " + participantResult);
+            LOGGER.debug("About to write to DB the following participant result: {}", participantResult);
         }
 
         PreparedStatement statement = null;
@@ -423,7 +386,7 @@ public class ResultsDbWriter implements ResultsWriter
         }
         catch(SQLException e)
         {
-            LOGGER.error("Couldn't write " + participantResult, e);
+            LOGGER.error("Couldn't write {}", participantResult, e);
         }
         finally
         {

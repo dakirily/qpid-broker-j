@@ -252,9 +252,8 @@ public class MessageVerifier
                                                                   ((Class<?>) actualValue).getName()));
                 }
             }
-            else if (expectedValue instanceof byte[])
+            else if (expectedValue instanceof final byte[] expectedValueAsBytes)
             {
-                final byte[] expectedValueAsBytes = (byte[]) expectedValue;
                 final byte[] actualValueAsBytes = (byte[]) actualValue;
                 if (expectedValueAsBytes.length != actualValueAsBytes.length)
                 {
@@ -301,7 +300,7 @@ public class MessageVerifier
                     }
                 }
             }
-            else if (expectedValue instanceof Collection)
+            else if (expectedValue instanceof final Collection expectedValueAsCollection)
             {
                 if (!(actualValue instanceof Collection))
                 {
@@ -310,7 +309,6 @@ public class MessageVerifier
                                                                   actualValue.getClass()));
                 }
                 Collection<Object> actualValueAsCollection = (Collection<Object>) actualValue;
-                final Collection expectedValueAsCollection = (Collection) expectedValue;
                 if (expectedValueAsCollection.size() != actualValueAsCollection.size())
                 {
                     throw new VerificationException(String.format("%s: expected Collection of size <%s>, actual size <%s>",

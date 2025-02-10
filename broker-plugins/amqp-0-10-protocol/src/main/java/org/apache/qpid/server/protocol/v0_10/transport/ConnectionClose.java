@@ -31,32 +31,32 @@ public final class ConnectionClose extends Method {
     public static final int TYPE = 267;
 
     @Override
-    public final int getStructType() {
+    public int getStructType() {
         return TYPE;
     }
 
     @Override
-    public final int getSizeWidth() {
+    public int getSizeWidth() {
         return 0;
     }
 
     @Override
-    public final int getPackWidth() {
+    public int getPackWidth() {
         return 2;
     }
 
     @Override
-    public final boolean hasPayload() {
+    public boolean hasPayload() {
         return false;
     }
 
     @Override
-    public final byte getEncodedTrack() {
+    public byte getEncodedTrack() {
         return Frame.L1;
     }
 
     @Override
-    public final boolean isConnectionControl()
+    public boolean isConnectionControl()
     {
         return true;
     }
@@ -77,13 +77,23 @@ public final class ConnectionClose extends Method {
             setReplyText(replyText);
         }
 
-        for (int i=0; i < _options.length; i++) {
-            switch (_options[i]) {
-            case SYNC: this.setSync(true); break;
-            case BATCH: this.setBatch(true); break;
-            case UNRELIABLE: this.setUnreliable(true); break;
-            case NONE: break;
-            default: throw new IllegalArgumentException("invalid option: " + _options[i]);
+        for (final Option option : _options)
+        {
+            switch (option)
+            {
+                case SYNC:
+                    this.setSync(true);
+                    break;
+                case BATCH:
+                    this.setBatch(true);
+                    break;
+                case UNRELIABLE:
+                    this.setUnreliable(true);
+                    break;
+                case NONE:
+                    break;
+                default:
+                    throw new IllegalArgumentException("invalid option: " + option);
             }
         }
 
@@ -95,55 +105,55 @@ public final class ConnectionClose extends Method {
     }
 
 
-    public final boolean hasReplyCode() {
+    public boolean hasReplyCode() {
         return (packing_flags & 256) != 0;
     }
 
-    public final ConnectionClose clearReplyCode() {
+    public ConnectionClose clearReplyCode() {
         packing_flags &= ~256;
         this.replyCode = null;
         setDirty(true);
         return this;
     }
 
-    public final ConnectionCloseCode getReplyCode() {
+    public ConnectionCloseCode getReplyCode() {
         return replyCode;
     }
 
-    public final ConnectionClose setReplyCode(ConnectionCloseCode value) {
+    public ConnectionClose setReplyCode(ConnectionCloseCode value) {
         this.replyCode = value;
         packing_flags |= 256;
         setDirty(true);
         return this;
     }
 
-    public final ConnectionClose replyCode(ConnectionCloseCode value) {
+    public ConnectionClose replyCode(ConnectionCloseCode value) {
         return setReplyCode(value);
     }
 
-    public final boolean hasReplyText() {
+    public boolean hasReplyText() {
         return (packing_flags & 512) != 0;
     }
 
-    public final ConnectionClose clearReplyText() {
+    public ConnectionClose clearReplyText() {
         packing_flags &= ~512;
         this.replyText = null;
         setDirty(true);
         return this;
     }
 
-    public final String getReplyText() {
+    public String getReplyText() {
         return replyText;
     }
 
-    public final ConnectionClose setReplyText(String value) {
+    public ConnectionClose setReplyText(String value) {
         this.replyText = value;
         packing_flags |= 512;
         setDirty(true);
         return this;
     }
 
-    public final ConnectionClose replyText(String value) {
+    public ConnectionClose replyText(String value) {
         return setReplyText(value);
     }
 

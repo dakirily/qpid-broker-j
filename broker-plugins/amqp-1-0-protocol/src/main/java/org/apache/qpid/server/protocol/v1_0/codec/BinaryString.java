@@ -60,20 +60,19 @@ final class BinaryString
 
 
     @Override
-    public final int hashCode()
+    public int hashCode()
     {
         return _hashCode;
     }
 
     @Override
-    public final boolean equals(Object o)
+    public boolean equals(Object o)
     {
-        if(!(o instanceof BinaryString))
+        if(!(o instanceof final BinaryString buf))
         {
             return false;
         }
 
-        BinaryString buf = (BinaryString) o;
         final int size = _size;
         if (size != buf._size)
         {

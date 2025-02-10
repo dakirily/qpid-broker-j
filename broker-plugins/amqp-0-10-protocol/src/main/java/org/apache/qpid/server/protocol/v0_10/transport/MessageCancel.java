@@ -31,32 +31,32 @@ public final class MessageCancel extends Method {
     public static final int TYPE = 1032;
 
     @Override
-    public final int getStructType() {
+    public int getStructType() {
         return TYPE;
     }
 
     @Override
-    public final int getSizeWidth() {
+    public int getSizeWidth() {
         return 0;
     }
 
     @Override
-    public final int getPackWidth() {
+    public int getPackWidth() {
         return 2;
     }
 
     @Override
-    public final boolean hasPayload() {
+    public boolean hasPayload() {
         return false;
     }
 
     @Override
-    public final byte getEncodedTrack() {
+    public byte getEncodedTrack() {
         return Frame.L4;
     }
 
     @Override
-    public final boolean isConnectionControl()
+    public boolean isConnectionControl()
     {
         return false;
     }
@@ -73,13 +73,23 @@ public final class MessageCancel extends Method {
             setDestination(destination);
         }
 
-        for (int i=0; i < _options.length; i++) {
-            switch (_options[i]) {
-            case SYNC: this.setSync(true); break;
-            case BATCH: this.setBatch(true); break;
-            case UNRELIABLE: this.setUnreliable(true); break;
-            case NONE: break;
-            default: throw new IllegalArgumentException("invalid option: " + _options[i]);
+        for (final Option option : _options)
+        {
+            switch (option)
+            {
+                case SYNC:
+                    this.setSync(true);
+                    break;
+                case BATCH:
+                    this.setBatch(true);
+                    break;
+                case UNRELIABLE:
+                    this.setUnreliable(true);
+                    break;
+                case NONE:
+                    break;
+                default:
+                    throw new IllegalArgumentException("invalid option: " + option);
             }
         }
 
@@ -91,29 +101,29 @@ public final class MessageCancel extends Method {
     }
 
 
-    public final boolean hasDestination() {
+    public boolean hasDestination() {
         return (packing_flags & 256) != 0;
     }
 
-    public final MessageCancel clearDestination() {
+    public MessageCancel clearDestination() {
         packing_flags &= ~256;
         this.destination = null;
         setDirty(true);
         return this;
     }
 
-    public final String getDestination() {
+    public String getDestination() {
         return destination;
     }
 
-    public final MessageCancel setDestination(String value) {
+    public MessageCancel setDestination(String value) {
         this.destination = value;
         packing_flags |= 256;
         setDirty(true);
         return this;
     }
 
-    public final MessageCancel destination(String value) {
+    public MessageCancel destination(String value) {
         return setDestination(value);
     }
 

@@ -40,9 +40,9 @@ public class CompositeAMQDataBlock extends AMQDataBlock implements EncodableAMQD
     public long getSize()
     {
         long frameSize = 0;
-        for (int i = 0; i < _blocks.length; i++)
+        for (final AMQDataBlock block : _blocks)
         {
-            frameSize += _blocks[i].getSize();
+            frameSize += block.getSize();
         }
         return frameSize;
     }
@@ -51,9 +51,9 @@ public class CompositeAMQDataBlock extends AMQDataBlock implements EncodableAMQD
     public long writePayload(final ByteBufferSender sender)
     {
         long size = 0L;
-        for (int i = 0; i < _blocks.length; i++)
+        for (final AMQDataBlock block : _blocks)
         {
-            size += _blocks[i].writePayload(sender);
+            size += block.writePayload(sender);
         }
         return size;
     }

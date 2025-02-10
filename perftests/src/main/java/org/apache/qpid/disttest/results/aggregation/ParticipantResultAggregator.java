@@ -65,9 +65,8 @@ public class ParticipantResultAggregator
         {
             rollupConstantAttributes(result);
             computeVariableAttributes(result);
-            if (result instanceof ConsumerParticipantResult)
+            if (result instanceof final ConsumerParticipantResult consumerParticipantResult)
             {
-                ConsumerParticipantResult consumerParticipantResult = (ConsumerParticipantResult)result;
                 _latencyStatistics.addMessageLatencies(consumerParticipantResult.getMessageLatencies());
                 _latencyStatistics.aggregate();
             }
@@ -130,14 +129,12 @@ public class ParticipantResultAggregator
         _encounteredIterationNumbers.add(result.getIterationNumber());
         _encounteredBatchSizes.add(result.getBatchSize());
         _encounteredAcknowledgeMode.add(result.getAcknowledgeMode());
-        if (result instanceof ProducerParticipantResult)
+        if (result instanceof final ProducerParticipantResult producerParticipantResult)
         {
-            ProducerParticipantResult producerParticipantResult = (ProducerParticipantResult) result;
             _encounteredDeliveryModes.add(producerParticipantResult.getDeliveryMode());
         }
-        else if(result instanceof ConsumerParticipantResult)
+        else if(result instanceof final ConsumerParticipantResult consumerParticipantResult)
         {
-            ConsumerParticipantResult consumerParticipantResult = (ConsumerParticipantResult)result;
             _encounteredDurableSubscriptions.add(consumerParticipantResult.isDurableSubscription());
             _encounteredTopics.add(consumerParticipantResult.isTopic());
         }
@@ -185,17 +182,15 @@ public class ParticipantResultAggregator
         {
             aggregatedResult.setAcknowledgeMode(_encounteredAcknowledgeMode.first());
         }
-        if (aggregatedResult instanceof ProducerParticipantResult)
+        if (aggregatedResult instanceof final ProducerParticipantResult producerParticipantResult)
         {
-            ProducerParticipantResult producerParticipantResult = (ProducerParticipantResult) aggregatedResult;
             if(_encounteredDeliveryModes.size() == 1)
             {
                 producerParticipantResult.setDeliveryMode(_encounteredDeliveryModes.first());
             }
         }
-        if (aggregatedResult instanceof ConsumerParticipantResult)
+        if (aggregatedResult instanceof final ConsumerParticipantResult consumerParticipantResult)
         {
-            ConsumerParticipantResult consumerParticipantResult = (ConsumerParticipantResult) aggregatedResult;
             if(_encounteredDurableSubscriptions.size() == 1)
             {
                 consumerParticipantResult.setDurableSubscription(_encounteredDurableSubscriptions.first());

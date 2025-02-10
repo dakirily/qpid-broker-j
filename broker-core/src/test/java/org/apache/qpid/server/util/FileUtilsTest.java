@@ -686,7 +686,7 @@ public class FileUtilsTest extends UnitTestBase
             assertNotNull(results, "Null result set returned");
 
             // Validate we only got one message
-            if (results.size() > 0)
+            if (!results.isEmpty())
             {
                 System.err.println("Unexpected messages");
 

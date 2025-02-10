@@ -31,29 +31,29 @@ public final class DeliveryProperties extends Struct {
     public static final int TYPE = 1025;
 
     @Override
-    public final int getStructType() {
+    public int getStructType() {
         return TYPE;
     }
 
     @Override
-    public final int getSizeWidth() {
+    public int getSizeWidth() {
         return 4;
     }
 
     @Override
-    public final int getPackWidth() {
+    public int getPackWidth() {
         return 2;
     }
 
-    public final boolean hasPayload() {
+    public boolean hasPayload() {
         return false;
     }
 
-    public final byte getEncodedTrack() {
+    public byte getEncodedTrack() {
         return -1;
     }
 
-    public final boolean isConnectionControl()
+    public boolean isConnectionControl()
     {
         return false;
     }
@@ -72,22 +72,22 @@ public final class DeliveryProperties extends Struct {
 
     public DeliveryProperties() {}
 
-    public final boolean hasDiscardUnroutable() {
+    public boolean hasDiscardUnroutable() {
         return (packing_flags & 256) != 0;
     }
 
-    public final DeliveryProperties clearDiscardUnroutable() {
+    public DeliveryProperties clearDiscardUnroutable() {
         packing_flags &= ~256;
 
         setDirty(true);
         return this;
     }
 
-    public final boolean getDiscardUnroutable() {
+    public boolean getDiscardUnroutable() {
         return hasDiscardUnroutable();
     }
 
-    public final DeliveryProperties setDiscardUnroutable(boolean value) {
+    public DeliveryProperties setDiscardUnroutable(boolean value) {
 
         if (value)
         {
@@ -102,26 +102,26 @@ public final class DeliveryProperties extends Struct {
         return this;
     }
 
-    public final DeliveryProperties discardUnroutable(boolean value) {
+    public DeliveryProperties discardUnroutable(boolean value) {
         return setDiscardUnroutable(value);
     }
 
-    public final boolean hasImmediate() {
+    public boolean hasImmediate() {
         return (packing_flags & 512) != 0;
     }
 
-    public final DeliveryProperties clearImmediate() {
+    public DeliveryProperties clearImmediate() {
         packing_flags &= ~512;
 
         setDirty(true);
         return this;
     }
 
-    public final boolean getImmediate() {
+    public boolean getImmediate() {
         return hasImmediate();
     }
 
-    public final DeliveryProperties setImmediate(boolean value) {
+    public DeliveryProperties setImmediate(boolean value) {
 
         if (value)
         {
@@ -136,26 +136,26 @@ public final class DeliveryProperties extends Struct {
         return this;
     }
 
-    public final DeliveryProperties immediate(boolean value) {
+    public DeliveryProperties immediate(boolean value) {
         return setImmediate(value);
     }
 
-    public final boolean hasRedelivered() {
+    public boolean hasRedelivered() {
         return (packing_flags & 1024) != 0;
     }
 
-    public final DeliveryProperties clearRedelivered() {
+    public DeliveryProperties clearRedelivered() {
         packing_flags &= ~1024;
 
         setDirty(true);
         return this;
     }
 
-    public final boolean getRedelivered() {
+    public boolean getRedelivered() {
         return hasRedelivered();
     }
 
-    public final DeliveryProperties setRedelivered(boolean value) {
+    public DeliveryProperties setRedelivered(boolean value) {
 
         if (value)
         {
@@ -170,241 +170,241 @@ public final class DeliveryProperties extends Struct {
         return this;
     }
 
-    public final DeliveryProperties redelivered(boolean value) {
+    public DeliveryProperties redelivered(boolean value) {
         return setRedelivered(value);
     }
 
-    public final boolean hasPriority() {
+    public boolean hasPriority() {
         return (packing_flags & 2048) != 0;
     }
 
-    public final DeliveryProperties clearPriority() {
+    public DeliveryProperties clearPriority() {
         packing_flags &= ~2048;
         this.priority = null;
         setDirty(true);
         return this;
     }
 
-    public final MessageDeliveryPriority getPriority() {
+    public MessageDeliveryPriority getPriority() {
         return priority;
     }
 
-    public final DeliveryProperties setPriority(MessageDeliveryPriority value) {
+    public DeliveryProperties setPriority(MessageDeliveryPriority value) {
         this.priority = value;
         packing_flags |= 2048;
         setDirty(true);
         return this;
     }
 
-    public final DeliveryProperties priority(MessageDeliveryPriority value) {
+    public DeliveryProperties priority(MessageDeliveryPriority value) {
         return setPriority(value);
     }
 
-    public final boolean hasDeliveryMode() {
+    public boolean hasDeliveryMode() {
         return (packing_flags & 4096) != 0;
     }
 
-    public final DeliveryProperties clearDeliveryMode() {
+    public DeliveryProperties clearDeliveryMode() {
         packing_flags &= ~4096;
         this.deliveryMode = null;
         setDirty(true);
         return this;
     }
 
-    public final MessageDeliveryMode getDeliveryMode() {
+    public MessageDeliveryMode getDeliveryMode() {
         return deliveryMode;
     }
 
-    public final DeliveryProperties setDeliveryMode(MessageDeliveryMode value) {
+    public DeliveryProperties setDeliveryMode(MessageDeliveryMode value) {
         this.deliveryMode = value;
         packing_flags |= 4096;
         setDirty(true);
         return this;
     }
 
-    public final DeliveryProperties deliveryMode(MessageDeliveryMode value) {
+    public DeliveryProperties deliveryMode(MessageDeliveryMode value) {
         return setDeliveryMode(value);
     }
 
-    public final boolean hasTtl() {
+    public boolean hasTtl() {
         return (packing_flags & 8192) != 0;
     }
 
-    public final DeliveryProperties clearTtl() {
+    public DeliveryProperties clearTtl() {
         packing_flags &= ~8192;
         this.ttl = 0;
         setDirty(true);
         return this;
     }
 
-    public final long getTtl() {
+    public long getTtl() {
         return ttl;
     }
 
-    public final DeliveryProperties setTtl(long value) {
+    public DeliveryProperties setTtl(long value) {
         this.ttl = value;
         packing_flags |= 8192;
         setDirty(true);
         return this;
     }
 
-    public final DeliveryProperties ttl(long value) {
+    public DeliveryProperties ttl(long value) {
         return setTtl(value);
     }
 
-    public final boolean hasTimestamp() {
+    public boolean hasTimestamp() {
         return (packing_flags & 16384) != 0;
     }
 
-    public final DeliveryProperties clearTimestamp() {
+    public DeliveryProperties clearTimestamp() {
         packing_flags &= ~16384;
         this.timestamp = 0;
         setDirty(true);
         return this;
     }
 
-    public final long getTimestamp() {
+    public long getTimestamp() {
         return timestamp;
     }
 
-    public final DeliveryProperties setTimestamp(long value) {
+    public DeliveryProperties setTimestamp(long value) {
         this.timestamp = value;
         packing_flags |= 16384;
         setDirty(true);
         return this;
     }
 
-    public final DeliveryProperties timestamp(long value) {
+    public DeliveryProperties timestamp(long value) {
         return setTimestamp(value);
     }
 
-    public final boolean hasExpiration() {
+    public boolean hasExpiration() {
         return (packing_flags & 32768) != 0;
     }
 
-    public final DeliveryProperties clearExpiration() {
+    public DeliveryProperties clearExpiration() {
         packing_flags &= ~32768;
         this.expiration = 0;
         setDirty(true);
         return this;
     }
 
-    public final long getExpiration() {
+    public long getExpiration() {
         return expiration;
     }
 
-    public final DeliveryProperties setExpiration(long value) {
+    public DeliveryProperties setExpiration(long value) {
         this.expiration = value;
         packing_flags |= 32768;
         setDirty(true);
         return this;
     }
 
-    public final DeliveryProperties expiration(long value) {
+    public DeliveryProperties expiration(long value) {
         return setExpiration(value);
     }
 
-    public final boolean hasExchange() {
+    public boolean hasExchange() {
         return (packing_flags & 1) != 0;
     }
 
-    public final DeliveryProperties clearExchange() {
+    public DeliveryProperties clearExchange() {
         packing_flags &= ~1;
         this.exchange = null;
         setDirty(true);
         return this;
     }
 
-    public final String getExchange() {
+    public String getExchange() {
         return exchange;
     }
 
-    public final DeliveryProperties setExchange(String value) {
+    public DeliveryProperties setExchange(String value) {
         this.exchange = value;
         packing_flags |= 1;
         setDirty(true);
         return this;
     }
 
-    public final DeliveryProperties exchange(String value) {
+    public DeliveryProperties exchange(String value) {
         return setExchange(value);
     }
 
-    public final boolean hasRoutingKey() {
+    public boolean hasRoutingKey() {
         return (packing_flags & 2) != 0;
     }
 
-    public final DeliveryProperties clearRoutingKey() {
+    public DeliveryProperties clearRoutingKey() {
         packing_flags &= ~2;
         this.routingKey = null;
         setDirty(true);
         return this;
     }
 
-    public final String getRoutingKey() {
+    public String getRoutingKey() {
         return routingKey;
     }
 
-    public final DeliveryProperties setRoutingKey(String value) {
+    public DeliveryProperties setRoutingKey(String value) {
         this.routingKey = value;
         packing_flags |= 2;
         setDirty(true);
         return this;
     }
 
-    public final DeliveryProperties routingKey(String value) {
+    public DeliveryProperties routingKey(String value) {
         return setRoutingKey(value);
     }
 
-    public final boolean hasResumeId() {
+    public boolean hasResumeId() {
         return (packing_flags & 4) != 0;
     }
 
-    public final DeliveryProperties clearResumeId() {
+    public DeliveryProperties clearResumeId() {
         packing_flags &= ~4;
         this.resumeId = null;
         setDirty(true);
         return this;
     }
 
-    public final String getResumeId() {
+    public String getResumeId() {
         return resumeId;
     }
 
-    public final DeliveryProperties setResumeId(String value) {
+    public DeliveryProperties setResumeId(String value) {
         this.resumeId = value;
         packing_flags |= 4;
         setDirty(true);
         return this;
     }
 
-    public final DeliveryProperties resumeId(String value) {
+    public DeliveryProperties resumeId(String value) {
         return setResumeId(value);
     }
 
-    public final boolean hasResumeTtl() {
+    public boolean hasResumeTtl() {
         return (packing_flags & 8) != 0;
     }
 
-    public final DeliveryProperties clearResumeTtl() {
+    public DeliveryProperties clearResumeTtl() {
         packing_flags &= ~8;
         this.resumeTtl = 0;
         setDirty(true);
         return this;
     }
 
-    public final long getResumeTtl() {
+    public long getResumeTtl() {
         return resumeTtl;
     }
 
-    public final DeliveryProperties setResumeTtl(long value) {
+    public DeliveryProperties setResumeTtl(long value) {
         this.resumeTtl = value;
         packing_flags |= 8;
         setDirty(true);
         return this;
     }
 
-    public final DeliveryProperties resumeTtl(long value) {
+    public DeliveryProperties resumeTtl(long value) {
         return setResumeTtl(value);
     }
 

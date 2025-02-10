@@ -31,32 +31,32 @@ public final class ExecutionException extends Method {
     public static final int TYPE = 771;
 
     @Override
-    public final int getStructType() {
+    public int getStructType() {
         return TYPE;
     }
 
     @Override
-    public final int getSizeWidth() {
+    public int getSizeWidth() {
         return 0;
     }
 
     @Override
-    public final int getPackWidth() {
+    public int getPackWidth() {
         return 2;
     }
 
     @Override
-    public final boolean hasPayload() {
+    public boolean hasPayload() {
         return false;
     }
 
     @Override
-    public final byte getEncodedTrack() {
+    public byte getEncodedTrack() {
         return Frame.L4;
     }
 
     @Override
-    public final boolean isConnectionControl()
+    public boolean isConnectionControl()
     {
         return false;
     }
@@ -89,13 +89,23 @@ public final class ExecutionException extends Method {
             setErrorInfo(errorInfo);
         }
 
-        for (int i=0; i < _options.length; i++) {
-            switch (_options[i]) {
-            case SYNC: this.setSync(true); break;
-            case BATCH: this.setBatch(true); break;
-            case UNRELIABLE: this.setUnreliable(true); break;
-            case NONE: break;
-            default: throw new IllegalArgumentException("invalid option: " + _options[i]);
+        for (final Option option : _options)
+        {
+            switch (option)
+            {
+                case SYNC:
+                    this.setSync(true);
+                    break;
+                case BATCH:
+                    this.setBatch(true);
+                    break;
+                case UNRELIABLE:
+                    this.setUnreliable(true);
+                    break;
+                case NONE:
+                    break;
+                default:
+                    throw new IllegalArgumentException("invalid option: " + option);
             }
         }
 
@@ -107,185 +117,185 @@ public final class ExecutionException extends Method {
     }
 
 
-    public final boolean hasErrorCode() {
+    public boolean hasErrorCode() {
         return (packing_flags & 256) != 0;
     }
 
-    public final ExecutionException clearErrorCode() {
+    public ExecutionException clearErrorCode() {
         packing_flags &= ~256;
         this.errorCode = null;
         setDirty(true);
         return this;
     }
 
-    public final ExecutionErrorCode getErrorCode() {
+    public ExecutionErrorCode getErrorCode() {
         return errorCode;
     }
 
-    public final ExecutionException setErrorCode(ExecutionErrorCode value) {
+    public ExecutionException setErrorCode(ExecutionErrorCode value) {
         this.errorCode = value;
         packing_flags |= 256;
         setDirty(true);
         return this;
     }
 
-    public final ExecutionException errorCode(ExecutionErrorCode value) {
+    public ExecutionException errorCode(ExecutionErrorCode value) {
         return setErrorCode(value);
     }
 
-    public final boolean hasCommandId() {
+    public boolean hasCommandId() {
         return (packing_flags & 512) != 0;
     }
 
-    public final ExecutionException clearCommandId() {
+    public ExecutionException clearCommandId() {
         packing_flags &= ~512;
         this.commandId = 0;
         setDirty(true);
         return this;
     }
 
-    public final int getCommandId() {
+    public int getCommandId() {
         return commandId;
     }
 
-    public final ExecutionException setCommandId(int value) {
+    public ExecutionException setCommandId(int value) {
         this.commandId = value;
         packing_flags |= 512;
         setDirty(true);
         return this;
     }
 
-    public final ExecutionException commandId(int value) {
+    public ExecutionException commandId(int value) {
         return setCommandId(value);
     }
 
-    public final boolean hasClassCode() {
+    public boolean hasClassCode() {
         return (packing_flags & 1024) != 0;
     }
 
-    public final ExecutionException clearClassCode() {
+    public ExecutionException clearClassCode() {
         packing_flags &= ~1024;
         this.classCode = 0;
         setDirty(true);
         return this;
     }
 
-    public final short getClassCode() {
+    public short getClassCode() {
         return classCode;
     }
 
-    public final ExecutionException setClassCode(short value) {
+    public ExecutionException setClassCode(short value) {
         this.classCode = value;
         packing_flags |= 1024;
         setDirty(true);
         return this;
     }
 
-    public final ExecutionException classCode(short value) {
+    public ExecutionException classCode(short value) {
         return setClassCode(value);
     }
 
-    public final boolean hasCommandCode() {
+    public boolean hasCommandCode() {
         return (packing_flags & 2048) != 0;
     }
 
-    public final ExecutionException clearCommandCode() {
+    public ExecutionException clearCommandCode() {
         packing_flags &= ~2048;
         this.commandCode = 0;
         setDirty(true);
         return this;
     }
 
-    public final short getCommandCode() {
+    public short getCommandCode() {
         return commandCode;
     }
 
-    public final ExecutionException setCommandCode(short value) {
+    public ExecutionException setCommandCode(short value) {
         this.commandCode = value;
         packing_flags |= 2048;
         setDirty(true);
         return this;
     }
 
-    public final ExecutionException commandCode(short value) {
+    public ExecutionException commandCode(short value) {
         return setCommandCode(value);
     }
 
-    public final boolean hasFieldIndex() {
+    public boolean hasFieldIndex() {
         return (packing_flags & 4096) != 0;
     }
 
-    public final ExecutionException clearFieldIndex() {
+    public ExecutionException clearFieldIndex() {
         packing_flags &= ~4096;
         this.fieldIndex = 0;
         setDirty(true);
         return this;
     }
 
-    public final short getFieldIndex() {
+    public short getFieldIndex() {
         return fieldIndex;
     }
 
-    public final ExecutionException setFieldIndex(short value) {
+    public ExecutionException setFieldIndex(short value) {
         this.fieldIndex = value;
         packing_flags |= 4096;
         setDirty(true);
         return this;
     }
 
-    public final ExecutionException fieldIndex(short value) {
+    public ExecutionException fieldIndex(short value) {
         return setFieldIndex(value);
     }
 
-    public final boolean hasDescription() {
+    public boolean hasDescription() {
         return (packing_flags & 8192) != 0;
     }
 
-    public final ExecutionException clearDescription() {
+    public ExecutionException clearDescription() {
         packing_flags &= ~8192;
         this.description = null;
         setDirty(true);
         return this;
     }
 
-    public final String getDescription() {
+    public String getDescription() {
         return description;
     }
 
-    public final ExecutionException setDescription(String value) {
+    public ExecutionException setDescription(String value) {
         this.description = value;
         packing_flags |= 8192;
         setDirty(true);
         return this;
     }
 
-    public final ExecutionException description(String value) {
+    public ExecutionException description(String value) {
         return setDescription(value);
     }
 
-    public final boolean hasErrorInfo() {
+    public boolean hasErrorInfo() {
         return (packing_flags & 16384) != 0;
     }
 
-    public final ExecutionException clearErrorInfo() {
+    public ExecutionException clearErrorInfo() {
         packing_flags &= ~16384;
         this.errorInfo = null;
         setDirty(true);
         return this;
     }
 
-    public final Map<String,Object> getErrorInfo() {
+    public Map<String,Object> getErrorInfo() {
         return errorInfo;
     }
 
-    public final ExecutionException setErrorInfo(Map<String,Object> value) {
+    public ExecutionException setErrorInfo(Map<String, Object> value) {
         this.errorInfo = value;
         packing_flags |= 16384;
         setDirty(true);
         return this;
     }
 
-    public final ExecutionException errorInfo(Map<String,Object> value) {
+    public ExecutionException errorInfo(Map<String, Object> value) {
         return setErrorInfo(value);
     }
 

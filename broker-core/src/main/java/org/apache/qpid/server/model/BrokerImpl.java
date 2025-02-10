@@ -35,6 +35,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
@@ -49,11 +50,6 @@ import java.util.regex.Pattern;
 import javax.security.auth.Subject;
 import javax.security.auth.login.AccountNotFoundException;
 
-import com.google.common.util.concurrent.FutureCallback;
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.MoreExecutors;
-import com.google.common.util.concurrent.SettableFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -319,26 +315,26 @@ public class BrokerImpl extends AbstractContainer<BrokerImpl> implements Broker<
     }
 
     @StateTransition( currentState = State.UNINITIALIZED, desiredState = State.ACTIVE )
-    private ListenableFuture<Void> activate()
+    private CompletableFuture<Void> activate()
     {
         if(_parent.isManagementMode())
         {
-            return doAfter(_managementModeAuthenticationProvider.openAsync(), this::performActivation);
+            return _managementModeAuthenticationProvider.openAsync().thenRunAsync(this::performActivation, getTaskExecutor());
         }
         else
         {
             performActivation();
-            return Futures.immediateFuture(null);
+            return CompletableFuture.completedFuture(null);
         }
     }
 
     @SuppressWarnings("unused")
     @StateTransition( currentState = {State.ACTIVE, State.ERRORED}, desiredState = State.STOPPED )
-    private ListenableFuture<Void> doStop()
+    private CompletableFuture<Void> doStop()
     {
         stopPreferenceTaskExecutor();
         closePreferenceStore();
-        return Futures.immediateFuture(null);
+        return CompletableFuture.completedFuture(null);
     }
 
     private void closePreferenceStore()
@@ -461,21 +457,10 @@ public class BrokerImpl extends AbstractContainer<BrokerImpl> implements Broker<
 
             _lastDisposalCounter = QpidByteBuffer.getPooledBufferDisposalCounter();
 
-            ListenableFuture<Void> result = compactMemoryInternal();
-            addFutureCallback(result, new FutureCallback<>()
+            CompletableFuture<Void> result = compactMemoryInternal().whenComplete((result1, error) ->
             {
-                @Override
-                public void onSuccess(final Void result)
-                {
-                    scheduleDirectMemoryCheck();
-                }
-
-                @Override
-                public void onFailure(final Throwable t)
-                {
-                    scheduleDirectMemoryCheck();
-                }
-            }, MoreExecutors.directExecutor());
+                scheduleDirectMemoryCheck();
+            });
         }
         else
         {
@@ -568,9 +553,8 @@ public class BrokerImpl extends AbstractContainer<BrokerImpl> implements Broker<
         for (VirtualHostNode<?> vhn : vhns)
         {
             VirtualHost<?> vh = vhn.getVirtualHost();
-            if (vh instanceof QueueManagingVirtualHost)
+            if (vh instanceof final QueueManagingVirtualHost<?> host)
             {
-                QueueManagingVirtualHost<?> host = (QueueManagingVirtualHost<?>)vh;
                 long totalQueueDepthBytes = host.getTotalDepthOfQueuesBytes();
                 vhs.put(host, totalQueueDepthBytes);
                 totalSize += totalQueueDepthBytes;
@@ -656,36 +640,31 @@ public class BrokerImpl extends AbstractContainer<BrokerImpl> implements Broker<
         return children;
     }
 
-    private ListenableFuture<VirtualHostNode> createVirtualHostNodeAsync(Map<String, Object> attributes)
+    private CompletableFuture<VirtualHostNode> createVirtualHostNodeAsync(Map<String, Object> attributes)
             throws AccessControlException, IllegalArgumentException
     {
 
-        return doAfter(getObjectFactory().createAsync(VirtualHostNode.class, attributes, this),
-                       new CallableWithArgument<ListenableFuture<VirtualHostNode>, VirtualHostNode>()
-                       {
-                           @Override
-                           public ListenableFuture<VirtualHostNode> call(final VirtualHostNode virtualHostNode)
-                           {
-                               // permission has already been granted to create the virtual host
-                               // disable further access check on other operations, e.g. create exchange
-                               Subject.doAs(getSubjectWithAddedSystemRights(), (PrivilegedAction<Object>) () ->
-                               {
-                                   virtualHostNode.start();
-                                   return null;
-                               });
-                               return Futures.immediateFuture(virtualHostNode);
-                           }
-                       });
+        return getObjectFactory().createAsync(VirtualHostNode.class, attributes, this).thenApplyAsync((virtualHostNode) ->
+        {
+            // permission has already been granted to create the virtual host
+            // disable further access check on other operations, e.g. create exchange
+            Subject.doAs(getSubjectWithAddedSystemRights(), (PrivilegedAction<Object>) () ->
+            {
+                ((VirtualHostNode) virtualHostNode).start();
+                return null;
+            });
+            return virtualHostNode;
+        }, getTaskExecutor());
     }
 
     @SuppressWarnings("unchecked")
     @Override
-    protected <C extends ConfiguredObject> ListenableFuture<C> addChildAsync(final Class<C> childClass,
+    protected <C extends ConfiguredObject> CompletableFuture<C> addChildAsync(final Class<C> childClass,
                                                                           final Map<String, Object> attributes)
     {
         if (childClass == VirtualHostNode.class)
         {
-            return (ListenableFuture<C>) createVirtualHostNodeAsync(attributes);
+            return (CompletableFuture<C>) createVirtualHostNodeAsync(attributes);
         }
         else
         {
@@ -694,12 +673,12 @@ public class BrokerImpl extends AbstractContainer<BrokerImpl> implements Broker<
     }
 
     @Override
-    protected ListenableFuture<Void> beforeClose()
+    protected CompletableFuture<Void> beforeClose()
     {
         try
         {
             final boolean removed = Runtime.getRuntime().removeShutdownHook(_shutdownHook);
-            LOGGER.debug("Removed shutdown hook: " + removed);
+            LOGGER.debug("Removed shutdown hook: {}", removed);
         }
         catch(IllegalStateException ise)
         {
@@ -710,7 +689,7 @@ public class BrokerImpl extends AbstractContainer<BrokerImpl> implements Broker<
     }
 
     @Override
-    protected ListenableFuture<Void> onClose()
+    protected CompletableFuture<Void> onClose()
     {
         if (_assignTargetSizeSchedulingFuture != null)
         {
@@ -739,7 +718,7 @@ public class BrokerImpl extends AbstractContainer<BrokerImpl> implements Broker<
                 task.run();
             }
         }
-        return Futures.immediateFuture(null);
+        return CompletableFuture.completedFuture(null);
 
     }
 
@@ -754,7 +733,7 @@ public class BrokerImpl extends AbstractContainer<BrokerImpl> implements Broker<
         if(!isManagementMode())
         {
             List<AccessControlProvider> children = new ArrayList<>(getChildren(AccessControlProvider.class));
-            Collections.sort(children, CommonAccessControlProvider.ACCESS_CONTROL_PROVIDER_COMPARATOR);
+            children.sort(CommonAccessControlProvider.ACCESS_CONTROL_PROVIDER_COMPARATOR);
 
             List<AccessControl<?>> accessControls = new ArrayList<>(children.size()+1);
             accessControls.add(_systemUserAllowed);
@@ -998,8 +977,8 @@ public class BrokerImpl extends AbstractContainer<BrokerImpl> implements Broker<
         {
             final SystemConfig<?> systemConfig = (SystemConfig) getParent();
             // This is deliberately asynchronous as the HTTP thread will be interrupted by restarting
-            doAfter(systemConfig.setAttributesAsync(Map.of(ConfiguredObject.DESIRED_STATE, State.STOPPED)), () ->
-                    systemConfig.setAttributesAsync(Map.of(ConfiguredObject.DESIRED_STATE, State.ACTIVE)));
+            systemConfig.setAttributesAsync(Map.of(ConfiguredObject.DESIRED_STATE, State.STOPPED))
+                    .thenRunAsync(() -> systemConfig.setAttributesAsync(Map.of(ConfiguredObject.DESIRED_STATE, State.ACTIVE)), getTaskExecutor());
             return null;
         });
 
@@ -1141,45 +1120,42 @@ public class BrokerImpl extends AbstractContainer<BrokerImpl> implements Broker<
         compactMemoryInternal();
     }
 
-    private ListenableFuture<Void> compactMemoryInternal()
+    private CompletableFuture<Void> compactMemoryInternal()
     {
         LOGGER.debug("Compacting direct memory buffers: numberOfActivePooledBuffers: {}",
                      QpidByteBuffer.getNumberOfBuffersInUse());
 
         final Collection<VirtualHostNode<?>> vhns = getVirtualHostNodes();
-        List<ListenableFuture<Void>> futures = new ArrayList<>(vhns.size());
+        List<CompletableFuture<Void>> futures = new ArrayList<>(vhns.size());
         for (VirtualHostNode<?> vhn : vhns)
         {
             VirtualHost<?> vh = vhn.getVirtualHost();
             if (vh instanceof QueueManagingVirtualHost)
             {
-                ListenableFuture<Void> future = ((QueueManagingVirtualHost) vh).reallocateMessages();
+                CompletableFuture<Void> future = ((QueueManagingVirtualHost) vh).reallocateMessages();
                 futures.add(future);
             }
         }
 
-        SettableFuture<Void> resultFuture = SettableFuture.create();
-        final ListenableFuture<List<Void>> combinedFuture = Futures.allAsList(futures);
-        addFutureCallback(combinedFuture, new FutureCallback<>()
+        CompletableFuture<Void> resultFuture = new CompletableFuture<>();
+        final CompletableFuture<Void> combinedFuture = CompletableFuture.allOf(futures.toArray(CompletableFuture[]::new));
+        combinedFuture.whenCompleteAsync((result, error) ->
         {
-            @Override
-            public void onSuccess(final List<Void> result)
+            if (error != null)
+            {
+                LOGGER.warn("Unexpected error during direct memory compaction.", error);
+                resultFuture.completeExceptionally(error);
+            }
+            else
             {
                 if (LOGGER.isDebugEnabled())
                 {
-                    LOGGER.debug("After compact direct memory buffers: numberOfActivePooledBuffers: {}",
-                                 QpidByteBuffer.getNumberOfBuffersInUse());
+                    LOGGER.debug("After compact direct memory buffers: numberOfActivePooledBuffers: {}", QpidByteBuffer.getNumberOfBuffersInUse());
                 }
-                resultFuture.set(null);
-            }
-
-            @Override
-            public void onFailure(final Throwable t)
-            {
-                LOGGER.warn("Unexpected error during direct memory compaction.", t);
-                resultFuture.setException(t);
+                resultFuture.complete(null);
             }
         }, _houseKeepingTaskExecutor);
+
         return resultFuture;
     }
 
@@ -1290,7 +1266,7 @@ public class BrokerImpl extends AbstractContainer<BrokerImpl> implements Broker<
 
         private void waitForBrokerShutdown()
         {
-            final ListenableFuture<Void> closeResult = _parent.closeAsync();
+            final CompletableFuture<Void> closeResult = _parent.closeAsync();
             try
             {
                 if (_shutdownTimeout < 1)
@@ -1309,7 +1285,7 @@ public class BrokerImpl extends AbstractContainer<BrokerImpl> implements Broker<
         }
     }
 
-    private final SocketConnectionMetaData getConnectionMetaDataInternal()
+    private SocketConnectionMetaData getConnectionMetaDataInternal()
     {
         final Subject subject = Subject.getSubject(AccessController.getContext());
         final SocketConnectionPrincipal principal;

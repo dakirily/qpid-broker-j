@@ -42,9 +42,8 @@ public class SenderSettleMode implements RestrictedType<UnsignedByte>
 
     public static SenderSettleMode valueOf(Object obj)
     {
-        if (obj instanceof UnsignedByte)
+        if (obj instanceof final UnsignedByte val)
         {
-            UnsignedByte val = (UnsignedByte) obj;
 
             if (UNSETTLED._val.equals(val))
             {

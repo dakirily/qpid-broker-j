@@ -63,7 +63,7 @@ public class LargeMessageBodyTest extends BrokerAdminUsingTestBase
             final ConnectionTune tune = interaction.authenticateConnection().getLatestResponse(ConnectionTune.class);
 
             final byte[] messageContent = new byte[tune.getMaxFrameSize() * 2];
-            IntStream.range(0, messageContent.length).forEach(i -> {messageContent[i] = (byte) (i & 0xFF);});
+            IntStream.range(0, messageContent.length).forEach(i -> messageContent[i] = (byte) (i & 0xFF));
 
             interaction.connection().tuneOk()
                        .connection().open()

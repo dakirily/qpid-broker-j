@@ -488,8 +488,8 @@ public class SortedQueueTest extends JmsTestBase
                 }
 
                 _count++;
-                LOGGER.debug("Message consumed with key: " + message.getStringProperty(TEST_SORT_KEY));
-                LOGGER.debug("Message consumed with consumed index: " + _receivedKeys.size());
+                LOGGER.debug("Message consumed with key: {}", message.getStringProperty(TEST_SORT_KEY));
+                LOGGER.debug("Message consumed with consumed index: {}", _receivedKeys.size());
             }
             catch (Exception e)
             {

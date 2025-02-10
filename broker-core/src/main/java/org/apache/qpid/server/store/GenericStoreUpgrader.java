@@ -76,7 +76,10 @@ public class GenericStoreUpgrader
 
         if (LOGGER.isInfoEnabled())
         {
-            LOGGER.info(_rootCategory + " store has model version " + version + ". Number of record(s) " + _records.size());
+            LOGGER.info("{} store has model version {}. Number of record(s) {}",
+                        _rootCategory,
+                        version,
+                        _records.size());
         }
 
         Map<UUID, ConfiguredObjectRecord> updatedRecords = new HashMap<>();
@@ -103,13 +106,16 @@ public class GenericStoreUpgrader
 
         if (LOGGER.isDebugEnabled())
         {
-            LOGGER.debug(_rootCategory + " store upgrade is about to complete. " + _records.size() + " total record(s)."
-                    + " Records to update " + updatedRecords.size()
-                    + " Records to delete " + deletedRecords.size());
+            LOGGER.debug(
+                    "{} store upgrade is about to complete. {} total record(s). Records to update {} Records to delete {}",
+                    _rootCategory,
+                    _records.size(),
+                    updatedRecords.size(),
+                    deletedRecords.size());
         }
 
-        _store.update(true, updatedRecords.values().toArray(new ConfiguredObjectRecord[updatedRecords.size()]));
-        _store.remove(deletedRecords.values().toArray(new ConfiguredObjectRecord[deletedRecords.size()]));
+        _store.update(true, updatedRecords.values().toArray(new ConfiguredObjectRecord[0]));
+        _store.remove(deletedRecords.values().toArray(new ConfiguredObjectRecord[0]));
 
         _records.keySet().removeAll(deletedRecords.keySet());
         _records.putAll(updatedRecords);

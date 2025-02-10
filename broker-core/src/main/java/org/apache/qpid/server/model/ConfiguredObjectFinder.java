@@ -133,7 +133,7 @@ public class ConfiguredObjectFinder
     public Class<? extends ConfiguredObject>[] getHierarchy(final Class<? extends ConfiguredObject> category)
     {
         List<Class<? extends ConfiguredObject>> hierarchy = _hierarchies.get(ConfiguredObjectTypeRegistry.getCategory(category));
-        return hierarchy == null ? null : hierarchy.toArray(new Class[hierarchy.size()]);
+        return hierarchy == null ? null : hierarchy.toArray(new Class[0]);
     }
 
     public Set<Class<? extends ConfiguredObject>> getAssociatedChildCategories()

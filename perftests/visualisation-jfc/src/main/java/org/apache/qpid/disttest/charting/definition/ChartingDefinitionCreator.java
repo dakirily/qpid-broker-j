@@ -74,10 +74,8 @@ public class ChartingDefinitionCreator
 
     private ChartingDefinition createChartDefinition(File file)
     {
-        Reader reader = null;
-        try
+        try (final Reader reader = new BufferedReader(new FileReader(file)))
         {
-            reader = new BufferedReader(new FileReader(file));
             Properties props = new Properties();
             props.load(reader);
 
@@ -110,21 +108,6 @@ public class ChartingDefinitionCreator
         {
             throw new ChartingException("Unable to open file " + file, e);
         }
-        finally
-        {
-            if (reader != null)
-            {
-                try
-                {
-                    reader.close();
-                }
-                catch (IOException e)
-                {
-                    throw new ChartingException(e);
-                }
-            }
-        }
-
     }
 
     private String getStemNameFrom(File file)

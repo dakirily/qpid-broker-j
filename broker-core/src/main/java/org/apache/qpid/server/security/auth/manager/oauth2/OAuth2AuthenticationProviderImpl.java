@@ -406,7 +406,7 @@ public class OAuth2AuthenticationProviderImpl
             String vhostName = URLEncoder.encode(addressSpace == null
                                                          ? ""
                                                          : addressSpace.getName(),
-                                                 UTF_8.name());
+                                                 UTF_8);
 
             final Strings.MapResolver virtualhostResolver = new Strings.MapResolver(Collections.singletonMap("virtualhost",
                                                                                                          vhostName));
@@ -414,7 +414,7 @@ public class OAuth2AuthenticationProviderImpl
             String substitutedURI = Strings.expand(uri.toString(), false, virtualhostResolver);
             uri = new URI(substitutedURI);
         }
-        catch (UnsupportedEncodingException | URISyntaxException e)
+        catch (URISyntaxException e)
         {
             LOGGER.error("Error when attempting to build URI from address space: ", e);
         }

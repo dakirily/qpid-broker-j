@@ -203,9 +203,8 @@ final class VirtualHostConnectionLimiter extends CachedConnectionLimiterImpl imp
         @Override
         public boolean equals(Object obj)
         {
-            if (obj instanceof AbstractChangeListener)
+            if (obj instanceof final AbstractChangeListener changeListener)
             {
-                final AbstractChangeListener changeListener = (AbstractChangeListener) obj;
                 return _limiter == changeListener._limiter && _providerClazz == changeListener._providerClazz;
             }
             return false;

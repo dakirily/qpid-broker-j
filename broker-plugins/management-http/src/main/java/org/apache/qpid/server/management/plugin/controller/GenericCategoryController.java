@@ -111,9 +111,8 @@ public abstract class GenericCategoryController implements CategoryController
         final Map<String, Object> body = convertAttributesToNextVersion(root, path, attributes);
         final Object configuredObject =
                 _nextVersionManagementController.createOrUpdate(root, getNextVersionCategory(), path, body, isPost);
-        if (configuredObject instanceof LegacyConfiguredObject)
+        if (configuredObject instanceof final LegacyConfiguredObject object)
         {
-            LegacyConfiguredObject object = (LegacyConfiguredObject) configuredObject;
             return convertFromNextVersion(object);
         }
         return null;
@@ -151,9 +150,8 @@ public abstract class GenericCategoryController implements CategoryController
     {
 
         Object result = get(root, path, Map.of());
-        if (result instanceof LegacyConfiguredObject)
+        if (result instanceof final LegacyConfiguredObject legacyConfiguredObject)
         {
-            final LegacyConfiguredObject legacyConfiguredObject = (LegacyConfiguredObject) result;
             return legacyConfiguredObject.invoke(operation, parameters, isSecure);
         }
         else
@@ -234,9 +232,8 @@ public abstract class GenericCategoryController implements CategoryController
         {
             return convertFromNextVersion((LegacyConfiguredObject) content);
         }
-        else if (content instanceof Collection)
+        else if (content instanceof final Collection<?> items)
         {
-            final Collection<?> items = (Collection<?>) content;
             return items.stream()
                         .filter(LegacyConfiguredObject.class::isInstance)
                         .map(LegacyConfiguredObject.class::cast)

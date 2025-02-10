@@ -610,7 +610,7 @@ public class MessageGroupTest extends JmsTestBase
                 {
                     _concurrentProcessingCases.incrementAndGet();
 
-                    LOGGER.error("Concurrent processing when handling message: " + message.getIntProperty("msg"));
+                    LOGGER.error("Concurrent processing when handling message: {}", message.getIntProperty("msg"));
                 }
 
                 try

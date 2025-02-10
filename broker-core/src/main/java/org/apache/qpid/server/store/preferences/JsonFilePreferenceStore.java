@@ -95,7 +95,7 @@ public class JsonFilePreferenceStore extends AbstractJsonFileStore implements Pr
             {
                 records = updater.updatePreferences(storedVersion.toString(), records);
                 storeContent.setVersion(BrokerModel.MODEL_VERSION);
-                storeContent.setPreferences(records.toArray(new StoredPreferenceRecord[records.size()]));
+                storeContent.setPreferences(records.toArray(new StoredPreferenceRecord[0]));
                 save(storeContent);
             }
 
@@ -183,7 +183,7 @@ public class JsonFilePreferenceStore extends AbstractJsonFileStore implements Pr
         }
 
         final Collection<StoredPreferenceRecord> values = _recordMap.values();
-        StoreContent newContent = new StoreContent(BrokerModel.MODEL_VERSION, values.toArray(new StoredPreferenceRecord[values.size()]));
+        StoreContent newContent = new StoreContent(BrokerModel.MODEL_VERSION, values.toArray(new StoredPreferenceRecord[0]));
         save(newContent);
     }
 

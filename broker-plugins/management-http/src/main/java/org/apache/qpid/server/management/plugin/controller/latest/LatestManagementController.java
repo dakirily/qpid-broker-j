@@ -227,7 +227,7 @@ public class LatestManagementController extends AbstractManagementController
         try
         {
             final List<String> hierarchy = getCategoryHierarchy(root, category);
-            if (path.isEmpty() && hierarchy.size() == 0)
+            if (path.isEmpty() && hierarchy.isEmpty())
             {
                 root.setAttributes(providedObject);
                 return null;

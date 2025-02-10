@@ -21,8 +21,6 @@
 package org.apache.qpid.server.model;
 
 import java.lang.reflect.Type;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 
 public class OperationParameterFromInjection implements OperationParameter
@@ -49,7 +47,7 @@ public class OperationParameterFromInjection implements OperationParameter
         _defaultValue = defaultValue;
         _description = description;
         _mandatory = mandatory;
-        _validValues = validValues == null ? List.of() : Collections.unmodifiableList(Arrays.asList(validValues));
+        _validValues = validValues == null ? List.of() : List.of(validValues);
     }
 
     @Override

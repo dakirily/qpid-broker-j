@@ -45,9 +45,8 @@ class CategoryStrokeAndPaintApplier implements SeriesStrokeAndPaintApplier
     public void setSeriesShape(final int seriesIndex, final java.awt.Shape shape, final JFreeChart targetChart)
     {
         CategoryItemRenderer renderer = targetChart.getCategoryPlot().getRenderer();
-        if (renderer instanceof LineAndShapeRenderer)
+        if (renderer instanceof final LineAndShapeRenderer lineAndShapeRenderer)
         {
-            LineAndShapeRenderer lineAndShapeRenderer = (LineAndShapeRenderer) renderer;
             lineAndShapeRenderer.setSeriesShapesVisible(seriesIndex, true);
             lineAndShapeRenderer.setSeriesShape(seriesIndex, shape);
         }

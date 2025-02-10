@@ -149,9 +149,8 @@ abstract class AbstractCommonRuleBasedAccessControlProvider<X extends AbstractCo
             }
             sb.append(' ').append(entry.getKey().getCanonicalName());
 
-            if (entry.getValue() instanceof Collection)
+            if (entry.getValue() instanceof final Collection<?> values)
             {
-                final Collection<?> values = (Collection<?>) entry.getValue();
                 sb.append("=[\"")
                         .append(values.stream().map(Object::toString).collect(Collectors.joining("\",\"")))
                         .append("\"]");

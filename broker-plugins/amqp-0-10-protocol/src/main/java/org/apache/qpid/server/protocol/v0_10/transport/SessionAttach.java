@@ -31,32 +31,32 @@ public final class SessionAttach extends Method {
     public static final int TYPE = 513;
 
     @Override
-    public final int getStructType() {
+    public int getStructType() {
         return TYPE;
     }
 
     @Override
-    public final int getSizeWidth() {
+    public int getSizeWidth() {
         return 0;
     }
 
     @Override
-    public final int getPackWidth() {
+    public int getPackWidth() {
         return 2;
     }
 
     @Override
-    public final boolean hasPayload() {
+    public boolean hasPayload() {
         return false;
     }
 
     @Override
-    public final byte getEncodedTrack() {
+    public byte getEncodedTrack() {
         return Frame.L2;
     }
 
     @Override
-    public final boolean isConnectionControl()
+    public boolean isConnectionControl()
     {
         return false;
     }
@@ -73,14 +73,26 @@ public final class SessionAttach extends Method {
             setName(name);
         }
 
-        for (int i=0; i < _options.length; i++) {
-            switch (_options[i]) {
-            case FORCE: packing_flags |= 512; break;
-            case SYNC: this.setSync(true); break;
-            case BATCH: this.setBatch(true); break;
-            case UNRELIABLE: this.setUnreliable(true); break;
-            case NONE: break;
-            default: throw new IllegalArgumentException("invalid option: " + _options[i]);
+        for (final Option option : _options)
+        {
+            switch (option)
+            {
+                case FORCE:
+                    packing_flags |= 512;
+                    break;
+                case SYNC:
+                    this.setSync(true);
+                    break;
+                case BATCH:
+                    this.setBatch(true);
+                    break;
+                case UNRELIABLE:
+                    this.setUnreliable(true);
+                    break;
+                case NONE:
+                    break;
+                default:
+                    throw new IllegalArgumentException("invalid option: " + option);
             }
         }
 
@@ -92,48 +104,48 @@ public final class SessionAttach extends Method {
     }
 
 
-    public final boolean hasName() {
+    public boolean hasName() {
         return (packing_flags & 256) != 0;
     }
 
-    public final SessionAttach clearName() {
+    public SessionAttach clearName() {
         packing_flags &= ~256;
         this.name = null;
         setDirty(true);
         return this;
     }
 
-    public final byte[] getName() {
+    public byte[] getName() {
         return name;
     }
 
-    public final SessionAttach setName(byte[] value) {
+    public SessionAttach setName(byte[] value) {
         this.name = value;
         packing_flags |= 256;
         setDirty(true);
         return this;
     }
 
-    public final SessionAttach name(byte[] value) {
+    public SessionAttach name(byte[] value) {
         return setName(value);
     }
 
-    public final boolean hasForce() {
+    public boolean hasForce() {
         return (packing_flags & 512) != 0;
     }
 
-    public final SessionAttach clearForce() {
+    public SessionAttach clearForce() {
         packing_flags &= ~512;
 
         setDirty(true);
         return this;
     }
 
-    public final boolean getForce() {
+    public boolean getForce() {
         return hasForce();
     }
 
-    public final SessionAttach setForce(boolean value) {
+    public SessionAttach setForce(boolean value) {
 
         if (value)
         {
@@ -148,7 +160,7 @@ public final class SessionAttach extends Method {
         return this;
     }
 
-    public final SessionAttach force(boolean value) {
+    public SessionAttach force(boolean value) {
         return setForce(value);
     }
 

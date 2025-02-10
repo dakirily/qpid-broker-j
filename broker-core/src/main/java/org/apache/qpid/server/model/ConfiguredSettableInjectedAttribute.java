@@ -144,9 +144,11 @@ public class ConfiguredSettableInjectedAttribute<C extends ConfiguredObject, T>
             }
             catch (ClassNotFoundException | NoSuchMethodException e)
             {
-                LOGGER.warn("The validValues of the " + getName()
-                            + " has value '" + validValue + "' which looks like it should be a method,"
-                            + " but no such method could be used.", e );
+                LOGGER.warn(
+                        "The validValues of the {} has value '{}' which looks like it should be a method, but no such method could be used.",
+                        getName(),
+                        validValue,
+                        e);
             }
         }
         return null;
@@ -251,7 +253,7 @@ public class ConfiguredSettableInjectedAttribute<C extends ConfiguredObject, T>
             }
             catch (InvocationTargetException | IllegalAccessException e)
             {
-                LOGGER.warn("Could not execute the validValues generation method " + _validValuesMethod.getName(), e);
+                LOGGER.warn("Could not execute the validValues generation method {}", _validValuesMethod.getName(), e);
                 return Collections.emptySet();
             }
         }
@@ -275,7 +277,7 @@ public class ConfiguredSettableInjectedAttribute<C extends ConfiguredObject, T>
     @Override
     public boolean hasValidValues()
     {
-        return validValues() != null && validValues().size() > 0;
+        return validValues() != null && !validValues().isEmpty();
     }
 
     @Override

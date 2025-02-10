@@ -87,7 +87,7 @@ public abstract class ParticipantConfig
         }
         else if(overriddenDurationStr != null)
         {
-            LOGGER.error("Couldn't parse overridden duration as long :" + overriddenDurationStr);
+            LOGGER.error("Couldn't parse overridden duration as long :{}", overriddenDurationStr);
         }
         return null;
     }

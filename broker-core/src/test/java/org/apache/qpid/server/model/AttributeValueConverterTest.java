@@ -20,9 +20,6 @@
  */
 package org.apache.qpid.server.model;
 
-import static java.util.Arrays.asList;
-import static java.util.Collections.unmodifiableList;
-import static java.util.Collections.unmodifiableSet;
 import static org.apache.qpid.server.model.AttributeValueConverter.getConverter;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -35,7 +32,6 @@ import java.security.cert.X509Certificate;
 import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -208,7 +204,7 @@ public class AttributeValueConverterTest extends UnitTestBase
         List<String> emptyList = listConverter.convert("[ ]", object);
         assertTrue(emptyList.isEmpty());
 
-        List<String> expectedList = unmodifiableList(asList("a", "b"));
+        List<String> expectedList = List.of("a", "b");
 
         List<String> list = listConverter.convert("[\"a\",  \"b\"]", object);
         assertEquals(expectedList, list);
@@ -242,7 +238,7 @@ public class AttributeValueConverterTest extends UnitTestBase
         Set<String> emptySet = setConverter.convert("[ ]", object);
         assertTrue(emptySet.isEmpty());
 
-        Set<String> expectedSet = unmodifiableSet(new HashSet<>(asList("a", "b")));
+        Set<String> expectedSet = Set.of("a", "b");
 
         Set<String> set = setConverter.convert("[\"a\",  \"b\"]", object);
         assertEquals(expectedSet, set);

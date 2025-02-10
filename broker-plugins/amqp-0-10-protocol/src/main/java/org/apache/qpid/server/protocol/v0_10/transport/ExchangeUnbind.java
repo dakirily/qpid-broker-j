@@ -31,32 +31,32 @@ public final class ExchangeUnbind extends Method {
     public static final int TYPE = 1797;
 
     @Override
-    public final int getStructType() {
+    public int getStructType() {
         return TYPE;
     }
 
     @Override
-    public final int getSizeWidth() {
+    public int getSizeWidth() {
         return 0;
     }
 
     @Override
-    public final int getPackWidth() {
+    public int getPackWidth() {
         return 2;
     }
 
     @Override
-    public final boolean hasPayload() {
+    public boolean hasPayload() {
         return false;
     }
 
     @Override
-    public final byte getEncodedTrack() {
+    public byte getEncodedTrack() {
         return Frame.L4;
     }
 
     @Override
-    public final boolean isConnectionControl()
+    public boolean isConnectionControl()
     {
         return false;
     }
@@ -81,13 +81,23 @@ public final class ExchangeUnbind extends Method {
             setBindingKey(bindingKey);
         }
 
-        for (int i=0; i < _options.length; i++) {
-            switch (_options[i]) {
-            case SYNC: this.setSync(true); break;
-            case BATCH: this.setBatch(true); break;
-            case UNRELIABLE: this.setUnreliable(true); break;
-            case NONE: break;
-            default: throw new IllegalArgumentException("invalid option: " + _options[i]);
+        for (final Option option : _options)
+        {
+            switch (option)
+            {
+                case SYNC:
+                    this.setSync(true);
+                    break;
+                case BATCH:
+                    this.setBatch(true);
+                    break;
+                case UNRELIABLE:
+                    this.setUnreliable(true);
+                    break;
+                case NONE:
+                    break;
+                default:
+                    throw new IllegalArgumentException("invalid option: " + option);
             }
         }
 
@@ -99,81 +109,81 @@ public final class ExchangeUnbind extends Method {
     }
 
 
-    public final boolean hasQueue() {
+    public boolean hasQueue() {
         return (packing_flags & 256) != 0;
     }
 
-    public final ExchangeUnbind clearQueue() {
+    public ExchangeUnbind clearQueue() {
         packing_flags &= ~256;
         this.queue = null;
         setDirty(true);
         return this;
     }
 
-    public final String getQueue() {
+    public String getQueue() {
         return queue;
     }
 
-    public final ExchangeUnbind setQueue(String value) {
+    public ExchangeUnbind setQueue(String value) {
         this.queue = value;
         packing_flags |= 256;
         setDirty(true);
         return this;
     }
 
-    public final ExchangeUnbind queue(String value) {
+    public ExchangeUnbind queue(String value) {
         return setQueue(value);
     }
 
-    public final boolean hasExchange() {
+    public boolean hasExchange() {
         return (packing_flags & 512) != 0;
     }
 
-    public final ExchangeUnbind clearExchange() {
+    public ExchangeUnbind clearExchange() {
         packing_flags &= ~512;
         this.exchange = null;
         setDirty(true);
         return this;
     }
 
-    public final String getExchange() {
+    public String getExchange() {
         return exchange;
     }
 
-    public final ExchangeUnbind setExchange(String value) {
+    public ExchangeUnbind setExchange(String value) {
         this.exchange = value;
         packing_flags |= 512;
         setDirty(true);
         return this;
     }
 
-    public final ExchangeUnbind exchange(String value) {
+    public ExchangeUnbind exchange(String value) {
         return setExchange(value);
     }
 
-    public final boolean hasBindingKey() {
+    public boolean hasBindingKey() {
         return (packing_flags & 1024) != 0;
     }
 
-    public final ExchangeUnbind clearBindingKey() {
+    public ExchangeUnbind clearBindingKey() {
         packing_flags &= ~1024;
         this.bindingKey = null;
         setDirty(true);
         return this;
     }
 
-    public final String getBindingKey() {
+    public String getBindingKey() {
         return bindingKey;
     }
 
-    public final ExchangeUnbind setBindingKey(String value) {
+    public ExchangeUnbind setBindingKey(String value) {
         this.bindingKey = value;
         packing_flags |= 1024;
         setDirty(true);
         return this;
     }
 
-    public final ExchangeUnbind bindingKey(String value) {
+    public ExchangeUnbind bindingKey(String value) {
         return setBindingKey(value);
     }
 

@@ -74,11 +74,11 @@ public abstract class NumericGeneratedPropertySupport extends GeneratedPropertyS
     protected Class<?> toClass(String type)
     {
         Class<?> t = null;
-        for (int i = 0; i < SUPPORTED_TYPES.length; i++)
+        for (final Class<?> supportedType : SUPPORTED_TYPES)
         {
-            if (SUPPORTED_TYPES[i].getName().equals(type))
+            if (supportedType.getName().equals(type))
             {
-                t = SUPPORTED_TYPES[i];
+                t = supportedType;
                 break;
             }
         }

@@ -30,29 +30,29 @@ public final class QueueQueryResult extends Struct {
     public static final int TYPE = 2049;
 
     @Override
-    public final int getStructType() {
+    public int getStructType() {
         return TYPE;
     }
 
     @Override
-    public final int getSizeWidth() {
+    public int getSizeWidth() {
         return 4;
     }
 
     @Override
-    public final int getPackWidth() {
+    public int getPackWidth() {
         return 2;
     }
 
-    public final boolean hasPayload() {
+    public boolean hasPayload() {
         return false;
     }
 
-    public final byte getEncodedTrack() {
+    public byte getEncodedTrack() {
         return -1;
     }
 
-    public final boolean isConnectionControl()
+    public boolean isConnectionControl()
     {
         return false;
     }
@@ -81,13 +81,23 @@ public final class QueueQueryResult extends Struct {
         setMessageCount(messageCount);
         setSubscriberCount(subscriberCount);
 
-        for (int i=0; i < _options.length; i++) {
-            switch (_options[i]) {
-            case DURABLE: packing_flags |= 1024; break;
-            case EXCLUSIVE: packing_flags |= 2048; break;
-            case AUTO_DELETE: packing_flags |= 4096; break;
-            case NONE: break;
-            default: throw new IllegalArgumentException("invalid option: " + _options[i]);
+        for (final Option option : _options)
+        {
+            switch (option)
+            {
+                case DURABLE:
+                    packing_flags |= 1024;
+                    break;
+                case EXCLUSIVE:
+                    packing_flags |= 2048;
+                    break;
+                case AUTO_DELETE:
+                    packing_flags |= 4096;
+                    break;
+                case NONE:
+                    break;
+                default:
+                    throw new IllegalArgumentException("invalid option: " + option);
             }
         }
 
@@ -96,74 +106,74 @@ public final class QueueQueryResult extends Struct {
 
 
 
-    public final boolean hasQueue() {
+    public boolean hasQueue() {
         return (packing_flags & 256) != 0;
     }
 
-    public final QueueQueryResult clearQueue() {
+    public QueueQueryResult clearQueue() {
         packing_flags &= ~256;
         this.queue = null;
         setDirty(true);
         return this;
     }
 
-    public final String getQueue() {
+    public String getQueue() {
         return queue;
     }
 
-    public final QueueQueryResult setQueue(String value) {
+    public QueueQueryResult setQueue(String value) {
         this.queue = value;
         packing_flags |= 256;
         setDirty(true);
         return this;
     }
 
-    public final QueueQueryResult queue(String value) {
+    public QueueQueryResult queue(String value) {
         return setQueue(value);
     }
 
-    public final boolean hasAlternateExchange() {
+    public boolean hasAlternateExchange() {
         return (packing_flags & 512) != 0;
     }
 
-    public final QueueQueryResult clearAlternateExchange() {
+    public QueueQueryResult clearAlternateExchange() {
         packing_flags &= ~512;
         this.alternateExchange = null;
         setDirty(true);
         return this;
     }
 
-    public final String getAlternateExchange() {
+    public String getAlternateExchange() {
         return alternateExchange;
     }
 
-    public final QueueQueryResult setAlternateExchange(String value) {
+    public QueueQueryResult setAlternateExchange(String value) {
         this.alternateExchange = value;
         packing_flags |= 512;
         setDirty(true);
         return this;
     }
 
-    public final QueueQueryResult alternateExchange(String value) {
+    public QueueQueryResult alternateExchange(String value) {
         return setAlternateExchange(value);
     }
 
-    public final boolean hasDurable() {
+    public boolean hasDurable() {
         return (packing_flags & 1024) != 0;
     }
 
-    public final QueueQueryResult clearDurable() {
+    public QueueQueryResult clearDurable() {
         packing_flags &= ~1024;
 
         setDirty(true);
         return this;
     }
 
-    public final boolean getDurable() {
+    public boolean getDurable() {
         return hasDurable();
     }
 
-    public final QueueQueryResult setDurable(boolean value) {
+    public QueueQueryResult setDurable(boolean value) {
 
         if (value)
         {
@@ -178,26 +188,26 @@ public final class QueueQueryResult extends Struct {
         return this;
     }
 
-    public final QueueQueryResult durable(boolean value) {
+    public QueueQueryResult durable(boolean value) {
         return setDurable(value);
     }
 
-    public final boolean hasExclusive() {
+    public boolean hasExclusive() {
         return (packing_flags & 2048) != 0;
     }
 
-    public final QueueQueryResult clearExclusive() {
+    public QueueQueryResult clearExclusive() {
         packing_flags &= ~2048;
 
         setDirty(true);
         return this;
     }
 
-    public final boolean getExclusive() {
+    public boolean getExclusive() {
         return hasExclusive();
     }
 
-    public final QueueQueryResult setExclusive(boolean value) {
+    public QueueQueryResult setExclusive(boolean value) {
 
         if (value)
         {
@@ -212,26 +222,26 @@ public final class QueueQueryResult extends Struct {
         return this;
     }
 
-    public final QueueQueryResult exclusive(boolean value) {
+    public QueueQueryResult exclusive(boolean value) {
         return setExclusive(value);
     }
 
-    public final boolean hasAutoDelete() {
+    public boolean hasAutoDelete() {
         return (packing_flags & 4096) != 0;
     }
 
-    public final QueueQueryResult clearAutoDelete() {
+    public QueueQueryResult clearAutoDelete() {
         packing_flags &= ~4096;
 
         setDirty(true);
         return this;
     }
 
-    public final boolean getAutoDelete() {
+    public boolean getAutoDelete() {
         return hasAutoDelete();
     }
 
-    public final QueueQueryResult setAutoDelete(boolean value) {
+    public QueueQueryResult setAutoDelete(boolean value) {
 
         if (value)
         {
@@ -246,85 +256,85 @@ public final class QueueQueryResult extends Struct {
         return this;
     }
 
-    public final QueueQueryResult autoDelete(boolean value) {
+    public QueueQueryResult autoDelete(boolean value) {
         return setAutoDelete(value);
     }
 
-    public final boolean hasArguments() {
+    public boolean hasArguments() {
         return (packing_flags & 8192) != 0;
     }
 
-    public final QueueQueryResult clearArguments() {
+    public QueueQueryResult clearArguments() {
         packing_flags &= ~8192;
         this.arguments = null;
         setDirty(true);
         return this;
     }
 
-    public final Map<String,Object> getArguments() {
+    public Map<String,Object> getArguments() {
         return arguments;
     }
 
-    public final QueueQueryResult setArguments(Map<String,Object> value) {
+    public QueueQueryResult setArguments(Map<String, Object> value) {
         this.arguments = value;
         packing_flags |= 8192;
         setDirty(true);
         return this;
     }
 
-    public final QueueQueryResult arguments(Map<String,Object> value) {
+    public QueueQueryResult arguments(Map<String, Object> value) {
         return setArguments(value);
     }
 
-    public final boolean hasMessageCount() {
+    public boolean hasMessageCount() {
         return (packing_flags & 16384) != 0;
     }
 
-    public final QueueQueryResult clearMessageCount() {
+    public QueueQueryResult clearMessageCount() {
         packing_flags &= ~16384;
         this.messageCount = 0;
         setDirty(true);
         return this;
     }
 
-    public final long getMessageCount() {
+    public long getMessageCount() {
         return messageCount;
     }
 
-    public final QueueQueryResult setMessageCount(long value) {
+    public QueueQueryResult setMessageCount(long value) {
         this.messageCount = value;
         packing_flags |= 16384;
         setDirty(true);
         return this;
     }
 
-    public final QueueQueryResult messageCount(long value) {
+    public QueueQueryResult messageCount(long value) {
         return setMessageCount(value);
     }
 
-    public final boolean hasSubscriberCount() {
+    public boolean hasSubscriberCount() {
         return (packing_flags & 32768) != 0;
     }
 
-    public final QueueQueryResult clearSubscriberCount() {
+    public QueueQueryResult clearSubscriberCount() {
         packing_flags &= ~32768;
         this.subscriberCount = 0;
         setDirty(true);
         return this;
     }
 
-    public final long getSubscriberCount() {
+    public long getSubscriberCount() {
         return subscriberCount;
     }
 
-    public final QueueQueryResult setSubscriberCount(long value) {
+    public QueueQueryResult setSubscriberCount(long value) {
         this.subscriberCount = value;
         packing_flags |= 32768;
         setDirty(true);
         return this;
     }
 
-    public final QueueQueryResult subscriberCount(long value) {
+    public QueueQueryResult subscriberCount(long value) {
         return setSubscriberCount(value);
     }
 

@@ -24,7 +24,6 @@ import java.io.File;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
@@ -113,7 +112,7 @@ public class RolloverWatcher implements RollingPolicyDecorator.RolloverListener
             LogFileDetails details = getFileDetails(file);
             results.add(details);
         }
-        Collections.sort(results, LAST_MODIFIED_COMPARATOR);
+        results.sort(LAST_MODIFIED_COMPARATOR);
         return results;
     }
 

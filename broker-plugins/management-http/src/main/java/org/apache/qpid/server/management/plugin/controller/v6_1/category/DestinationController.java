@@ -98,9 +98,8 @@ public class DestinationController extends LegacyCategoryController
                                                                        ExchangeController.TYPE,
                                                                        exchangePath,
                                                                        Map.of());
-        if (result instanceof Collection)
+        if (result instanceof final Collection<?> exchanges)
         {
-            final Collection<?> exchanges = (Collection<?>) result;
             return exchanges.stream()
                             .filter(LegacyConfiguredObject.class::isInstance)
                             .map(LegacyConfiguredObject.class::cast)
@@ -150,9 +149,8 @@ public class DestinationController extends LegacyCategoryController
             if (ALTERNATE_EXCHANGE.equals(name))
             {
                 final Object altBinding = getAttribute(ALTERNATE_BINDING, isActual);
-                if (altBinding instanceof AlternateBinding)
+                if (altBinding instanceof final AlternateBinding alternateBinding)
                 {
-                    final AlternateBinding alternateBinding = (AlternateBinding) altBinding;
 
                     final Collection<LegacyConfiguredObject> exchanges =
                             getNextVersionLegacyConfiguredObject().getParent(VirtualHostController.TYPE)

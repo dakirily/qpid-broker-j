@@ -245,9 +245,8 @@ public class QueueDeletionTest extends BrokerAdminUsingTestBase
             {
                 declareTransactionDisposition = (Disposition) response.getBody();
             }
-            if (response.getBody() instanceof Flow)
+            if (response.getBody() instanceof final Flow flowResponse)
             {
-                final Flow flowResponse = (Flow) response.getBody();
                 if (flowResponse.getHandle().equals(interaction.getCoordinatorHandle()))
                 {
                     coordinatorFlow = flowResponse;

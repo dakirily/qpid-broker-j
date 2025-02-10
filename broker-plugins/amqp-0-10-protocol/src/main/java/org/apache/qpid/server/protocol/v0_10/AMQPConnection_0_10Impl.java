@@ -68,8 +68,7 @@ public class AMQPConnection_0_10Impl extends AbstractAMQPConnection<AMQPConnecti
     private final AtomicReference<Action<ProtocolEngine>> _workListener = new AtomicReference<>();
     private ServerDisassembler _disassembler;
 
-    private final Set<AMQPSession<?,?>> _sessionsWithWork =
-            Collections.newSetFromMap(new ConcurrentHashMap<>());
+    private final Set<AMQPSession<?,?>> _sessionsWithWork = ConcurrentHashMap.newKeySet();
 
     public AMQPConnection_0_10Impl(final Broker<?> broker,
                                    ServerNetworkConnection network,

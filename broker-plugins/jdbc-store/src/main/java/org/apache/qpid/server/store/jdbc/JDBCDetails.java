@@ -353,14 +353,7 @@ public abstract class JDBCDetails
         final JDBCDetails details;
         if (vendor != null)
         {
-            if (KnownJDBCDetails.VENDOR_DETAILS.containsKey(vendor))
-            {
-                details = KnownJDBCDetails.VENDOR_DETAILS.get(vendor);
-            }
-            else
-            {
-                details = KnownJDBCDetails.FALLBACK;
-            }
+            details = KnownJDBCDetails.VENDOR_DETAILS.getOrDefault(vendor, KnownJDBCDetails.FALLBACK);
         }
         else
         {

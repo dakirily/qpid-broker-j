@@ -46,7 +46,7 @@ public class QpidQueueCreatorFactory
         }
         else
         {
-            LOGGER.info("Using overridden queue creator class " + queueCreatorClassName);
+            LOGGER.info("Using overridden queue creator class {}", queueCreatorClassName);
         }
 
         try

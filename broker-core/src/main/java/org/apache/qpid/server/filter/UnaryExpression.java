@@ -50,7 +50,7 @@ public abstract class UnaryExpression<T> implements Expression<T>
 
         // Use a HashSet if there are many elements.
         Collection<?> t;
-        if (elements.size() == 0)
+        if (elements.isEmpty())
         {
             t = null;
         }
@@ -272,10 +272,8 @@ public abstract class UnaryExpression<T> implements Expression<T>
                 {
                     return true;
                 }
-                if(currentRvalue instanceof Number && listItemValue instanceof Number)
+                if(currentRvalue instanceof final Number num1 && listItemValue instanceof final Number num2)
                 {
-                    Number num1 = (Number) currentRvalue;
-                    Number num2 = (Number) listItemValue;
                     if (num1.doubleValue() == num2.doubleValue() && num1.longValue() == num2.longValue())
                     {
                         return true;

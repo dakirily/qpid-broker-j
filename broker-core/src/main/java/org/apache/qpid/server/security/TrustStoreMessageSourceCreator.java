@@ -63,9 +63,8 @@ public class TrustStoreMessageSourceCreator implements SystemNodeCreator
             @Override
             public void childAdded(final ConfiguredObject<?> object, final ConfiguredObject<?> child)
             {
-                if (child instanceof TrustStore)
+                if (child instanceof final TrustStore<?> trustStore)
                 {
-                    TrustStore<?> trustStore = (TrustStore<?>) child;
 
                     updateTrustStoreSourceRegistration(registry, trustStore);
                     trustStore.addChangeListener(trustStoreChangeListener);
@@ -76,9 +75,8 @@ public class TrustStoreMessageSourceCreator implements SystemNodeCreator
             public void childRemoved(final ConfiguredObject<?> object, final ConfiguredObject<?> child)
             {
 
-                if (child instanceof TrustStore)
+                if (child instanceof final TrustStore<?> trustStore)
                 {
-                    TrustStore<?> trustStore = (TrustStore<?>) child;
 
                     trustStore.removeChangeListener(trustStoreChangeListener);
                     registry.removeSystemNode(TrustStoreMessageSource.getSourceNameFromTrustStore(trustStore));

@@ -22,9 +22,9 @@ package org.apache.qpid.tests.utils;
 
 import java.lang.reflect.Method;
 import java.net.InetSocketAddress;
+import java.util.concurrent.CompletableFuture;
 
 import ch.qos.logback.classic.LoggerContext;
-import com.google.common.util.concurrent.ListenableFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -44,43 +44,53 @@ public class LoggingBrokerAdminDecorator implements BrokerAdmin
     public void beforeTestClass(final Class testClass)
     {
         setClassQualifiedTestName(testClass.getName());
-        LOGGER.info("========================= starting broker for test class : " + testClass.getSimpleName());
+        LOGGER.info("========================= starting broker for test class : {}", testClass.getSimpleName());
         _delegate.beforeTestClass(testClass);
     }
 
     @Override
     public void beforeTestMethod(final Class testClass, final Method method)
     {
-        LOGGER.info("========================= prepare test environment for test : " + testClass.getSimpleName() + "#" + method.getName());
+        LOGGER.info("========================= prepare test environment for test : {}#{}",
+                    testClass.getSimpleName(),
+                    method.getName());
 
         _delegate.beforeTestMethod(testClass, method);
 
-        LOGGER.info("========================= executing test : " + testClass.getSimpleName() + "#" + method.getName());
+        LOGGER.info("========================= executing test : {}#{}", testClass.getSimpleName(), method.getName());
         setClassQualifiedTestName(testClass.getName() + "." + method.getName());
-        LOGGER.info("========================= start executing test : " + testClass.getSimpleName() + "#" + method.getName());
+        LOGGER.info("========================= start executing test : {}#{}",
+                    testClass.getSimpleName(),
+                    method.getName());
     }
 
     @Override
     public void afterTestMethod(final Class testClass, final Method method)
     {
-        LOGGER.info("========================= stop executing test : " + testClass.getSimpleName() + "#" + method.getName());
+        LOGGER.info("========================= stop executing test : {}#{}",
+                    testClass.getSimpleName(),
+                    method.getName());
         setClassQualifiedTestName(testClass.getName());
-        LOGGER.info("========================= cleaning up test environment for test : " + testClass.getSimpleName() + "#" + method.getName());
+        LOGGER.info("========================= cleaning up test environment for test : {}#{}",
+                    testClass.getSimpleName(),
+                    method.getName());
 
         _delegate.afterTestMethod(testClass, method);
 
         setClassQualifiedTestName(testClass.getName());
-        LOGGER.info("========================= cleaning done for test : " + testClass.getSimpleName() + "#" + method.getName());
+        LOGGER.info("========================= cleaning done for test : {}#{}",
+                    testClass.getSimpleName(),
+                    method.getName());
     }
 
     @Override
     public void afterTestClass(final Class testClass)
     {
-        LOGGER.info("========================= stopping broker for test class: " + testClass.getSimpleName());
+        LOGGER.info("========================= stopping broker for test class: {}", testClass.getSimpleName());
 
         _delegate.afterTestClass(testClass);
 
-        LOGGER.info("========================= stopping broker done for test class : " + testClass.getSimpleName());
+        LOGGER.info("========================= stopping broker done for test class : {}", testClass.getSimpleName());
         setClassQualifiedTestName(null);
     }
 
@@ -121,7 +131,7 @@ public class LoggingBrokerAdminDecorator implements BrokerAdmin
     }
 
     @Override
-    public ListenableFuture<Void> restart()
+    public CompletableFuture<Void> restart()
     {
         return _delegate.restart();
     }

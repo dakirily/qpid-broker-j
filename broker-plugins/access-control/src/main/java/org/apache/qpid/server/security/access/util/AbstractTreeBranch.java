@@ -89,7 +89,7 @@ abstract class AbstractTreeBranch implements PrefixTree
     @Override
     public boolean match(String str)
     {
-        if (str == null || str.length() == 0)
+        if (str == null || str.isEmpty())
         {
             return false;
         }

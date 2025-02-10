@@ -55,10 +55,9 @@ public class SSLClientCertPreemptiveAuthenticator implements HttpRequestPreempti
         final Port<?> port = managementConfig.getPort(request);
         SubjectCreator subjectCreator = port.getSubjectCreator(request.isSecure(), request.getServerName());
         if(request.isSecure()
-           && authenticationProvider instanceof ExternalAuthenticationManager
+           && authenticationProvider instanceof final ExternalAuthenticationManager<?> externalAuthManager
            && Collections.list(request.getAttributeNames()).contains(CERTIFICATE_ATTRIBUTE_NAME))
         {
-            ExternalAuthenticationManager<?> externalAuthManager = (ExternalAuthenticationManager<?>)authenticationProvider;
             X509Certificate[] certificates = (X509Certificate[]) request.getAttribute(CERTIFICATE_ATTRIBUTE_NAME);
             if(certificates != null && certificates.length != 0)
             {

@@ -179,7 +179,7 @@ public abstract class AbstractServlet extends HttpServlet
         if (attachmentFilename != null)
         {
             String filenameRfc2183 = ensureFilenameIsRfc2183(attachmentFilename);
-            if (filenameRfc2183.length() > 0)
+            if (!filenameRfc2183.isEmpty())
             {
                 addSanitizedResponseHeader(response, CONTENT_DISPOSITION, String.format("attachment; filename=\"%s\"", filenameRfc2183));
             }
@@ -353,9 +353,8 @@ public abstract class AbstractServlet extends HttpServlet
     private Map<String, Object> getResponseHeaders(final Object content)
     {
         Map<String, Object> headers = Map.of();
-        if (content instanceof CustomRestHeaders)
+        if (content instanceof final CustomRestHeaders customRestHeaders)
         {
-            CustomRestHeaders customRestHeaders = (CustomRestHeaders) content;
             Map<RestContentHeader, Method> contentHeaderGetters = getContentHeaderMethods(customRestHeaders);
             if (contentHeaderGetters != null)
             {
@@ -373,7 +372,7 @@ public abstract class AbstractServlet extends HttpServlet
                     }
                     catch (Exception e)
                     {
-                        LOGGER.warn("Unexpected exception whilst setting response header " + headerName, e);
+                        LOGGER.warn("Unexpected exception whilst setting response header {}", headerName, e);
                     }
                 }
             }
@@ -401,8 +400,9 @@ public abstract class AbstractServlet extends HttpServlet
                 final Class<?>[] parameterTypes = method.getParameterTypes();
                 if (parameterTypes.length >0)
                 {
-                    LOGGER.warn("Parameters are found on method " + method.getName()
-                            + " annotated with ContentHeader annotation. No parameter is allowed. Ignoring ContentHeader annotation.");
+                    LOGGER.warn(
+                            "Parameters are found on method {} annotated with ContentHeader annotation. No parameter is allowed. Ignoring ContentHeader annotation.",
+                            method.getName());
                 }
                 else
                 {

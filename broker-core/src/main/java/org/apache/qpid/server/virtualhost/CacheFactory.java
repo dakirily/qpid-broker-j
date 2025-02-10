@@ -24,7 +24,7 @@ import java.security.AccessController;
 
 import javax.security.auth.Subject;
 
-import com.google.common.cache.Cache;
+import com.github.benmanes.caffeine.cache.Cache;
 
 import org.apache.qpid.server.security.QpidPrincipal;
 
@@ -40,9 +40,8 @@ public class CacheFactory
             VirtualHostPrincipal
                     principal = QpidPrincipal.getSingletonPrincipal(subject, true, VirtualHostPrincipal.class);
 
-            if (principal != null && principal.getVirtualHost() instanceof CacheProvider)
+            if (principal != null && principal.getVirtualHost() instanceof final CacheProvider cacheProvider)
             {
-                CacheProvider cacheProvider = (CacheProvider) principal.getVirtualHost();
                 cache = cacheProvider.getNamedCache(cacheName);
             }
         }

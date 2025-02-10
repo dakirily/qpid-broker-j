@@ -24,6 +24,7 @@ import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -118,7 +119,8 @@ public class ConfiguredObjectFactoryGenerator extends AbstractProcessor
         try
         {
             JavaFileObject factoryFile = filer.createSourceFile(childClassName);
-            PrintWriter pw = new PrintWriter(new OutputStreamWriter(factoryFile.openOutputStream(), "UTF-8"));
+            PrintWriter pw = new PrintWriter(new OutputStreamWriter(factoryFile.openOutputStream(),
+                                                                    StandardCharsets.UTF_8));
             pw.println("/*");
             for (String headerLine : License.LICENSE)
             {
@@ -134,9 +136,7 @@ public class ConfiguredObjectFactoryGenerator extends AbstractProcessor
             pw.println();
             pw.println("import java.util.Map;");
             pw.println("import java.util.concurrent.ExecutionException;");
-            pw.println();
-            pw.println("import com.google.common.util.concurrent.Futures;");
-            pw.println("import com.google.common.util.concurrent.ListenableFuture;");
+            pw.println("import java.util.concurrent.CompletableFuture;");
             pw.println();
             pw.println("import org.apache.qpid.server.configuration.updater.Task;");
             pw.println("import org.apache.qpid.server.util.FixedKeyMapCreator;");
@@ -409,13 +409,13 @@ public class ConfiguredObjectFactoryGenerator extends AbstractProcessor
         StringWriter stringWriter = new StringWriter();
         PrintWriter pw = new PrintWriter(stringWriter);
         String boxedReturnTypeName = getBoxedReturnTypeAsString(methodElement);
-        pw.println("doSync(doOnConfigThread(new Task<ListenableFuture<"
+        pw.println("doSync(doOnConfigThread(new Task<CompletableFuture<"
                    + boxedReturnTypeName
                    + ">, RuntimeException>()");
         pw.println("            {");
         pw.println("                private String _args;");
         pw.println("                @Override");
-        pw.println("                public ListenableFuture<"
+        pw.println("                public CompletableFuture<"
                    + boxedReturnTypeName
                    + "> execute()");
         pw.println("                {");
@@ -427,9 +427,9 @@ public class ConfiguredObjectFactoryGenerator extends AbstractProcessor
         }
         if (methodElement.getReturnType().getKind() != TypeKind.VOID)
         {
-            pw.println("                    return Futures.<"
+            pw.println("                    return CompletableFuture.<"
                        + boxedReturnTypeName
-                       + ">immediateFuture("
+                       + ">completedFuture("
                        + className
                        + "."
                        + callToWrap
@@ -438,9 +438,9 @@ public class ConfiguredObjectFactoryGenerator extends AbstractProcessor
         else
         {
             pw.println("                    " + className + "." + callToWrap + ";");
-            pw.println("                    return Futures.<"
+            pw.println("                    return CompletableFuture.<"
                        + boxedReturnTypeName
-                       + ">immediateFuture(null);");
+                       + ">completedFuture(null);");
         }
         if (!thrownTypes.isEmpty())
         {
@@ -449,7 +449,7 @@ public class ConfiguredObjectFactoryGenerator extends AbstractProcessor
                                   .map(TypeMirror::toString)
                                   .collect(Collectors.joining(" | ", "                    catch (", " e)")));
             pw.println("                    {");
-            pw.println("                        return Futures.immediateFailedFuture(e);");
+            pw.println("                        return CompletableFuture.failedFuture(e);");
             pw.println("                    }");
         }
         pw.println("                }");
@@ -592,7 +592,8 @@ public class ConfiguredObjectFactoryGenerator extends AbstractProcessor
         try
         {
             JavaFileObject factoryFile = filer.createSourceFile(factoryName);
-            PrintWriter pw = new PrintWriter(new OutputStreamWriter(factoryFile.openOutputStream(), "UTF-8"));
+            PrintWriter pw = new PrintWriter(new OutputStreamWriter(factoryFile.openOutputStream(),
+                                                                    StandardCharsets.UTF_8));
             pw.println("/*");
             for(String headerLine : License.LICENSE)
             {

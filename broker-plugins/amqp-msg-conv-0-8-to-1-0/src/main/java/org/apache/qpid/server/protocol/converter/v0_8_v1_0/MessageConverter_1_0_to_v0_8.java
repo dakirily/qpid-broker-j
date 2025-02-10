@@ -359,9 +359,8 @@ public class MessageConverter_1_0_to_v0_8 implements MessageConverter<Message_1_
             MessageDestination messageDestination = destinationAddress.getMessageDestination();
 
             final String replyToBindingUrl;
-            if (messageDestination instanceof Exchange)
+            if (messageDestination instanceof final Exchange<?> exchange)
             {
-                Exchange<?> exchange = (Exchange<?>) messageDestination;
                 final String routingKeyOption = "".equals(destinationAddress.getRoutingKey())
                         ? ""
                         : String.format("?routingkey='%s'", destinationAddress.getRoutingKey());

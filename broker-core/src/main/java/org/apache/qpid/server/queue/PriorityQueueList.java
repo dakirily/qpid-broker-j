@@ -135,9 +135,9 @@ abstract public class PriorityQueueList extends OrderedQueueEntryList
             @Override
             public boolean atTail()
             {
-                for(int i = 0; i < _iterators.length; i++)
+                for (final QueueEntryIterator iterator : _iterators)
                 {
-                    if(!_iterators[i].atTail())
+                    if (!iterator.atTail())
                     {
                         return false;
                     }

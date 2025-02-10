@@ -27,10 +27,12 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.BitSet;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.Map;
 import java.util.Random;
 import java.security.SecureRandom;
+import java.util.stream.Collectors;
 
 public class StringUtil
 {
@@ -102,7 +104,7 @@ public class StringUtil
                 initialChar = false;
             }
         }
-        if (builder.length() > 0)
+        if (!builder.isEmpty())
         {
             builder.append("_");
         }
@@ -116,6 +118,28 @@ public class StringUtil
             throw new ServerScopedRuntimeException(e);
         }
         return builder.toString();
+    }
+
+    public static String join(final Collection<?> collection, final String delimiter, final String useForNull)
+    {
+        if (collection == null)
+        {
+            return "";
+        }
+        return collection.stream()
+                .map(el -> el == null ? useForNull : String.valueOf(el))
+                .collect(Collectors.joining(delimiter));
+    }
+
+    public static String join(final Map<?, ?> map, final String delimiter, final String keyValueSeparator)
+    {
+        if (map == null)
+        {
+            return "";
+        }
+        return map.entrySet().stream()
+                .map(entry -> entry.getKey() + keyValueSeparator + entry.getValue())
+                .collect(Collectors.joining(delimiter));
     }
 
     public static String escapeHtml4(final String input)

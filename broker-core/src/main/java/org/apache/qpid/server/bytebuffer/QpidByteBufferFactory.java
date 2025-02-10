@@ -160,9 +160,8 @@ final class QpidByteBufferFactory
                                       Collection<QpidByteBuffer> buffers,
                                       QpidByteBuffer dest) throws SSLException
     {
-        if (dest instanceof SingleQpidByteBuffer)
+        if (dest instanceof final SingleQpidByteBuffer dst)
         {
-            SingleQpidByteBuffer dst = (SingleQpidByteBuffer) dest;
             final ByteBuffer[] src;
             // QPID-7447: prevent unnecessary allocations
             if (buffers.isEmpty())
@@ -176,7 +175,7 @@ final class QpidByteBufferFactory
                 {
                     Collections.addAll(buffers_, getUnderlyingBuffers(buffer));
                 }
-                src = buffers_.toArray(new ByteBuffer[buffers_.size()]);
+                src = buffers_.toArray(new ByteBuffer[0]);
             }
             return engine.wrap(src, dst.getUnderlyingBuffer());
         }
@@ -273,7 +272,7 @@ final class QpidByteBufferFactory
         {
             Collections.addAll(byteBuffers, getUnderlyingBuffers(qpidByteBuffer));
         }
-        return channel.write(byteBuffers.toArray(new ByteBuffer[byteBuffers.size()]));
+        return channel.write(byteBuffers.toArray(new ByteBuffer[0]));
     }
 
     static QpidByteBuffer wrap(ByteBuffer wrap)
@@ -432,7 +431,7 @@ final class QpidByteBufferFactory
 
     static QpidByteBuffer createQpidByteBuffer(final List<SingleQpidByteBuffer> fragments)
     {
-        if (fragments.size() == 0)
+        if (fragments.isEmpty())
         {
             return emptyQpidByteBuffer();
         }

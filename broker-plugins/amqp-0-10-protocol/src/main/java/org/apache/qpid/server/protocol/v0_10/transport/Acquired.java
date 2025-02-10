@@ -31,29 +31,29 @@ public final class Acquired extends Struct {
     public static final int TYPE = 1028;
 
     @Override
-    public final int getStructType() {
+    public int getStructType() {
         return TYPE;
     }
 
     @Override
-    public final int getSizeWidth() {
+    public int getSizeWidth() {
         return 4;
     }
 
     @Override
-    public final int getPackWidth() {
+    public int getPackWidth() {
         return 2;
     }
 
-    public final boolean hasPayload() {
+    public boolean hasPayload() {
         return false;
     }
 
-    public final byte getEncodedTrack() {
+    public byte getEncodedTrack() {
         return -1;
     }
 
-    public final boolean isConnectionControl()
+    public boolean isConnectionControl()
     {
         return false;
     }
@@ -75,29 +75,29 @@ public final class Acquired extends Struct {
 
 
 
-    public final boolean hasTransfers() {
+    public boolean hasTransfers() {
         return (packing_flags & 256) != 0;
     }
 
-    public final Acquired clearTransfers() {
+    public Acquired clearTransfers() {
         packing_flags &= ~256;
         this.transfers = null;
         setDirty(true);
         return this;
     }
 
-    public final RangeSet getTransfers() {
+    public RangeSet getTransfers() {
         return transfers;
     }
 
-    public final Acquired setTransfers(RangeSet value) {
+    public Acquired setTransfers(RangeSet value) {
         this.transfers = value;
         packing_flags |= 256;
         setDirty(true);
         return this;
     }
 
-    public final Acquired transfers(RangeSet value) {
+    public Acquired transfers(RangeSet value) {
         return setTransfers(value);
     }
 

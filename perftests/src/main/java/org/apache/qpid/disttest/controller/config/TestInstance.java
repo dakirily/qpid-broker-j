@@ -61,15 +61,13 @@ public class TestInstance
 
             _iterationValue.applyToCommand(command);
 
-            if (command instanceof CreateProducerCommand)
+            if (command instanceof final CreateProducerCommand producerCommand)
             {
-                CreateProducerCommand producerCommand = (CreateProducerCommand) command;
                 producerCommand.setRate(ratePerProducer);
             }
 
-            if (command instanceof CreateParticipantCommand)
+            if (command instanceof final CreateParticipantCommand participantCommand)
             {
-                CreateParticipantCommand participantCommand = (CreateParticipantCommand) command;
                 if ((participantCommand.getNumberOfMessages() <= 0 && participantCommand.getMaximumDuration() <= 0))
                 {
                     throw new DistributedTestException("Test '" + getName()

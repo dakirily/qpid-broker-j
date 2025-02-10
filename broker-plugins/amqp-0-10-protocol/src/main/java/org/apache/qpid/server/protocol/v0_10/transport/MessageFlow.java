@@ -31,32 +31,32 @@ public final class MessageFlow extends Method {
     public static final int TYPE = 1034;
 
     @Override
-    public final int getStructType() {
+    public int getStructType() {
         return TYPE;
     }
 
     @Override
-    public final int getSizeWidth() {
+    public int getSizeWidth() {
         return 0;
     }
 
     @Override
-    public final int getPackWidth() {
+    public int getPackWidth() {
         return 2;
     }
 
     @Override
-    public final boolean hasPayload() {
+    public boolean hasPayload() {
         return false;
     }
 
     @Override
-    public final byte getEncodedTrack() {
+    public byte getEncodedTrack() {
         return Frame.L4;
     }
 
     @Override
-    public final boolean isConnectionControl()
+    public boolean isConnectionControl()
     {
         return false;
     }
@@ -79,13 +79,23 @@ public final class MessageFlow extends Method {
         }
         setValue(value);
 
-        for (int i=0; i < _options.length; i++) {
-            switch (_options[i]) {
-            case SYNC: this.setSync(true); break;
-            case BATCH: this.setBatch(true); break;
-            case UNRELIABLE: this.setUnreliable(true); break;
-            case NONE: break;
-            default: throw new IllegalArgumentException("invalid option: " + _options[i]);
+        for (final Option option : _options)
+        {
+            switch (option)
+            {
+                case SYNC:
+                    this.setSync(true);
+                    break;
+                case BATCH:
+                    this.setBatch(true);
+                    break;
+                case UNRELIABLE:
+                    this.setUnreliable(true);
+                    break;
+                case NONE:
+                    break;
+                default:
+                    throw new IllegalArgumentException("invalid option: " + option);
             }
         }
 
@@ -97,81 +107,81 @@ public final class MessageFlow extends Method {
     }
 
 
-    public final boolean hasDestination() {
+    public boolean hasDestination() {
         return (packing_flags & 256) != 0;
     }
 
-    public final MessageFlow clearDestination() {
+    public MessageFlow clearDestination() {
         packing_flags &= ~256;
         this.destination = null;
         setDirty(true);
         return this;
     }
 
-    public final String getDestination() {
+    public String getDestination() {
         return destination;
     }
 
-    public final MessageFlow setDestination(String value) {
+    public MessageFlow setDestination(String value) {
         this.destination = value;
         packing_flags |= 256;
         setDirty(true);
         return this;
     }
 
-    public final MessageFlow destination(String value) {
+    public MessageFlow destination(String value) {
         return setDestination(value);
     }
 
-    public final boolean hasUnit() {
+    public boolean hasUnit() {
         return (packing_flags & 512) != 0;
     }
 
-    public final MessageFlow clearUnit() {
+    public MessageFlow clearUnit() {
         packing_flags &= ~512;
         this.unit = null;
         setDirty(true);
         return this;
     }
 
-    public final MessageCreditUnit getUnit() {
+    public MessageCreditUnit getUnit() {
         return unit;
     }
 
-    public final MessageFlow setUnit(MessageCreditUnit value) {
+    public MessageFlow setUnit(MessageCreditUnit value) {
         this.unit = value;
         packing_flags |= 512;
         setDirty(true);
         return this;
     }
 
-    public final MessageFlow unit(MessageCreditUnit value) {
+    public MessageFlow unit(MessageCreditUnit value) {
         return setUnit(value);
     }
 
-    public final boolean hasValue() {
+    public boolean hasValue() {
         return (packing_flags & 1024) != 0;
     }
 
-    public final MessageFlow clearValue() {
+    public MessageFlow clearValue() {
         packing_flags &= ~1024;
         this.value = 0;
         setDirty(true);
         return this;
     }
 
-    public final long getValue() {
+    public long getValue() {
         return value;
     }
 
-    public final MessageFlow setValue(long value) {
+    public MessageFlow setValue(long value) {
         this.value = value;
         packing_flags |= 1024;
         setDirty(true);
         return this;
     }
 
-    public final MessageFlow value(long value) {
+    public MessageFlow value(long value) {
         return setValue(value);
     }
 

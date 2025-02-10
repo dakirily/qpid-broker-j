@@ -20,7 +20,6 @@
  */
 package org.apache.qpid.server.exchange;
 
-import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -69,7 +68,7 @@ public class HeadersExchangeImpl extends AbstractExchange<HeadersExchangeImpl> i
 
     private static final Logger LOGGER = LoggerFactory.getLogger(HeadersExchangeImpl.class);
 
-    private final Set<HeadersBinding> _bindingHeaderMatchers = Collections.newSetFromMap(new ConcurrentHashMap<>());
+    private final Set<HeadersBinding> _bindingHeaderMatchers = ConcurrentHashMap.newKeySet();
 
     @ManagedObjectFactoryConstructor
     public HeadersExchangeImpl(final Map<String, Object> attributes, final QueueManagingVirtualHost<?> vhost)

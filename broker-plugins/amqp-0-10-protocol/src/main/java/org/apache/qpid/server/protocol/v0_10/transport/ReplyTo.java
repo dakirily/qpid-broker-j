@@ -31,29 +31,29 @@ public final class ReplyTo extends Struct {
     public static final int TYPE = -3;
 
     @Override
-    public final int getStructType() {
+    public int getStructType() {
         return TYPE;
     }
 
     @Override
-    public final int getSizeWidth() {
+    public int getSizeWidth() {
         return 2;
     }
 
     @Override
-    public final int getPackWidth() {
+    public int getPackWidth() {
         return 2;
     }
 
-    public final boolean hasPayload() {
+    public boolean hasPayload() {
         return false;
     }
 
-    public final byte getEncodedTrack() {
+    public byte getEncodedTrack() {
         return -1;
     }
 
-    public final boolean isConnectionControl()
+    public boolean isConnectionControl()
     {
         return false;
     }
@@ -79,55 +79,55 @@ public final class ReplyTo extends Struct {
 
 
 
-    public final boolean hasExchange() {
+    public boolean hasExchange() {
         return (packing_flags & 256) != 0;
     }
 
-    public final ReplyTo clearExchange() {
+    public ReplyTo clearExchange() {
         packing_flags &= ~256;
         this.exchange = null;
         setDirty(true);
         return this;
     }
 
-    public final String getExchange() {
+    public String getExchange() {
         return exchange;
     }
 
-    public final ReplyTo setExchange(String value) {
+    public ReplyTo setExchange(String value) {
         this.exchange = value;
         packing_flags |= 256;
         setDirty(true);
         return this;
     }
 
-    public final ReplyTo exchange(String value) {
+    public ReplyTo exchange(String value) {
         return setExchange(value);
     }
 
-    public final boolean hasRoutingKey() {
+    public boolean hasRoutingKey() {
         return (packing_flags & 512) != 0;
     }
 
-    public final ReplyTo clearRoutingKey() {
+    public ReplyTo clearRoutingKey() {
         packing_flags &= ~512;
         this.routingKey = null;
         setDirty(true);
         return this;
     }
 
-    public final String getRoutingKey() {
+    public String getRoutingKey() {
         return routingKey;
     }
 
-    public final ReplyTo setRoutingKey(String value) {
+    public ReplyTo setRoutingKey(String value) {
         this.routingKey = value;
         packing_flags |= 512;
         setDirty(true);
         return this;
     }
 
-    public final ReplyTo routingKey(String value) {
+    public ReplyTo routingKey(String value) {
         return setRoutingKey(value);
     }
 
@@ -205,11 +205,10 @@ public final class ReplyTo extends Struct {
             return true;
         }
 
-        if(!(obj instanceof ReplyTo)){
+        if(!(obj instanceof final ReplyTo reply)){
             return false;
         }
 
-        final ReplyTo reply = (ReplyTo) obj;
         return (routingKey == null ? reply.getRoutingKey() == null : routingKey.equals(reply.getRoutingKey()))
             && (exchange == null ? reply.getExchange() == null : exchange.equals(reply.getExchange()));
     }

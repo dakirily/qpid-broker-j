@@ -48,10 +48,8 @@ public class SpnegoInteractiveAuthenticator implements HttpRequestInteractiveAut
                                                           final HttpManagementConfiguration configuration)
     {
         final AuthenticationProvider authenticationProvider = configuration.getAuthenticationProvider(request);
-        if (authenticationProvider instanceof KerberosAuthenticationManager)
+        if (authenticationProvider instanceof final KerberosAuthenticationManager kerberosProvider)
         {
-            final KerberosAuthenticationManager kerberosProvider =
-                    (KerberosAuthenticationManager) authenticationProvider;
             return response -> {
                 final String authorizationHeader = request.getHeader(SpnegoAuthenticator.REQUEST_AUTH_HEADER_NAME);
                 final AuthenticationResult authenticationResult = kerberosProvider.authenticate(authorizationHeader);

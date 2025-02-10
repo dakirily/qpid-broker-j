@@ -35,6 +35,7 @@ import java.util.List;
 import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
@@ -44,7 +45,6 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import com.google.common.util.concurrent.SettableFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -150,8 +150,10 @@ class SelectorThread extends Thread
                     }
                     catch (ClosedChannelException | CancelledKeyException e)
                     {
-                        LOGGER.debug("Failed to register with selector for connection " + connection +
-                                     ". Connection is probably being closed by peer.", e);
+                        LOGGER.debug(
+                                "Failed to register with selector for connection {}. Connection is probably being closed by peer.",
+                                connection,
+                                e);
                     }
                     iterator.remove();
                 }
@@ -176,9 +178,8 @@ class SelectorThread extends Thread
             List<NonBlockingConnection> toBeScheduled = new ArrayList<>();
             for (SelectionKey key : selectionKeys)
             {
-                if (key.attachment() instanceof NonBlockingNetworkTransport)
+                if (key.attachment() instanceof final NonBlockingNetworkTransport transport)
                 {
-                    final NonBlockingNetworkTransport transport = (NonBlockingNetworkTransport) key.attachment();
                     final ServerSocketChannel channel = (ServerSocketChannel) key.channel();
                     final SocketAddress localSocketAddress = channel.socket().getLocalSocketAddress();
 
@@ -389,10 +390,7 @@ class SelectorThread extends Thread
         {
             _selectionTasks[i] = new SelectionTask();
         }
-        for(SelectionTask task : _selectionTasks)
-        {
-            _workQueue.add(task);
-        }
+        Collections.addAll(_workQueue, _selectionTasks);
     }
 
     public void addAcceptingSocket(final ServerSocketChannel socketChannel,
@@ -443,7 +441,7 @@ class SelectorThread extends Thread
 
     private Future<Void> cancelAcceptingSocketAsync(final ServerSocketChannel socketChannel)
     {
-        final SettableFuture<Void> cancellationResult = SettableFuture.create();
+        final CompletableFuture<Void> cancellationResult = new CompletableFuture<>();
         _tasks.add(() ->
         {
             if (LOGGER.isDebugEnabled())
@@ -472,7 +470,7 @@ class SelectorThread extends Thread
             }
             finally
             {
-                cancellationResult.set(null);
+                cancellationResult.complete(null);
             }
         });
         _selectionTasks[0].wakeup();

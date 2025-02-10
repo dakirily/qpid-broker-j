@@ -30,9 +30,7 @@ import static org.apache.qpid.server.security.access.config.ObjectType.EXCHANGE;
 import static org.apache.qpid.server.security.access.config.ObjectType.METHOD;
 import static org.apache.qpid.server.security.access.config.ObjectType.QUEUE;
 
-import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.Map;
 import java.util.Set;
@@ -48,14 +46,9 @@ import org.apache.qpid.server.virtualhost.QueueManagingVirtualHost;
 class LegacyAccessControlAdapter
 {
     private static final Set<String> LOG_ACCESS_METHOD_NAMES =
-            Collections.unmodifiableSet(new HashSet<>(Arrays.asList("getFile",
-                                                                    "getFiles",
-                                                                    "getAllFiles",
-                                                                    "getLogEntries")));
+            Set.of("getFile", "getFiles", "getAllFiles", "getLogEntries");
     private static final Set<String> QUEUE_UPDATE_METHODS =
-            Collections.unmodifiableSet(new HashSet<>(Arrays.asList("moveMessages",
-                                                                    "copyMessages",
-                                                                    "deleteMessages")));
+            Set.of("moveMessages", "copyMessages", "deleteMessages");
 
     private final LegacyAccessControl _accessControl;
     private final Model _model;
@@ -206,9 +199,8 @@ class LegacyAccessControlAdapter
         {
             setQueueProperties((Queue<?>)configuredObject, properties);
         }
-        else if (configuredObject instanceof Exchange)
+        else if (configuredObject instanceof final Exchange<?> exchange)
         {
-            Exchange<?> exchange = (Exchange<?>) configuredObject;
             Object lifeTimePolicy = exchange.getAttribute(ConfiguredObject.LIFETIME_POLICY);
             properties.put(Property.AUTO_DELETE, lifeTimePolicy != LifetimePolicy.PERMANENT);
             properties.put(Property.TEMPORARY, lifeTimePolicy != LifetimePolicy.PERMANENT);
@@ -543,9 +535,8 @@ class LegacyAccessControlAdapter
         {
             // The temporary attribute (inherited from the binding's queue) seems to exist to allow the user to
             // express rules about the binding of temporary queues (whose names cannot be predicted).
-            if (dest instanceof ConfiguredObject)
+            if (dest instanceof final ConfiguredObject queue)
             {
-                ConfiguredObject queue = (ConfiguredObject) dest;
                 properties.put(Property.TEMPORARY, queue.getLifetimePolicy() != LifetimePolicy.PERMANENT);
             }
             properties.put(Property.DURABLE, dest.isDurable());

@@ -248,12 +248,10 @@ public enum AMQType
         public int getEncodingSize(Object value)
         {
             // Ensure that the value is a FieldTable.
-            if (!(value instanceof FieldTable))
+            if (!(value instanceof final FieldTable ftValue))
             {
                 throw new IllegalArgumentException("Value is not a FieldTable.");
             }
-
-            FieldTable ftValue = (FieldTable) value;
 
             // Loop over all name/value pairs adding up size of each. FieldTable itself keeps track of its encoded
             // size as entries are added, so no need to loop over all explicitly.
@@ -284,12 +282,10 @@ public enum AMQType
         public void writeValueImpl(Object value, QpidByteBuffer buffer)
         {
             // Ensure that the value is a FieldTable.
-            if (!(value instanceof FieldTable))
+            if (!(value instanceof final FieldTable ftValue))
             {
                 throw new IllegalArgumentException("Value is not a FieldTable.");
             }
-
-            FieldTable ftValue = (FieldTable) value;
 
             // Loop over all name/values writing out into buffer.
             ftValue.writeToBuffer(buffer);
@@ -348,12 +344,10 @@ public enum AMQType
                 public void writeValueImpl(Object value, QpidByteBuffer buffer)
                 {
 
-                    if (!(value instanceof FieldArray))
+                    if (!(value instanceof final FieldArray fieldArrayValue))
                     {
                         throw new IllegalArgumentException("Value is not a FieldArray.");
                     }
-
-                    FieldArray fieldArrayValue = (FieldArray) value;
 
                     // Loop over all name/values writing out into buffer.
                     fieldArrayValue.writeToBuffer(buffer);

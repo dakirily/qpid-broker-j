@@ -314,7 +314,7 @@ public class RequestInfoParserTest extends UnitTestBase
     {
         RequestInfoParser parser = new RequestInfoParser(VirtualHostNode.class);
         final String vhnName = "vhnName/With/slashes?and&other/stuff";
-        final String encodedVHNName = URLEncoder.encode(vhnName, StandardCharsets.UTF_8.name());
+        final String encodedVHNName = URLEncoder.encode(vhnName, StandardCharsets.UTF_8);
 
         configureRequest("GET", "servletPath", "/" + encodedVHNName);
 

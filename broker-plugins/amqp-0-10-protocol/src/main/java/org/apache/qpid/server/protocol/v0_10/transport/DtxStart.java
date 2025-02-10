@@ -31,32 +31,32 @@ public final class DtxStart extends Method {
     public static final int TYPE = 1538;
 
     @Override
-    public final int getStructType() {
+    public int getStructType() {
         return TYPE;
     }
 
     @Override
-    public final int getSizeWidth() {
+    public int getSizeWidth() {
         return 0;
     }
 
     @Override
-    public final int getPackWidth() {
+    public int getPackWidth() {
         return 2;
     }
 
     @Override
-    public final boolean hasPayload() {
+    public boolean hasPayload() {
         return false;
     }
 
     @Override
-    public final byte getEncodedTrack() {
+    public byte getEncodedTrack() {
         return Frame.L4;
     }
 
     @Override
-    public final boolean isConnectionControl()
+    public boolean isConnectionControl()
     {
         return false;
     }
@@ -73,15 +73,29 @@ public final class DtxStart extends Method {
             setXid(xid);
         }
 
-        for (int i=0; i < _options.length; i++) {
-            switch (_options[i]) {
-            case JOIN: packing_flags |= 512; break;
-            case RESUME: packing_flags |= 1024; break;
-            case SYNC: this.setSync(true); break;
-            case BATCH: this.setBatch(true); break;
-            case UNRELIABLE: this.setUnreliable(true); break;
-            case NONE: break;
-            default: throw new IllegalArgumentException("invalid option: " + _options[i]);
+        for (final Option option : _options)
+        {
+            switch (option)
+            {
+                case JOIN:
+                    packing_flags |= 512;
+                    break;
+                case RESUME:
+                    packing_flags |= 1024;
+                    break;
+                case SYNC:
+                    this.setSync(true);
+                    break;
+                case BATCH:
+                    this.setBatch(true);
+                    break;
+                case UNRELIABLE:
+                    this.setUnreliable(true);
+                    break;
+                case NONE:
+                    break;
+                default:
+                    throw new IllegalArgumentException("invalid option: " + option);
             }
         }
 
@@ -93,48 +107,48 @@ public final class DtxStart extends Method {
     }
 
 
-    public final boolean hasXid() {
+    public boolean hasXid() {
         return (packing_flags & 256) != 0;
     }
 
-    public final DtxStart clearXid() {
+    public DtxStart clearXid() {
         packing_flags &= ~256;
         this.xid = null;
         setDirty(true);
         return this;
     }
 
-    public final Xid getXid() {
+    public Xid getXid() {
         return xid;
     }
 
-    public final DtxStart setXid(Xid value) {
+    public DtxStart setXid(Xid value) {
         this.xid = value;
         packing_flags |= 256;
         setDirty(true);
         return this;
     }
 
-    public final DtxStart xid(Xid value) {
+    public DtxStart xid(Xid value) {
         return setXid(value);
     }
 
-    public final boolean hasJoin() {
+    public boolean hasJoin() {
         return (packing_flags & 512) != 0;
     }
 
-    public final DtxStart clearJoin() {
+    public DtxStart clearJoin() {
         packing_flags &= ~512;
 
         setDirty(true);
         return this;
     }
 
-    public final boolean getJoin() {
+    public boolean getJoin() {
         return hasJoin();
     }
 
-    public final DtxStart setJoin(boolean value) {
+    public DtxStart setJoin(boolean value) {
 
         if (value)
         {
@@ -149,26 +163,26 @@ public final class DtxStart extends Method {
         return this;
     }
 
-    public final DtxStart join(boolean value) {
+    public DtxStart join(boolean value) {
         return setJoin(value);
     }
 
-    public final boolean hasResume() {
+    public boolean hasResume() {
         return (packing_flags & 1024) != 0;
     }
 
-    public final DtxStart clearResume() {
+    public DtxStart clearResume() {
         packing_flags &= ~1024;
 
         setDirty(true);
         return this;
     }
 
-    public final boolean getResume() {
+    public boolean getResume() {
         return hasResume();
     }
 
-    public final DtxStart setResume(boolean value) {
+    public DtxStart setResume(boolean value) {
 
         if (value)
         {
@@ -183,7 +197,7 @@ public final class DtxStart extends Method {
         return this;
     }
 
-    public final DtxStart resume(boolean value) {
+    public DtxStart resume(boolean value) {
         return setResume(value);
     }
 

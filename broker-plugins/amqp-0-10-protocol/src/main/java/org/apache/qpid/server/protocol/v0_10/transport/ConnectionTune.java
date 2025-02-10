@@ -31,32 +31,32 @@ public final class ConnectionTune extends Method {
     public static final int TYPE = 261;
 
     @Override
-    public final int getStructType() {
+    public int getStructType() {
         return TYPE;
     }
 
     @Override
-    public final int getSizeWidth() {
+    public int getSizeWidth() {
         return 0;
     }
 
     @Override
-    public final int getPackWidth() {
+    public int getPackWidth() {
         return 2;
     }
 
     @Override
-    public final boolean hasPayload() {
+    public boolean hasPayload() {
         return false;
     }
 
     @Override
-    public final byte getEncodedTrack() {
+    public byte getEncodedTrack() {
         return Frame.L1;
     }
 
     @Override
-    public final boolean isConnectionControl()
+    public boolean isConnectionControl()
     {
         return true;
     }
@@ -77,13 +77,23 @@ public final class ConnectionTune extends Method {
         setHeartbeatMin(heartbeatMin);
         setHeartbeatMax(heartbeatMax);
 
-        for (int i=0; i < _options.length; i++) {
-            switch (_options[i]) {
-            case SYNC: this.setSync(true); break;
-            case BATCH: this.setBatch(true); break;
-            case UNRELIABLE: this.setUnreliable(true); break;
-            case NONE: break;
-            default: throw new IllegalArgumentException("invalid option: " + _options[i]);
+        for (final Option option : _options)
+        {
+            switch (option)
+            {
+                case SYNC:
+                    this.setSync(true);
+                    break;
+                case BATCH:
+                    this.setBatch(true);
+                    break;
+                case UNRELIABLE:
+                    this.setUnreliable(true);
+                    break;
+                case NONE:
+                    break;
+                default:
+                    throw new IllegalArgumentException("invalid option: " + option);
             }
         }
 
@@ -95,107 +105,107 @@ public final class ConnectionTune extends Method {
     }
 
 
-    public final boolean hasChannelMax() {
+    public boolean hasChannelMax() {
         return (packing_flags & 256) != 0;
     }
 
-    public final ConnectionTune clearChannelMax() {
+    public ConnectionTune clearChannelMax() {
         packing_flags &= ~256;
         this.channelMax = 0;
         setDirty(true);
         return this;
     }
 
-    public final int getChannelMax() {
+    public int getChannelMax() {
         return channelMax;
     }
 
-    public final ConnectionTune setChannelMax(int value) {
+    public ConnectionTune setChannelMax(int value) {
         this.channelMax = value;
         packing_flags |= 256;
         setDirty(true);
         return this;
     }
 
-    public final ConnectionTune channelMax(int value) {
+    public ConnectionTune channelMax(int value) {
         return setChannelMax(value);
     }
 
-    public final boolean hasMaxFrameSize() {
+    public boolean hasMaxFrameSize() {
         return (packing_flags & 512) != 0;
     }
 
-    public final ConnectionTune clearMaxFrameSize() {
+    public ConnectionTune clearMaxFrameSize() {
         packing_flags &= ~512;
         this.maxFrameSize = 0;
         setDirty(true);
         return this;
     }
 
-    public final int getMaxFrameSize() {
+    public int getMaxFrameSize() {
         return maxFrameSize;
     }
 
-    public final ConnectionTune setMaxFrameSize(int value) {
+    public ConnectionTune setMaxFrameSize(int value) {
         this.maxFrameSize = value;
         packing_flags |= 512;
         setDirty(true);
         return this;
     }
 
-    public final ConnectionTune maxFrameSize(int value) {
+    public ConnectionTune maxFrameSize(int value) {
         return setMaxFrameSize(value);
     }
 
-    public final boolean hasHeartbeatMin() {
+    public boolean hasHeartbeatMin() {
         return (packing_flags & 1024) != 0;
     }
 
-    public final ConnectionTune clearHeartbeatMin() {
+    public ConnectionTune clearHeartbeatMin() {
         packing_flags &= ~1024;
         this.heartbeatMin = 0;
         setDirty(true);
         return this;
     }
 
-    public final int getHeartbeatMin() {
+    public int getHeartbeatMin() {
         return heartbeatMin;
     }
 
-    public final ConnectionTune setHeartbeatMin(int value) {
+    public ConnectionTune setHeartbeatMin(int value) {
         this.heartbeatMin = value;
         packing_flags |= 1024;
         setDirty(true);
         return this;
     }
 
-    public final ConnectionTune heartbeatMin(int value) {
+    public ConnectionTune heartbeatMin(int value) {
         return setHeartbeatMin(value);
     }
 
-    public final boolean hasHeartbeatMax() {
+    public boolean hasHeartbeatMax() {
         return (packing_flags & 2048) != 0;
     }
 
-    public final ConnectionTune clearHeartbeatMax() {
+    public ConnectionTune clearHeartbeatMax() {
         packing_flags &= ~2048;
         this.heartbeatMax = 0;
         setDirty(true);
         return this;
     }
 
-    public final int getHeartbeatMax() {
+    public int getHeartbeatMax() {
         return heartbeatMax;
     }
 
-    public final ConnectionTune setHeartbeatMax(int value) {
+    public ConnectionTune setHeartbeatMax(int value) {
         this.heartbeatMax = value;
         packing_flags |= 2048;
         setDirty(true);
         return this;
     }
 
-    public final ConnectionTune heartbeatMax(int value) {
+    public ConnectionTune heartbeatMax(int value) {
         return setHeartbeatMax(value);
     }
 

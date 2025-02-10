@@ -169,7 +169,7 @@ public class DerbyConfigurationStore extends AbstractJDBCConfigurationStore
                 File configFile = new File(storePath);
                 if (!FileUtils.delete(configFile, true))
                 {
-                    LOGGER.info("Failed to delete the store at location " + storePath);
+                    LOGGER.info("Failed to delete the store at location {}", storePath);
                 }
             }
         }

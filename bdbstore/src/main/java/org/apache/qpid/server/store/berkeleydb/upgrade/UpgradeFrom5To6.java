@@ -156,7 +156,7 @@ public class UpgradeFrom5To6 extends AbstractStoreUpgrade
             String newName = newDatabases[i];
             if (databases.contains(oldName))
             {
-                LOGGER.info("Renaming " + oldName + " into " + newName);
+                LOGGER.info("Renaming {} into {}", oldName, newName);
                 environment.renameDatabase(transaction, oldName, newName);
             }
         }
@@ -184,7 +184,7 @@ public class UpgradeFrom5To6 extends AbstractStoreUpgrade
                 };
                 new DatabaseTemplate(environment, OLD_META_DATA_DB_NAME, contentTransaction)
                         .run(metaDataDatabaseOperation);
-                LOGGER.info(metaDataDatabaseOperation.getRowCount() + " Message Content Entries");
+                LOGGER.info("{} Message Content Entries", metaDataDatabaseOperation.getRowCount());
             };
             new DatabaseTemplate(environment, OLD_CONTENT_DB_NAME, NEW_CONTENT_DB_NAME, transaction).run(contentOperation);
             environment.removeDatabase(transaction, OLD_CONTENT_DB_NAME);
@@ -268,8 +268,7 @@ public class UpgradeFrom5To6 extends AbstractStoreUpgrade
     {
         TreeMap<Integer, byte[]> data = new TreeMap<>();
 
-        Cursor cursor = oldDatabase.openCursor(null, CursorConfig.READ_COMMITTED);
-        try
+        try (Cursor cursor = oldDatabase.openCursor(null, CursorConfig.READ_COMMITTED))
         {
             DatabaseEntry contentKeyEntry = new DatabaseEntry();
             DatabaseEntry value = new DatabaseEntry();
@@ -296,10 +295,6 @@ public class UpgradeFrom5To6 extends AbstractStoreUpgrade
 
                 status = cursor.getNext(contentKeyEntry, value, LockMode.DEFAULT);
             }
-        }
-        finally
-        {
-            cursor.close();
         }
 
         return data;
@@ -359,7 +354,7 @@ public class UpgradeFrom5To6 extends AbstractStoreUpgrade
             };
             new DatabaseTemplate(environment, OLD_XID_DB_NAME, NEW_XID_DB_NAME, transaction).run(xidEntriesCursor);
             environment.removeDatabase(transaction, OLD_XID_DB_NAME);
-            LOGGER.info(xidEntriesCursor.getRowCount() + " Xid Entries");
+            LOGGER.info("{} Xid Entries", xidEntriesCursor.getRowCount());
         }
     }
 
@@ -388,7 +383,7 @@ public class UpgradeFrom5To6 extends AbstractStoreUpgrade
             new DatabaseTemplate(environment, OLD_DELIVERY_DB_NAME, NEW_DELIVERY_DB_NAME, transaction)
                     .run(queueEntriesCursor);
             environment.removeDatabase(transaction, OLD_DELIVERY_DB_NAME);
-            LOGGER.info(queueEntriesCursor.getRowCount() + " Queue Delivery Record Entries");
+            LOGGER.info("{} Queue Delivery Record Entries", queueEntriesCursor.getRowCount());
         }
     }
 
@@ -423,7 +418,7 @@ public class UpgradeFrom5To6 extends AbstractStoreUpgrade
             new DatabaseTemplate(environment, OLD_QUEUE_BINDINGS_DB_NAME, CONFIGURED_OBJECTS_DB_NAME, transaction)
                     .run(bindingCursor);
             environment.removeDatabase(transaction, OLD_QUEUE_BINDINGS_DB_NAME);
-            LOGGER.info(bindingCursor.getRowCount() + " Queue Binding Entries");
+            LOGGER.info("{} Queue Binding Entries", bindingCursor.getRowCount());
         }
     }
 
@@ -459,7 +454,7 @@ public class UpgradeFrom5To6 extends AbstractStoreUpgrade
             new DatabaseTemplate(environment, OLD_EXCHANGE_DB_NAME, CONFIGURED_OBJECTS_DB_NAME, transaction)
                     .run(exchangeCursor);
             environment.removeDatabase(transaction, OLD_EXCHANGE_DB_NAME);
-            LOGGER.info(exchangeCursor.getRowCount() + " Exchange Entries");
+            LOGGER.info("{} Exchange Entries", exchangeCursor.getRowCount());
         }
         return exchangeNames;
     }
@@ -492,7 +487,7 @@ public class UpgradeFrom5To6 extends AbstractStoreUpgrade
             };
             new DatabaseTemplate(environment, OLD_QUEUE_DB_NAME, CONFIGURED_OBJECTS_DB_NAME, transaction).run(queueCursor);
             environment.removeDatabase(transaction, OLD_QUEUE_DB_NAME);
-            LOGGER.info(queueCursor.getRowCount() + " Queue Entries");
+            LOGGER.info("{} Queue Entries", queueCursor.getRowCount());
         }
         return queueNames;
     }
@@ -535,7 +530,9 @@ public class UpgradeFrom5To6 extends AbstractStoreUpgrade
 
         if (moveNonExclusiveOwnerToDescription(owner, exclusive))
         {
-            LOGGER.info("Non-exclusive owner " + owner + " for queue " + queueName + " moved to " + QueueArgumentsConverter.X_QPID_DESCRIPTION);
+            LOGGER.info("Non-exclusive owner {} for queue {} moved to " + QueueArgumentsConverter.X_QPID_DESCRIPTION,
+                        owner,
+                        queueName);
 
             attributesMap.put(Queue.OWNER, null);
             argumentsCopy.put(QueueArgumentsConverter.X_QPID_DESCRIPTION, owner);

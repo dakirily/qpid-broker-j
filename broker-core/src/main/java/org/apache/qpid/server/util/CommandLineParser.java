@@ -128,13 +128,11 @@ public class CommandLineParser
     public CommandLineParser(String[][] config)
     {
         // Loop through all the command line option specifications creating details for each in the options map.
-        for (int i = 0; i < config.length; i++)
+        for (String[] nextOptionSpec : config)
         {
-            String[] nextOptionSpec = config[i];
-
             addOption(nextOptionSpec[0], nextOptionSpec[1], (nextOptionSpec.length > 2) ? nextOptionSpec[2] : null,
-                (nextOptionSpec.length > 3) ? ("true".equals(nextOptionSpec[3]) ? true : false) : false,
-                (nextOptionSpec.length > 4) ? nextOptionSpec[4] : null);
+                      (nextOptionSpec.length > 3) ? ("true".equals(nextOptionSpec[3]) ? true : false) : false,
+                      (nextOptionSpec.length > 4) ? nextOptionSpec[4] : null);
         }
     }
 
@@ -288,14 +286,14 @@ public class CommandLineParser
         Pattern pattern = Pattern.compile(regexp.toString());
 
         // Loop through all the command line arguments.
-        for (int i = 0; i < args.length; i++)
+        for (final String s : args)
         {
             // Check if the next command line argument begins with a '-' character and is therefore the start of
             // an option.
-            if (args[i].startsWith("-"))
+            if (s.startsWith("-"))
             {
                 // Extract the value of the option without the leading '-'.
-                String arg = args[i].substring(1);
+                String arg = s.substring(1);
 
                 // Match up to the longest matching option.
                 optionMatcher = pattern.matcher(arg);
@@ -319,7 +317,6 @@ public class CommandLineParser
                         // argument to this option.
                         expectingArgs = true;
                         optionExpectingArgs = matchedOption;
-
                     }
 
                     // Check if the option was matched on its own and is a flag in which case set that flag.
@@ -358,7 +355,9 @@ public class CommandLineParser
                                     // Ensure that the next option is a flag or raise an error if not.
                                     if (optionInfo.expectsArgs == true)
                                     {
-                                        parsingErrors.add("Option " + matchedOption + " cannot be combined with flags.\n");
+                                        parsingErrors.add("Option "
+                                                          + matchedOption
+                                                          + " cannot be combined with flags.\n");
                                     }
 
                                     options.put(matchedOption, "true");
@@ -411,10 +410,10 @@ public class CommandLineParser
                     CommandLineOption optionInfo = optionMap.get(optionExpectingArgs);
 
                     // Check the arguments format is correct against any specified format.
-                    checkArgumentFormat(optionInfo, args[i]);
+                    checkArgumentFormat(optionInfo, s);
 
                     // Store the argument against its option (regardless of its format).
-                    options.put(optionExpectingArgs, args[i]);
+                    options.put(optionExpectingArgs, s);
 
                     // Clear the expecting args flag now that the argument has been swallowed.
                     expectingArgs = false;
@@ -429,11 +428,11 @@ public class CommandLineParser
                     if (optionInfo != null)
                     {
                         // Check the arguments format is correct against any specified format.
-                        checkArgumentFormat(optionInfo, args[i]);
+                        checkArgumentFormat(optionInfo, s);
                     }
 
                     // Add to the list of free options.
-                    options.put(Integer.toString(free), args[i]);
+                    options.put(Integer.toString(free), s);
 
                     // Move on to the next free argument.
                     free++;

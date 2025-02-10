@@ -42,7 +42,7 @@ public final class TopicExchangeResult implements TopicMatcherResult
 
     public void addUnfilteredDestination(MessageDestination destination)
     {
-        _unfilteredDestinations.merge(destination, 1, (oldCount, increment) -> oldCount + increment);
+        _unfilteredDestinations.merge(destination, 1, Integer::sum);
     }
 
     public void removeUnfilteredDestination(MessageDestination destination)
@@ -80,7 +80,7 @@ public final class TopicExchangeResult implements TopicMatcherResult
     {
         Map<FilterManager, Integer> filters =
                 _filteredDestinations.computeIfAbsent(destination, filterManagerMap -> new ConcurrentHashMap<>());
-        filters.merge(filter, 1, (oldCount, increment) -> oldCount + increment);
+        filters.merge(filter, 1, Integer::sum);
     }
 
     public void removeFilteredDestination(MessageDestination destination, FilterManager filter)

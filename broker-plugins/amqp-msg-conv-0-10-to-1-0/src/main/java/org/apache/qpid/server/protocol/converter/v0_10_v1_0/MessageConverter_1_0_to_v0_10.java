@@ -370,9 +370,8 @@ public class MessageConverter_1_0_to_v0_10 implements MessageConverter<Message_1
         {
             return (UUID)messageId;
         }
-        else if (messageId instanceof String)
+        else if (messageId instanceof String messageIdString)
         {
-            String messageIdString = (String) messageId;
             try
             {
                 if (messageIdString.startsWith("ID:"))
@@ -420,9 +419,8 @@ public class MessageConverter_1_0_to_v0_10 implements MessageConverter<Message_1
         {
             correlationId = (byte[]) correlationIdObject;
         }
-        else if (correlationIdObject instanceof UUID)
+        else if (correlationIdObject instanceof final UUID uuid)
         {
-            UUID uuid = (UUID)correlationIdObject;
             correlationId = longToBytes(uuid.getMostSignificantBits(), uuid.getLeastSignificantBits());
         }
         else if (correlationIdObject instanceof UnsignedLong)

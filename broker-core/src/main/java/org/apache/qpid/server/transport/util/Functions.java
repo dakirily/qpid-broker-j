@@ -42,48 +42,48 @@ public final class Functions
     {
     }
 
-    public static final int mod(int n, int m)
+    public static int mod(int n, int m)
     {
         int r = n % m;
         return r < 0 ? m + r : r;
     }
 
-    public static final byte lsb(int i)
+    public static byte lsb(int i)
     {
         return (byte) (0xFF & i);
     }
 
-    public static final byte lsb(long l)
+    public static byte lsb(long l)
     {
         return (byte) (0xFF & l);
     }
 
-    public static final String str(ByteBuffer buf)
+    public static String str(ByteBuffer buf)
     {
         return str(buf, buf.remaining());
     }
 
-    public static final String str(ByteBuffer buf, int limit)
+    public static String str(ByteBuffer buf, int limit)
     {
         return str(buf, limit,buf.position());
     }
 
-    public static final String str(ByteBuffer buf, int limit,int start)
+    public static String str(ByteBuffer buf, int limit, int start)
     {
         return str(QpidByteBuffer.wrap(buf), limit, start);
     }
 
-    public static final String str(QpidByteBuffer buf)
+    public static String str(QpidByteBuffer buf)
     {
         return str(buf, buf.remaining());
     }
 
-    public static final String str(QpidByteBuffer buf, int limit)
+    public static String str(QpidByteBuffer buf, int limit)
     {
         return str(buf, limit, buf.position());
     }
 
-    public static final String str(QpidByteBuffer buf, int limit, int start)
+    public static String str(QpidByteBuffer buf, int limit, int start)
     {
         StringBuilder str = new StringBuilder();
         str.append('"');
@@ -112,12 +112,12 @@ public final class Functions
         return str.toString();
     }
 
-    public static final String str(byte[] bytes)
+    public static String str(byte[] bytes)
     {
         return str(ByteBuffer.wrap(bytes));
     }
 
-    public static final String str(byte[] bytes, int limit)
+    public static String str(byte[] bytes, int limit)
     {
         return str(ByteBuffer.wrap(bytes), limit);
     }

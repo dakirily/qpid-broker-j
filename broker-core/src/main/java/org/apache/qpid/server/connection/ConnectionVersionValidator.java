@@ -113,7 +113,7 @@ public class ConnectionVersionValidator implements ConnectionValidator
                 {
                     if (_cachedLists.get(listName).add(versionRegexList))
                     {
-                        LOGGER.warn("Invalid regex in context variable " + listName + ": " + versionRegEx);
+                        LOGGER.warn("Invalid regex in context variable {}: {}", listName, versionRegEx);
                     }
                 }
             }

@@ -84,7 +84,7 @@ public class RuleBasedAccessControl implements AccessControl<CachingSecurityToke
 
         if(LOGGER.isDebugEnabled())
         {
-            LOGGER.debug("Checking " + operation + " " + objectType );
+            LOGGER.debug("Checking {} {}", operation, objectType);
         }
 
         try
@@ -93,7 +93,7 @@ public class RuleBasedAccessControl implements AccessControl<CachingSecurityToke
         }
         catch(Exception e)
         {
-            LOGGER.error("Unable to check " + operation + " " + objectType , e);
+            LOGGER.error("Unable to check {} {}", operation, objectType, e);
             return Result.DENIED;
         }
     }

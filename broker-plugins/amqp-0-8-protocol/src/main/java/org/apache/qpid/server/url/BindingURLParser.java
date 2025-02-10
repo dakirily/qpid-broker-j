@@ -193,7 +193,7 @@ public class BindingURLParser
         // normal use case
         if (nextChar == COLON_CHAR)
         {
-            if (builder.length() == 0)
+            if (builder.isEmpty())
             {
                 _error = "Exchange class is absent";
                 return BindingURLParserState.ERROR;
@@ -342,9 +342,8 @@ public class BindingURLParser
             if (_options.containsKey(_currentPropName))
             {
                 Object obj = _options.get(_currentPropName);
-                if (obj instanceof List)
+                if (obj instanceof final List list)
                 {
-                    List list = (List)obj;
                     list.add(propValue);
                 }
                 else // it has to be a string
@@ -406,9 +405,9 @@ public class BindingURLParser
                 List list = (List)obj;
                 String[] bindingKeys = new String[list.size()];
                 int i=0;
-                for (Iterator it = list.iterator(); it.hasNext();)
+                for (final Object o : list)
                 {
-                    bindingKeys[i] = (String)it.next();
+                    bindingKeys[i] = (String) o;
                     i++;
                 }
                 _bindingURL.setBindingKeys(bindingKeys);

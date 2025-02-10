@@ -72,9 +72,8 @@ public class DelegatingObjectAccessor<T, R> extends AbstractExpressionNode<T, R>
             ctx().putAlias(_property, expression);
             return result;
         }
-        if (value instanceof ConfiguredObject<?>)
+        if (value instanceof final ConfiguredObject<?> configuredObject)
         {
-            final ConfiguredObject<?> configuredObject = (ConfiguredObject<?>) value;
             return new ConfiguredObjectAccessorExpression<ConfiguredObject<?>, R>(_property).apply(configuredObject);
         }
         if (value instanceof Map)

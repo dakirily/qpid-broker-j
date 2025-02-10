@@ -31,32 +31,32 @@ public final class DtxEnd extends Method {
     public static final int TYPE = 1539;
 
     @Override
-    public final int getStructType() {
+    public int getStructType() {
         return TYPE;
     }
 
     @Override
-    public final int getSizeWidth() {
+    public int getSizeWidth() {
         return 0;
     }
 
     @Override
-    public final int getPackWidth() {
+    public int getPackWidth() {
         return 2;
     }
 
     @Override
-    public final boolean hasPayload() {
+    public boolean hasPayload() {
         return false;
     }
 
     @Override
-    public final byte getEncodedTrack() {
+    public byte getEncodedTrack() {
         return Frame.L4;
     }
 
     @Override
-    public final boolean isConnectionControl()
+    public boolean isConnectionControl()
     {
         return false;
     }
@@ -73,15 +73,29 @@ public final class DtxEnd extends Method {
             setXid(xid);
         }
 
-        for (int i=0; i < _options.length; i++) {
-            switch (_options[i]) {
-            case FAIL: packing_flags |= 512; break;
-            case SUSPEND: packing_flags |= 1024; break;
-            case SYNC: this.setSync(true); break;
-            case BATCH: this.setBatch(true); break;
-            case UNRELIABLE: this.setUnreliable(true); break;
-            case NONE: break;
-            default: throw new IllegalArgumentException("invalid option: " + _options[i]);
+        for (final Option option : _options)
+        {
+            switch (option)
+            {
+                case FAIL:
+                    packing_flags |= 512;
+                    break;
+                case SUSPEND:
+                    packing_flags |= 1024;
+                    break;
+                case SYNC:
+                    this.setSync(true);
+                    break;
+                case BATCH:
+                    this.setBatch(true);
+                    break;
+                case UNRELIABLE:
+                    this.setUnreliable(true);
+                    break;
+                case NONE:
+                    break;
+                default:
+                    throw new IllegalArgumentException("invalid option: " + option);
             }
         }
 
@@ -93,48 +107,48 @@ public final class DtxEnd extends Method {
     }
 
 
-    public final boolean hasXid() {
+    public boolean hasXid() {
         return (packing_flags & 256) != 0;
     }
 
-    public final DtxEnd clearXid() {
+    public DtxEnd clearXid() {
         packing_flags &= ~256;
         this.xid = null;
         setDirty(true);
         return this;
     }
 
-    public final Xid getXid() {
+    public Xid getXid() {
         return xid;
     }
 
-    public final DtxEnd setXid(Xid value) {
+    public DtxEnd setXid(Xid value) {
         this.xid = value;
         packing_flags |= 256;
         setDirty(true);
         return this;
     }
 
-    public final DtxEnd xid(Xid value) {
+    public DtxEnd xid(Xid value) {
         return setXid(value);
     }
 
-    public final boolean hasFail() {
+    public boolean hasFail() {
         return (packing_flags & 512) != 0;
     }
 
-    public final DtxEnd clearFail() {
+    public DtxEnd clearFail() {
         packing_flags &= ~512;
 
         setDirty(true);
         return this;
     }
 
-    public final boolean getFail() {
+    public boolean getFail() {
         return hasFail();
     }
 
-    public final DtxEnd setFail(boolean value) {
+    public DtxEnd setFail(boolean value) {
 
         if (value)
         {
@@ -149,26 +163,26 @@ public final class DtxEnd extends Method {
         return this;
     }
 
-    public final DtxEnd fail(boolean value) {
+    public DtxEnd fail(boolean value) {
         return setFail(value);
     }
 
-    public final boolean hasSuspend() {
+    public boolean hasSuspend() {
         return (packing_flags & 1024) != 0;
     }
 
-    public final DtxEnd clearSuspend() {
+    public DtxEnd clearSuspend() {
         packing_flags &= ~1024;
 
         setDirty(true);
         return this;
     }
 
-    public final boolean getSuspend() {
+    public boolean getSuspend() {
         return hasSuspend();
     }
 
-    public final DtxEnd setSuspend(boolean value) {
+    public DtxEnd setSuspend(boolean value) {
 
         if (value)
         {
@@ -183,7 +197,7 @@ public final class DtxEnd extends Method {
         return this;
     }
 
-    public final DtxEnd suspend(boolean value) {
+    public DtxEnd suspend(boolean value) {
         return setSuspend(value);
     }
 

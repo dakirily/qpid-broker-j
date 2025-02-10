@@ -272,9 +272,8 @@ public class MessageConverter_Internal_to_v0_8 implements MessageConverter<Inter
             MessageDestination messageDestination = destinationAddress.getMessageDestination();
 
             final String replyToBindingUrl;
-            if (messageDestination instanceof Exchange)
+            if (messageDestination instanceof final Exchange<?> exchange)
             {
-                Exchange<?> exchange = (Exchange<?>) messageDestination;
 
                 final String routingKeyOption = "".equals(destinationAddress.getRoutingKey())
                         ? ""

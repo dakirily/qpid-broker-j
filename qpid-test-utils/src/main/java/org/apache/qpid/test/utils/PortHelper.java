@@ -100,7 +100,7 @@ public class PortHelper
 
     public void waitUntilPortsAreFree(Set<Integer> ports)
     {
-        LOGGER.debug("Checking if ports " + ports + " are free...");
+        LOGGER.debug("Checking if ports {} are free...", ports);
 
         for (Integer port : ports)
         {
@@ -110,7 +110,7 @@ public class PortHelper
             }
         }
 
-        LOGGER.debug("ports " + ports + " are free");
+        LOGGER.debug("ports {} are free", ports);
     }
 
     private void waitUntilPortIsFree(int port)
@@ -130,7 +130,7 @@ public class PortHelper
             {
                 if(alreadyFailed)
                 {
-                    LOGGER.debug("port " + port + " is now available");
+                    LOGGER.debug("port {} is now available", port);
                 }
                 return;
             }
@@ -152,10 +152,8 @@ public class PortHelper
 
     public boolean isPortAvailable(int port)
     {
-        ServerSocket serverSocket = null;
-        try
+        try (final ServerSocket serverSocket = new ServerSocket())
         {
-            serverSocket = new ServerSocket();
             serverSocket.setReuseAddress(true); // ensures that the port is subsequently usable
             serverSocket.bind(new InetSocketAddress(port));
 
@@ -163,24 +161,8 @@ public class PortHelper
         }
         catch (IOException e)
         {
-            LOGGER.debug("port " + port + " is not free");
+            LOGGER.debug("port {} is not free", port);
             return false;
-        }
-        finally
-        {
-            if (serverSocket != null)
-            {
-                try
-                {
-                    serverSocket.close();
-                }
-                catch (IOException e)
-                {
-                    throw new RuntimeException("Couldn't close port "
-                                               + port
-                                               + " that we created to check its availability", e);
-                }
-            }
         }
     }
 

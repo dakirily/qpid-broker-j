@@ -64,13 +64,13 @@ public class GenericJDBCMessageStore extends GenericAbstractJDBCMessageStore
 
         if (!details.isKnownVendor() && getLogger().isInfoEnabled())
         {
-            getLogger().info("Do not recognize vendor from connection URL: " + _connectionURL
-                             + " Using fallback settings " + details);
+            getLogger().info("Do not recognize vendor from connection URL: {} Using fallback settings {}",
+                             _connectionURL,
+                             details);
         }
         if (details.isOverridden() && getLogger().isInfoEnabled())
         {
-            getLogger().info("One or more JDBC details were overridden from context. "
-                             +  " Using settings : " + details);
+            getLogger().info("One or more JDBC details were overridden from context.  Using settings : {}", details);
         }
 
         _blobType = details.getBlobType();

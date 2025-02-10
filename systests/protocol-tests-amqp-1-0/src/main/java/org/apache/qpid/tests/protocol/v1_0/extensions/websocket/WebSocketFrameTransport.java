@@ -146,9 +146,8 @@ public class WebSocketFrameTransport extends FrameTransport
         @Override
         public void channelRead(ChannelHandlerContext ctx, Object msg)
         {
-            if (msg instanceof WebSocketFrame)
+            if (msg instanceof final WebSocketFrame frame)
             {
-                WebSocketFrame frame = (WebSocketFrame) msg;
                 ctx.fireChannelRead(frame.content());
             }
             else
@@ -204,9 +203,8 @@ public class WebSocketFrameTransport extends FrameTransport
                 return;
             }
 
-            if (msg instanceof FullHttpResponse)
+            if (msg instanceof final FullHttpResponse response)
             {
-                final FullHttpResponse response = (FullHttpResponse) msg;
                 throw new IllegalStateException(String.format("Unexpected FullHttpResponse (getStatus=%s, content=%s)",
                                                   response.content().toString(StandardCharsets.UTF_8), response.status()));
             }

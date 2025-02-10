@@ -21,10 +21,7 @@
 
 package org.apache.qpid.server.management.plugin.controller;
 
-import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
@@ -48,21 +45,20 @@ public interface LegacyConfiguredObject
     String CREATED_TIME = "createdTime";
     String LAST_OPENED_TIME = "lastOpenedTime";
 
-    Set<String> AVAILABLE_ATTRIBUTES = Collections.unmodifiableSet(new HashSet<>(Arrays.asList(
-            ID,
-            NAME,
-            TYPE,
-            DESCRIPTION,
-            DURABLE,
-            CONTEXT,
-            LIFETIME_POLICY,
-            STATE,
-            DESIRED_STATE,
-            LAST_OPENED_TIME,
-            LAST_UPDATED_BY,
-            LAST_UPDATED_TIME,
-            CREATED_BY,
-            CREATED_TIME)));
+    Set<String> AVAILABLE_ATTRIBUTES = Set.of(ID,
+                                              NAME,
+                                              TYPE,
+                                              DESCRIPTION,
+                                              DURABLE,
+                                              CONTEXT,
+                                              LIFETIME_POLICY,
+                                              STATE,
+                                              DESIRED_STATE,
+                                              LAST_OPENED_TIME,
+                                              LAST_UPDATED_BY,
+                                              LAST_UPDATED_TIME,
+                                              CREATED_BY,
+                                              CREATED_TIME);
 
     Collection<String> getAttributeNames();
 

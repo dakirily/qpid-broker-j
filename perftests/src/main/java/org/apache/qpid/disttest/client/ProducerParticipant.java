@@ -27,7 +27,6 @@ import java.util.concurrent.TimeUnit;
 
 import javax.jms.Message;
 
-import com.google.common.util.concurrent.RateLimiter;
 import org.apache.qpid.disttest.jms.ClientJmsDelegate;
 import org.apache.qpid.disttest.message.CreateProducerCommand;
 import org.apache.qpid.disttest.message.ParticipantResult;
@@ -51,7 +50,6 @@ public class ProducerParticipant implements Participant
     private final long _numberOfMessages;
     private final int _batchSize;
     private final int _acknowledgeMode;
-    private final RateLimiter _rateLimiter;
     private volatile boolean _collectData = false;
 
     public ProducerParticipant(final ClientJmsDelegate jmsDelegate, final CreateProducerCommand command)
@@ -63,8 +61,6 @@ public class ProducerParticipant implements Participant
         _numberOfMessages = _command.getNumberOfMessages();
         _batchSize = _command.getBatchSize();
         _acknowledgeMode = _jmsDelegate.getAcknowledgeMode(_command.getSessionName());
-        final double rate = _command.getRate();
-        _rateLimiter = (rate > 0 ? RateLimiter.create(rate) : null);
     }
 
     @Override
@@ -82,11 +78,6 @@ public class ProducerParticipant implements Participant
 
         while (_stopTestLatch.getCount() != 0)
         {
-            if (_rateLimiter != null)
-            {
-                _rateLimiter.acquire();
-            }
-
             if (_collectData)
             {
                 if (startTime == 0)
@@ -122,7 +113,7 @@ public class ProducerParticipant implements Participant
                 {
                     if (LOGGER.isTraceEnabled() && _batchSize > 0)
                     {
-                        LOGGER.trace("Committing: batch size " + _batchSize);
+                        LOGGER.trace("Committing: batch size {}", _batchSize);
                     }
                     _jmsDelegate.commitIfNecessary(_command.getSessionName());
 
@@ -138,7 +129,7 @@ public class ProducerParticipant implements Participant
                     _jmsDelegate.commitIfNecessary(_command.getSessionName());
                     LOGGER.trace("Pre-message sent by {}", this);
                 }
-                if (_rateLimiter == null && _maximumDuration == 0)
+                if (_maximumDuration == 0)
                 {
                     if (!_startDataCollectionLatch.await(1, TimeUnit.SECONDS))
                     {

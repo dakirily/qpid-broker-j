@@ -31,32 +31,32 @@ public final class MessageAccept extends Method {
     public static final int TYPE = 1026;
 
     @Override
-    public final int getStructType() {
+    public int getStructType() {
         return TYPE;
     }
 
     @Override
-    public final int getSizeWidth() {
+    public int getSizeWidth() {
         return 0;
     }
 
     @Override
-    public final int getPackWidth() {
+    public int getPackWidth() {
         return 2;
     }
 
     @Override
-    public final boolean hasPayload() {
+    public boolean hasPayload() {
         return false;
     }
 
     @Override
-    public final byte getEncodedTrack() {
+    public byte getEncodedTrack() {
         return Frame.L4;
     }
 
     @Override
-    public final boolean isConnectionControl()
+    public boolean isConnectionControl()
     {
         return false;
     }
@@ -73,13 +73,23 @@ public final class MessageAccept extends Method {
             setTransfers(transfers);
         }
 
-        for (int i=0; i < _options.length; i++) {
-            switch (_options[i]) {
-            case SYNC: this.setSync(true); break;
-            case BATCH: this.setBatch(true); break;
-            case UNRELIABLE: this.setUnreliable(true); break;
-            case NONE: break;
-            default: throw new IllegalArgumentException("invalid option: " + _options[i]);
+        for (final Option option : _options)
+        {
+            switch (option)
+            {
+                case SYNC:
+                    this.setSync(true);
+                    break;
+                case BATCH:
+                    this.setBatch(true);
+                    break;
+                case UNRELIABLE:
+                    this.setUnreliable(true);
+                    break;
+                case NONE:
+                    break;
+                default:
+                    throw new IllegalArgumentException("invalid option: " + option);
             }
         }
 
@@ -91,29 +101,29 @@ public final class MessageAccept extends Method {
     }
 
 
-    public final boolean hasTransfers() {
+    public boolean hasTransfers() {
         return (packing_flags & 256) != 0;
     }
 
-    public final MessageAccept clearTransfers() {
+    public MessageAccept clearTransfers() {
         packing_flags &= ~256;
         this.transfers = null;
         setDirty(true);
         return this;
     }
 
-    public final RangeSet getTransfers() {
+    public RangeSet getTransfers() {
         return transfers;
     }
 
-    public final MessageAccept setTransfers(RangeSet value) {
+    public MessageAccept setTransfers(RangeSet value) {
         this.transfers = value;
         packing_flags |= 256;
         setDirty(true);
         return this;
     }
 
-    public final MessageAccept transfers(RangeSet value) {
+    public MessageAccept transfers(RangeSet value) {
         return setTransfers(value);
     }
 

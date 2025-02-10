@@ -85,14 +85,7 @@ public class Handler extends URLStreamHandler
                 }
                 else
                 {
-                    try
-                    {
-                        _content = URLDecoder.decode(parts[1], StandardCharsets.US_ASCII.name()).getBytes(StandardCharsets.US_ASCII);
-                    }
-                    catch (UnsupportedEncodingException e)
-                    {
-                        throw new IOException(e);
-                    }
+                    _content = URLDecoder.decode(parts[1], StandardCharsets.US_ASCII).getBytes(StandardCharsets.US_ASCII);
                 }
                 String mediaType = (_base64
                         ? parts[0].substring(0,parts[0].length()-";base64".length())

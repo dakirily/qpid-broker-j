@@ -26,6 +26,7 @@ import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.InputStream;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.sql.Blob;
 import java.sql.Connection;
 import java.sql.ResultSet;
@@ -46,7 +47,7 @@ import org.apache.qpid.server.store.preferences.PreferenceStore;
  */
 public class GenericJDBCConfigurationStore extends AbstractJDBCConfigurationStore implements MessageStoreProvider
 {
-    private static final Charset UTF8_CHARSET = Charset.forName("UTF-8");
+    private static final Charset UTF8_CHARSET = StandardCharsets.UTF_8;
 
     private static final Logger LOGGER = LoggerFactory.getLogger(GenericJDBCConfigurationStore.class);
 
@@ -85,13 +86,13 @@ public class GenericJDBCConfigurationStore extends AbstractJDBCConfigurationStor
 
         if (!details.isKnownVendor() && getLogger().isInfoEnabled())
         {
-            getLogger().info("Do not recognize vendor from connection URL: " + _connectionURL
-                             + " Using fallback settings " + details);
+            getLogger().info("Do not recognize vendor from connection URL: {} Using fallback settings {}",
+                             _connectionURL,
+                             details);
         }
         if (details.isOverridden() && getLogger().isInfoEnabled())
         {
-            getLogger().info("One or more JDBC details were overridden from context. "
-                             + " Using settings : " + details);
+            getLogger().info("One or more JDBC details were overridden from context.  Using settings : {}", details);
         }
 
         _connectionProvider = JdbcUtils.createConnectionProvider(parent, LOGGER);

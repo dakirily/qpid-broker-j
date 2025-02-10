@@ -320,9 +320,8 @@ public class ApiDocsServlet extends AbstractServlet
         for(ConfiguredObjectAttribute attribute : attributeTypes)
         {
             String properties;
-            if (attribute instanceof ConfiguredSettableAttribute)
+            if (attribute instanceof final ConfiguredSettableAttribute settableAttribute)
             {
-                ConfiguredSettableAttribute settableAttribute = (ConfiguredSettableAttribute)attribute;
                 if (settableAttribute.isImmutable())
                 {
                     properties = "read/settable on create only";
@@ -498,9 +497,8 @@ public class ApiDocsServlet extends AbstractServlet
         Collection<String> validValues;
         String validValuePattern;
 
-        if(attributeOrStatistic instanceof ConfiguredSettableAttribute)
+        if(attributeOrStatistic instanceof final ConfiguredSettableAttribute<?, ?> settableAttribute)
         {
-            ConfiguredSettableAttribute<?,?> settableAttribute = (ConfiguredSettableAttribute<?,?>) attributeOrStatistic;
             validValues = settableAttribute.hasValidValues() ? settableAttribute.validValues() : null;
             validValuePattern = settableAttribute.validValuePattern();
         }

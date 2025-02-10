@@ -157,9 +157,8 @@ public class HavingExpression<T, R> extends AbstractExpressionNode<T, R> impleme
         for (final Map.Entry<String, Object> entry : havingResult.entrySet())
         {
             final Object object = entry.getValue();
-            if (object instanceof Boolean)
+            if (object instanceof final Boolean flag)
             {
-                final Boolean flag = (Boolean) object;
                 if (!flag)
                 {
                     result.remove(entry.getKey());

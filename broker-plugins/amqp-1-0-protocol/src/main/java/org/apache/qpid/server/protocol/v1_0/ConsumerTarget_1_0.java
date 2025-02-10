@@ -658,9 +658,8 @@ class ConsumerTarget_1_0 extends AbstractConsumerTarget<ConsumerTarget_1_0>
             if (requeues == 0)
             {
                 final TransactionLogResource owningResource = _queueEntry.getOwningResource();
-                if (owningResource instanceof Queue)
+                if (owningResource instanceof final Queue<?> queue)
                 {
-                    final Queue<?> queue = (Queue<?>) owningResource;
 
                     final MessageDestination alternateBindingDestination = queue.getAlternateBindingDestination();
 

@@ -57,7 +57,7 @@ public class StandardSendingDestination implements SendingDestination
                 capabilities.add(Symbol.getSymbol("temporary-queue"));
             }
         }
-        _capabilities = capabilities.toArray(new Symbol[capabilities.size()]);
+        _capabilities = capabilities.toArray(new Symbol[0]);
     }
 
     public Outcome[] getOutcomes()

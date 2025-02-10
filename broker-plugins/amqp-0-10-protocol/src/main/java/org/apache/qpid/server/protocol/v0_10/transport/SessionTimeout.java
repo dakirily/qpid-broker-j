@@ -31,32 +31,32 @@ public final class SessionTimeout extends Method {
     public static final int TYPE = 518;
 
     @Override
-    public final int getStructType() {
+    public int getStructType() {
         return TYPE;
     }
 
     @Override
-    public final int getSizeWidth() {
+    public int getSizeWidth() {
         return 0;
     }
 
     @Override
-    public final int getPackWidth() {
+    public int getPackWidth() {
         return 2;
     }
 
     @Override
-    public final boolean hasPayload() {
+    public boolean hasPayload() {
         return false;
     }
 
     @Override
-    public final byte getEncodedTrack() {
+    public byte getEncodedTrack() {
         return Frame.L3;
     }
 
     @Override
-    public final boolean isConnectionControl()
+    public boolean isConnectionControl()
     {
         return false;
     }
@@ -71,13 +71,23 @@ public final class SessionTimeout extends Method {
     public SessionTimeout(long timeout, Option ... _options) {
         setTimeout(timeout);
 
-        for (int i=0; i < _options.length; i++) {
-            switch (_options[i]) {
-            case SYNC: this.setSync(true); break;
-            case BATCH: this.setBatch(true); break;
-            case UNRELIABLE: this.setUnreliable(true); break;
-            case NONE: break;
-            default: throw new IllegalArgumentException("invalid option: " + _options[i]);
+        for (final Option option : _options)
+        {
+            switch (option)
+            {
+                case SYNC:
+                    this.setSync(true);
+                    break;
+                case BATCH:
+                    this.setBatch(true);
+                    break;
+                case UNRELIABLE:
+                    this.setUnreliable(true);
+                    break;
+                case NONE:
+                    break;
+                default:
+                    throw new IllegalArgumentException("invalid option: " + option);
             }
         }
 
@@ -89,29 +99,29 @@ public final class SessionTimeout extends Method {
     }
 
 
-    public final boolean hasTimeout() {
+    public boolean hasTimeout() {
         return (packing_flags & 256) != 0;
     }
 
-    public final SessionTimeout clearTimeout() {
+    public SessionTimeout clearTimeout() {
         packing_flags &= ~256;
         this.timeout = 0;
         setDirty(true);
         return this;
     }
 
-    public final long getTimeout() {
+    public long getTimeout() {
         return timeout;
     }
 
-    public final SessionTimeout setTimeout(long value) {
+    public SessionTimeout setTimeout(long value) {
         this.timeout = value;
         packing_flags |= 256;
         setDirty(true);
         return this;
     }
 
-    public final SessionTimeout timeout(long value) {
+    public SessionTimeout timeout(long value) {
         return setTimeout(value);
     }
 

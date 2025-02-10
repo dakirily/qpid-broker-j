@@ -21,8 +21,6 @@
 package org.apache.qpid.server.security.auth.database;
 
 import java.security.Principal;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 
 import javax.security.auth.login.AccountNotFoundException;
@@ -47,9 +45,8 @@ import org.apache.qpid.server.security.auth.sasl.plain.PlainNegotiator;
 public class Base64MD5PasswordFilePrincipalDatabase extends AbstractPasswordFilePrincipalDatabase<HashedUser>
 {
     private static final Logger LOGGER = LoggerFactory.getLogger(Base64MD5PasswordFilePrincipalDatabase.class);
-    private final List<String> _mechanisms = Collections.unmodifiableList(Arrays.asList(CramMd5HashedNegotiator.MECHANISM,
-                                                                                        CramMd5HexNegotiator.MECHANISM,
-                                                                                        PlainNegotiator.MECHANISM));
+    private final List<String> _mechanisms =
+            List.of(CramMd5HashedNegotiator.MECHANISM, CramMd5HexNegotiator.MECHANISM, PlainNegotiator.MECHANISM);
 
     public Base64MD5PasswordFilePrincipalDatabase(final PasswordCredentialManagingAuthenticationProvider<?> authenticationProvider)
     {

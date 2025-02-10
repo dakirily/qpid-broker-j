@@ -169,7 +169,7 @@ public class MessageDecoder
     {
         parse();
 
-        if (_dataSections.size() == 0)
+        if (_dataSections.isEmpty())
         {
             return null;
         }

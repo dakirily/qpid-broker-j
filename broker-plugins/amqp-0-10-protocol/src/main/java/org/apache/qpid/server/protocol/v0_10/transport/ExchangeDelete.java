@@ -31,32 +31,32 @@ public final class ExchangeDelete extends Method {
     public static final int TYPE = 1794;
 
     @Override
-    public final int getStructType() {
+    public int getStructType() {
         return TYPE;
     }
 
     @Override
-    public final int getSizeWidth() {
+    public int getSizeWidth() {
         return 0;
     }
 
     @Override
-    public final int getPackWidth() {
+    public int getPackWidth() {
         return 2;
     }
 
     @Override
-    public final boolean hasPayload() {
+    public boolean hasPayload() {
         return false;
     }
 
     @Override
-    public final byte getEncodedTrack() {
+    public byte getEncodedTrack() {
         return Frame.L4;
     }
 
     @Override
-    public final boolean isConnectionControl()
+    public boolean isConnectionControl()
     {
         return false;
     }
@@ -73,14 +73,26 @@ public final class ExchangeDelete extends Method {
             setExchange(exchange);
         }
 
-        for (int i=0; i < _options.length; i++) {
-            switch (_options[i]) {
-            case IF_UNUSED: packing_flags |= 512; break;
-            case SYNC: this.setSync(true); break;
-            case BATCH: this.setBatch(true); break;
-            case UNRELIABLE: this.setUnreliable(true); break;
-            case NONE: break;
-            default: throw new IllegalArgumentException("invalid option: " + _options[i]);
+        for (final Option option : _options)
+        {
+            switch (option)
+            {
+                case IF_UNUSED:
+                    packing_flags |= 512;
+                    break;
+                case SYNC:
+                    this.setSync(true);
+                    break;
+                case BATCH:
+                    this.setBatch(true);
+                    break;
+                case UNRELIABLE:
+                    this.setUnreliable(true);
+                    break;
+                case NONE:
+                    break;
+                default:
+                    throw new IllegalArgumentException("invalid option: " + option);
             }
         }
 
@@ -92,48 +104,48 @@ public final class ExchangeDelete extends Method {
     }
 
 
-    public final boolean hasExchange() {
+    public boolean hasExchange() {
         return (packing_flags & 256) != 0;
     }
 
-    public final ExchangeDelete clearExchange() {
+    public ExchangeDelete clearExchange() {
         packing_flags &= ~256;
         this.exchange = null;
         setDirty(true);
         return this;
     }
 
-    public final String getExchange() {
+    public String getExchange() {
         return exchange;
     }
 
-    public final ExchangeDelete setExchange(String value) {
+    public ExchangeDelete setExchange(String value) {
         this.exchange = value;
         packing_flags |= 256;
         setDirty(true);
         return this;
     }
 
-    public final ExchangeDelete exchange(String value) {
+    public ExchangeDelete exchange(String value) {
         return setExchange(value);
     }
 
-    public final boolean hasIfUnused() {
+    public boolean hasIfUnused() {
         return (packing_flags & 512) != 0;
     }
 
-    public final ExchangeDelete clearIfUnused() {
+    public ExchangeDelete clearIfUnused() {
         packing_flags &= ~512;
 
         setDirty(true);
         return this;
     }
 
-    public final boolean getIfUnused() {
+    public boolean getIfUnused() {
         return hasIfUnused();
     }
 
-    public final ExchangeDelete setIfUnused(boolean value) {
+    public ExchangeDelete setIfUnused(boolean value) {
 
         if (value)
         {
@@ -148,7 +160,7 @@ public final class ExchangeDelete extends Method {
         return this;
     }
 
-    public final ExchangeDelete ifUnused(boolean value) {
+    public ExchangeDelete ifUnused(boolean value) {
         return setIfUnused(value);
     }
 

@@ -31,19 +31,19 @@ public class NoOpQueueAdmin implements QueueAdmin
     @Override
     public void createQueue(BrokerAdmin brokerAdmin, final String queueName)
     {
-        LOGGER.debug(String.format("creation of queue '%s' requested", queueName));
+        LOGGER.debug("creation of queue '{}' requested", queueName);
     }
 
     @Override
     public void deleteQueue(BrokerAdmin brokerAdmin, final String queueName)
     {
-        LOGGER.debug(String.format("deletion of queue '%s' requested", queueName));
+        LOGGER.debug("deletion of queue '{}' requested", queueName);
     }
 
     @Override
     public void putMessageOnQueue(BrokerAdmin brokerAdmin, final String queueName, final String... messages)
     {
-        LOGGER.debug(String.format("putting of %d messages on queue '%s' requested", messages.length, queueName));
+        LOGGER.debug("putting of {} messages on queue '{}' requested", messages.length, queueName);
     }
 
     @Override

@@ -143,7 +143,7 @@ public class JdbcUtils
             }
             catch(SQLException e)
             {
-                logger.warn("Failed to drop table '" + tableName + "' :" + e);
+                logger.warn("Failed to drop table '{}' :{}", tableName, e);
             }
         }
     }

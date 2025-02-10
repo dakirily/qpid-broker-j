@@ -184,7 +184,7 @@ public class BasicInteraction
             while (offset < contentSize);
         }
 
-        CompositeAMQDataBlock frame = new CompositeAMQDataBlock(frames.toArray(new AMQFrame[frames.size()]));
+        CompositeAMQDataBlock frame = new CompositeAMQDataBlock(frames.toArray(new AMQFrame[0]));
 
         return _interaction.sendPerformative(frame);
     }

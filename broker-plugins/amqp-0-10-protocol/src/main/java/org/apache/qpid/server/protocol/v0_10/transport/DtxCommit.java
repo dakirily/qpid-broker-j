@@ -31,32 +31,32 @@ public final class DtxCommit extends Method {
     public static final int TYPE = 1540;
 
     @Override
-    public final int getStructType() {
+    public int getStructType() {
         return TYPE;
     }
 
     @Override
-    public final int getSizeWidth() {
+    public int getSizeWidth() {
         return 0;
     }
 
     @Override
-    public final int getPackWidth() {
+    public int getPackWidth() {
         return 2;
     }
 
     @Override
-    public final boolean hasPayload() {
+    public boolean hasPayload() {
         return false;
     }
 
     @Override
-    public final byte getEncodedTrack() {
+    public byte getEncodedTrack() {
         return Frame.L4;
     }
 
     @Override
-    public final boolean isConnectionControl()
+    public boolean isConnectionControl()
     {
         return false;
     }
@@ -73,14 +73,26 @@ public final class DtxCommit extends Method {
             setXid(xid);
         }
 
-        for (int i=0; i < _options.length; i++) {
-            switch (_options[i]) {
-            case ONE_PHASE: packing_flags |= 512; break;
-            case SYNC: this.setSync(true); break;
-            case BATCH: this.setBatch(true); break;
-            case UNRELIABLE: this.setUnreliable(true); break;
-            case NONE: break;
-            default: throw new IllegalArgumentException("invalid option: " + _options[i]);
+        for (final Option option : _options)
+        {
+            switch (option)
+            {
+                case ONE_PHASE:
+                    packing_flags |= 512;
+                    break;
+                case SYNC:
+                    this.setSync(true);
+                    break;
+                case BATCH:
+                    this.setBatch(true);
+                    break;
+                case UNRELIABLE:
+                    this.setUnreliable(true);
+                    break;
+                case NONE:
+                    break;
+                default:
+                    throw new IllegalArgumentException("invalid option: " + option);
             }
         }
 
@@ -92,48 +104,48 @@ public final class DtxCommit extends Method {
     }
 
 
-    public final boolean hasXid() {
+    public boolean hasXid() {
         return (packing_flags & 256) != 0;
     }
 
-    public final DtxCommit clearXid() {
+    public DtxCommit clearXid() {
         packing_flags &= ~256;
         this.xid = null;
         setDirty(true);
         return this;
     }
 
-    public final Xid getXid() {
+    public Xid getXid() {
         return xid;
     }
 
-    public final DtxCommit setXid(Xid value) {
+    public DtxCommit setXid(Xid value) {
         this.xid = value;
         packing_flags |= 256;
         setDirty(true);
         return this;
     }
 
-    public final DtxCommit xid(Xid value) {
+    public DtxCommit xid(Xid value) {
         return setXid(value);
     }
 
-    public final boolean hasOnePhase() {
+    public boolean hasOnePhase() {
         return (packing_flags & 512) != 0;
     }
 
-    public final DtxCommit clearOnePhase() {
+    public DtxCommit clearOnePhase() {
         packing_flags &= ~512;
 
         setDirty(true);
         return this;
     }
 
-    public final boolean getOnePhase() {
+    public boolean getOnePhase() {
         return hasOnePhase();
     }
 
-    public final DtxCommit setOnePhase(boolean value) {
+    public DtxCommit setOnePhase(boolean value) {
 
         if (value)
         {
@@ -148,7 +160,7 @@ public final class DtxCommit extends Method {
         return this;
     }
 
-    public final DtxCommit onePhase(boolean value) {
+    public DtxCommit onePhase(boolean value) {
         return setOnePhase(value);
     }
 

@@ -101,8 +101,7 @@ public class UpgraderTest extends AbstractUpgradeTestCase
         deleteDirectoryIfExists(nonExistentStoreLocation);
 
         nonExistentStoreLocation.mkdir();
-        Environment emptyEnvironment = createEnvironment(nonExistentStoreLocation);
-        try
+        try (Environment emptyEnvironment = createEnvironment(nonExistentStoreLocation))
         {
             _upgrader = new Upgrader(emptyEnvironment, getVirtualHost());
             _upgrader.upgradeIfNecessary();
@@ -113,11 +112,9 @@ public class UpgraderTest extends AbstractUpgradeTestCase
             assertEquals(expectedDatabases, databaseNames,
                          "Expectedonly VERSION table in initially empty store after upgrade: ");
             assertEquals(BDBConfigurationStore.VERSION, getStoreVersion(emptyEnvironment), "Unexpected store version");
-
         }
         finally
         {
-            emptyEnvironment.close();
             nonExistentStoreLocation.delete();
         }
     }

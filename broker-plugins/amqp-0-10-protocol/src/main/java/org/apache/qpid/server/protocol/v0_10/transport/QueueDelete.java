@@ -30,32 +30,32 @@ public final class QueueDelete extends Method {
     public static final int TYPE = 2050;
 
     @Override
-    public final int getStructType() {
+    public int getStructType() {
         return TYPE;
     }
 
     @Override
-    public final int getSizeWidth() {
+    public int getSizeWidth() {
         return 0;
     }
 
     @Override
-    public final int getPackWidth() {
+    public int getPackWidth() {
         return 2;
     }
 
     @Override
-    public final boolean hasPayload() {
+    public boolean hasPayload() {
         return false;
     }
 
     @Override
-    public final byte getEncodedTrack() {
+    public byte getEncodedTrack() {
         return Frame.L4;
     }
 
     @Override
-    public final boolean isConnectionControl()
+    public boolean isConnectionControl()
     {
         return false;
     }
@@ -72,15 +72,29 @@ public final class QueueDelete extends Method {
             setQueue(queue);
         }
 
-        for (int i=0; i < _options.length; i++) {
-            switch (_options[i]) {
-            case IF_UNUSED: packing_flags |= 512; break;
-            case IF_EMPTY: packing_flags |= 1024; break;
-            case SYNC: this.setSync(true); break;
-            case BATCH: this.setBatch(true); break;
-            case UNRELIABLE: this.setUnreliable(true); break;
-            case NONE: break;
-            default: throw new IllegalArgumentException("invalid option: " + _options[i]);
+        for (final Option option : _options)
+        {
+            switch (option)
+            {
+                case IF_UNUSED:
+                    packing_flags |= 512;
+                    break;
+                case IF_EMPTY:
+                    packing_flags |= 1024;
+                    break;
+                case SYNC:
+                    this.setSync(true);
+                    break;
+                case BATCH:
+                    this.setBatch(true);
+                    break;
+                case UNRELIABLE:
+                    this.setUnreliable(true);
+                    break;
+                case NONE:
+                    break;
+                default:
+                    throw new IllegalArgumentException("invalid option: " + option);
             }
         }
 
@@ -92,48 +106,48 @@ public final class QueueDelete extends Method {
     }
 
 
-    public final boolean hasQueue() {
+    public boolean hasQueue() {
         return (packing_flags & 256) != 0;
     }
 
-    public final QueueDelete clearQueue() {
+    public QueueDelete clearQueue() {
         packing_flags &= ~256;
         this.queue = null;
         setDirty(true);
         return this;
     }
 
-    public final String getQueue() {
+    public String getQueue() {
         return queue;
     }
 
-    public final QueueDelete setQueue(String value) {
+    public QueueDelete setQueue(String value) {
         this.queue = value;
         packing_flags |= 256;
         setDirty(true);
         return this;
     }
 
-    public final QueueDelete queue(String value) {
+    public QueueDelete queue(String value) {
         return setQueue(value);
     }
 
-    public final boolean hasIfUnused() {
+    public boolean hasIfUnused() {
         return (packing_flags & 512) != 0;
     }
 
-    public final QueueDelete clearIfUnused() {
+    public QueueDelete clearIfUnused() {
         packing_flags &= ~512;
 
         setDirty(true);
         return this;
     }
 
-    public final boolean getIfUnused() {
+    public boolean getIfUnused() {
         return hasIfUnused();
     }
 
-    public final QueueDelete setIfUnused(boolean value) {
+    public QueueDelete setIfUnused(boolean value) {
 
         if (value)
         {
@@ -148,26 +162,26 @@ public final class QueueDelete extends Method {
         return this;
     }
 
-    public final QueueDelete ifUnused(boolean value) {
+    public QueueDelete ifUnused(boolean value) {
         return setIfUnused(value);
     }
 
-    public final boolean hasIfEmpty() {
+    public boolean hasIfEmpty() {
         return (packing_flags & 1024) != 0;
     }
 
-    public final QueueDelete clearIfEmpty() {
+    public QueueDelete clearIfEmpty() {
         packing_flags &= ~1024;
 
         setDirty(true);
         return this;
     }
 
-    public final boolean getIfEmpty() {
+    public boolean getIfEmpty() {
         return hasIfEmpty();
     }
 
-    public final QueueDelete setIfEmpty(boolean value) {
+    public QueueDelete setIfEmpty(boolean value) {
 
         if (value)
         {
@@ -182,7 +196,7 @@ public final class QueueDelete extends Method {
         return this;
     }
 
-    public final QueueDelete ifEmpty(boolean value) {
+    public QueueDelete ifEmpty(boolean value) {
         return setIfEmpty(value);
     }
 

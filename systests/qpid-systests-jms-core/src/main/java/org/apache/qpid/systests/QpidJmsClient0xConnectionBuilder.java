@@ -402,25 +402,11 @@ public class QpidJmsClient0xConnectionBuilder implements ConnectionBuilder
 
     private String encodeBrokerOption(final String canonicalPath)
     {
-        try
-        {
-            return URLEncoder.encode(encodeConnectionOption(canonicalPath), StandardCharsets.UTF_8.name());
-        }
-        catch (UnsupportedEncodingException e)
-        {
-            throw new RuntimeException(e);
-        }
+        return URLEncoder.encode(encodeConnectionOption(canonicalPath), StandardCharsets.UTF_8);
     }
 
     private String encodeConnectionOption(final String canonicalPath)
     {
-        try
-        {
-            return URLEncoder.encode(canonicalPath, StandardCharsets.UTF_8.name()).replace("+", "%20");
-        }
-        catch (UnsupportedEncodingException e)
-        {
-            throw new RuntimeException(e);
-        }
+        return URLEncoder.encode(canonicalPath, StandardCharsets.UTF_8).replace("+", "%20");
     }
 }

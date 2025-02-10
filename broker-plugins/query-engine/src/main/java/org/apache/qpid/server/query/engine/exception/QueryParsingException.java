@@ -48,9 +48,8 @@ public class QueryParsingException extends QueryEngineException
     public QueryParsingException(final Throwable throwable)
     {
         initCause(throwable);
-        if (throwable instanceof ParseException)
+        if (throwable instanceof final ParseException parseException)
         {
-            final ParseException parseException = (ParseException) throwable;
 
             if ("select".equalsIgnoreCase(parseException.currentToken.image))
             {

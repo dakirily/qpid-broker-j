@@ -103,7 +103,7 @@ public class LikeExpression<T, R> extends AbstractComparisonExpression<T, Boolea
             throw new IllegalArgumentException("Null pattern");
         }
 
-        if (pattern.length() == 0) {
+        if (pattern.isEmpty()) {
             throw new IllegalArgumentException("Empty pattern");
         }
 

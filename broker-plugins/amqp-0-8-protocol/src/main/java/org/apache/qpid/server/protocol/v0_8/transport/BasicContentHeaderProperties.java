@@ -352,7 +352,7 @@ public class BasicContentHeaderProperties
 
         if (LOGGER.isDebugEnabled())
         {
-            LOGGER.debug("Property flags: " + _propertyFlags);
+            LOGGER.debug("Property flags: {}", _propertyFlags);
         }
         _encodedForm = buffer.view(0,size);
 

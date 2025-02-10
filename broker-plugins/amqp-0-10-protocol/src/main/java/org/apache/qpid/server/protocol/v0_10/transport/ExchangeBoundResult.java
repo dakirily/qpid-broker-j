@@ -31,29 +31,29 @@ public final class ExchangeBoundResult extends Struct {
     public static final int TYPE = 1794;
 
     @Override
-    public final int getStructType() {
+    public int getStructType() {
         return TYPE;
     }
 
     @Override
-    public final int getSizeWidth() {
+    public int getSizeWidth() {
         return 4;
     }
 
     @Override
-    public final int getPackWidth() {
+    public int getPackWidth() {
         return 2;
     }
 
-    public final boolean hasPayload() {
+    public boolean hasPayload() {
         return false;
     }
 
-    public final byte getEncodedTrack() {
+    public byte getEncodedTrack() {
         return -1;
     }
 
-    public final boolean isConnectionControl()
+    public boolean isConnectionControl()
     {
         return false;
     }
@@ -66,15 +66,29 @@ public final class ExchangeBoundResult extends Struct {
 
     public ExchangeBoundResult(Option ... _options) {
 
-        for (int i=0; i < _options.length; i++) {
-            switch (_options[i]) {
-            case EXCHANGE_NOT_FOUND: packing_flags |= 256; break;
-            case QUEUE_NOT_FOUND: packing_flags |= 512; break;
-            case QUEUE_NOT_MATCHED: packing_flags |= 1024; break;
-            case KEY_NOT_MATCHED: packing_flags |= 2048; break;
-            case ARGS_NOT_MATCHED: packing_flags |= 4096; break;
-            case NONE: break;
-            default: throw new IllegalArgumentException("invalid option: " + _options[i]);
+        for (final Option option : _options)
+        {
+            switch (option)
+            {
+                case EXCHANGE_NOT_FOUND:
+                    packing_flags |= 256;
+                    break;
+                case QUEUE_NOT_FOUND:
+                    packing_flags |= 512;
+                    break;
+                case QUEUE_NOT_MATCHED:
+                    packing_flags |= 1024;
+                    break;
+                case KEY_NOT_MATCHED:
+                    packing_flags |= 2048;
+                    break;
+                case ARGS_NOT_MATCHED:
+                    packing_flags |= 4096;
+                    break;
+                case NONE:
+                    break;
+                default:
+                    throw new IllegalArgumentException("invalid option: " + option);
             }
         }
 
@@ -83,22 +97,22 @@ public final class ExchangeBoundResult extends Struct {
 
 
 
-    public final boolean hasExchangeNotFound() {
+    public boolean hasExchangeNotFound() {
         return (packing_flags & 256) != 0;
     }
 
-    public final ExchangeBoundResult clearExchangeNotFound() {
+    public ExchangeBoundResult clearExchangeNotFound() {
         packing_flags &= ~256;
 
         setDirty(true);
         return this;
     }
 
-    public final boolean getExchangeNotFound() {
+    public boolean getExchangeNotFound() {
         return hasExchangeNotFound();
     }
 
-    public final ExchangeBoundResult setExchangeNotFound(boolean value) {
+    public ExchangeBoundResult setExchangeNotFound(boolean value) {
 
         if (value)
         {
@@ -113,26 +127,26 @@ public final class ExchangeBoundResult extends Struct {
         return this;
     }
 
-    public final ExchangeBoundResult exchangeNotFound(boolean value) {
+    public ExchangeBoundResult exchangeNotFound(boolean value) {
         return setExchangeNotFound(value);
     }
 
-    public final boolean hasQueueNotFound() {
+    public boolean hasQueueNotFound() {
         return (packing_flags & 512) != 0;
     }
 
-    public final ExchangeBoundResult clearQueueNotFound() {
+    public ExchangeBoundResult clearQueueNotFound() {
         packing_flags &= ~512;
 
         setDirty(true);
         return this;
     }
 
-    public final boolean getQueueNotFound() {
+    public boolean getQueueNotFound() {
         return hasQueueNotFound();
     }
 
-    public final ExchangeBoundResult setQueueNotFound(boolean value) {
+    public ExchangeBoundResult setQueueNotFound(boolean value) {
 
         if (value)
         {
@@ -147,26 +161,26 @@ public final class ExchangeBoundResult extends Struct {
         return this;
     }
 
-    public final ExchangeBoundResult queueNotFound(boolean value) {
+    public ExchangeBoundResult queueNotFound(boolean value) {
         return setQueueNotFound(value);
     }
 
-    public final boolean hasQueueNotMatched() {
+    public boolean hasQueueNotMatched() {
         return (packing_flags & 1024) != 0;
     }
 
-    public final ExchangeBoundResult clearQueueNotMatched() {
+    public ExchangeBoundResult clearQueueNotMatched() {
         packing_flags &= ~1024;
 
         setDirty(true);
         return this;
     }
 
-    public final boolean getQueueNotMatched() {
+    public boolean getQueueNotMatched() {
         return hasQueueNotMatched();
     }
 
-    public final ExchangeBoundResult setQueueNotMatched(boolean value) {
+    public ExchangeBoundResult setQueueNotMatched(boolean value) {
 
         if (value)
         {
@@ -181,26 +195,26 @@ public final class ExchangeBoundResult extends Struct {
         return this;
     }
 
-    public final ExchangeBoundResult queueNotMatched(boolean value) {
+    public ExchangeBoundResult queueNotMatched(boolean value) {
         return setQueueNotMatched(value);
     }
 
-    public final boolean hasKeyNotMatched() {
+    public boolean hasKeyNotMatched() {
         return (packing_flags & 2048) != 0;
     }
 
-    public final ExchangeBoundResult clearKeyNotMatched() {
+    public ExchangeBoundResult clearKeyNotMatched() {
         packing_flags &= ~2048;
 
         setDirty(true);
         return this;
     }
 
-    public final boolean getKeyNotMatched() {
+    public boolean getKeyNotMatched() {
         return hasKeyNotMatched();
     }
 
-    public final ExchangeBoundResult setKeyNotMatched(boolean value) {
+    public ExchangeBoundResult setKeyNotMatched(boolean value) {
 
         if (value)
         {
@@ -215,26 +229,26 @@ public final class ExchangeBoundResult extends Struct {
         return this;
     }
 
-    public final ExchangeBoundResult keyNotMatched(boolean value) {
+    public ExchangeBoundResult keyNotMatched(boolean value) {
         return setKeyNotMatched(value);
     }
 
-    public final boolean hasArgsNotMatched() {
+    public boolean hasArgsNotMatched() {
         return (packing_flags & 4096) != 0;
     }
 
-    public final ExchangeBoundResult clearArgsNotMatched() {
+    public ExchangeBoundResult clearArgsNotMatched() {
         packing_flags &= ~4096;
 
         setDirty(true);
         return this;
     }
 
-    public final boolean getArgsNotMatched() {
+    public boolean getArgsNotMatched() {
         return hasArgsNotMatched();
     }
 
-    public final ExchangeBoundResult setArgsNotMatched(boolean value) {
+    public ExchangeBoundResult setArgsNotMatched(boolean value) {
 
         if (value)
         {
@@ -249,7 +263,7 @@ public final class ExchangeBoundResult extends Struct {
         return this;
     }
 
-    public final ExchangeBoundResult argsNotMatched(boolean value) {
+    public ExchangeBoundResult argsNotMatched(boolean value) {
         return setArgsNotMatched(value);
     }
 

@@ -49,9 +49,8 @@ public class ParticipantAttributeExtractor
 
             for (Annotation annotation : readMethod.getDeclaredAnnotations())
             {
-                if (annotation instanceof OutputAttribute)
+                if (annotation instanceof final OutputAttribute outputAttribute)
                 {
-                    OutputAttribute outputAttribute = (OutputAttribute) annotation;
 
                     Object value = getPropertyValue(targetObject, propertyDescriptor.getName());
                     attributes.put(outputAttribute.attribute(), value);

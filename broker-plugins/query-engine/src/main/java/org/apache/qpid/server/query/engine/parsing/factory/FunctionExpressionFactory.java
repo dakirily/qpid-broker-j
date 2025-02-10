@@ -21,14 +21,13 @@
 package org.apache.qpid.server.query.engine.parsing.factory;
 
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
-
-import com.google.common.collect.ImmutableMap;
 
 import org.apache.qpid.server.query.engine.exception.Errors;
 import org.apache.qpid.server.query.engine.exception.QueryParsingException;
@@ -104,34 +103,37 @@ public final class FunctionExpressionFactory
     /**
      * Mapping between function name and function creator
      */
-    private static final Map<Functions, BiFunction<?, ?, ?>> FUNCTIONS = ImmutableMap.<Functions, BiFunction<?, ?, ?>>builder()
-        .put(Functions.ABS, absExpression())
-        .put(Functions.AVG, avgExpression())
-        .put(Functions.COALESCE, coalesceExpression())
-        .put(Functions.CONCAT, concatExpression())
-        .put(Functions.COUNT, countExpression())
-        .put(Functions.CURRENT_TIMESTAMP, currentTimestampExpression())
-        .put(Functions.DATE, dateExpression())
-        .put(Functions.DATEADD, dateAddExpression())
-        .put(Functions.DATEDIFF, dateDiffExpression())
-        .put(Functions.EXTRACT, extractExpression())
-        .put(Functions.LEN, lenExpression())
-        .put(Functions.LENGTH, lenExpression())
-        .put(Functions.LOWER, lowerExpression())
-        .put(Functions.LTRIM, ltrim())
-        .put(Functions.MAX, maxExpression())
-        .put(Functions.MIN, minExpression())
-        .put(Functions.POSITION, positionExpression())
-        .put(Functions.REPLACE, replaceExpression())
-        .put(Functions.ROUND, roundExpression())
-        .put(Functions.RTRIM, rtrimExpression())
-        .put(Functions.SUBSTR, substringExpression())
-        .put(Functions.SUBSTRING, substringExpression())
-        .put(Functions.SUM, sumExpression())
-        .put(Functions.TRIM, trimExpression())
-        .put(Functions.TRUNC, truncExpression())
-        .put(Functions.UPPER, upperExpression())
-        .build();
+    private static final Map<Functions, BiFunction<?, ?, ?>> FUNCTIONS = new LinkedHashMap<>();
+
+    static
+    {
+            FUNCTIONS.put(Functions.ABS, absExpression());
+            FUNCTIONS.put(Functions.AVG, avgExpression());
+            FUNCTIONS.put(Functions.COALESCE, coalesceExpression());
+            FUNCTIONS.put(Functions.CONCAT, concatExpression());
+            FUNCTIONS.put(Functions.COUNT, countExpression());
+            FUNCTIONS.put(Functions.CURRENT_TIMESTAMP, currentTimestampExpression());
+            FUNCTIONS.put(Functions.DATE, dateExpression());
+            FUNCTIONS.put(Functions.DATEADD, dateAddExpression());
+            FUNCTIONS.put(Functions.DATEDIFF, dateDiffExpression());
+            FUNCTIONS.put(Functions.EXTRACT, extractExpression());
+            FUNCTIONS.put(Functions.LEN, lenExpression());
+            FUNCTIONS.put(Functions.LENGTH, lenExpression());
+            FUNCTIONS.put(Functions.LOWER, lowerExpression());
+            FUNCTIONS.put(Functions.LTRIM, ltrim());
+            FUNCTIONS.put(Functions.MAX, maxExpression());
+            FUNCTIONS.put(Functions.MIN, minExpression());
+            FUNCTIONS.put(Functions.POSITION, positionExpression());
+            FUNCTIONS.put(Functions.REPLACE, replaceExpression());
+            FUNCTIONS.put(Functions.ROUND, roundExpression());
+            FUNCTIONS.put(Functions.RTRIM, rtrimExpression());
+            FUNCTIONS.put(Functions.SUBSTR, substringExpression());
+            FUNCTIONS.put(Functions.SUBSTRING, substringExpression());
+            FUNCTIONS.put(Functions.SUM, sumExpression());
+            FUNCTIONS.put(Functions.TRIM, trimExpression());
+            FUNCTIONS.put(Functions.TRUNC, truncExpression());
+            FUNCTIONS.put(Functions.UPPER, upperExpression());
+    }
 
     /**
      * Shouldn't be instantiated directly

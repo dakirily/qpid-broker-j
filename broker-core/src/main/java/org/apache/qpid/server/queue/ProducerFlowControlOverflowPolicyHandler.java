@@ -20,7 +20,6 @@
 package org.apache.qpid.server.queue;
 
 import java.security.AccessController;
-import java.util.Collections;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -62,8 +61,7 @@ public class ProducerFlowControlOverflowPolicyHandler implements OverflowPolicyH
         private final Queue<?> _queue;
         private final EventLogger _eventLogger;
         private final AtomicBoolean _overfullReported = new AtomicBoolean(false);
-        private final Set<AMQPSession<?, ?>> _blockedSessions =
-                Collections.newSetFromMap(new ConcurrentHashMap<>());
+        private final Set<AMQPSession<?, ?>> _blockedSessions = ConcurrentHashMap.newKeySet();
         private volatile double _queueFlowResumeLimit;
         private boolean _checkCapacity;
 

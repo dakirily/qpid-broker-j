@@ -26,6 +26,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 
 import java.io.FileOutputStream;
+import java.nio.charset.StandardCharsets;
 
 import org.junit.jupiter.api.TestInfo;
 
@@ -173,30 +174,14 @@ public class TestFileUtils
 
     public static void saveTextContentInFile(String content, File file)
     {
-        FileOutputStream fos =  null;
-        try
+        try (final FileOutputStream fos = new FileOutputStream(file))
         {
-            fos = new FileOutputStream(file);
-            fos.write(content.getBytes("UTF-8"));
+            fos.write(content.getBytes(StandardCharsets.UTF_8));
             fos.flush();
         }
         catch (Exception e)
         {
             throw new RuntimeException("Cannot add the content into temp file " + file.getAbsolutePath(), e);
-        }
-        finally
-        {
-            if (fos != null)
-            {
-                try
-                {
-                    fos.close();
-                }
-                catch (IOException e)
-                {
-                    throw new RuntimeException("Cannot close output stream into temp file " + file.getAbsolutePath(), e);
-                }
-            }
         }
     }
 
@@ -227,9 +212,9 @@ public class TestFileUtils
                     return false;
                 }
 
-                for (int i = 0; i < files.length; i++)
+                for (final File value : files)
                 {
-                    success = delete(files[i], true) && success;
+                    success = delete(value, true) && success;
                 }
 
                 return success && file.delete();
@@ -256,16 +241,14 @@ public class TestFileUtils
             throw new IllegalArgumentException("Provided InputStream must not be null");
         }
 
-        try
+        try (in)
         {
             if (!dst.exists())
             {
                 dst.createNewFile();
             }
 
-            OutputStream out = new FileOutputStream(dst);
-            
-            try
+            try (OutputStream out = new FileOutputStream(dst))
             {
                 // Transfer bytes from in to out
                 byte[] buf = new byte[1024];
@@ -275,14 +258,6 @@ public class TestFileUtils
                     out.write(buf, 0, len);
                 }
             }
-            finally
-            {
-                out.close();
-            }
-        }
-        finally
-        {
-            in.close();
         }
     }
 }

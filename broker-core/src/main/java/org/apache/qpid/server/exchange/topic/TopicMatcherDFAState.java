@@ -150,12 +150,7 @@ public class TopicMatcherDFAState
             Map<TopicWord, TopicMatcherDFAState> map = state._nextStateMap;
             for(Map.Entry<TopicWord, TopicMatcherDFAState> entry : map.entrySet())
             {
-                Set<TopicMatcherDFAState> states = nfaMap.get(entry.getKey());
-                if(states == null)
-                {
-                    states = new HashSet<>();
-                    nfaMap.put(entry.getKey(), states);
-                }
+                Set<TopicMatcherDFAState> states = nfaMap.computeIfAbsent(entry.getKey(), key -> new HashSet<>());
                 states.add(entry.getValue());
             }
         }
@@ -190,7 +185,7 @@ public class TopicMatcherDFAState
                         resultSets.add(destination._results);
                     }
                     resultSets.remove(Collections.EMPTY_SET);
-                    if(resultSets.size() == 0)
+                    if(resultSets.isEmpty())
                     {
                         results = Collections.EMPTY_SET;
                     }

@@ -31,32 +31,32 @@ public final class MessageRelease extends Method {
     public static final int TYPE = 1028;
 
     @Override
-    public final int getStructType() {
+    public int getStructType() {
         return TYPE;
     }
 
     @Override
-    public final int getSizeWidth() {
+    public int getSizeWidth() {
         return 0;
     }
 
     @Override
-    public final int getPackWidth() {
+    public int getPackWidth() {
         return 2;
     }
 
     @Override
-    public final boolean hasPayload() {
+    public boolean hasPayload() {
         return false;
     }
 
     @Override
-    public final byte getEncodedTrack() {
+    public byte getEncodedTrack() {
         return Frame.L4;
     }
 
     @Override
-    public final boolean isConnectionControl()
+    public boolean isConnectionControl()
     {
         return false;
     }
@@ -73,14 +73,26 @@ public final class MessageRelease extends Method {
             setTransfers(transfers);
         }
 
-        for (int i=0; i < _options.length; i++) {
-            switch (_options[i]) {
-            case SET_REDELIVERED: packing_flags |= 512; break;
-            case SYNC: this.setSync(true); break;
-            case BATCH: this.setBatch(true); break;
-            case UNRELIABLE: this.setUnreliable(true); break;
-            case NONE: break;
-            default: throw new IllegalArgumentException("invalid option: " + _options[i]);
+        for (final Option option : _options)
+        {
+            switch (option)
+            {
+                case SET_REDELIVERED:
+                    packing_flags |= 512;
+                    break;
+                case SYNC:
+                    this.setSync(true);
+                    break;
+                case BATCH:
+                    this.setBatch(true);
+                    break;
+                case UNRELIABLE:
+                    this.setUnreliable(true);
+                    break;
+                case NONE:
+                    break;
+                default:
+                    throw new IllegalArgumentException("invalid option: " + option);
             }
         }
 
@@ -92,48 +104,48 @@ public final class MessageRelease extends Method {
     }
 
 
-    public final boolean hasTransfers() {
+    public boolean hasTransfers() {
         return (packing_flags & 256) != 0;
     }
 
-    public final MessageRelease clearTransfers() {
+    public MessageRelease clearTransfers() {
         packing_flags &= ~256;
         this.transfers = null;
         setDirty(true);
         return this;
     }
 
-    public final RangeSet getTransfers() {
+    public RangeSet getTransfers() {
         return transfers;
     }
 
-    public final MessageRelease setTransfers(RangeSet value) {
+    public MessageRelease setTransfers(RangeSet value) {
         this.transfers = value;
         packing_flags |= 256;
         setDirty(true);
         return this;
     }
 
-    public final MessageRelease transfers(RangeSet value) {
+    public MessageRelease transfers(RangeSet value) {
         return setTransfers(value);
     }
 
-    public final boolean hasSetRedelivered() {
+    public boolean hasSetRedelivered() {
         return (packing_flags & 512) != 0;
     }
 
-    public final MessageRelease clearSetRedelivered() {
+    public MessageRelease clearSetRedelivered() {
         packing_flags &= ~512;
 
         setDirty(true);
         return this;
     }
 
-    public final boolean getSetRedelivered() {
+    public boolean getSetRedelivered() {
         return hasSetRedelivered();
     }
 
-    public final MessageRelease setSetRedelivered(boolean value) {
+    public MessageRelease setSetRedelivered(boolean value) {
 
         if (value)
         {
@@ -148,7 +160,7 @@ public final class MessageRelease extends Method {
         return this;
     }
 
-    public final MessageRelease setRedelivered(boolean value) {
+    public MessageRelease setRedelivered(boolean value) {
         return setSetRedelivered(value);
     }
 

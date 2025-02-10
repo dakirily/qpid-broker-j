@@ -41,9 +41,8 @@ public class ReceiverSettleMode implements RestrictedType<UnsignedByte>
 
     public static ReceiverSettleMode valueOf(Object obj)
     {
-        if (obj instanceof UnsignedByte)
+        if (obj instanceof final UnsignedByte val)
         {
-            UnsignedByte val = (UnsignedByte) obj;
             if (FIRST._val.equals(val))
             {
                 return FIRST;

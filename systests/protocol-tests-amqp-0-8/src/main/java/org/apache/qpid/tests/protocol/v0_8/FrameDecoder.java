@@ -58,12 +58,10 @@ public class FrameDecoder implements InputDecoder
 
         for (AMQDataBlock frame : receivedFrames)
         {
-            if (frame instanceof AMQFrame)
+            if (frame instanceof final AMQFrame amqFrame)
             {
-                AMQFrame amqFrame = (AMQFrame) frame;
-                if (amqFrame.getBodyFrame() instanceof ConnectionTuneBody)
+                if (amqFrame.getBodyFrame() instanceof final ConnectionTuneBody tuneBody)
                 {
-                    ConnectionTuneBody tuneBody = (ConnectionTuneBody) amqFrame.getBodyFrame();
                     _clientDecoder.setMaxFrameSize((int) tuneBody.getFrameMax());
                 }
 

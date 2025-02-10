@@ -21,6 +21,7 @@ package org.apache.qpid.systests;
 
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.security.KeyStore;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -373,14 +374,8 @@ public class QpidJmsClientConnectionBuilder implements ConnectionBuilder
             {
                 stem.append('&');
             }
-            try
-            {
-                stem.append(option.getKey()).append('=').append(URLEncoder.encode(String.valueOf(option.getValue()), "UTF-8"));
-            }
-            catch (UnsupportedEncodingException e)
-            {
-                throw new RuntimeException(e);
-            }
+            stem.append(option.getKey()).append('=').append(URLEncoder.encode(String.valueOf(option.getValue()),
+                                                                              StandardCharsets.UTF_8));
         }
     }
 

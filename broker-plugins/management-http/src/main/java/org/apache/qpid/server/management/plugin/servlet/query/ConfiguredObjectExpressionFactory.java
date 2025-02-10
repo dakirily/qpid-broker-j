@@ -206,7 +206,7 @@ public class ConfiguredObjectExpressionFactory
             @Override
             ConfiguredObjectExpression asExpression(final List<Expression> args)
             {
-                if (args == null || (args.size() == 0 || args.size() > 3))
+                if (args == null || (args.isEmpty() || args.size() > 3))
                 {
                     throw new IllegalArgumentException(TO_STRING.name() + " requires (Object[,{printf format specifier},[{timezone name}]]).");
                 }

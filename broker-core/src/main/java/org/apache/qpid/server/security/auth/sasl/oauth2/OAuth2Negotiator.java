@@ -110,7 +110,7 @@ public class OAuth2Negotiator implements SaslNegotiator
         Map<String, String> responseItems = new HashMap<>(splitResponse.length);
         for(String nameValue : splitResponse)
         {
-            if (nameValue.length() > 0)
+            if (!nameValue.isEmpty())
             {
                 String[] nameValueSplit = nameValue.split("=", 2);
                 if (nameValueSplit.length == 2)

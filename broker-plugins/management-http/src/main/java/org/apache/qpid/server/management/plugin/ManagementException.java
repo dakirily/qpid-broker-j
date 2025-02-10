@@ -187,7 +187,7 @@ public class ManagementException extends RuntimeException
         {
             if (LOGGER.isTraceEnabled())
             {
-                LOGGER.trace(e.getClass().getSimpleName() + " processing request", e);
+                LOGGER.trace("{} processing request", e.getClass().getSimpleName(), e);
             }
             return createNotFoundManagementException(e);
         }
@@ -202,11 +202,11 @@ public class ManagementException extends RuntimeException
             int maxDepth = 10;
             while ((t = t.getCause()) != null && maxDepth-- != 0)
             {
-                LOGGER.info("... caused by " + t.getClass().getSimpleName() + "  : " + t.getMessage());
+                LOGGER.info("... caused by {}  : {}", t.getClass().getSimpleName(), t.getMessage());
             }
             if (LOGGER.isDebugEnabled())
             {
-                LOGGER.debug(e.getClass().getSimpleName() + " processing request", e);
+                LOGGER.debug("{} processing request", e.getClass().getSimpleName(), e);
             }
             return createUnprocessableManagementException(e);
         }

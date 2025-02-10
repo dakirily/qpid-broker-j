@@ -74,9 +74,8 @@ public class TerminusDurability implements RestrictedType<UnsignedInteger>
 
     public static TerminusDurability valueOf(Object obj)
     {
-        if (obj instanceof UnsignedInteger)
+        if (obj instanceof final UnsignedInteger val)
         {
-            UnsignedInteger val = (UnsignedInteger) obj;
 
             if (NONE._val.equals(val))
             {

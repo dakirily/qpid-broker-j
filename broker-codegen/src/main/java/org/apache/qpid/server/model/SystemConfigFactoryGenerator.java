@@ -23,6 +23,7 @@ package org.apache.qpid.server.model;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
+import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.Set;
 
@@ -100,7 +101,8 @@ public class SystemConfigFactoryGenerator extends AbstractProcessor
         try
         {
             JavaFileObject factoryFile = filer.createSourceFile(factoryName);
-            PrintWriter pw = new PrintWriter(new OutputStreamWriter(factoryFile.openOutputStream(), "UTF-8"));
+            PrintWriter pw = new PrintWriter(new OutputStreamWriter(factoryFile.openOutputStream(),
+                                                                    StandardCharsets.UTF_8));
             pw.println("/*");
             for(String headerLine : License.LICENSE)
             {

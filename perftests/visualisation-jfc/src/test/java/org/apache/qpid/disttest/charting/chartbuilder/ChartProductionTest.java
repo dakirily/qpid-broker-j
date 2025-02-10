@@ -102,7 +102,7 @@ public class ChartProductionTest extends UnitTestBase
         }
         else
         {
-            LOGGER.info("Charting directory for manual observation " + chartDir);
+            LOGGER.info("Charting directory for manual observation {}", chartDir);
         }
 
         _writer.setOutputDirectory(chartDir);

@@ -24,20 +24,17 @@ import static org.apache.qpid.server.security.auth.manager.AbstractScramAuthenti
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
-
-import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.MoreExecutors;
 
 import org.apache.qpid.server.bytebuffer.QpidByteBuffer;
 import org.apache.qpid.server.protocol.v1_0.framing.SASLFrame;
@@ -100,7 +97,7 @@ public class Interaction extends AbstractInteraction<Interaction>
         throw new UnsupportedOperationException();
     };
 
-    private static final Set<String> CONTAINER_IDS = Collections.newSetFromMap(new ConcurrentHashMap<>());
+    private static final Set<String> CONTAINER_IDS = ConcurrentHashMap.newKeySet();
     private final Begin _begin;
     private final End _end;
     private final Open _open;
@@ -552,9 +549,8 @@ public class Interaction extends AbstractInteraction<Interaction>
         attachCopy.setSndSettleMode(attach.getSndSettleMode());
         attachCopy.setRcvSettleMode(attach.getRcvSettleMode());
         final BaseSource baseSource = attach.getSource();
-        if (baseSource != null && baseSource instanceof Source)
+        if (baseSource != null && baseSource instanceof final Source source)
         {
-            final Source source = (Source) baseSource;
             final Source sourceCopy = new Source();
             sourceCopy.setAddress(source.getAddress());
             sourceCopy.setDurable(source.getDurable());
@@ -576,9 +572,8 @@ public class Interaction extends AbstractInteraction<Interaction>
             attachCopy.setSource(baseSource);
         }
         final BaseTarget baseTarget = attach.getTarget();
-        if (baseTarget != null && baseTarget instanceof Target)
+        if (baseTarget != null && baseTarget instanceof final Target target)
         {
-            final Target target = (Target) baseTarget;
             final Target targetCopy = new Target();
             targetCopy.setAddress(target.getAddress());
             targetCopy.setDurable(target.getDurable());
@@ -1186,14 +1181,14 @@ public class Interaction extends AbstractInteraction<Interaction>
                 duplicate = payload.duplicate();
             }
             transportFrame = new TransportFrame(channel.shortValue(), frameBody, duplicate);
-            ListenableFuture<Void> listenableFuture = sendPerformativeAndChainFuture(transportFrame);
+            CompletableFuture<Void> listenableFuture = sendPerformativeAndChainFuture(transportFrame);
             if (frameBody instanceof Transfer)
             {
-                listenableFuture.addListener(() -> ((Transfer) frameBody).dispose(), MoreExecutors.directExecutor());
+                listenableFuture.whenComplete((result, error) -> ((Transfer) frameBody).dispose());
             }
             if (duplicate != null)
             {
-                listenableFuture.addListener(() -> duplicate.dispose(), MoreExecutors.directExecutor());
+                listenableFuture.whenComplete((result, error) -> duplicate.dispose());
             }
         }
     }
@@ -1213,7 +1208,7 @@ public class Interaction extends AbstractInteraction<Interaction>
     {
         sync();
         _latestDelivery = receiveAllTransfers(ignore);
-        _latestDeliveryId = _latestDelivery.size() > 0 ? _latestDelivery.get(0).getDeliveryId() : null;
+        _latestDeliveryId = !_latestDelivery.isEmpty() ? _latestDelivery.get(0).getDeliveryId() : null;
         _receivedDeliveryCount.incrementAndGet();
         return this;
     }
@@ -1262,9 +1257,8 @@ public class Interaction extends AbstractInteraction<Interaction>
             responseTypesSet.add(Transfer.class);
             Class<?>[] responseTypes = responseTypesSet.toArray(new Class<?>[0]);
             Response<?> latestResponse = consumeResponse(responseTypes).getLatestResponse();
-            if (latestResponse.getBody() instanceof Transfer)
+            if (latestResponse.getBody() instanceof final Transfer responseTransfer)
             {
-                Transfer responseTransfer = (Transfer) latestResponse.getBody();
                 hasMore = Boolean.TRUE.equals(responseTransfer.getMore());
                 transfers.add(responseTransfer);
             }

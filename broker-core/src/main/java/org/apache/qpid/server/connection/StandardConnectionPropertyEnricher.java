@@ -74,7 +74,7 @@ public class StandardConnectionPropertyEnricher implements ConnectionPropertyEnr
                 // Federation tag is used by the client to identify the broker instance
                 modifiedProperties.put(ServerPropertyNames.FEDERATION_TAG, broker.getId().toString());
                 final List<String> features = getFeatures(broker);
-                if (features.size() > 0)
+                if (!features.isEmpty())
                 {
                     modifiedProperties.put(ServerPropertyNames.QPID_FEATURES, features);
                 }
@@ -87,7 +87,7 @@ public class StandardConnectionPropertyEnricher implements ConnectionPropertyEnr
 
                 break;
             default:
-                LOG.info("Unexpected protocol: " + connection.getProtocol());
+                LOG.info("Unexpected protocol: {}", connection.getProtocol());
                 break;
         }
 

@@ -21,10 +21,9 @@ package org.apache.qpid.disttest.charting.seriesbuilder;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Statement;
-import java.util.Iterator;
 import java.util.List;
 
 import org.apache.qpid.disttest.charting.ChartingException;
@@ -53,7 +52,7 @@ public class JdbcSeriesBuilder implements SeriesBuilder
     {
         registerDriver(jdbcDriverClass);
         _jdbcUrlGenerator = new JdbcUrlGenerator(providedJdbcUrl);
-        LOGGER.info("Created: " + this);
+        LOGGER.info("Created: {}", this);
     }
 
     @Override
@@ -65,9 +64,8 @@ public class JdbcSeriesBuilder implements SeriesBuilder
     @Override
     public Dataset build(List<SeriesDefinition> seriesDefinitions)
     {
-        for (Iterator<SeriesDefinition> iterator = seriesDefinitions.iterator(); iterator.hasNext();)
+        for (SeriesDefinition series : seriesDefinitions)
         {
-            SeriesDefinition series = iterator.next();
             buildDataSetForSingleSeries(series);
         }
         return _datasetHolder.getPopulatedDataset();
@@ -75,17 +73,12 @@ public class JdbcSeriesBuilder implements SeriesBuilder
 
     private void buildDataSetForSingleSeries(SeriesDefinition seriesDefinition)
     {
-        Connection conn = null;
-        Statement stmt = null;
-        try
+        final String jdbcUrl = _jdbcUrlGenerator.getJdbcUrl(seriesDefinition);
+        final String seriesStatement = seriesDefinition.getSeriesStatement();
+        try (final Connection conn = DriverManager.getConnection(jdbcUrl);
+             final PreparedStatement stmt = conn.prepareStatement(seriesStatement);
+             final ResultSet results = stmt.executeQuery())
         {
-            String jdbcUrl = _jdbcUrlGenerator.getJdbcUrl(seriesDefinition);
-            conn = DriverManager.getConnection(jdbcUrl);
-
-            final String seriesStatement = seriesDefinition.getSeriesStatement();
-
-            stmt = conn.createStatement();
-            ResultSet results = stmt.executeQuery(seriesStatement);
             int columnCount = results.getMetaData().getColumnCount();
             _datasetHolder.beginSeries(seriesDefinition);
             while (results.next())
@@ -105,31 +98,6 @@ public class JdbcSeriesBuilder implements SeriesBuilder
         {
             throw new ChartingException("Failed to create chart dataset", e);
         }
-        finally
-        {
-            if (stmt != null)
-            {
-                try
-                {
-                    stmt.close();
-                }
-                catch (SQLException e)
-                {
-                    throw new RuntimeException("Failed to close statement", e);
-                }
-            }
-            if (conn != null)
-            {
-                try
-                {
-                    conn.close();
-                }
-                catch (SQLException e)
-                {
-                    throw new RuntimeException("Failed to close connection", e);
-                }
-            }
-        }
     }
 
     private void registerDriver(String driverClassName) throws ExceptionInInitializerError
@@ -137,7 +105,7 @@ public class JdbcSeriesBuilder implements SeriesBuilder
         try
         {
             Class.forName(driverClassName);
-            LOGGER.info("Loaded JDBC driver class " + driverClassName);
+            LOGGER.info("Loaded JDBC driver class {}", driverClassName);
         }
         catch (ClassNotFoundException e)
         {

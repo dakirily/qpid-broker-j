@@ -168,7 +168,7 @@ public class MemoryConsumptionTestClient
         long receiveTimeout = Long.parseLong(options.get(TIMEOUT_ARG));
         boolean transacted = Boolean.valueOf(options.get(TRANSACTED_ARG));
 
-        LOGGER.info("Using options: " + options);
+        LOGGER.info("Using options: {}", options);
 
 
         // Load JNDI properties
@@ -321,7 +321,7 @@ public class MemoryConsumptionTestClient
 
     private void purgeQueue(ConnectionFactory connectionFactory, String queueString, long receiveTimeout) throws JMSException
     {
-        LOGGER.debug("Consuming left over messages, using receive timeout:" + receiveTimeout);
+        LOGGER.debug("Consuming left over messages, using receive timeout:{}", receiveTimeout);
 
         Connection connection = connectionFactory.createConnection();
         Session session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);

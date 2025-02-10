@@ -51,9 +51,8 @@ public class BasicAuthPreemptiveAuthenticator implements HttpRequestPreemptiveAu
         final AuthenticationProvider<?> authenticationProvider = managementConfiguration.getAuthenticationProvider(request);
         final SubjectCreator subjectCreator = port.getSubjectCreator(request.isSecure(), request.getServerName());
 
-        if (header != null && authenticationProvider instanceof UsernamePasswordAuthenticationProvider)
+        if (header != null && authenticationProvider instanceof final UsernamePasswordAuthenticationProvider<?> namePasswdAuthProvider)
         {
-            final UsernamePasswordAuthenticationProvider<?> namePasswdAuthProvider = (UsernamePasswordAuthenticationProvider<?>)authenticationProvider;
 
             final String[] tokens = header.split("\\s");
             if (tokens.length >= 2 && "BASIC".equalsIgnoreCase(tokens[0]))

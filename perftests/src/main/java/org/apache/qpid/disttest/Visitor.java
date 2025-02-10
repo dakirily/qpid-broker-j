@@ -60,11 +60,7 @@ public abstract class Visitor
         {
             method.invoke(this, targetObject);
         }
-        catch (IllegalArgumentException e)
-        {
-            throw new DistributedTestException(e);
-        }
-        catch (IllegalAccessException e)
+        catch (IllegalArgumentException | IllegalAccessException e)
         {
             throw new DistributedTestException(e);
         }

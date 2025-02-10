@@ -20,7 +20,7 @@
 
 package org.apache.qpid.test.utils;
 
-import com.google.common.base.StandardSystemProperty;
+import org.apache.commons.lang3.SystemProperties;
 
 public enum JvmVendor
 {
@@ -31,7 +31,7 @@ public enum JvmVendor
 
     public static JvmVendor getJvmVendor()
     {
-        final String property = String.valueOf(System.getProperty(StandardSystemProperty.JAVA_VENDOR.key())).toUpperCase();
+        final String property = String.valueOf(System.getProperty(SystemProperties.JAVA_VENDOR)).toUpperCase();
         if (property.contains("IBM"))
         {
             return JvmVendor.IBM;

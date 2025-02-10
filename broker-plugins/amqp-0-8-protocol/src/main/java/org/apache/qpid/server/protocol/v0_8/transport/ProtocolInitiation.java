@@ -83,10 +83,7 @@ public class ProtocolInitiation extends AMQDataBlock implements EncodableAMQData
     public long writePayload(final ByteBufferSender sender)
     {
         byte[] data = new byte[8];
-        for(int i = 0; i < _protocolHeader.length; i++)
-        {
-            data[i] = _protocolHeader[i];
-        }
+        System.arraycopy(_protocolHeader, 0, data, 0, _protocolHeader.length);
         data[4] = _protocolClass;
         data[5] = _protocolInstance;
         data[6] = _protocolMajor;

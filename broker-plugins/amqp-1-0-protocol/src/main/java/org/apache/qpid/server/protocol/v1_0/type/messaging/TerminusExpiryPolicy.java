@@ -83,9 +83,8 @@ public class TerminusExpiryPolicy implements RestrictedType<Symbol>
 
     public static TerminusExpiryPolicy valueOf(Object obj)
     {
-        if (obj instanceof Symbol)
+        if (obj instanceof final Symbol val)
         {
-            Symbol val = (Symbol) obj;
 
             if (LINK_DETACH._val.equals(val))
             {

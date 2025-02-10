@@ -54,9 +54,8 @@ public class Binary
     @Override
     public final boolean equals(Object o)
     {
-        if(o instanceof Binary)
+        if(o instanceof final Binary buf)
         {
-            Binary buf = (Binary) o;
             return Arrays.equals(_data, buf._data);
         }
 
@@ -76,14 +75,11 @@ public class Binary
     {
         StringBuilder str = new StringBuilder();
 
-
-        for (int i = 0; i < _data.length; i++)
+        for (byte c : _data)
         {
-            byte c = _data[i];
-
             if (c > 31 && c < 127 && c != '\\')
             {
-                str.append((char)c);
+                str.append((char) c);
             }
             else
             {

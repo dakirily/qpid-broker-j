@@ -221,16 +221,14 @@ public class FileUtils
      */
     public static void copy(InputStream in, File dst) throws IOException
     {
-        try
+        try (in)
         {
             if (!dst.exists())
             {
                 dst.createNewFile();
             }
 
-            OutputStream out = new FileOutputStream(dst);
-            
-            try
+            try (OutputStream out = new FileOutputStream(dst))
             {
                 // Transfer bytes from in to out
                 byte[] buf = new byte[1024];
@@ -240,14 +238,6 @@ public class FileUtils
                     out.write(buf, 0, len);
                 }
             }
-            finally
-            {
-                out.close();
-            }
-        }
-        finally
-        {
-            in.close();
         }
     }
 
@@ -305,15 +295,15 @@ public class FileUtils
                     return false;
                 }
 
-                for (int i = 0; i < files.length; i++)
+                for (final File value : files)
                 {
-                    success = delete(files[i], true) && success;
+                    success = delete(value, true) && success;
                 }
 
                 final boolean directoryDeleteSuccess = file.delete();
                 if(!directoryDeleteSuccess)
                 {
-                    LOG.debug("Failed to delete " + file.getPath());
+                    LOG.debug("Failed to delete {}", file.getPath());
                 }
                 return success && directoryDeleteSuccess;
             }
@@ -324,7 +314,7 @@ public class FileUtils
         success = file.delete();
         if(!success)
         {
-            LOG.debug("Failed to delete " + file.getPath());
+            LOG.debug("Failed to delete {}", file.getPath());
         }
         return success;
     }
@@ -392,8 +382,7 @@ public class FileUtils
 
         List<String> results = new LinkedList<>();
 
-        BufferedReader reader = new BufferedReader(new FileReader(file));
-        try
+        try (BufferedReader reader = new BufferedReader(new FileReader(file)))
         {
             while (reader.ready())
             {
@@ -403,10 +392,6 @@ public class FileUtils
                     results.add(line);
                 }
             }
-        }
-        finally
-        {
-            reader.close();
         }
 
         return results;

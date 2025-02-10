@@ -64,14 +64,19 @@ public class TimeZoneServlet extends AbstractServlet
             if (cityPos > 0 && cityPos < id.length() - 1)
             {
                 String region = id.substring(0, cityPos);
-                for (int i = 0; i < TIMEZONE_REGIONS.length; i++)
+                for (final String timezoneRegion : TIMEZONE_REGIONS)
                 {
-                    if (region.equals(TIMEZONE_REGIONS[i]))
+                    if (region.equals(timezoneRegion))
                     {
                         TimeZone tz = TimeZone.getTimeZone(id);
-                        int offset = tz.getOffset(currentTime)/60000;
+                        int offset = tz.getOffset(currentTime) / 60000;
                         String city = id.substring(cityPos + 1).replace('_', ' ');
-                        timeZoneDetails.add(new TimeZoneDetails(id, tz.getDisplayName(tz.inDaylightTime(currentDate), TimeZone.SHORT), offset, city, region));
+                        timeZoneDetails.add(new TimeZoneDetails(id,
+                                                                tz.getDisplayName(tz.inDaylightTime(currentDate),
+                                                                                  TimeZone.SHORT),
+                                                                offset,
+                                                                city,
+                                                                region));
                         break;
                     }
                 }

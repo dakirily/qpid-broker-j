@@ -36,7 +36,7 @@ class QueueAdminFactory
     {
         final String queueAdminClassName =
                 System.getProperty(QUEUE_ADMIN_TYPE_PROPERTY_NAME, NoOpQueueAdmin.class.getName());
-        LOGGER.debug(String.format("Using queue admin of type '%s'", queueAdminClassName));
+        LOGGER.debug("Using queue admin of type '{}'", queueAdminClassName);
         try
         {
             final Class<? extends QueueAdmin> queueCreatorClass =

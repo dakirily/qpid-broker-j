@@ -445,7 +445,7 @@ public class SimpleLDAPAuthenticationManagerTest extends UnitTestBase
                                             REALM,
                                             HOSTNAME + ":" + port,
                                             Strings.toLowerCaseAscii(REALM));
-        LOGGER.debug("krb5.conf:" + config);
+        LOGGER.debug("krb5.conf:{}", config);
         TestFileUtils.saveTextContentInFile(config, file);
         return file.getAbsolutePath();
     }

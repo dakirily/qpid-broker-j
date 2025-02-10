@@ -52,7 +52,7 @@ public final class SystemConfigBootstrapModel extends Model
     }
 
     @Override
-    public final ConfiguredObjectTypeRegistry getTypeRegistry()
+    public ConfiguredObjectTypeRegistry getTypeRegistry()
     {
         return _typeRegistry;
     }

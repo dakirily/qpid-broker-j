@@ -58,7 +58,7 @@ public class JMSSelectorFilter implements MessageFilter
         boolean match = _matcher.matches(message);
         if(LOGGER.isDebugEnabled())
         {
-            LOGGER.debug(message + " match(" + match + ") selector(" + System.identityHashCode(_selector) + "):" + _selector);
+            LOGGER.debug("{} match({}) selector({}):{}", message, match, System.identityHashCode(_selector), _selector);
         }
         return match;
     }

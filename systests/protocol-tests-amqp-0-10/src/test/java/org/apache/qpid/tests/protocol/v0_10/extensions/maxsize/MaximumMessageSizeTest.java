@@ -61,7 +61,7 @@ public class MaximumMessageSizeTest extends BrokerAdminUsingTestBase
             byte[] sessionName = "test".getBytes(UTF_8);
 
             final byte[] messageContent = new byte[1001];
-            IntStream.range(0, messageContent.length).forEach(i -> {messageContent[i] = (byte) (i & 0xFF);});
+            IntStream.range(0, messageContent.length).forEach(i -> messageContent[i] = (byte) (i & 0xFF));
 
             MessageProperties messageProperties = new MessageProperties();
             messageProperties.setContentLength(messageContent.length);

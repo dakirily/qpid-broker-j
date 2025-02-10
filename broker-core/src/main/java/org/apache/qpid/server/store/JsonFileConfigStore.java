@@ -26,7 +26,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -196,12 +195,7 @@ public class JsonFileConfigStore extends AbstractJsonFileStore implements Durabl
             {
                 LOGGER.debug("Loading record (Category: {} \t Name: {} \t ID: {}", record.getType(), record.getAttributes().get("name"), record.getId());
                 _objectsById.put(record.getId(), record);
-                List<UUID> idsForType = _idsByType.get(record.getType());
-                if (idsForType == null)
-                {
-                    idsForType = new ArrayList<>();
-                    _idsByType.put(record.getType(), idsForType);
-                }
+                List<UUID> idsForType = _idsByType.computeIfAbsent(record.getType(), key -> new ArrayList<>());
                 if(idsForType.contains(record.getId()))
                 {
                     throw new IllegalArgumentException("Duplicate id for record " + record);
@@ -244,12 +238,7 @@ public class JsonFileConfigStore extends AbstractJsonFileStore implements Durabl
         {
             record = new ConfiguredObjectRecordImpl(record);
             _objectsById.put(record.getId(), record);
-            List<UUID> idsForType = _idsByType.get(record.getType());
-            if(idsForType == null)
-            {
-                idsForType = new ArrayList<>();
-                _idsByType.put(record.getType(), idsForType);
-            }
+            List<UUID> idsForType = _idsByType.computeIfAbsent(record.getType(), key -> new ArrayList<>());
 
             if (_rootClass.getSimpleName().equals(record.getType()) && idsForType.size() > 0)
             {
@@ -319,18 +308,10 @@ public class JsonFileConfigStore extends AbstractJsonFileStore implements Durabl
 
                 if (parentId != null)
                 {
-                    Map<String, SortedSet<ConfiguredObjectRecord>> childMap = map.get(parentId);
-                    if (childMap == null)
-                    {
-                        childMap = new TreeMap<>();
-                        map.put(parentId, childMap);
-                    }
-                    SortedSet<ConfiguredObjectRecord> children = childMap.get(record.getType());
-                    if (children == null)
-                    {
-                        children = new TreeSet<>(CONFIGURED_OBJECT_RECORD_COMPARATOR);
-                        childMap.put(record.getType(), children);
-                    }
+                    Map<String, SortedSet<ConfiguredObjectRecord>> childMap =
+                            map.computeIfAbsent(parentId, key -> new TreeMap<>());
+                    SortedSet<ConfiguredObjectRecord> children = childMap.computeIfAbsent(record.getType(),
+                            key -> new TreeSet<>(CONFIGURED_OBJECT_RECORD_COMPARATOR));
                     children.add(record);
                 }
             }
@@ -349,7 +330,7 @@ public class JsonFileConfigStore extends AbstractJsonFileStore implements Durabl
 
         List<Class<? extends ConfiguredObject>> childClasses = new ArrayList<>(_parent.getModel().getChildTypes(type));
 
-        Collections.sort(childClasses, CATEGORY_CLASS_COMPARATOR);
+        childClasses.sort(CATEGORY_CLASS_COMPARATOR);
 
         final Map<String, SortedSet<ConfiguredObjectRecord>> allChildren = childMap.get(id);
         if(allChildren != null && !allChildren.isEmpty())
@@ -397,7 +378,7 @@ public class JsonFileConfigStore extends AbstractJsonFileStore implements Durabl
             }
         }
         save();
-        return removedIds.toArray(new UUID[removedIds.size()]);
+        return removedIds.toArray(new UUID[0]);
     }
 
 
@@ -450,12 +431,7 @@ public class JsonFileConfigStore extends AbstractJsonFileStore implements Durabl
             final String type = record.getType();
             if(_objectsById.put(id, record) == null)
             {
-                List<UUID> idsForType = _idsByType.get(type);
-                if(idsForType == null)
-                {
-                    idsForType = new ArrayList<>();
-                    _idsByType.put(type, idsForType);
-                }
+                List<UUID> idsForType = _idsByType.computeIfAbsent(type, key -> new ArrayList<>());
                 if(idsForType.contains(record.getId()))
                 {
                     throw new IllegalArgumentException("Duplicate id for record " + record);

@@ -31,29 +31,29 @@ public final class RecoverResult extends Struct {
     public static final int TYPE = 1539;
 
     @Override
-    public final int getStructType() {
+    public int getStructType() {
         return TYPE;
     }
 
     @Override
-    public final int getSizeWidth() {
+    public int getSizeWidth() {
         return 4;
     }
 
     @Override
-    public final int getPackWidth() {
+    public int getPackWidth() {
         return 2;
     }
 
-    public final boolean hasPayload() {
+    public boolean hasPayload() {
         return false;
     }
 
-    public final byte getEncodedTrack() {
+    public byte getEncodedTrack() {
         return -1;
     }
 
-    public final boolean isConnectionControl()
+    public boolean isConnectionControl()
     {
         return false;
     }
@@ -75,29 +75,29 @@ public final class RecoverResult extends Struct {
 
 
 
-    public final boolean hasInDoubt() {
+    public boolean hasInDoubt() {
         return (packing_flags & 256) != 0;
     }
 
-    public final RecoverResult clearInDoubt() {
+    public RecoverResult clearInDoubt() {
         packing_flags &= ~256;
         this.inDoubt = null;
         setDirty(true);
         return this;
     }
 
-    public final java.util.List<Object> getInDoubt() {
+    public java.util.List<Object> getInDoubt() {
         return inDoubt;
     }
 
-    public final RecoverResult setInDoubt(java.util.List<Object> value) {
+    public RecoverResult setInDoubt(java.util.List<Object> value) {
         this.inDoubt = value;
         packing_flags |= 256;
         setDirty(true);
         return this;
     }
 
-    public final RecoverResult inDoubt(java.util.List<Object> value) {
+    public RecoverResult inDoubt(java.util.List<Object> value) {
         return setInDoubt(value);
     }
 

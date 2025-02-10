@@ -27,11 +27,10 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicReference;
-
-import com.google.common.util.concurrent.ListenableFuture;
 
 import com.sleepycat.je.CheckpointConfig;
 import com.sleepycat.je.Database;
@@ -86,7 +85,7 @@ public class StandardEnvironmentFacade implements EnvironmentFacade
 
         if (LOGGER.isInfoEnabled())
         {
-            LOGGER.info("Creating environment at environment path " + _storePath);
+            LOGGER.info("Creating environment at environment path {}", _storePath);
         }
 
         _environmentPath = new File(_storePath);
@@ -121,11 +120,7 @@ public class StandardEnvironmentFacade implements EnvironmentFacade
         {
             if (LOGGER.isDebugEnabled())
             {
-                LOGGER.debug("Setting EnvironmentConfig key "
-                             + configItem.getKey()
-                             + " to '"
-                             + configItem.getValue()
-                             + "'");
+                LOGGER.debug("Setting EnvironmentConfig key {} to '{}'", configItem.getKey(), configItem.getValue());
             }
             envConfig.setConfigParam(configItem.getKey(), configItem.getValue());
         }
@@ -137,7 +132,10 @@ public class StandardEnvironmentFacade implements EnvironmentFacade
         File propsFile = new File(_environmentPath, "je.properties");
         if(propsFile.exists())
         {
-            LOGGER.warn("The BDB configuration file at '" + _environmentPath + File.separator +  "je.properties' will NOT be loaded.  Configure BDB using Qpid context variables instead.");
+            LOGGER.warn(
+                    "The BDB configuration file at '{}{}je.properties' will NOT be loaded.  Configure BDB using Qpid context variables instead.",
+                    _environmentPath,
+                    File.separator);
         }
 
         EnvHomeRegistry.getInstance().registerHome(_environmentPath);
@@ -207,7 +205,7 @@ public class StandardEnvironmentFacade implements EnvironmentFacade
     }
 
     @Override
-    public <X> ListenableFuture<X> commitAsync(final Transaction tx, final X val)
+    public <X> CompletableFuture<X> commitAsync(final Transaction tx, final X val)
     {
         try
         {
@@ -408,11 +406,7 @@ public class StandardEnvironmentFacade implements EnvironmentFacade
             {
                 environment.close();
             }
-            catch (DatabaseException ex)
-            {
-                LOGGER.error("Exception closing store environment", ex);
-            }
-            catch (IllegalStateException ex)
+            catch (DatabaseException | IllegalStateException ex)
             {
                 LOGGER.error("Exception closing store environment", ex);
             }
@@ -444,13 +438,9 @@ public class StandardEnvironmentFacade implements EnvironmentFacade
             // Clean the log before closing. This makes sure it doesn't contain
             // redundant data. Closing without doing this means the cleaner may
             // not get a chance to finish.
-            try
+            try (environment)
             {
                 BDBUtils.runCleaner(environment);
-            }
-            finally
-            {
-                environment.close();
             }
         }
     }

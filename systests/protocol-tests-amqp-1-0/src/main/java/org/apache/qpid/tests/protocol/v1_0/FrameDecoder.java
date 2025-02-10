@@ -107,7 +107,7 @@ public class FrameDecoder implements InputDecoder
                         inputBuffer.get(header);
 
                         HeaderResponse headerResponse = new HeaderResponse(header);
-                        FRAME_LOGGER.debug("RECV:" + headerResponse);
+                        FRAME_LOGGER.debug("RECV:{}", headerResponse);
                         _connectionHandler._responseQueue.add(headerResponse);
                         _state = ParsingState.PERFORMATIVES;
                     }
@@ -227,18 +227,16 @@ public class FrameDecoder implements InputDecoder
                 Response response;
                 Object val = channelFrameBody.getFrameBody();
                 int channel = channelFrameBody.getChannel();
-                if (val instanceof FrameBody)
+                if (val instanceof final FrameBody frameBody)
                 {
-                    FrameBody frameBody = (FrameBody) val;
                     if (frameBody instanceof Open && ((Open) frameBody).getMaxFrameSize() != null && ((Open) frameBody).getMaxFrameSize().intValue() > 512)
                     {
                         _frameSize = ((Open) frameBody).getMaxFrameSize().intValue();
                     }
                     response = new PerformativeResponse((short) channel, frameBody);
                 }
-                else if (val instanceof SaslFrameBody)
+                else if (val instanceof final SaslFrameBody frameBody)
                 {
-                    SaslFrameBody frameBody = (SaslFrameBody) val;
                     response = new SaslPerformativeResponse((short) channel, frameBody);
 
                     if (frameBody instanceof SaslOutcome && ((SaslOutcome) frameBody).getCode().equals(SaslCode.OK))
@@ -255,7 +253,7 @@ public class FrameDecoder implements InputDecoder
                     throw new UnsupportedOperationException("Unexpected frame type : " + val.getClass());
                 }
 
-                FRAME_LOGGER.debug("RECV:" + response.getBody());
+                FRAME_LOGGER.debug("RECV:{}", response.getBody());
                 _responseQueue.add(response);
             }
         }

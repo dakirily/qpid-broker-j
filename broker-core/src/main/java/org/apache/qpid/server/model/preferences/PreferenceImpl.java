@@ -21,12 +21,11 @@ package org.apache.qpid.server.model.preferences;
 
 import java.security.Principal;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-
-import com.google.common.collect.ImmutableSet;
 
 import org.apache.qpid.server.model.ConfiguredObject;
 
@@ -77,7 +76,7 @@ public class PreferenceImpl implements Preference
         _type = type;
         _description = description;
         _owner = owner;
-        _visibilitySet = (visibilitySet == null ? ImmutableSet.<Principal>of() : ImmutableSet.copyOf(visibilitySet));
+        _visibilitySet = (visibilitySet == null ? Set.of() : new HashSet<>(visibilitySet));
         _preferenceValue = preferenceValue;
     }
 

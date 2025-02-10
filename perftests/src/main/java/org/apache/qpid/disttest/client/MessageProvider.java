@@ -156,9 +156,9 @@ public class MessageProvider
 
     protected boolean isStandardProperty(String propertyName)
     {
-        for (int i = 0; i < STANDARD_JMS_PROPERTIES.length; i++)
+        for (final String standardJmsProperty : STANDARD_JMS_PROPERTIES)
         {
-            if (propertyName.equals(STANDARD_JMS_PROPERTIES[i]))
+            if (propertyName.equals(standardJmsProperty))
             {
                 return true;
             }

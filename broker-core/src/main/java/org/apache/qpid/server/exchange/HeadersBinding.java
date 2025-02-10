@@ -204,7 +204,7 @@ class HeadersBinding
         }
         else
         {
-            LOGGER.warn("Ignoring special header: " + key);
+            LOGGER.warn("Ignoring special header: {}", key);
         }
     }
 
@@ -221,7 +221,7 @@ class HeadersBinding
                 return false;
             }
         }
-        LOGGER.warn("Ignoring unrecognised match type: " + value);
+        LOGGER.warn("Ignoring unrecognised match type: {}", value);
         return false;//default to all
     }
 

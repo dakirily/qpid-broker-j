@@ -146,9 +146,8 @@ public class FieldTable
         {
             return AMQType.TIMESTAMP.asTypedValue(((Date) object).getTime());
         }
-        else if (object instanceof BigDecimal)
+        else if (object instanceof final BigDecimal decimal)
         {
-            final BigDecimal decimal = (BigDecimal) object;
             if (decimal.longValue() > Integer.MAX_VALUE)
             {
                 throw new UnsupportedOperationException(String.format("AMQP does not support decimals larger than %d",
@@ -188,7 +187,7 @@ public class FieldTable
         {
             throw new IllegalArgumentException("Property name must not be null");
         }
-        else if (propertyName.length() == 0)
+        else if (propertyName.isEmpty())
         {
             throw new IllegalArgumentException("Property name must not be the empty string");
         }
@@ -231,7 +230,7 @@ public class FieldTable
     {
         if (LOGGER.isDebugEnabled())
         {
-            LOGGER.debug("FieldTable::writeToBuffer: Writing encoded length of " + getEncodedSize() + "...");
+            LOGGER.debug("FieldTable::writeToBuffer: Writing encoded length of {}...", getEncodedSize());
             if (_fieldTableSupport instanceof MapFieldTableSupport)
             {
                 LOGGER.debug(_fieldTableSupport.toString());

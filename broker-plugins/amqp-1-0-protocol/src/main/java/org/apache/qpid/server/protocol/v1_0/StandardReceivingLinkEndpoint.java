@@ -32,9 +32,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
-import com.google.common.util.concurrent.ListenableFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -45,7 +45,6 @@ import org.apache.qpid.server.message.MessageDestination;
 import org.apache.qpid.server.message.MessageReference;
 import org.apache.qpid.server.message.MessageSender;
 import org.apache.qpid.server.message.ServerMessage;
-import org.apache.qpid.server.model.DestinationAddress;
 import org.apache.qpid.server.model.Exchange;
 import org.apache.qpid.server.model.Producer;
 import org.apache.qpid.server.model.PublishingLink;
@@ -482,14 +481,14 @@ public class StandardReceivingLinkEndpoint extends AbstractReceivingLinkEndpoint
             {
                 targetCapabilities.add(Symbol.valueOf("topic"));
             }
-            target.setCapabilities(targetCapabilities.toArray(new Symbol[targetCapabilities.size()]));
+            target.setCapabilities(targetCapabilities.toArray(new Symbol[0]));
         }
         target.setExpiryPolicy(attachTarget.getExpiryPolicy());
 
         final ReceivingDestination destination = getSession().getReceivingDestination(getLink(), target);
 
         targetCapabilities.addAll(Arrays.asList(destination.getCapabilities()));
-        target.setCapabilities(targetCapabilities.toArray(new Symbol[targetCapabilities.size()]));
+        target.setCapabilities(targetCapabilities.toArray(new Symbol[0]));
 
         setCapabilities(targetCapabilities);
         setDestination(destination);
@@ -631,7 +630,7 @@ public class StandardReceivingLinkEndpoint extends AbstractReceivingLinkEndpoint
     }
 
     @Override
-    public void recordFuture(final ListenableFuture<Void> future, final ServerTransaction.Action action)
+    public void recordFuture(final CompletableFuture<Void> future, final ServerTransaction.Action action)
     {
         _unfinishedCommandsQueue.add(new AsyncCommand(future, action));
     }

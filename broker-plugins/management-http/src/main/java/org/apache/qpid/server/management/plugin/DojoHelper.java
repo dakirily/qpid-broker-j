@@ -81,7 +81,7 @@ public class DojoHelper
                     LOGGER.debug("Dumping Dojo Config:");
                     for (Map.Entry<Object, Object> entry : props.entrySet())
                     {
-                        LOGGER.debug("Property: " + entry.getKey() + " Value: " + entry.getValue());
+                        LOGGER.debug("Property: {} Value: {}", entry.getKey(), entry.getValue());
                     }
 
                     LOGGER.debug("End of property dump");

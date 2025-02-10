@@ -31,32 +31,32 @@ public final class MessageSubscribe extends Method {
     public static final int TYPE = 1031;
 
     @Override
-    public final int getStructType() {
+    public int getStructType() {
         return TYPE;
     }
 
     @Override
-    public final int getSizeWidth() {
+    public int getSizeWidth() {
         return 0;
     }
 
     @Override
-    public final int getPackWidth() {
+    public int getPackWidth() {
         return 2;
     }
 
     @Override
-    public final boolean hasPayload() {
+    public boolean hasPayload() {
         return false;
     }
 
     @Override
-    public final byte getEncodedTrack() {
+    public byte getEncodedTrack() {
         return Frame.L4;
     }
 
     @Override
-    public final boolean isConnectionControl()
+    public boolean isConnectionControl()
     {
         return false;
     }
@@ -95,14 +95,26 @@ public final class MessageSubscribe extends Method {
             setArguments(arguments);
         }
 
-        for (int i=0; i < _options.length; i++) {
-            switch (_options[i]) {
-            case EXCLUSIVE: packing_flags |= 4096; break;
-            case SYNC: this.setSync(true); break;
-            case BATCH: this.setBatch(true); break;
-            case UNRELIABLE: this.setUnreliable(true); break;
-            case NONE: break;
-            default: throw new IllegalArgumentException("invalid option: " + _options[i]);
+        for (final Option option : _options)
+        {
+            switch (option)
+            {
+                case EXCLUSIVE:
+                    packing_flags |= 4096;
+                    break;
+                case SYNC:
+                    this.setSync(true);
+                    break;
+                case BATCH:
+                    this.setBatch(true);
+                    break;
+                case UNRELIABLE:
+                    this.setUnreliable(true);
+                    break;
+                case NONE:
+                    break;
+                default:
+                    throw new IllegalArgumentException("invalid option: " + option);
             }
         }
 
@@ -114,126 +126,126 @@ public final class MessageSubscribe extends Method {
     }
 
 
-    public final boolean hasQueue() {
+    public boolean hasQueue() {
         return (packing_flags & 256) != 0;
     }
 
-    public final MessageSubscribe clearQueue() {
+    public MessageSubscribe clearQueue() {
         packing_flags &= ~256;
         this.queue = null;
         setDirty(true);
         return this;
     }
 
-    public final String getQueue() {
+    public String getQueue() {
         return queue;
     }
 
-    public final MessageSubscribe setQueue(String value) {
+    public MessageSubscribe setQueue(String value) {
         this.queue = value;
         packing_flags |= 256;
         setDirty(true);
         return this;
     }
 
-    public final MessageSubscribe queue(String value) {
+    public MessageSubscribe queue(String value) {
         return setQueue(value);
     }
 
-    public final boolean hasDestination() {
+    public boolean hasDestination() {
         return (packing_flags & 512) != 0;
     }
 
-    public final MessageSubscribe clearDestination() {
+    public MessageSubscribe clearDestination() {
         packing_flags &= ~512;
         this.destination = null;
         setDirty(true);
         return this;
     }
 
-    public final String getDestination() {
+    public String getDestination() {
         return destination;
     }
 
-    public final MessageSubscribe setDestination(String value) {
+    public MessageSubscribe setDestination(String value) {
         this.destination = value;
         packing_flags |= 512;
         setDirty(true);
         return this;
     }
 
-    public final MessageSubscribe destination(String value) {
+    public MessageSubscribe destination(String value) {
         return setDestination(value);
     }
 
-    public final boolean hasAcceptMode() {
+    public boolean hasAcceptMode() {
         return (packing_flags & 1024) != 0;
     }
 
-    public final MessageSubscribe clearAcceptMode() {
+    public MessageSubscribe clearAcceptMode() {
         packing_flags &= ~1024;
         this.acceptMode = null;
         setDirty(true);
         return this;
     }
 
-    public final MessageAcceptMode getAcceptMode() {
+    public MessageAcceptMode getAcceptMode() {
         return acceptMode;
     }
 
-    public final MessageSubscribe setAcceptMode(MessageAcceptMode value) {
+    public MessageSubscribe setAcceptMode(MessageAcceptMode value) {
         this.acceptMode = value;
         packing_flags |= 1024;
         setDirty(true);
         return this;
     }
 
-    public final MessageSubscribe acceptMode(MessageAcceptMode value) {
+    public MessageSubscribe acceptMode(MessageAcceptMode value) {
         return setAcceptMode(value);
     }
 
-    public final boolean hasAcquireMode() {
+    public boolean hasAcquireMode() {
         return (packing_flags & 2048) != 0;
     }
 
-    public final MessageSubscribe clearAcquireMode() {
+    public MessageSubscribe clearAcquireMode() {
         packing_flags &= ~2048;
         this.acquireMode = null;
         setDirty(true);
         return this;
     }
 
-    public final MessageAcquireMode getAcquireMode() {
+    public MessageAcquireMode getAcquireMode() {
         return acquireMode;
     }
 
-    public final MessageSubscribe setAcquireMode(MessageAcquireMode value) {
+    public MessageSubscribe setAcquireMode(MessageAcquireMode value) {
         this.acquireMode = value;
         packing_flags |= 2048;
         setDirty(true);
         return this;
     }
 
-    public final MessageSubscribe acquireMode(MessageAcquireMode value) {
+    public MessageSubscribe acquireMode(MessageAcquireMode value) {
         return setAcquireMode(value);
     }
 
-    public final boolean hasExclusive() {
+    public boolean hasExclusive() {
         return (packing_flags & 4096) != 0;
     }
 
-    public final MessageSubscribe clearExclusive() {
+    public MessageSubscribe clearExclusive() {
         packing_flags &= ~4096;
 
         setDirty(true);
         return this;
     }
 
-    public final boolean getExclusive() {
+    public boolean getExclusive() {
         return hasExclusive();
     }
 
-    public final MessageSubscribe setExclusive(boolean value) {
+    public MessageSubscribe setExclusive(boolean value) {
 
         if (value)
         {
@@ -248,85 +260,85 @@ public final class MessageSubscribe extends Method {
         return this;
     }
 
-    public final MessageSubscribe exclusive(boolean value) {
+    public MessageSubscribe exclusive(boolean value) {
         return setExclusive(value);
     }
 
-    public final boolean hasResumeId() {
+    public boolean hasResumeId() {
         return (packing_flags & 8192) != 0;
     }
 
-    public final MessageSubscribe clearResumeId() {
+    public MessageSubscribe clearResumeId() {
         packing_flags &= ~8192;
         this.resumeId = null;
         setDirty(true);
         return this;
     }
 
-    public final String getResumeId() {
+    public String getResumeId() {
         return resumeId;
     }
 
-    public final MessageSubscribe setResumeId(String value) {
+    public MessageSubscribe setResumeId(String value) {
         this.resumeId = value;
         packing_flags |= 8192;
         setDirty(true);
         return this;
     }
 
-    public final MessageSubscribe resumeId(String value) {
+    public MessageSubscribe resumeId(String value) {
         return setResumeId(value);
     }
 
-    public final boolean hasResumeTtl() {
+    public boolean hasResumeTtl() {
         return (packing_flags & 16384) != 0;
     }
 
-    public final MessageSubscribe clearResumeTtl() {
+    public MessageSubscribe clearResumeTtl() {
         packing_flags &= ~16384;
         this.resumeTtl = 0;
         setDirty(true);
         return this;
     }
 
-    public final long getResumeTtl() {
+    public long getResumeTtl() {
         return resumeTtl;
     }
 
-    public final MessageSubscribe setResumeTtl(long value) {
+    public MessageSubscribe setResumeTtl(long value) {
         this.resumeTtl = value;
         packing_flags |= 16384;
         setDirty(true);
         return this;
     }
 
-    public final MessageSubscribe resumeTtl(long value) {
+    public MessageSubscribe resumeTtl(long value) {
         return setResumeTtl(value);
     }
 
-    public final boolean hasArguments() {
+    public boolean hasArguments() {
         return (packing_flags & 32768) != 0;
     }
 
-    public final MessageSubscribe clearArguments() {
+    public MessageSubscribe clearArguments() {
         packing_flags &= ~32768;
         this.arguments = null;
         setDirty(true);
         return this;
     }
 
-    public final Map<String,Object> getArguments() {
+    public Map<String,Object> getArguments() {
         return arguments;
     }
 
-    public final MessageSubscribe setArguments(Map<String,Object> value) {
+    public MessageSubscribe setArguments(Map<String, Object> value) {
         this.arguments = value;
         packing_flags |= 32768;
         setDirty(true);
         return this;
     }
 
-    public final MessageSubscribe arguments(Map<String,Object> value) {
+    public MessageSubscribe arguments(Map<String, Object> value) {
         return setArguments(value);
     }
 

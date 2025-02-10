@@ -128,7 +128,7 @@ public abstract class MessageStoreQuotaEventsTestBase extends UnitTestBase imple
     @Override
     public void event(final Event event)
     {
-        LOGGER.debug("Test event listener received event " + event);
+        LOGGER.debug("Test event listener received event {}", event);
         _events.add(event);
     }
 

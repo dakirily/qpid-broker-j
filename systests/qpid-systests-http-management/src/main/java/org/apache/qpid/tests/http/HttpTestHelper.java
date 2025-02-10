@@ -58,8 +58,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import com.google.common.io.ByteStreams;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -147,9 +145,8 @@ public class HttpTestHelper
         final URL url = getManagementURL(path);
         LOGGER.debug("Opening connection : {} {}", method, url);
         HttpURLConnection httpCon = (HttpURLConnection) url.openConnection();
-        if (httpCon instanceof HttpsURLConnection)
+        if (httpCon instanceof final HttpsURLConnection httpsCon)
         {
-            HttpsURLConnection httpsCon = (HttpsURLConnection) httpCon;
             try
             {
                 SSLContext sslContext = SSLUtil.tryGetSSLContext();
@@ -206,10 +203,10 @@ public class HttpTestHelper
     {
         try (InputStream is = connection.getInputStream())
         {
-            final byte[] bytes = ByteStreams.toByteArray(is);
+            final byte[] bytes = is.readAllBytes();
             if (LOGGER.isTraceEnabled())
             {
-                LOGGER.trace("RESPONSE:" + new String(bytes, UTF_8));
+                LOGGER.trace("RESPONSE:{}", new String(bytes, UTF_8));
             }
             return bytes;
         }

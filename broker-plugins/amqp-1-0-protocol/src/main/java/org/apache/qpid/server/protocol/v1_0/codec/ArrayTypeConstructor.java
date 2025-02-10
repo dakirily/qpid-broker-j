@@ -68,7 +68,7 @@ public abstract class ArrayTypeConstructor implements TypeConstructor<Object[]>
                     count);
             throw new AmqpErrorException(AmqpError.DECODE_ERROR, msg);
         }
-        if(rval.size() == 0)
+        if(rval.isEmpty())
         {
             return null;
         }

@@ -75,9 +75,8 @@ public class TransactionError implements ErrorCondition, RestrictedType<Symbol>
 
     public static TransactionError valueOf(Object obj)
     {
-        if (obj instanceof Symbol)
+        if (obj instanceof final Symbol val)
         {
-            Symbol val = (Symbol) obj;
 
             if (UNKNOWN_ID._val.equals(val))
             {

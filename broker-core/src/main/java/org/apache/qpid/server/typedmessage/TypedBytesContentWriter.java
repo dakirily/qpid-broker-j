@@ -28,12 +28,13 @@ import java.nio.CharBuffer;
 import java.nio.charset.CharacterCodingException;
 import java.nio.charset.Charset;
 import java.nio.charset.CharsetEncoder;
+import java.nio.charset.StandardCharsets;
 
 public class TypedBytesContentWriter implements org.apache.qpid.server.typedmessage.TypedBytesCodes
 {
     private final        ByteArrayOutputStream _baos = new ByteArrayOutputStream();
     private final        DataOutputStream      _data = new DataOutputStream(_baos);
-    private static final Charset               UTF8 = Charset.forName("UTF-8");
+    private static final Charset               UTF8 = StandardCharsets.UTF_8;
 
     protected void writeTypeDiscriminator(byte type)
     {

@@ -68,9 +68,8 @@ public class StdDistMode implements DistributionMode, RestrictedType<Symbol>
 
     public static StdDistMode valueOf(Object obj)
     {
-        if (obj instanceof Symbol)
+        if (obj instanceof final Symbol val)
         {
-            Symbol val = (Symbol) obj;
 
             if (MOVE._val.equals(val))
             {

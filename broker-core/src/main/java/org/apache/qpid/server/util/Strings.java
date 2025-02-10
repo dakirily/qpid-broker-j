@@ -387,7 +387,7 @@ public final class Strings
         final StringBuilder result = new StringBuilder();
         for (final Object object : items)
         {
-            if (result.length() > 0)
+            if (!result.isEmpty())
             {
                 result.append(sep);
             }
@@ -468,6 +468,34 @@ public final class Strings
     public static Resolver createSubstitutionResolver(final String prefix, final Map<String, String> substitutions)
     {
         return new StringSubstitutionResolver(prefix, substitutions);
+    }
+
+    /**
+     * Returns the longest string {@code suffix} such that {@code a.toString().endsWith(suffix) &&
+     * b.toString().endsWith(suffix)}, taking care not to split surrogate pairs. If {@code a} and
+     * {@code b} have no common suffix, returns the empty string.
+     *
+     */
+    public static String commonPrefix(CharSequence a, CharSequence b) {
+        Objects.requireNonNull(a);
+        Objects.requireNonNull(b);
+
+        int maxPrefixLength = Math.min(a.length(), b.length());
+        int p = 0;
+        while (p < maxPrefixLength && a.charAt(p) == b.charAt(p)) {
+            p++;
+        }
+        if (validSurrogatePairAt(a, p - 1) || validSurrogatePairAt(b, p - 1)) {
+            p--;
+        }
+        return a.subSequence(0, p).toString();
+    }
+
+    static boolean validSurrogatePairAt(CharSequence string, int index) {
+        return index >= 0
+               && index <= (string.length() - 2)
+               && Character.isHighSurrogate(string.charAt(index))
+               && Character.isLowSurrogate(string.charAt(index + 1));
     }
 
     /**

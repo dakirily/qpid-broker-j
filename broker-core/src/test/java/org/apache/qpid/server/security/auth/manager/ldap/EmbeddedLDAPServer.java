@@ -139,7 +139,7 @@ public class EmbeddedLDAPServer
 
         final List<Throwable> errors = schemaManager.getErrors();
 
-        if (errors.size() != 0)
+        if (!errors.isEmpty())
         {
             throw new Exception(Exceptions.printErrors(errors));
         }

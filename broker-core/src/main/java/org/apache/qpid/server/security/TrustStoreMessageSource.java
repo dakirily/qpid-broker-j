@@ -143,7 +143,7 @@ public class TrustStoreMessageSource extends AbstractSystemMessageSource
             }
             catch (CertificateEncodingException e)
             {
-                LOGGER.error("Could not encode certificate of type " + cert.getType(), e);
+                LOGGER.error("Could not encode certificate of type {}", cert.getType(), e);
             }
         }
         InternalMessageHeader header = new InternalMessageHeader(Map.of(),
@@ -163,7 +163,7 @@ public class TrustStoreMessageSource extends AbstractSystemMessageSource
         }
         catch (GeneralSecurityException e)
         {
-            LOGGER.error("Cannot read trust managers from truststore " + _trustStore.getName(), e);
+            LOGGER.error("Cannot read trust managers from truststore {}", _trustStore.getName(), e);
             return Collections.emptySet();
         }
     }

@@ -206,19 +206,17 @@ public class ResumeDeliveriesTest extends BrokerAdminUsingTestBase
                                                           .attach().consumeResponse(End.class, Attach.class)
                                                           .getLatestResponse();
 
-            if (latestResponse.getBody() instanceof End)
+            if (latestResponse.getBody() instanceof final End responseEnd)
             {
                 // 5.a assert session end error
-                final End responseEnd = (End) latestResponse.getBody();
                 final Error error = responseEnd.getError();
                 assertThat(error, is(notNullValue()));
                 assertThat(error.getCondition().getValue(), is(equalTo(AmqpError.FRAME_SIZE_TOO_SMALL)));
                 assumeTrue(false, "Broker does not support incomplete unsettled");
             }
-            else if (latestResponse.getBody() instanceof Attach)
+            else if (latestResponse.getBody() instanceof final Attach responseAttach2)
             {
                 // 5.b assert content of unsettled map
-                final Attach responseAttach2 = (Attach) latestResponse.getBody();
                 assertThat(responseAttach2.getTarget(), is(notNullValue()));
                 final Map<Binary, DeliveryState> remoteUnsettled = responseAttach2.getUnsettled();
                 assertThat(remoteUnsettled, is(notNullValue()));
@@ -364,10 +362,9 @@ public class ResumeDeliveriesTest extends BrokerAdminUsingTestBase
             for (int i = 0; i < MIN_MAX_FRAME_SIZE; )
             {
                 Response<?> response = interaction.consumeResponse().getLatestResponse();
-                if (response.getBody() instanceof Transfer)
+                if (response.getBody() instanceof final Transfer responseTransfer)
                 {
                     assertThat(response.getBody(), Matchers.is(instanceOf(Transfer.class)));
-                    Transfer responseTransfer = (Transfer) response.getBody();
                     assertThat(responseTransfer.getMore(), is(not(equalTo(true))));
                     assertThat(responseTransfer.getSettled(), is(not(equalTo(true))));
                     localUnsettled.putIfAbsent(responseTransfer.getDeliveryTag(), responseTransfer.getState());
@@ -415,10 +412,9 @@ public class ResumeDeliveriesTest extends BrokerAdminUsingTestBase
                 Response<?> nextResponse = interaction.consumeResponse().getLatestResponse();
                 assertThat(nextResponse, is(notNullValue()));
 
-                if (nextResponse.getBody() instanceof Transfer)
+                if (nextResponse.getBody() instanceof final Transfer responseTransfer)
                 {
                     assertThat(nextResponse.getBody(), is(instanceOf(Transfer.class)));
-                    Transfer responseTransfer = (Transfer) nextResponse.getBody();
                     assertThat(responseTransfer.getMore(), is(not(equalTo(true))));
                     assertThat(responseTransfer.getSettled(), is(not(equalTo(true))));
                     assertThat(responseTransfer.getDeliveryTag(), is(equalTo(sampleLocalUnsettled)));
@@ -729,9 +725,8 @@ public class ResumeDeliveriesTest extends BrokerAdminUsingTestBase
 
                 Object body = response.getBody();
 
-                if (body instanceof Disposition)
+                if (body instanceof final Disposition disposition)
                 {
-                    Disposition disposition = (Disposition) body;
                     assertThat(disposition.getSettled(), is(Matchers.equalTo(true)));
                     assertThat(disposition.getFirst(), equalTo(UnsignedInteger.ZERO));
                     settled = true;

@@ -44,20 +44,11 @@ public class JavaScriptConfigEvaluator
 
     public String evaluateJavaScript(String fileName) throws IOException
     {
-        FileReader fileReader = null;
-        try
+        try (FileReader fileReader = new FileReader(fileName))
         {
-            fileReader = new FileReader(fileName);
             String result = evaluateJavaScript(fileReader);
-            LOGGER.debug("Evaluated javascript file " + fileName + ". Generated the following JSON: " + result);
+            LOGGER.debug("Evaluated javascript file {}. Generated the following JSON: {}", fileName, result);
             return result;
-        }
-        finally
-        {
-            if (fileReader != null)
-            {
-                fileReader.close();
-            }
         }
     }
 

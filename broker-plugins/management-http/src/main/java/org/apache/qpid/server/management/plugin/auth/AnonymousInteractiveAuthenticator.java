@@ -57,10 +57,8 @@ public class AnonymousInteractiveAuthenticator implements HttpRequestInteractive
     public AuthenticationHandler getAuthenticationHandler(final HttpServletRequest request,
                                                           final HttpManagementConfiguration configuration)
     {
-        if (configuration.getAuthenticationProvider(request) instanceof AnonymousAuthenticationManager)
+        if (configuration.getAuthenticationProvider(request) instanceof final AnonymousAuthenticationManager authenticationProvider)
         {
-            final AnonymousAuthenticationManager authenticationProvider =
-                    (AnonymousAuthenticationManager) configuration.getAuthenticationProvider(request);
             final Port<?> port = configuration.getPort(request);
             return response -> getLoginHandler(request, response, authenticationProvider, port);
         }

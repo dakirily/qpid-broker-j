@@ -86,7 +86,7 @@ public class ParticipantExecutor
             {
                 if (LOGGER.isDebugEnabled())
                 {
-                    LOGGER.debug("About to run participant " + _participant);
+                    LOGGER.debug("About to run participant {}", _participant);
                 }
                 _participant.startTest(_clientName, _resultReporter);
             }
@@ -104,7 +104,7 @@ public class ParticipantExecutor
                 }
                 catch(Exception e)
                 {
-                    LOGGER.error("Participant " + _participant + " unable to release resources", e);
+                    LOGGER.error("Participant {} unable to release resources", _participant, e);
                 }
             }
         }

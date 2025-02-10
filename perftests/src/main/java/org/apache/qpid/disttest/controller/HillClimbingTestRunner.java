@@ -131,9 +131,8 @@ public class HillClimbingTestRunner extends AbstractTestRunner
         for (CommandForClient commandForClient : commandsForAllClients)
         {
             Command command = commandForClient.getCommand();
-            if (command instanceof CreateParticipantCommand)
+            if (command instanceof final CreateParticipantCommand createParticipantCommand)
             {
-                final CreateParticipantCommand createParticipantCommand = (CreateParticipantCommand) command;
                 if (createParticipantCommand.getNumberOfMessages() > 0)
                 {
                     throw new DistributedTestException("HillClimbingTestRunner does not support specifying numberOfMessages");

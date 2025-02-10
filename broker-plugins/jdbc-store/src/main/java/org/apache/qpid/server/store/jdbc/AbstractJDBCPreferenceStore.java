@@ -181,9 +181,7 @@ public abstract class AbstractJDBCPreferenceStore implements PreferenceStore
                         int deletedCount = deleteStatement.executeUpdate();
                         if (deletedCount == 1)
                         {
-                            getLogger().debug(String.format(
-                                    "Failed to delete preference with id %s : no such record",
-                                    id));
+                            getLogger().debug("Failed to delete preference with id {} : no such record", id);
                         }
                     }
                 }

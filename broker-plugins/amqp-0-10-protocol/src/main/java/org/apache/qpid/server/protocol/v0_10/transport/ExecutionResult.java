@@ -31,32 +31,32 @@ public final class ExecutionResult extends Method {
     public static final int TYPE = 770;
 
     @Override
-    public final int getStructType() {
+    public int getStructType() {
         return TYPE;
     }
 
     @Override
-    public final int getSizeWidth() {
+    public int getSizeWidth() {
         return 0;
     }
 
     @Override
-    public final int getPackWidth() {
+    public int getPackWidth() {
         return 2;
     }
 
     @Override
-    public final boolean hasPayload() {
+    public boolean hasPayload() {
         return false;
     }
 
     @Override
-    public final byte getEncodedTrack() {
+    public byte getEncodedTrack() {
         return Frame.L4;
     }
 
     @Override
-    public final boolean isConnectionControl()
+    public boolean isConnectionControl()
     {
         return false;
     }
@@ -75,13 +75,23 @@ public final class ExecutionResult extends Method {
             setValue(value);
         }
 
-        for (int i=0; i < _options.length; i++) {
-            switch (_options[i]) {
-            case SYNC: this.setSync(true); break;
-            case BATCH: this.setBatch(true); break;
-            case UNRELIABLE: this.setUnreliable(true); break;
-            case NONE: break;
-            default: throw new IllegalArgumentException("invalid option: " + _options[i]);
+        for (final Option option : _options)
+        {
+            switch (option)
+            {
+                case SYNC:
+                    this.setSync(true);
+                    break;
+                case BATCH:
+                    this.setBatch(true);
+                    break;
+                case UNRELIABLE:
+                    this.setUnreliable(true);
+                    break;
+                case NONE:
+                    break;
+                default:
+                    throw new IllegalArgumentException("invalid option: " + option);
             }
         }
 
@@ -93,55 +103,55 @@ public final class ExecutionResult extends Method {
     }
 
 
-    public final boolean hasCommandId() {
+    public boolean hasCommandId() {
         return (packing_flags & 256) != 0;
     }
 
-    public final ExecutionResult clearCommandId() {
+    public ExecutionResult clearCommandId() {
         packing_flags &= ~256;
         this.commandId = 0;
         setDirty(true);
         return this;
     }
 
-    public final int getCommandId() {
+    public int getCommandId() {
         return commandId;
     }
 
-    public final ExecutionResult setCommandId(int value) {
+    public ExecutionResult setCommandId(int value) {
         this.commandId = value;
         packing_flags |= 256;
         setDirty(true);
         return this;
     }
 
-    public final ExecutionResult commandId(int value) {
+    public ExecutionResult commandId(int value) {
         return setCommandId(value);
     }
 
-    public final boolean hasValue() {
+    public boolean hasValue() {
         return (packing_flags & 512) != 0;
     }
 
-    public final ExecutionResult clearValue() {
+    public ExecutionResult clearValue() {
         packing_flags &= ~512;
         this.value = null;
         setDirty(true);
         return this;
     }
 
-    public final Struct getValue() {
+    public Struct getValue() {
         return value;
     }
 
-    public final ExecutionResult setValue(Struct value) {
+    public ExecutionResult setValue(Struct value) {
         this.value = value;
         packing_flags |= 512;
         setDirty(true);
         return this;
     }
 
-    public final ExecutionResult value(Struct value) {
+    public ExecutionResult value(Struct value) {
         return setValue(value);
     }
 

@@ -554,13 +554,6 @@ public class TlsTest extends JmsTestBase
 
     private String encodePathOption(final String canonicalPath)
     {
-        try
-        {
-            return URLEncoder.encode(canonicalPath, StandardCharsets.UTF_8.name()).replace("+", "%20");
-        }
-        catch (UnsupportedEncodingException e)
-        {
-            throw new RuntimeException(e);
-        }
+        return URLEncoder.encode(canonicalPath, StandardCharsets.UTF_8).replace("+", "%20");
     }
 }

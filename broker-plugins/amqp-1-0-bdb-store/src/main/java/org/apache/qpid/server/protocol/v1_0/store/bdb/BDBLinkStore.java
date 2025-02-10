@@ -105,7 +105,7 @@ public class BDBLinkStore extends AbstractLinkStore
             OperationStatus status = linksDatabase.delete(null, databaseEntry);
             if (status != OperationStatus.SUCCESS)
             {
-                LOGGER.debug(String.format("Unexpected status '%s' for deletion of '%s'", status, linkKey));
+                LOGGER.debug("Unexpected status '{}' for deletion of '{}'", status, linkKey);
             }
         }
         catch (RuntimeException e)

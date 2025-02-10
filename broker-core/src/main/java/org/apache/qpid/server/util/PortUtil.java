@@ -29,8 +29,8 @@ public class PortUtil
 {
     public static boolean isPortAvailable(String hostName, int port)
     {
-        InetSocketAddress socketAddress = null;
-        if ( hostName == null || "".equals(hostName) || "*".equals(hostName) )
+        InetSocketAddress socketAddress;
+        if (hostName == null || "".equals(hostName) || "*".equals(hostName))
         {
             socketAddress = new InetSocketAddress(port);
         }
@@ -39,10 +39,8 @@ public class PortUtil
             socketAddress = new InetSocketAddress(hostName, port);
         }
 
-        ServerSocket serverSocket = null;
-        try
+        try (final ServerSocket serverSocket = new ServerSocket())
         {
-            serverSocket = new ServerSocket();
             serverSocket.setReuseAddress(true);
             serverSocket.bind(socketAddress);
             return true;
@@ -50,20 +48,6 @@ public class PortUtil
         catch (IOException e)
         {
             return false;
-        }
-        finally
-        {
-            if (serverSocket != null)
-            {
-                try
-                {
-                    serverSocket.close();
-                }
-                catch (IOException e)
-                {
-                    throw new RuntimeException("Couldn't close port " + port + " that was created to check its availability", e);
-                }
-            }
         }
     }
 }

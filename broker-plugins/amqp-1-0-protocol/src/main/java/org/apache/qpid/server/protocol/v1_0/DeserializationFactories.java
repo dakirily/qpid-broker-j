@@ -42,14 +42,13 @@ public class DeserializationFactories
     @SuppressWarnings("unused")
     public static Map<Symbol, Object> convertToNodeProperties(final Object value) throws AmqpErrorException
     {
-        if (!(value instanceof Map))
+        if (!(value instanceof final Map<?, ?> map))
         {
             throw new AmqpErrorException(AmqpError.DECODE_ERROR,
                                          String.format("Cannot construct 'node-properties' from type '%s'",
                                                        value == null ? null : value.getClass().getSimpleName()));
         }
         Map<Symbol, Object> nodeProperties = new LinkedHashMap<>();
-        Map<?, ?> map = (Map<?, ?>) value;
         for (Map.Entry<?, ?> entry : map.entrySet())
         {
             Object key = entry.getKey();

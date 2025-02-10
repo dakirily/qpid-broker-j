@@ -37,12 +37,8 @@ public class MessageConverterRegistry
 
         for(MessageConverter<? extends ServerMessage, ? extends ServerMessage> converter : (new QpidServiceLoader()).instancesOf(MessageConverter.class))
         {
-            Map<Class<? extends ServerMessage>, MessageConverter> map = CONVERTERS.get(converter.getInputClass());
-            if(map == null)
-            {
-                map = new HashMap<>();
-                CONVERTERS.put(converter.getInputClass(), map);
-            }
+            Map<Class<? extends ServerMessage>, MessageConverter> map =
+                    CONVERTERS.computeIfAbsent(converter.getInputClass(), key -> new HashMap<>());
             map.put(converter.getOutputClass(),converter);
         }
     }

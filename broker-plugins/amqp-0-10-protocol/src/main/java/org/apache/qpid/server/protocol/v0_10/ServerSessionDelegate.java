@@ -32,10 +32,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
-import com.google.common.util.concurrent.Futures;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -150,7 +150,7 @@ public class ServerSessionDelegate extends MethodDelegate<ServerSession> impleme
         serverSession.accept(method.getTransfers());
         if(!serverSession.isTransactional())
         {
-            serverSession.recordFuture(Futures.<Void>immediateFuture(null),
+            serverSession.recordFuture(CompletableFuture.completedFuture(null),
                                        new CommandProcessedAction(serverSession, method));
         }
     }
@@ -537,7 +537,7 @@ public class ServerSessionDelegate extends MethodDelegate<ServerSession> impleme
                     }
                     else
                     {
-                        ssn.recordFuture(Futures.immediateFuture(null),
+                        ssn.recordFuture(CompletableFuture.completedFuture(null),
                                          new CommandProcessedAction(ssn, xfr));
                     }
                 }
@@ -642,7 +642,7 @@ public class ServerSessionDelegate extends MethodDelegate<ServerSession> impleme
             session.startDtx(method.getXid(), method.getJoin(), method.getResume());
             session.executionResult(method.getId(), result);
         }
-        catch(JoinAndResumeDtxException e)
+        catch(JoinAndResumeDtxException | DtxNotSelectedException e)
         {
             exception(session, method, ExecutionErrorCode.COMMAND_INVALID, e.getMessage());
         }
@@ -655,11 +655,6 @@ public class ServerSessionDelegate extends MethodDelegate<ServerSession> impleme
             exception(session, method, ExecutionErrorCode.NOT_ALLOWED, "Xid already started an neither join nor " +
                                                                        "resume set" + method.getXid());
         }
-        catch(DtxNotSelectedException e)
-        {
-            exception(session, method, ExecutionErrorCode.COMMAND_INVALID, e.getMessage());
-        }
-
     }
 
     @Override
@@ -679,15 +674,7 @@ public class ServerSessionDelegate extends MethodDelegate<ServerSession> impleme
             }
             session.executionResult(method.getId(), result);
         }
-        catch(UnknownDtxBranchException e)
-        {
-            exception(session, method, ExecutionErrorCode.ILLEGAL_STATE, e.getMessage());
-        }
-        catch(NotAssociatedDtxException e)
-        {
-            exception(session, method, ExecutionErrorCode.ILLEGAL_STATE, e.getMessage());
-        }
-        catch(DtxNotSelectedException e)
+        catch(UnknownDtxBranchException | NotAssociatedDtxException | DtxNotSelectedException e)
         {
             exception(session, method, ExecutionErrorCode.ILLEGAL_STATE, e.getMessage());
         }
@@ -1762,9 +1749,8 @@ public class ServerSessionDelegate extends MethodDelegate<ServerSession> impleme
         {
             result.setQueue(source.getName());
 
-            if (source instanceof Queue)
+            if (source instanceof final Queue<?> queue)
             {
-                final Queue<?> queue = (Queue<?>) source;
                 result.setDurable(queue.isDurable());
                 result.setExclusive(queue.isExclusive());
                 result.setAutoDelete(queue.getLifetimePolicy() != LifetimePolicy.PERMANENT);

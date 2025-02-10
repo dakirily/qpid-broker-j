@@ -131,7 +131,7 @@ public class Client implements ResultReporter
     {
         if (LOGGER.isDebugEnabled())
         {
-            LOGGER.debug("Client " + getClientName() + " received command: " + command);
+            LOGGER.debug("Client {} received command: {}", getClientName(), command);
         }
         String responseMessage = null;
         try
@@ -203,7 +203,7 @@ public class Client implements ResultReporter
     {
         if (_state.compareAndSet(ClientState.RUNNING_TEST, ClientState.READY))
         {
-            LOGGER.debug("Tearing down test on client: " + _clientJmsDelegate.getClientName());
+            LOGGER.debug("Tearing down test on client: {}", _clientJmsDelegate.getClientName());
             for (Participant participant : _participants)
             {
                 participant.stopTest();
@@ -224,7 +224,7 @@ public class Client implements ResultReporter
     public void reportResult(final ParticipantResult testResult)
     {
         _clientJmsDelegate.sendResponseMessage(testResult);
-        LOGGER.debug("Sent test results " + testResult);
+        LOGGER.debug("Sent test results {}", testResult);
     }
 
     @Override

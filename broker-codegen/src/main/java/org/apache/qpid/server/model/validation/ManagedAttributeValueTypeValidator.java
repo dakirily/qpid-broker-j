@@ -103,9 +103,8 @@ public class ManagedAttributeValueTypeValidator extends AbstractProcessor
 
         for(Element memberElement : e.getEnclosedElements())
         {
-            if(memberElement instanceof ExecutableElement)
+            if(memberElement instanceof final ExecutableElement methodElement)
             {
-                final ExecutableElement methodElement = (ExecutableElement) memberElement;
                 AttributeAnnotationValidator.isValidType(processingEnv, methodElement.getReturnType(), false);
                 if(isNotAccessorMethod(methodElement)
                    && !isValidFactoryMethod(methodElement, e, isAbstract)

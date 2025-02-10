@@ -114,7 +114,7 @@ public class NonBlockingNetworkTransport
         }
         catch (IOException e)
         {
-            LOGGER.warn("Error closing the server socket for : " +  _address.toString(), e);
+            LOGGER.warn("Error closing the server socket for : {}", _address.toString(), e);
         }
     }
 
@@ -174,7 +174,7 @@ public class NonBlockingNetworkTransport
                     }
                     catch (IOException e)
                     {
-                        LOGGER.debug("Failed to close socket " + socketChannel, e);
+                        LOGGER.debug("Failed to close socket {}", socketChannel, e);
                     }                }
             }
         }
@@ -192,7 +192,7 @@ public class NonBlockingNetworkTransport
                 }
                 catch (IOException e)
                 {
-                    LOGGER.debug("Failed to close socket " + socketChannel, e);
+                    LOGGER.debug("Failed to close socket {}", socketChannel, e);
                 }
             }
         }

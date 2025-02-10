@@ -26,11 +26,11 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicReference;
 
-import com.google.common.util.concurrent.ListenableFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -74,7 +74,7 @@ public class LocalTransaction implements ServerTransaction
     private final MessageStore _transactionLog;
     private volatile long _txnStartTime = 0L;
     private volatile long _txnUpdateTime = 0L;
-    private ListenableFuture<Runnable> _asyncTran;
+    private CompletableFuture<Runnable> _asyncTran;
     private volatile boolean _outstandingWork;
     private final LocalTransactionState _finalState;
     private final Set<LocalTransactionListener> _localTransactionListeners = new CopyOnWriteArraySet<>();
@@ -96,7 +96,7 @@ public class LocalTransaction implements ServerTransaction
                             boolean resetable)
     {
         _transactionLog = transactionLog;
-        _activityTime = activityTime == null ? () -> System.currentTimeMillis() : activityTime;
+        _activityTime = activityTime == null ? System::currentTimeMillis : activityTime;
         _transactionObserver = transactionObserver == null ? NOOP_TRANSACTION_OBSERVER : transactionObserver;
         _finalState = resetable ? LocalTransactionState.ACTIVE : LocalTransactionState.DISCHARGED;
     }
@@ -134,7 +134,9 @@ public class LocalTransaction implements ServerTransaction
             {
                 if (LOGGER.isDebugEnabled())
                 {
-                    LOGGER.debug("Dequeue of message number " + record.getMessageNumber() + " from transaction log. Queue : " + record.getQueueId());
+                    LOGGER.debug("Dequeue of message number {} from transaction log. Queue : {}",
+                                 record.getMessageNumber(),
+                                 record.getQueueId());
                 }
 
                 beginTranIfNecessary();
@@ -164,7 +166,9 @@ public class LocalTransaction implements ServerTransaction
                 {
                     if (LOGGER.isDebugEnabled())
                     {
-                        LOGGER.debug("Dequeue of message number " + record.getMessageNumber() + " from transaction log. Queue : " + record.getQueueId());
+                        LOGGER.debug("Dequeue of message number {} from transaction log. Queue : {}",
+                                     record.getMessageNumber(),
+                                     record.getQueueId());
                     }
 
                     beginTranIfNecessary();
@@ -224,7 +228,9 @@ public class LocalTransaction implements ServerTransaction
             {
                 if (LOGGER.isDebugEnabled())
                 {
-                    LOGGER.debug("Enqueue of message number " + message.getMessageNumber() + " to transaction log. Queue : " + queue.getName());
+                    LOGGER.debug("Enqueue of message number {} to transaction log. Queue : {}",
+                                 message.getMessageNumber(),
+                                 queue.getName());
                 }
 
                 beginTranIfNecessary();
@@ -313,7 +319,9 @@ public class LocalTransaction implements ServerTransaction
                 {
                     if (LOGGER.isDebugEnabled())
                     {
-                        LOGGER.debug("Enqueue of message number " + message.getMessageNumber() + " to transaction log. Queue : " + queue.getName() );
+                        LOGGER.debug("Enqueue of message number {} to transaction log. Queue : {}",
+                                     message.getMessageNumber(),
+                                     queue.getName());
                     }
 
                     beginTranIfNecessary();
@@ -463,9 +471,9 @@ public class LocalTransaction implements ServerTransaction
     {
         LOGGER.debug("Beginning {} post transaction actions",  _postTransactionActions.size());
 
-        for(int i = 0; i < _postTransactionActions.size(); i++)
+        for (Action postTransactionAction : _postTransactionActions)
         {
-            _postTransactionActions.get(i).postCommit();
+            postTransactionAction.postCommit();
         }
 
         LOGGER.debug("Completed post transaction actions");

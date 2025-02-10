@@ -20,7 +20,6 @@
  */
 package org.apache.qpid.server.queue;
 
-import java.util.Collections;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -522,7 +521,7 @@ public abstract class QueueEntryImpl implements QueueEntry
 
         if (_rejectedBy == null)
         {
-            _rejectedByUpdater.compareAndSet(this, null, Collections.newSetFromMap(new ConcurrentHashMap<>()));
+            _rejectedByUpdater.compareAndSet(this, null, ConcurrentHashMap.newKeySet());
         }
         _rejectedBy.add(consumer.getIdentifier());
     }

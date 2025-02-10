@@ -27,6 +27,7 @@ import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.NoSuchFileException;
 import java.util.Collections;
 import java.util.HashMap;
@@ -88,12 +89,8 @@ public class PluggableProcessor extends AbstractProcessor
                     Set<String> pluggableTypes = getPluggableTypes(classElement);
                     for(String pluggableType : pluggableTypes)
                     {
-                        Set<String> existingFactories = factoryImplementations.get(pluggableType);
-                        if(existingFactories == null)
-                        {
-                            existingFactories = new HashSet<>();
-                            factoryImplementations.put(pluggableType, existingFactories);
-                        }
+                        Set<String> existingFactories =
+                                factoryImplementations.computeIfAbsent(pluggableType, key -> new HashSet<>());
                         existingFactories.add(classElement.getQualifiedName().toString());
                     }
                 }
@@ -148,7 +145,8 @@ public class PluggableProcessor extends AbstractProcessor
             try
             {
                 FileObject serviceFile = filer.createResource(StandardLocation.CLASS_OUTPUT, "", relativeName);
-                try(PrintWriter pw = new PrintWriter(new OutputStreamWriter(serviceFile.openOutputStream(), "UTF-8")))
+                try(PrintWriter pw = new PrintWriter(new OutputStreamWriter(serviceFile.openOutputStream(),
+                                                                            StandardCharsets.UTF_8)))
                 {
                     for (String headerLine : License.LICENSE)
                     {
@@ -182,7 +180,8 @@ public class PluggableProcessor extends AbstractProcessor
         try
         {
             FileObject existingFile = filer.getResource(StandardLocation.CLASS_OUTPUT, "", relativeName);
-            try(BufferedReader r = new BufferedReader(new InputStreamReader(existingFile.openInputStream(), "UTF-8")))
+            try(BufferedReader r = new BufferedReader(new InputStreamReader(existingFile.openInputStream(),
+                                                                            StandardCharsets.UTF_8)))
             {
                 String line;
                 while ((line = r.readLine()) != null)

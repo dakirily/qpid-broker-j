@@ -102,13 +102,13 @@ public class RecoverTest extends JmsTestBase
                 //don't ack the message until we receive it 5 times
                 if (messageSeen < 5)
                 {
-                    LOGGER.debug(String.format("Recovering message with index %d", expectedIndex));
+                    LOGGER.debug("Recovering message with index {}", expectedIndex);
                     session.recover();
                     messageSeen++;
                 }
                 else
                 {
-                    LOGGER.debug(String.format("Acknowledging message with index %d", expectedIndex));
+                    LOGGER.debug("Acknowledging message with index {}", expectedIndex);
                     messageSeen = 0;
                     expectedIndex++;
                     message.acknowledge();

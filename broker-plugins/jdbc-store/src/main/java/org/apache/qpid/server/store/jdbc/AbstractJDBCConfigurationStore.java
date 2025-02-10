@@ -67,7 +67,7 @@ public abstract class AbstractJDBCConfigurationStore implements MessageStoreProv
     private static final int CONFIG_DB_VERSION = 2;
 
     private static final int DEFAULT_CONFIG_VERSION = 0;
-    private final Set<Action<Connection>> _deleteActions = Collections.newSetFromMap(new ConcurrentHashMap<>());;
+    private final Set<Action<Connection>> _deleteActions = ConcurrentHashMap.newKeySet();
 
     public enum State { CLOSED, CONFIGURED, OPEN };
     private State _state = State.CLOSED;
@@ -182,8 +182,7 @@ public abstract class AbstractJDBCConfigurationStore implements MessageStoreProv
             PreparedStatement stmt = conn.prepareStatement("SELECT id, object_type, attributes FROM " + getConfiguredObjectsTableName());
             try
             {
-                ResultSet rs = stmt.executeQuery();
-                try
+                try (ResultSet rs = stmt.executeQuery())
                 {
                     while (rs.next())
                     {
@@ -194,16 +193,11 @@ public abstract class AbstractJDBCConfigurationStore implements MessageStoreProv
                                 new ConfiguredObjectRecordImpl(UUID.fromString(id), objectType,
                                                                objectMapper.readValue(attributes, Map.class));
                         configuredObjects.put(configuredObjectRecord.getId(), configuredObjectRecord);
-
                     }
                 }
                 catch (IOException e)
                 {
                     throw new StoreException("Error recovering persistent state: " + e.getMessage(), e);
-                }
-                finally
-                {
-                    rs.close();
                 }
             }
             finally
@@ -681,28 +675,17 @@ public abstract class AbstractJDBCConfigurationStore implements MessageStoreProv
 
     private int getConfigVersion(Connection conn) throws SQLException
     {
-        Statement stmt = conn.createStatement();
-        try
+        try (Statement stmt = conn.createStatement())
         {
-            ResultSet rs = stmt.executeQuery("SELECT version FROM " + getConfigurationVersionTableName());
-            try
+            try (ResultSet rs = stmt.executeQuery("SELECT version FROM " + getConfigurationVersionTableName()))
             {
 
-                if(rs.next())
+                if (rs.next())
                 {
                     return rs.getInt(1);
                 }
                 return DEFAULT_CONFIG_VERSION;
             }
-            finally
-            {
-                rs.close();
-            }
-
-        }
-        finally
-        {
-            stmt.close();
         }
 
     }
@@ -713,15 +696,10 @@ public abstract class AbstractJDBCConfigurationStore implements MessageStoreProv
         assertState(OPEN);
         try
         {
-            Connection conn = newConnection();
-            try
+            try (Connection conn = newConnection())
             {
                 insertConfiguredObject(object, conn);
                 conn.commit();
-            }
-            finally
-            {
-                conn.close();
             }
         }
         catch (SQLException e)
@@ -859,7 +837,7 @@ public abstract class AbstractJDBCConfigurationStore implements MessageStoreProv
         {
             throw new StoreException("Error deleting of configured objects " + Arrays.asList(objects) + " from database: " + e.getMessage(), e);
         }
-        return removed.toArray(new UUID[removed.size()]);
+        return removed.toArray(new UUID[0]);
     }
 
     private int removeConfiguredObject(final UUID id, final Connection conn) throws SQLException

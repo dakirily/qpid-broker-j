@@ -120,7 +120,7 @@ public class RoutingResult<M extends ServerMessage<? extends StorableMessageMeta
             return 0;
         }
 
-        final BaseQueue[] queues = _queues.toArray(new BaseQueue[_queues.size()]);
+        final BaseQueue[] queues = _queues.toArray(new BaseQueue[0]);
         txn.enqueue(_queues, _message, new ServerTransaction.EnqueueAction()
         {
             final MessageReference _reference = _message.newReference();
@@ -185,7 +185,7 @@ public class RoutingResult<M extends ServerMessage<? extends StorableMessageMeta
         StringBuilder refusalMessages = new StringBuilder();
         for (RejectReason reason : _rejectingRoutableQueues.values())
         {
-            if (refusalMessages.length() > 0)
+            if (!refusalMessages.isEmpty())
             {
                 refusalMessages.append(";");
             }

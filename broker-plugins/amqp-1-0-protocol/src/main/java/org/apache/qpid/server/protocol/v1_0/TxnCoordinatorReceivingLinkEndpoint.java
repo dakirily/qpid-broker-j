@@ -111,9 +111,8 @@ public class TxnCoordinatorReceivingLinkEndpoint extends AbstractReceivingLinkEn
                             state.setTxnId(Session_1_0.integerToTransactionId(txn.getId()));
                             updateDisposition(delivery.getDeliveryTag(), state, true);
                         }
-                        else if (command instanceof Discharge)
+                        else if (command instanceof final Discharge discharge)
                         {
-                            Discharge discharge = (Discharge) command;
 
                             Error error = discharge(discharge.getTxnId(), Boolean.TRUE.equals(discharge.getFail()));
                             final DeliveryState outcome;

@@ -246,7 +246,7 @@ public class HttpManagementUtil
 
     public static List<String> getPathInfoElements(final String servletPath, final String pathInfo)
     {
-        if (pathInfo == null || pathInfo.length() == 0)
+        if (pathInfo == null || pathInfo.isEmpty())
         {
             return List.of();
         }

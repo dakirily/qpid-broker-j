@@ -23,9 +23,7 @@ package org.apache.qpid.server.security.auth.manager;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.Arrays;
 import java.util.Base64;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -48,9 +46,8 @@ import org.apache.qpid.server.util.ServerScopedRuntimeException;
 public class MD5AuthenticationProvider
         extends ConfigModelPasswordManagingAuthenticationProvider<MD5AuthenticationProvider>
 {
-    private final List<String> _mechanisms = Collections.unmodifiableList(Arrays.asList(PlainNegotiator.MECHANISM,
-                                                                                        CramMd5HashedNegotiator.MECHANISM,
-                                                                                        CramMd5HexNegotiator.MECHANISM));
+    private final List<String> _mechanisms =
+            List.of(PlainNegotiator.MECHANISM, CramMd5HashedNegotiator.MECHANISM, CramMd5HexNegotiator.MECHANISM);
 
 
     @ManagedObjectFactoryConstructor

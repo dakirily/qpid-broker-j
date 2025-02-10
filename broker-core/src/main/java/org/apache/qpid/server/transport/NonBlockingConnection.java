@@ -147,7 +147,7 @@ public class NonBlockingConnection implements ServerNetworkConnection, ByteBuffe
     @Override
     public void close()
     {
-        LOGGER.debug("Closing " + _remoteSocketAddress);
+        LOGGER.debug("Closing {}", _remoteSocketAddress);
         if(_closed.compareAndSet(false,true))
         {
             _protocolEngine.notifyWork();
@@ -506,7 +506,7 @@ public class NonBlockingConnection implements ServerNetworkConnection, ByteBuffe
         long written  = QpidByteBuffer.write(_socketChannel, buffers);
         if (LOGGER.isDebugEnabled())
         {
-            LOGGER.debug("Written " + written + " bytes");
+            LOGGER.debug("Written {} bytes", written);
         }
         return written;
     }
@@ -544,7 +544,7 @@ public class NonBlockingConnection implements ServerNetworkConnection, ByteBuffe
 
         if (LOGGER.isDebugEnabled())
         {
-            LOGGER.debug("Read " + read + " byte(s)");
+            LOGGER.debug("Read {} byte(s)", read);
         }
         return read;
     }
@@ -631,7 +631,7 @@ public class NonBlockingConnection implements ServerNetworkConnection, ByteBuffe
             oldDelegate.shutdownInput();
             oldDelegate.shutdownOutput();
         }
-        LOGGER.debug("Identified transport encryption as " + transportEncryption);
+        LOGGER.debug("Identified transport encryption as {}", transportEncryption);
     }
 
     public boolean setScheduled()

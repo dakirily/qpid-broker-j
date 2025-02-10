@@ -31,29 +31,29 @@ public final class SessionCommandFragment extends Struct {
     public static final int TYPE = -2;
 
     @Override
-    public final int getStructType() {
+    public int getStructType() {
         return TYPE;
     }
 
     @Override
-    public final int getSizeWidth() {
+    public int getSizeWidth() {
         return 0;
     }
 
     @Override
-    public final int getPackWidth() {
+    public int getPackWidth() {
         return 0;
     }
 
-    public final boolean hasPayload() {
+    public boolean hasPayload() {
         return false;
     }
 
-    public final byte getEncodedTrack() {
+    public byte getEncodedTrack() {
         return -1;
     }
 
-    public final boolean isConnectionControl()
+    public boolean isConnectionControl()
     {
         return false;
     }
@@ -76,33 +76,33 @@ public final class SessionCommandFragment extends Struct {
 
 
 
-    public final int getCommandId() {
+    public int getCommandId() {
         return commandId;
     }
 
-    public final SessionCommandFragment setCommandId(int value) {
+    public SessionCommandFragment setCommandId(int value) {
         this.commandId = value;
 
         setDirty(true);
         return this;
     }
 
-    public final SessionCommandFragment commandId(int value) {
+    public SessionCommandFragment commandId(int value) {
         return setCommandId(value);
     }
 
-    public final RangeSet getByteRanges() {
+    public RangeSet getByteRanges() {
         return byteRanges;
     }
 
-    public final SessionCommandFragment setByteRanges(RangeSet value) {
+    public SessionCommandFragment setByteRanges(RangeSet value) {
         this.byteRanges = value;
 
         setDirty(true);
         return this;
     }
 
-    public final SessionCommandFragment byteRanges(RangeSet value) {
+    public SessionCommandFragment byteRanges(RangeSet value) {
         return setByteRanges(value);
     }
 

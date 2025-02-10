@@ -31,29 +31,29 @@ public final class Xid extends Struct {
     public static final int TYPE = 1540;
 
     @Override
-    public final int getStructType() {
+    public int getStructType() {
         return TYPE;
     }
 
     @Override
-    public final int getSizeWidth() {
+    public int getSizeWidth() {
         return 4;
     }
 
     @Override
-    public final int getPackWidth() {
+    public int getPackWidth() {
         return 2;
     }
 
-    public final boolean hasPayload() {
+    public boolean hasPayload() {
         return false;
     }
 
-    public final byte getEncodedTrack() {
+    public byte getEncodedTrack() {
         return -1;
     }
 
-    public final boolean isConnectionControl()
+    public boolean isConnectionControl()
     {
         return false;
     }
@@ -81,81 +81,81 @@ public final class Xid extends Struct {
 
 
 
-    public final boolean hasFormat() {
+    public boolean hasFormat() {
         return (packing_flags & 256) != 0;
     }
 
-    public final Xid clearFormat() {
+    public Xid clearFormat() {
         packing_flags &= ~256;
         this.format = 0;
         setDirty(true);
         return this;
     }
 
-    public final long getFormat() {
+    public long getFormat() {
         return format;
     }
 
-    public final Xid setFormat(long value) {
+    public Xid setFormat(long value) {
         this.format = value;
         packing_flags |= 256;
         setDirty(true);
         return this;
     }
 
-    public final Xid format(long value) {
+    public Xid format(long value) {
         return setFormat(value);
     }
 
-    public final boolean hasGlobalId() {
+    public boolean hasGlobalId() {
         return (packing_flags & 512) != 0;
     }
 
-    public final Xid clearGlobalId() {
+    public Xid clearGlobalId() {
         packing_flags &= ~512;
         this.globalId = null;
         setDirty(true);
         return this;
     }
 
-    public final byte[] getGlobalId() {
+    public byte[] getGlobalId() {
         return globalId;
     }
 
-    public final Xid setGlobalId(byte[] value) {
+    public Xid setGlobalId(byte[] value) {
         this.globalId = value;
         packing_flags |= 512;
         setDirty(true);
         return this;
     }
 
-    public final Xid globalId(byte[] value) {
+    public Xid globalId(byte[] value) {
         return setGlobalId(value);
     }
 
-    public final boolean hasBranchId() {
+    public boolean hasBranchId() {
         return (packing_flags & 1024) != 0;
     }
 
-    public final Xid clearBranchId() {
+    public Xid clearBranchId() {
         packing_flags &= ~1024;
         this.branchId = null;
         setDirty(true);
         return this;
     }
 
-    public final byte[] getBranchId() {
+    public byte[] getBranchId() {
         return branchId;
     }
 
-    public final Xid setBranchId(byte[] value) {
+    public Xid setBranchId(byte[] value) {
         this.branchId = value;
         packing_flags |= 1024;
         setDirty(true);
         return this;
     }
 
-    public final Xid branchId(byte[] value) {
+    public Xid branchId(byte[] value) {
         return setBranchId(value);
     }
 

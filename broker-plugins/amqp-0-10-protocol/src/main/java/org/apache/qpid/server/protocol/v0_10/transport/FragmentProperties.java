@@ -31,29 +31,29 @@ public final class FragmentProperties extends Struct {
     public static final int TYPE = 1026;
 
     @Override
-    public final int getStructType() {
+    public int getStructType() {
         return TYPE;
     }
 
     @Override
-    public final int getSizeWidth() {
+    public int getSizeWidth() {
         return 4;
     }
 
     @Override
-    public final int getPackWidth() {
+    public int getPackWidth() {
         return 2;
     }
 
-    public final boolean hasPayload() {
+    public boolean hasPayload() {
         return false;
     }
 
-    public final byte getEncodedTrack() {
+    public byte getEncodedTrack() {
         return -1;
     }
 
-    public final boolean isConnectionControl()
+    public boolean isConnectionControl()
     {
         return false;
     }
@@ -68,12 +68,20 @@ public final class FragmentProperties extends Struct {
     public FragmentProperties(long fragmentSize, Option ... _options) {
         setFragmentSize(fragmentSize);
 
-        for (int i=0; i < _options.length; i++) {
-            switch (_options[i]) {
-            case FIRST: packing_flags |= 256; break;
-            case LAST: packing_flags |= 512; break;
-            case NONE: break;
-            default: throw new IllegalArgumentException("invalid option: " + _options[i]);
+        for (final Option option : _options)
+        {
+            switch (option)
+            {
+                case FIRST:
+                    packing_flags |= 256;
+                    break;
+                case LAST:
+                    packing_flags |= 512;
+                    break;
+                case NONE:
+                    break;
+                default:
+                    throw new IllegalArgumentException("invalid option: " + option);
             }
         }
 
@@ -82,22 +90,22 @@ public final class FragmentProperties extends Struct {
 
 
 
-    public final boolean hasFirst() {
+    public boolean hasFirst() {
         return (packing_flags & 256) != 0;
     }
 
-    public final FragmentProperties clearFirst() {
+    public FragmentProperties clearFirst() {
         packing_flags &= ~256;
 
         setDirty(true);
         return this;
     }
 
-    public final boolean getFirst() {
+    public boolean getFirst() {
         return hasFirst();
     }
 
-    public final FragmentProperties setFirst(boolean value) {
+    public FragmentProperties setFirst(boolean value) {
 
         if (value)
         {
@@ -112,26 +120,26 @@ public final class FragmentProperties extends Struct {
         return this;
     }
 
-    public final FragmentProperties first(boolean value) {
+    public FragmentProperties first(boolean value) {
         return setFirst(value);
     }
 
-    public final boolean hasLast() {
+    public boolean hasLast() {
         return (packing_flags & 512) != 0;
     }
 
-    public final FragmentProperties clearLast() {
+    public FragmentProperties clearLast() {
         packing_flags &= ~512;
 
         setDirty(true);
         return this;
     }
 
-    public final boolean getLast() {
+    public boolean getLast() {
         return hasLast();
     }
 
-    public final FragmentProperties setLast(boolean value) {
+    public FragmentProperties setLast(boolean value) {
 
         if (value)
         {
@@ -146,33 +154,33 @@ public final class FragmentProperties extends Struct {
         return this;
     }
 
-    public final FragmentProperties last(boolean value) {
+    public FragmentProperties last(boolean value) {
         return setLast(value);
     }
 
-    public final boolean hasFragmentSize() {
+    public boolean hasFragmentSize() {
         return (packing_flags & 1024) != 0;
     }
 
-    public final FragmentProperties clearFragmentSize() {
+    public FragmentProperties clearFragmentSize() {
         packing_flags &= ~1024;
         this.fragmentSize = 0;
         setDirty(true);
         return this;
     }
 
-    public final long getFragmentSize() {
+    public long getFragmentSize() {
         return fragmentSize;
     }
 
-    public final FragmentProperties setFragmentSize(long value) {
+    public FragmentProperties setFragmentSize(long value) {
         this.fragmentSize = value;
         packing_flags |= 1024;
         setDirty(true);
         return this;
     }
 
-    public final FragmentProperties fragmentSize(long value) {
+    public FragmentProperties fragmentSize(long value) {
         return setFragmentSize(value);
     }
 

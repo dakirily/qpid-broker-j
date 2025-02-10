@@ -106,9 +106,8 @@ public abstract class AMQTypedValue
         @Override
         public boolean equals(Object o)
         {
-            if(o instanceof GenericTypedValue)
+            if(o instanceof final GenericTypedValue other)
             {
-                GenericTypedValue other = (GenericTypedValue) o;
                 return _type == other._type && (_value == null ? other._value == null : _value.equals(other._value));
             }
             else

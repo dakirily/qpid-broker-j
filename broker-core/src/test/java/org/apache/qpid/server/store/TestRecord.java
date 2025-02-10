@@ -70,11 +70,10 @@ public class TestRecord implements EnqueueRecord, Transaction.DequeueRecord, Mes
         {
             return false;
         }
-        if (!(obj instanceof EnqueueRecord))
+        if (!(obj instanceof final EnqueueRecord other))
         {
             return false;
         }
-        final EnqueueRecord other = (EnqueueRecord) obj;
         if (_message == null && other.getMessage() != null)
         {
             return false;

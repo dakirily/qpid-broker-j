@@ -103,6 +103,6 @@ public class QpidMultipleTrustManager implements X509TrustManager
         {
             accIssuersCol.addAll(Arrays.asList(trustManager.getAcceptedIssuers()));
         }
-        return accIssuersCol.toArray(new X509Certificate[accIssuersCol.size()]);
+        return accIssuersCol.toArray(new X509Certificate[0]);
     }
 }

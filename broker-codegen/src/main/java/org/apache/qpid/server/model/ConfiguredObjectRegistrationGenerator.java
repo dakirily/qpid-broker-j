@@ -23,6 +23,7 @@ package org.apache.qpid.server.model;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -75,7 +76,7 @@ public class ConfiguredObjectRegistrationGenerator extends AbstractProcessor
             try
             {
                 roundEnv.getElementsAnnotatedWith(managedObjectElement).stream()
-                        .map(element -> elementUtils.getPackageOf(element))
+                        .map(elementUtils::getPackageOf)
                         .flatMap(packageElement -> packageElement.getEnclosedElements().stream())
                         .filter(element -> hasAnnotation(element, managedObjectElement))
                         .forEach(annotatedElement -> processAnnotatedElement(elementUtils,
@@ -130,13 +131,7 @@ public class ConfiguredObjectRegistrationGenerator extends AbstractProcessor
 
                 }
 
-
-                Set<String> classNames = _managedObjectClasses.get(packageName);
-                if (classNames == null)
-                {
-                    classNames = new HashSet<>();
-                    _managedObjectClasses.put(packageName, classNames);
-                }
+                Set<String> classNames = _managedObjectClasses.computeIfAbsent(packageName, key -> new HashSet<>());
                 classNames.add(className);
             }
         }
@@ -239,7 +234,8 @@ public class ConfiguredObjectRegistrationGenerator extends AbstractProcessor
 
             JavaFileObject factoryFile = processingEnv.getFiler().createSourceFile(qualifiedClassName);
 
-            PrintWriter pw = new PrintWriter(new OutputStreamWriter(factoryFile.openOutputStream(), "UTF-8"));
+            PrintWriter pw = new PrintWriter(new OutputStreamWriter(factoryFile.openOutputStream(),
+                                                                    StandardCharsets.UTF_8));
             pw.println("/*");
             for (String headerLine : License.LICENSE)
             {

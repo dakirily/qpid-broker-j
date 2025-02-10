@@ -47,9 +47,8 @@ public class ConnectionError implements ErrorCondition, RestrictedType<Symbol>
 
     public static ConnectionError valueOf(Object obj)
     {
-        if (obj instanceof Symbol)
+        if (obj instanceof final Symbol val)
         {
-            Symbol val = (Symbol) obj;
 
             if (CONNECTION_FORCED._val.equals(val))
             {

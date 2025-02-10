@@ -165,7 +165,7 @@ public class EmbeddedKdcExtension implements BeforeAllCallback, ExtensionContext
                 String.join("", Files.readAllLines(Paths.get(System.getProperty("java.security.krb5.conf"))));
         LOGGER.debug("java.security.krb5.conf='{}'", System.getProperty("java.security.krb5.conf"));
         final Path krb5Conf = Paths.get(_kdcDirectory.toString(), "krb5.conf");
-        LOGGER.debug("JAAS config:" + config);
+        LOGGER.debug("JAAS config:{}", config);
         if (!CLEAN_UP)
         {
             Files.copy(krb5Conf, Paths.get(_kdcDirectory.toString(), "krb5.conf.copy"), StandardCopyOption.REPLACE_EXISTING);
@@ -249,7 +249,7 @@ public class EmbeddedKdcExtension implements BeforeAllCallback, ExtensionContext
         _simpleKdcServer.createPrincipals(principals);
         if (keyTabFile.exists() && !keyTabFile.delete())
         {
-            LOGGER.error("Failed to delete keytab file: " + keyTabFile);
+            LOGGER.error("Failed to delete keytab file: {}", keyTabFile);
         }
         for (final String principal : principals)
         {

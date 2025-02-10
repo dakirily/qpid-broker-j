@@ -31,32 +31,32 @@ public final class SessionCompleted extends Method {
     public static final int TYPE = 522;
 
     @Override
-    public final int getStructType() {
+    public int getStructType() {
         return TYPE;
     }
 
     @Override
-    public final int getSizeWidth() {
+    public int getSizeWidth() {
         return 0;
     }
 
     @Override
-    public final int getPackWidth() {
+    public int getPackWidth() {
         return 2;
     }
 
     @Override
-    public final boolean hasPayload() {
+    public boolean hasPayload() {
         return false;
     }
 
     @Override
-    public final byte getEncodedTrack() {
+    public byte getEncodedTrack() {
         return Frame.L3;
     }
 
     @Override
-    public final boolean isConnectionControl()
+    public boolean isConnectionControl()
     {
         return false;
     }
@@ -73,14 +73,26 @@ public final class SessionCompleted extends Method {
             setCommands(commands);
         }
 
-        for (int i=0; i < _options.length; i++) {
-            switch (_options[i]) {
-            case TIMELY_REPLY: packing_flags |= 512; break;
-            case SYNC: this.setSync(true); break;
-            case BATCH: this.setBatch(true); break;
-            case UNRELIABLE: this.setUnreliable(true); break;
-            case NONE: break;
-            default: throw new IllegalArgumentException("invalid option: " + _options[i]);
+        for (final Option option : _options)
+        {
+            switch (option)
+            {
+                case TIMELY_REPLY:
+                    packing_flags |= 512;
+                    break;
+                case SYNC:
+                    this.setSync(true);
+                    break;
+                case BATCH:
+                    this.setBatch(true);
+                    break;
+                case UNRELIABLE:
+                    this.setUnreliable(true);
+                    break;
+                case NONE:
+                    break;
+                default:
+                    throw new IllegalArgumentException("invalid option: " + option);
             }
         }
 
@@ -92,48 +104,48 @@ public final class SessionCompleted extends Method {
     }
 
 
-    public final boolean hasCommands() {
+    public boolean hasCommands() {
         return (packing_flags & 256) != 0;
     }
 
-    public final SessionCompleted clearCommands() {
+    public SessionCompleted clearCommands() {
         packing_flags &= ~256;
         this.commands = null;
         setDirty(true);
         return this;
     }
 
-    public final RangeSet getCommands() {
+    public RangeSet getCommands() {
         return commands;
     }
 
-    public final SessionCompleted setCommands(RangeSet value) {
+    public SessionCompleted setCommands(RangeSet value) {
         this.commands = value;
         packing_flags |= 256;
         setDirty(true);
         return this;
     }
 
-    public final SessionCompleted commands(RangeSet value) {
+    public SessionCompleted commands(RangeSet value) {
         return setCommands(value);
     }
 
-    public final boolean hasTimelyReply() {
+    public boolean hasTimelyReply() {
         return (packing_flags & 512) != 0;
     }
 
-    public final SessionCompleted clearTimelyReply() {
+    public SessionCompleted clearTimelyReply() {
         packing_flags &= ~512;
 
         setDirty(true);
         return this;
     }
 
-    public final boolean getTimelyReply() {
+    public boolean getTimelyReply() {
         return hasTimelyReply();
     }
 
-    public final SessionCompleted setTimelyReply(boolean value) {
+    public SessionCompleted setTimelyReply(boolean value) {
 
         if (value)
         {
@@ -148,7 +160,7 @@ public final class SessionCompleted extends Method {
         return this;
     }
 
-    public final SessionCompleted timelyReply(boolean value) {
+    public SessionCompleted timelyReply(boolean value) {
         return setTimelyReply(value);
     }
 

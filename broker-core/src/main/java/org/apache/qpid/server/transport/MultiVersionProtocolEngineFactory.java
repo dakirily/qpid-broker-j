@@ -22,7 +22,6 @@ package org.apache.qpid.server.transport;
 
 import java.net.SocketAddress;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
@@ -74,8 +73,8 @@ public class MultiVersionProtocolEngineFactory implements ProtocolEngineFactory
         {
             creators.add(c);
         }
-        Collections.sort(creators, new ProtocolEngineCreatorComparator());
-        _creators = creators.toArray(new ProtocolEngineCreator[creators.size()]);
+        creators.sort(new ProtocolEngineCreatorComparator());
+        _creators = creators.toArray(new ProtocolEngineCreator[0]);
         _port = port;
         _transport = transport;
     }

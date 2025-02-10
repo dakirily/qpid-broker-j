@@ -47,9 +47,8 @@ public class LinkError implements ErrorCondition, RestrictedType<Symbol>
 
     public static LinkError valueOf(Object obj)
     {
-        if (obj instanceof Symbol)
+        if (obj instanceof final Symbol val)
         {
-            Symbol val = (Symbol) obj;
 
             if (DETACH_FORCED._val.equals(val))
             {

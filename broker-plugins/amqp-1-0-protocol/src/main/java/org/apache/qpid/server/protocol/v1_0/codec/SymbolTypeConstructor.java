@@ -21,6 +21,7 @@
 package org.apache.qpid.server.protocol.v1_0.codec;
 
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -31,7 +32,7 @@ import org.apache.qpid.server.protocol.v1_0.type.transport.AmqpError;
 
 public class SymbolTypeConstructor extends VariableWidthTypeConstructor<Symbol>
 {
-    private static final Charset ASCII = Charset.forName("US-ASCII");
+    private static final Charset ASCII = StandardCharsets.US_ASCII;
 
     private static final ConcurrentMap<BinaryString, Symbol> SYMBOL_MAP =
             new ConcurrentHashMap<>(2048);

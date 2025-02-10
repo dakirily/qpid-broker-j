@@ -50,7 +50,7 @@ public class NetworkFirewallRule extends AbstractFirewallRuleImpl
             }
             catch (UnknownHostException uhe)
             {
-                LOGGER.error(String.format("Cannot resolve address: '%s'", network), uhe);
+                LOGGER.error("Cannot resolve address: '{}'", network, uhe);
             }
         }
         LOGGER.debug("Created {}", this);

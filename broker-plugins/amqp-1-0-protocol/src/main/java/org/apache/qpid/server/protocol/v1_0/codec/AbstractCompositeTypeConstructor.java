@@ -63,9 +63,8 @@ public abstract class AbstractCompositeTypeConstructor<T> implements DescribedTy
             int size;
             final TypeConstructor typeConstructor = _valueHandler.readConstructor(_in);
             long remaining = _in.remaining();
-            if (typeConstructor instanceof ListConstructor)
+            if (typeConstructor instanceof final ListConstructor listConstructor)
             {
-                ListConstructor listConstructor = (ListConstructor) typeConstructor;
                 if (remaining < listConstructor.getSize() * 2)
                 {
                     throw new AmqpErrorException(AmqpError.DECODE_ERROR,
@@ -196,9 +195,8 @@ public abstract class AbstractCompositeTypeConstructor<T> implements DescribedTy
             }
 
             TypeConstructor typeConstructor = _valueHandler.readConstructor(_in);
-            if (typeConstructor instanceof MapConstructor)
+            if (typeConstructor instanceof final MapConstructor mapConstructor)
             {
-                MapConstructor mapConstructor = ((MapConstructor) typeConstructor);
 
                 return mapConstructor.construct(_in,
                                                 _valueHandler,

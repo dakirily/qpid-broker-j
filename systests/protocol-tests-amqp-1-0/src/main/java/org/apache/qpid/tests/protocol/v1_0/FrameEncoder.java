@@ -53,7 +53,7 @@ public class FrameEncoder implements OutputEncoder
     @Override
     public ByteBuffer encode(final Object msg)
     {
-        if (msg instanceof AMQFrame)
+        if (msg instanceof final AMQFrame frame)
         {
             List<ByteBuffer> buffers = new ArrayList<>();
             FrameWriter _frameWriter = new FrameWriter(TYPE_REGISTRY, new ByteBufferSender()
@@ -83,8 +83,7 @@ public class FrameEncoder implements OutputEncoder
 
                 }
             });
-            AMQFrame frame = (AMQFrame) msg;
-            FRAME_LOGGER.debug("SEND: " + frame.getFrameBody());
+            FRAME_LOGGER.debug("SEND: {}", frame.getFrameBody());
             _frameWriter.send(frame);
 
             int remaining = 0;

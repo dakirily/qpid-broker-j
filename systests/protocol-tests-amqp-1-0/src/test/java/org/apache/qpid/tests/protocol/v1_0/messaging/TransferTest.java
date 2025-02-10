@@ -38,15 +38,13 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import java.util.stream.LongStream;
 import java.util.stream.Stream;
-
-import com.google.common.collect.Sets;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
@@ -895,9 +893,8 @@ public class TransferTest extends BrokerAdminUsingTestBase
                     assertThat(error, is(notNullValue()));
                     break;
                 }
-                else if (body instanceof Disposition)
+                else if (body instanceof final Disposition disposition)
                 {
-                    Disposition disposition = (Disposition) body;
                     assertThat(disposition.getSettled(), is(equalTo(false)));
                     assertThat(disposition.getFirst(), is(not(equalTo(UnsignedInteger.ONE))));
                     assertThat(disposition.getLast(), is(not(equalTo(UnsignedInteger.ONE))));
@@ -1051,9 +1048,9 @@ public class TransferTest extends BrokerAdminUsingTestBase
                        .transferPayloadData(contents[2])
                        .transfer();
 
-            TreeSet<UnsignedInteger> expectedDeliveryIds = Sets.newTreeSet(Arrays.asList(UnsignedInteger.ZERO,
-                                                                                         UnsignedInteger.ONE,
-                                                                                         UnsignedInteger.valueOf(2)));
+            TreeSet<UnsignedInteger> expectedDeliveryIds = new TreeSet<>(Set.of(UnsignedInteger.ZERO,
+                                                                  UnsignedInteger.ONE,
+                                                                  UnsignedInteger.valueOf(2)));
             assertDeliveries(interaction, expectedDeliveryIds);
 
             // verify that no unexpected performative is received by closing
@@ -1099,7 +1096,7 @@ public class TransferTest extends BrokerAdminUsingTestBase
 
             interaction.txnSendDischarge(false);
 
-            assertDeliveries(interaction, Sets.newTreeSet(Arrays.asList(UnsignedInteger.ONE,
+            assertDeliveries(interaction, new TreeSet<>(Set.of(UnsignedInteger.ONE,
                                                                         UnsignedInteger.valueOf(2),
                                                                         UnsignedInteger.valueOf(3),
                                                                         UnsignedInteger.valueOf(4))));

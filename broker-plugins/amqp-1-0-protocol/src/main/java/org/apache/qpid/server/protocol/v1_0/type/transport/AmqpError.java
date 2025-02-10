@@ -54,9 +54,8 @@ public class AmqpError implements ErrorCondition, RestrictedType<Symbol>
 
     public static AmqpError valueOf(Object obj)
     {
-        if (obj instanceof Symbol)
+        if (obj instanceof final Symbol val)
         {
-            Symbol val = (Symbol) obj;
 
             if (INTERNAL_ERROR._val.equals(val))
             {

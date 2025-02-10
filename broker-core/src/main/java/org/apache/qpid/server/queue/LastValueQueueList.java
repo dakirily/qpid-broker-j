@@ -82,7 +82,10 @@ public class LastValueQueueList extends OrderedQueueEntryList
         {
             if(LOGGER.isDebugEnabled())
             {
-                LOGGER.debug("Adding entry " + addedEntry + " for message " + message.getMessageNumber() + " with conflation key " + keyValue);
+                LOGGER.debug("Adding entry {} for message {} with conflation key {}",
+                             addedEntry,
+                             message.getMessageNumber(),
+                             keyValue);
             }
 
             final AtomicReference<ConflationQueueEntry> referenceToEntry = new AtomicReference<>(addedEntry);
@@ -119,7 +122,12 @@ public class LastValueQueueList extends OrderedQueueEntryList
             {
                 if(LOGGER.isDebugEnabled())
                 {
-                    LOGGER.debug("New entry " + addedEntry.getEntryId() + " for message " + addedEntry.getMessage().getMessageNumber() + " being immediately discarded because a newer entry arrived. The newer entry is: " + entryFromMap + " for message " + entryFromMap.getMessage().getMessageNumber());
+                    LOGGER.debug(
+                            "New entry {} for message {} being immediately discarded because a newer entry arrived. The newer entry is: {} for message {}",
+                            addedEntry.getEntryId(),
+                            addedEntry.getMessage().getMessageNumber(),
+                            entryFromMap,
+                            entryFromMap.getMessage().getMessageNumber());
                 }
                 discardEntry(addedEntry);
             }
@@ -127,7 +135,11 @@ public class LastValueQueueList extends OrderedQueueEntryList
             {
                 if(LOGGER.isDebugEnabled())
                 {
-                    LOGGER.debug("Entry " + addedEntry + " for message " + addedEntry.getMessage().getMessageNumber() + " replacing older entry " + entryFromMap + " for message " + entryFromMap.getMessage().getMessageNumber());
+                    LOGGER.debug("Entry {} for message {} replacing older entry {} for message {}",
+                                 addedEntry,
+                                 addedEntry.getMessage().getMessageNumber(),
+                                 entryFromMap,
+                                 entryFromMap.getMessage().getMessageNumber());
                 }
                 discardEntry(entryFromMap);
             }

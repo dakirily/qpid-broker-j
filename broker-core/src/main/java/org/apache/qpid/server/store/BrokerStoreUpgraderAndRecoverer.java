@@ -951,9 +951,8 @@ public class BrokerStoreUpgraderAndRecoverer extends AbstractConfigurationStoreU
                     }
                     if (newEntry != null)
                     {
-                        if (settings.get(newEntry.getKey()) instanceof Map && newEntry.getValue() instanceof Map)
+                        if (settings.get(newEntry.getKey()) instanceof Map && newEntry.getValue() instanceof final Map newMap)
                         {
-                            final Map newMap = (Map)newEntry.getValue();
                             final Map mergedMap = new HashMap((Map) settings.get(newEntry.getKey()));
                             mergedMap.putAll(newMap);
                             settings.put(newEntry.getKey(), mergedMap);
@@ -1067,9 +1066,8 @@ public class BrokerStoreUpgraderAndRecoverer extends AbstractConfigurationStoreU
     private static ConfiguredObjectRecord createVirtualHostsRecordsFromBrokerRecordForModel_1_x(ConfiguredObjectRecord brokerRecord, StoreUpgraderPhase upgrader)
     {
         Map<String, Object> attributes = brokerRecord.getAttributes();
-        if (attributes.containsKey(VIRTUALHOSTS) && attributes.get(VIRTUALHOSTS) instanceof Collection)
+        if (attributes.containsKey(VIRTUALHOSTS) && attributes.get(VIRTUALHOSTS) instanceof final Collection<?> virtualHosts)
         {
-            Collection<?> virtualHosts = (Collection<?>)attributes.get(VIRTUALHOSTS);
             for (Object virtualHost: virtualHosts)
             {
                 if (virtualHost instanceof Map)

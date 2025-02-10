@@ -88,9 +88,8 @@ public class SaslCode implements RestrictedType<UnsignedByte>
 
     public static SaslCode valueOf(Object obj)
     {
-        if (obj instanceof UnsignedByte)
+        if (obj instanceof final UnsignedByte val)
         {
-            UnsignedByte val = (UnsignedByte) obj;
 
             if (OK._val.equals(val))
             {

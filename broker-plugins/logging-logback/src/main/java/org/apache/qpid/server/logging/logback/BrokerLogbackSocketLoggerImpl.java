@@ -125,10 +125,7 @@ public class BrokerLogbackSocketLoggerImpl
                 }
                 loggerContext.putProperty(key, value);
 
-                _stopLoggingActions.add(object ->
-                                  {
-                                      loggerContext.putProperty(key, existingValue);
-                                  });
+                _stopLoggingActions.add(object -> loggerContext.putProperty(key, existingValue));
             }
         }
 

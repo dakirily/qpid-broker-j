@@ -30,32 +30,32 @@ public final class QueueDeclare extends Method {
     public static final int TYPE = 2049;
 
     @Override
-    public final int getStructType() {
+    public int getStructType() {
         return TYPE;
     }
 
     @Override
-    public final int getSizeWidth() {
+    public int getSizeWidth() {
         return 0;
     }
 
     @Override
-    public final int getPackWidth() {
+    public int getPackWidth() {
         return 2;
     }
 
     @Override
-    public final boolean hasPayload() {
+    public boolean hasPayload() {
         return false;
     }
 
     @Override
-    public final byte getEncodedTrack() {
+    public byte getEncodedTrack() {
         return Frame.L4;
     }
 
     @Override
-    public final boolean isConnectionControl()
+    public boolean isConnectionControl()
     {
         return false;
     }
@@ -80,17 +80,35 @@ public final class QueueDeclare extends Method {
             setArguments(arguments);
         }
 
-        for (int i=0; i < _options.length; i++) {
-            switch (_options[i]) {
-            case PASSIVE: packing_flags |= 1024; break;
-            case DURABLE: packing_flags |= 2048; break;
-            case EXCLUSIVE: packing_flags |= 4096; break;
-            case AUTO_DELETE: packing_flags |= 8192; break;
-            case SYNC: this.setSync(true); break;
-            case BATCH: this.setBatch(true); break;
-            case UNRELIABLE: this.setUnreliable(true); break;
-            case NONE: break;
-            default: throw new IllegalArgumentException("invalid option: " + _options[i]);
+        for (final Option option : _options)
+        {
+            switch (option)
+            {
+                case PASSIVE:
+                    packing_flags |= 1024;
+                    break;
+                case DURABLE:
+                    packing_flags |= 2048;
+                    break;
+                case EXCLUSIVE:
+                    packing_flags |= 4096;
+                    break;
+                case AUTO_DELETE:
+                    packing_flags |= 8192;
+                    break;
+                case SYNC:
+                    this.setSync(true);
+                    break;
+                case BATCH:
+                    this.setBatch(true);
+                    break;
+                case UNRELIABLE:
+                    this.setUnreliable(true);
+                    break;
+                case NONE:
+                    break;
+                default:
+                    throw new IllegalArgumentException("invalid option: " + option);
             }
         }
 
@@ -102,74 +120,74 @@ public final class QueueDeclare extends Method {
     }
 
 
-    public final boolean hasQueue() {
+    public boolean hasQueue() {
         return (packing_flags & 256) != 0;
     }
 
-    public final QueueDeclare clearQueue() {
+    public QueueDeclare clearQueue() {
         packing_flags &= ~256;
         this.queue = null;
         setDirty(true);
         return this;
     }
 
-    public final String getQueue() {
+    public String getQueue() {
         return queue;
     }
 
-    public final QueueDeclare setQueue(String value) {
+    public QueueDeclare setQueue(String value) {
         this.queue = value;
         packing_flags |= 256;
         setDirty(true);
         return this;
     }
 
-    public final QueueDeclare queue(String value) {
+    public QueueDeclare queue(String value) {
         return setQueue(value);
     }
 
-    public final boolean hasAlternateExchange() {
+    public boolean hasAlternateExchange() {
         return (packing_flags & 512) != 0;
     }
 
-    public final QueueDeclare clearAlternateExchange() {
+    public QueueDeclare clearAlternateExchange() {
         packing_flags &= ~512;
         this.alternateExchange = null;
         setDirty(true);
         return this;
     }
 
-    public final String getAlternateExchange() {
+    public String getAlternateExchange() {
         return alternateExchange;
     }
 
-    public final QueueDeclare setAlternateExchange(String value) {
+    public QueueDeclare setAlternateExchange(String value) {
         this.alternateExchange = value;
         packing_flags |= 512;
         setDirty(true);
         return this;
     }
 
-    public final QueueDeclare alternateExchange(String value) {
+    public QueueDeclare alternateExchange(String value) {
         return setAlternateExchange(value);
     }
 
-    public final boolean hasPassive() {
+    public boolean hasPassive() {
         return (packing_flags & 1024) != 0;
     }
 
-    public final QueueDeclare clearPassive() {
+    public QueueDeclare clearPassive() {
         packing_flags &= ~1024;
 
         setDirty(true);
         return this;
     }
 
-    public final boolean getPassive() {
+    public boolean getPassive() {
         return hasPassive();
     }
 
-    public final QueueDeclare setPassive(boolean value) {
+    public QueueDeclare setPassive(boolean value) {
 
         if (value)
         {
@@ -184,26 +202,26 @@ public final class QueueDeclare extends Method {
         return this;
     }
 
-    public final QueueDeclare passive(boolean value) {
+    public QueueDeclare passive(boolean value) {
         return setPassive(value);
     }
 
-    public final boolean hasDurable() {
+    public boolean hasDurable() {
         return (packing_flags & 2048) != 0;
     }
 
-    public final QueueDeclare clearDurable() {
+    public QueueDeclare clearDurable() {
         packing_flags &= ~2048;
 
         setDirty(true);
         return this;
     }
 
-    public final boolean getDurable() {
+    public boolean getDurable() {
         return hasDurable();
     }
 
-    public final QueueDeclare setDurable(boolean value) {
+    public QueueDeclare setDurable(boolean value) {
 
         if (value)
         {
@@ -218,26 +236,26 @@ public final class QueueDeclare extends Method {
         return this;
     }
 
-    public final QueueDeclare durable(boolean value) {
+    public QueueDeclare durable(boolean value) {
         return setDurable(value);
     }
 
-    public final boolean hasExclusive() {
+    public boolean hasExclusive() {
         return (packing_flags & 4096) != 0;
     }
 
-    public final QueueDeclare clearExclusive() {
+    public QueueDeclare clearExclusive() {
         packing_flags &= ~4096;
 
         setDirty(true);
         return this;
     }
 
-    public final boolean getExclusive() {
+    public boolean getExclusive() {
         return hasExclusive();
     }
 
-    public final QueueDeclare setExclusive(boolean value) {
+    public QueueDeclare setExclusive(boolean value) {
 
         if (value)
         {
@@ -252,26 +270,26 @@ public final class QueueDeclare extends Method {
         return this;
     }
 
-    public final QueueDeclare exclusive(boolean value) {
+    public QueueDeclare exclusive(boolean value) {
         return setExclusive(value);
     }
 
-    public final boolean hasAutoDelete() {
+    public boolean hasAutoDelete() {
         return (packing_flags & 8192) != 0;
     }
 
-    public final QueueDeclare clearAutoDelete() {
+    public QueueDeclare clearAutoDelete() {
         packing_flags &= ~8192;
 
         setDirty(true);
         return this;
     }
 
-    public final boolean getAutoDelete() {
+    public boolean getAutoDelete() {
         return hasAutoDelete();
     }
 
-    public final QueueDeclare setAutoDelete(boolean value) {
+    public QueueDeclare setAutoDelete(boolean value) {
 
         if (value)
         {
@@ -286,33 +304,33 @@ public final class QueueDeclare extends Method {
         return this;
     }
 
-    public final QueueDeclare autoDelete(boolean value) {
+    public QueueDeclare autoDelete(boolean value) {
         return setAutoDelete(value);
     }
 
-    public final boolean hasArguments() {
+    public boolean hasArguments() {
         return (packing_flags & 16384) != 0;
     }
 
-    public final QueueDeclare clearArguments() {
+    public QueueDeclare clearArguments() {
         packing_flags &= ~16384;
         this.arguments = null;
         setDirty(true);
         return this;
     }
 
-    public final Map<String,Object> getArguments() {
+    public Map<String,Object> getArguments() {
         return arguments;
     }
 
-    public final QueueDeclare setArguments(Map<String,Object> value) {
+    public QueueDeclare setArguments(Map<String, Object> value) {
         this.arguments = value;
         packing_flags |= 16384;
         setDirty(true);
         return this;
     }
 
-    public final QueueDeclare arguments(Map<String,Object> value) {
+    public QueueDeclare arguments(Map<String, Object> value) {
         return setArguments(value);
     }
 

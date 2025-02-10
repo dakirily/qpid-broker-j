@@ -51,29 +51,29 @@ public final class Binary
         this(bytes, 0, bytes.length);
     }
 
-    public final byte[] getBytes()
+    public byte[] getBytes()
     {
         byte[] result = new byte[size];
         System.arraycopy(bytes, offset, result, 0, size);
         return result;
     }
 
-    public final byte[] array()
+    public byte[] array()
     {
         return bytes;
     }
 
-    public final int offset()
+    public int offset()
     {
         return offset;
     }
 
-    public final int size()
+    public int size()
     {
         return size;
     }
 
-    public final Binary slice(int low, int high)
+    public Binary slice(int low, int high)
     {
         int sz;
 
@@ -95,7 +95,7 @@ public final class Binary
     }
 
     @Override
-    public final int hashCode()
+    public int hashCode()
     {
         if (hash == 0)
         {
@@ -111,14 +111,13 @@ public final class Binary
     }
 
     @Override
-    public final boolean equals(Object o)
+    public boolean equals(Object o)
     {
-        if (!(o instanceof Binary))
+        if (!(o instanceof final Binary buf))
         {
             return false;
         }
 
-        Binary buf = (Binary) o;
         if (this.size != buf.size)
         {
             return false;

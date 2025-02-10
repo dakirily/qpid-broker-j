@@ -43,12 +43,12 @@ import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.Predicate;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.google.common.util.concurrent.ListenableFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -246,10 +246,9 @@ public class ConfiguredObjectTypeRegistry
                     }
                     catch (NoClassDefFoundError ncdfe)
                     {
-                        LOGGER.warn("A class definition could not be found while processing the model for '"
-                                    + configuredObjectClass.getName()
-                                    + "': "
-                                    + ncdfe.getMessage());
+                        LOGGER.warn("A class definition could not be found while processing the model for '{}': {}",
+                                    configuredObjectClass.getName(),
+                                    ncdfe.getMessage());
                     }
                 }
             }
@@ -449,9 +448,8 @@ public class ConfiguredObjectTypeRegistry
                             {
                                 Type valueType =
                                         ((ParameterizedType) method.getGenericReturnType()).getActualTypeArguments()[1];
-                                if (valueType instanceof ParameterizedType)
+                                if (valueType instanceof final ParameterizedType paramType)
                                 {
-                                    ParameterizedType paramType = (ParameterizedType) valueType;
                                     final Type rawType = paramType.getRawType();
                                     final Type[] args = paramType.getActualTypeArguments();
                                     if (Collection.class.isAssignableFrom((Class<?>) rawType)
@@ -748,10 +746,7 @@ public class ConfiguredObjectTypeRegistry
         if (clazz.isAnnotationPresent(ManagedContextDependency.class))
         {
             ManagedContextDependency dependencies = clazz.getAnnotation(ManagedContextDependency.class);
-            for (String dependency : dependencies.value())
-            {
-                contextSet.add(dependency);
-            }
+            Collections.addAll(contextSet, dependencies.value());
         }
     }
 
@@ -1084,7 +1079,7 @@ public class ConfiguredObjectTypeRegistry
         {
             if (m.isAnnotationPresent(StateTransition.class))
             {
-                if (ListenableFuture.class.isAssignableFrom(m.getReturnType()))
+                if (CompletableFuture.class.isAssignableFrom(m.getReturnType()))
                 {
                     if (m.getParameterTypes().length == 0)
                     {
@@ -1110,7 +1105,7 @@ public class ConfiguredObjectTypeRegistry
                 else
                 {
                     throw new ServerScopedRuntimeException(
-                            "A state transition method must return a ListenableFuture. Method "
+                            "A state transition method must return a CompletableFuture. Method "
                             + m.getName()
                             + " on "
                             + clazz.getName()

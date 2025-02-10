@@ -162,6 +162,6 @@ public enum NotificationCheck
     //A bit of a hack, only for use until we do the logging listener
     private static void logNotification(NotificationCheck notification, Queue<?> queue, String notificationMsg)
     {
-        LOGGER.info(notification.name() + " On Queue " + queue.getName() + " - " + notificationMsg);
+        LOGGER.info("{} On Queue {} - {}", notification.name(), queue.getName(), notificationMsg);
     }
 }

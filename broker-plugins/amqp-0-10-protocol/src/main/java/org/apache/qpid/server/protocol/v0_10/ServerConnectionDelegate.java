@@ -313,9 +313,11 @@ public class ServerConnectionDelegate extends MethodDelegate<ServerConnection> i
 
         if (okChannelMax > getChannelMax())
         {
-            LOGGER.error("Connection '" + sconn.getConnectionId() + "' being severed, " +
-                    "client connectionTuneOk returned a channelMax (" + okChannelMax +
-                    ") above the server's offered limit (" + getChannelMax() +")");
+            LOGGER.error(
+                    "Connection '{}' being severed, client connectionTuneOk returned a channelMax ({}) above the server's offered limit ({})",
+                    sconn.getConnectionId(),
+                    okChannelMax,
+                    getChannelMax());
 
             //Due to the error we must forcefully close the connection without negotiation
             sconn.closeAndIgnoreFutureInput();
@@ -324,9 +326,11 @@ public class ServerConnectionDelegate extends MethodDelegate<ServerConnection> i
 
         if(okMaxFrameSize > getFrameMax())
         {
-            LOGGER.error("Connection '" + sconn.getConnectionId() + "' being severed, " +
-                         "client connectionTuneOk returned a frameMax (" + okMaxFrameSize +
-                         ") above the server's offered limit (" + getFrameMax() +")");
+            LOGGER.error(
+                    "Connection '{}' being severed, client connectionTuneOk returned a frameMax ({}) above the server's offered limit ({})",
+                    sconn.getConnectionId(),
+                    okMaxFrameSize,
+                    getFrameMax());
 
             //Due to the error we must forcefully close the connection without negotiation
             sconn.closeAndIgnoreFutureInput();
@@ -335,9 +339,12 @@ public class ServerConnectionDelegate extends MethodDelegate<ServerConnection> i
         }
         else if(okMaxFrameSize > 0 && okMaxFrameSize < Constant.MIN_MAX_FRAME_SIZE)
         {
-            LOGGER.error("Connection '" + sconn.getConnectionId() + "' being severed, " +
-                         "client connectionTuneOk returned a frameMax (" + okMaxFrameSize +
-                         ") below the minimum permitted size (" + Constant.MIN_MAX_FRAME_SIZE +")");
+            LOGGER.error(
+                    "Connection '{}' being severed, client connectionTuneOk returned a frameMax ({}) below the minimum permitted size ("
+                    + Constant.MIN_MAX_FRAME_SIZE
+                    + ")",
+                    sconn.getConnectionId(),
+                    okMaxFrameSize);
 
             //Due to the error we must forcefully close the connection without negotiation
             sconn.closeAndIgnoreFutureInput();
@@ -531,7 +538,7 @@ public class ServerConnectionDelegate extends MethodDelegate<ServerConnection> i
         serverConnection.setLocale(ok.getLocale());
         String mechanism = ok.getMechanism();
 
-        if (mechanism == null || mechanism.length() == 0)
+        if (mechanism == null || mechanism.isEmpty())
         {
             serverConnection.sendConnectionClose(ConnectionCloseCode.CONNECTION_FORCED,
                                                  "No Sasl mechanism was specified");

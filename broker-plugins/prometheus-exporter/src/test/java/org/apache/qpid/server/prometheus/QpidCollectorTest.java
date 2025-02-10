@@ -215,7 +215,7 @@ public class QpidCollectorTest extends UnitTestBase
         final List<Collector.MetricFamilySamples.Sample> found = metricFamilySamples.samples
                 .stream()
                 .filter(s -> s.labelValues != null
-                             && s.labelValues.size() > 0
+                             && !s.labelValues.isEmpty()
                              && nameLabelValue.equals(s.labelValues.get(0)))
                 .collect(Collectors.toList());
         assertThat(found.size(), is(equalTo(1)));

@@ -57,7 +57,7 @@ public class SeriesStatistics
 
     public void aggregate()
     {
-        if (_series != null && _series.size() > 0)
+        if (_series != null && !_series.isEmpty())
         {
             long minLatency = Long.MAX_VALUE;
             long maxLatency = Long.MIN_VALUE;

@@ -24,9 +24,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -60,7 +59,7 @@ public class SynchronousMessageStoreRecoverer implements MessageStoreRecoverer
     private static final Logger LOGGER = LoggerFactory.getLogger(SynchronousMessageStoreRecoverer.class);
 
     @Override
-    public ListenableFuture<Void> recover(QueueManagingVirtualHost<?> virtualHost)
+    public CompletableFuture<Void> recover(QueueManagingVirtualHost<?> virtualHost)
     {
         EventLogger eventLogger = virtualHost.getEventLogger();
         MessageStore store = virtualHost.getMessageStore();
@@ -92,19 +91,15 @@ public class SynchronousMessageStoreRecoverer implements MessageStoreRecoverer
         {
             if (!unknownQueuesWithMessages.isEmpty())
             {
-                unknownQueuesWithMessages.forEach((queueId, count) -> {
-                    LOGGER.info("Discarded {} entry(s) associated with queue id '{}' as a queue with this "
-                                 + "id does not appear in the configuration.",
-                                 count, queueId);
-                });
+                unknownQueuesWithMessages.forEach((queueId, count) ->
+                        LOGGER.info("Discarded {} entry(s) associated with queue id '{}' as a queue with this " +
+                        "id does not appear in the configuration.", count, queueId));
             }
             if (!queuesWithUnknownMessages.isEmpty())
             {
-                queuesWithUnknownMessages.forEach((queue, count) -> {
-                    LOGGER.info("Discarded {} entry(s) associated with queue '{}' as the referenced message "
-                                 + "does not exist.",
-                                 count, queue.getName());
-                });
+                queuesWithUnknownMessages.forEach((queue, count) ->
+                        LOGGER.info("Discarded {} entry(s) associated with queue '{}' as the referenced message " +
+                        "does not exist.", count, queue.getName()));
             }
         }
 
@@ -135,7 +130,7 @@ public class SynchronousMessageStoreRecoverer implements MessageStoreRecoverer
             m.remove();
         }
 
-        if (unusedMessages.size() > 0)
+        if (!unusedMessages.isEmpty())
         {
             LOGGER.info("Discarded {} orphaned message(s).", unusedMessages.size());
         }
@@ -146,7 +141,7 @@ public class SynchronousMessageStoreRecoverer implements MessageStoreRecoverer
                              MessageStoreMessages.RECOVERED(recoveredMessages.size() - unusedMessages.size()));
         eventLogger.message(logSubject, MessageStoreMessages.RECOVERY_COMPLETE());
 
-        return Futures.immediateFuture(null);
+        return CompletableFuture.completedFuture(null);
     }
 
     @Override

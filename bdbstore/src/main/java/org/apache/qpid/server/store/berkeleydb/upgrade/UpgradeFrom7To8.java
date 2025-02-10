@@ -244,10 +244,8 @@ public class UpgradeFrom7To8 extends AbstractStoreUpgrade
 
     private int getConfigVersion(Database configVersionDb)
     {
-        Cursor cursor = null;
-        try
+        try (Cursor cursor = configVersionDb.openCursor(null, null))
         {
-            cursor = configVersionDb.openCursor(null, null);
             DatabaseEntry key = new DatabaseEntry();
             DatabaseEntry value = new DatabaseEntry();
             while (cursor.getNext(key, value, LockMode.RMW) == OperationStatus.SUCCESS)
@@ -255,13 +253,6 @@ public class UpgradeFrom7To8 extends AbstractStoreUpgrade
                 return IntegerBinding.entryToInt(value);
             }
             return -1;
-        }
-        finally
-        {
-            if (cursor != null)
-            {
-                cursor.close();
-            }
         }
     }
 

@@ -24,9 +24,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.BiFunction;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
-
-import com.google.common.collect.ImmutableList;
 
 import org.apache.qpid.server.model.ConfiguredObject;
 import org.apache.qpid.server.model.Connection;
@@ -50,25 +49,23 @@ public class SessionRetriever<C extends ConfiguredObject<?>> extends ConfiguredO
     /**
      * List of entity field names
      */
-    private final List<String> _fieldNames = new ImmutableList.Builder<String>()
-        .add("connectionId")
-        .add("id")
-        .add("name")
-        .add("description")
-        .add("type")
-        .add("desiredState")
-        .add("state")
-        .add("durable")
-        .add("lifetimePolicy")
-        .add("channelId")
-        .add("lastOpenedTime")
-        .add("producerFlowBlocked")
-        .add("lastUpdatedTime")
-        .add("lastUpdatedBy")
-        .add("createdBy")
-        .add("createdTime")
-        .add("statistics")
-        .build();
+    private final List<String> _fieldNames = Stream.of("connectionId",
+        "id",
+        "name",
+        "description",
+        "type",
+        "desiredState",
+        "state",
+        "durable",
+        "lifetimePolicy",
+        "channelId",
+        "lastOpenedTime",
+        "producerFlowBlocked",
+        "lastUpdatedTime",
+        "lastUpdatedBy",
+        "createdBy",
+        "createdTime",
+        "statistics").collect(Collectors.toList());
 
     /**
      * Mapping function for a Session

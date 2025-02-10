@@ -63,12 +63,8 @@ public class PreferencesRecoverer
             }
             else
             {
-                Collection<PreferenceRecord> objectPreferences = objectToRecordMap.get(associatedObjectId);
-                if (objectPreferences == null)
-                {
-                    objectPreferences = new HashSet<>();
-                    objectToRecordMap.put(associatedObjectId, objectPreferences);
-                }
+                Collection<PreferenceRecord> objectPreferences =
+                        objectToRecordMap.computeIfAbsent(associatedObjectId, key -> new HashSet<>());
                 objectPreferences.add(preferenceRecord);
             }
         }
@@ -113,9 +109,10 @@ public class PreferencesRecoverer
                 }
                 catch (IllegalArgumentException e)
                 {
-                    LOGGER.info(String.format("Cannot recover preference '%s/%s'",
-                                              preferenceRecord.getId(),
-                                              attributes.get(Preference.NAME_ATTRIBUTE)), e);
+                    LOGGER.info("Cannot recover preference '{}/{}'",
+                                preferenceRecord.getId(),
+                                attributes.get(Preference.NAME_ATTRIBUTE),
+                                e);
                     corruptedRecords.add(preferenceRecord.getId());
                 }
             }

@@ -51,9 +51,8 @@ public class SectionDecoderImpl implements SectionDecoder
             {
 
                 final Object parsedObject = _valueHandler.parse(buf);
-                if (parsedObject instanceof EncodingRetainingSection)
+                if (parsedObject instanceof final EncodingRetainingSection<?> section)
                 {
-                    EncodingRetainingSection<?> section = (EncodingRetainingSection<?>) parsedObject;
                     obj.add(section);
                 }
                 else

@@ -294,7 +294,7 @@ public class SSLUtil
                         }
                     }
                 }
-                return cnStr == null || cnStr.length()==0 ? "" : dcStr == null ? cnStr : cnStr + '@' + dcStr;
+                return cnStr == null || cnStr.isEmpty() ? "" : dcStr == null ? cnStr : cnStr + '@' + dcStr;
             }
             catch (InvalidNameException e)
             {

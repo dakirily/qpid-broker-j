@@ -111,9 +111,12 @@ public class ConfiguredAutomatedAttribute<C extends ConfiguredObject, T>  extend
             }
             catch (ClassNotFoundException | NoSuchMethodException e)
             {
-                LOGGER.warn("The validValues of the " + getName() + " attribute in class " + clazz.getSimpleName()
-                            + " has value '" + validValue + "' which looks like it should be a method,"
-                            + " but no such method could be used.", e );
+                LOGGER.warn(
+                        "The validValues of the {} attribute in class {} has value '{}' which looks like it should be a method, but no such method could be used.",
+                        getName(),
+                        clazz.getSimpleName(),
+                        validValue,
+                        e);
             }
         }
         return null;
@@ -208,7 +211,7 @@ public class ConfiguredAutomatedAttribute<C extends ConfiguredObject, T>  extend
             }
             catch (InvocationTargetException | IllegalAccessException e)
             {
-                LOGGER.warn("Could not execute the validValues generation method " + _validValuesMethod.getName(), e);
+                LOGGER.warn("Could not execute the validValues generation method {}", _validValuesMethod.getName(), e);
                 return Collections.emptySet();
             }
         }
@@ -232,7 +235,7 @@ public class ConfiguredAutomatedAttribute<C extends ConfiguredObject, T>  extend
     @Override
     public boolean hasValidValues()
     {
-        return validValues() != null && validValues().size() > 0;
+        return validValues() != null && !validValues().isEmpty();
     }
 
     @Override

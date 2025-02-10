@@ -354,9 +354,8 @@ public class EncoderUtils
             for(Map.Entry<?,?> entry: ((Map<?,?>)value).entrySet())
             {
                 Object key = entry.getKey();
-                if (key instanceof String)
+                if (key instanceof final String string)
                 {
-                    String string = (String)key;
                     if (string.length() > 0xFF)
                     {
                         return false;
@@ -372,9 +371,8 @@ public class EncoderUtils
                 }
             }
         }
-        else if (value instanceof Collection)
+        else if (value instanceof final Collection<?> collection)
         {
-            Collection<?> collection = (Collection<?>) value;
             int index = 0;
             for (Object o: collection)
             {

@@ -414,30 +414,15 @@ public class Main
                 throw new IllegalConfigurationException("Cannot create URL for file " + locationFile, e1);
             }
         }
-        InputStream in =  null;
-        try
+
+        try (final InputStream in = url.openStream())
         {
-            in = url.openStream();
             FileUtils.copy(in, destinationFile);
         }
         catch (IOException e)
         {
             throw new IllegalConfigurationException("Cannot create file " + destinationFile
                                                     + " by copying initial config from " + initialConfigLocation, e);
-        }
-        finally
-        {
-            if (in != null)
-            {
-                try
-                {
-                    in.close();
-                }
-                catch (IOException e)
-                {
-                    throw new IllegalConfigurationException("Cannot close initial config input stream: " + initialConfigLocation, e);
-                }
-            }
         }
     }
 
@@ -479,7 +464,9 @@ public class Main
                     exception.printStackTrace(System.err);
 
                     Logger logger = LoggerFactory.getLogger("org.apache.qpid.server.Main");
-                    logger.error("Uncaught exception, " + (continueOnError ? "continuing." : "shutting down."), exception);
+                    logger.error("Uncaught exception, {}",
+                                 continueOnError ? "continuing." : "shutting down.",
+                                 exception);
                 }
                 finally
                 {

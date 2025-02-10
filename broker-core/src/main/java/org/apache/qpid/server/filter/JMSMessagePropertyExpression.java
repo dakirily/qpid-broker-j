@@ -171,7 +171,7 @@ public class JMSMessagePropertyExpression implements PropertyExpression<Filterab
                                                                 JMSDeliveryMode.NON_PERSISTENT;
                 if (LOGGER.isDebugEnabled())
                 {
-                    LOGGER.debug("JMSDeliveryMode is :" + mode);
+                    LOGGER.debug("JMSDeliveryMode is :{}", mode);
                 }
 
                 return mode.toString();

@@ -68,7 +68,7 @@ public class WindowCreditManager implements FlowCreditManager_0_10
             _messageUsed -= messageCredit;
             if (_messageUsed < 0L)
             {
-                LOGGER.warn("Message credit used value was negative: " + _messageUsed);
+                LOGGER.warn("Message credit used value was negative: {}", _messageUsed);
                 _messageUsed = 0;
             }
         }
@@ -78,7 +78,7 @@ public class WindowCreditManager implements FlowCreditManager_0_10
             _bytesUsed -= bytesCredit;
             if (_bytesUsed < 0L)
             {
-                LOGGER.warn("Bytes credit used value was negative: " + _bytesUsed);
+                LOGGER.warn("Bytes credit used value was negative: {}", _bytesUsed);
                 _bytesUsed = 0;
             }
         }

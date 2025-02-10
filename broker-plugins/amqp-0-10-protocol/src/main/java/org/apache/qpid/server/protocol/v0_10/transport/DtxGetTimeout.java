@@ -31,32 +31,32 @@ public final class DtxGetTimeout extends Method {
     public static final int TYPE = 1542;
 
     @Override
-    public final int getStructType() {
+    public int getStructType() {
         return TYPE;
     }
 
     @Override
-    public final int getSizeWidth() {
+    public int getSizeWidth() {
         return 0;
     }
 
     @Override
-    public final int getPackWidth() {
+    public int getPackWidth() {
         return 2;
     }
 
     @Override
-    public final boolean hasPayload() {
+    public boolean hasPayload() {
         return false;
     }
 
     @Override
-    public final byte getEncodedTrack() {
+    public byte getEncodedTrack() {
         return Frame.L4;
     }
 
     @Override
-    public final boolean isConnectionControl()
+    public boolean isConnectionControl()
     {
         return false;
     }
@@ -73,13 +73,23 @@ public final class DtxGetTimeout extends Method {
             setXid(xid);
         }
 
-        for (int i=0; i < _options.length; i++) {
-            switch (_options[i]) {
-            case SYNC: this.setSync(true); break;
-            case BATCH: this.setBatch(true); break;
-            case UNRELIABLE: this.setUnreliable(true); break;
-            case NONE: break;
-            default: throw new IllegalArgumentException("invalid option: " + _options[i]);
+        for (final Option option : _options)
+        {
+            switch (option)
+            {
+                case SYNC:
+                    this.setSync(true);
+                    break;
+                case BATCH:
+                    this.setBatch(true);
+                    break;
+                case UNRELIABLE:
+                    this.setUnreliable(true);
+                    break;
+                case NONE:
+                    break;
+                default:
+                    throw new IllegalArgumentException("invalid option: " + option);
             }
         }
 
@@ -91,29 +101,29 @@ public final class DtxGetTimeout extends Method {
     }
 
 
-    public final boolean hasXid() {
+    public boolean hasXid() {
         return (packing_flags & 256) != 0;
     }
 
-    public final DtxGetTimeout clearXid() {
+    public DtxGetTimeout clearXid() {
         packing_flags &= ~256;
         this.xid = null;
         setDirty(true);
         return this;
     }
 
-    public final Xid getXid() {
+    public Xid getXid() {
         return xid;
     }
 
-    public final DtxGetTimeout setXid(Xid value) {
+    public DtxGetTimeout setXid(Xid value) {
         this.xid = value;
         packing_flags |= 256;
         setDirty(true);
         return this;
     }
 
-    public final DtxGetTimeout xid(Xid value) {
+    public DtxGetTimeout xid(Xid value) {
         return setXid(value);
     }
 

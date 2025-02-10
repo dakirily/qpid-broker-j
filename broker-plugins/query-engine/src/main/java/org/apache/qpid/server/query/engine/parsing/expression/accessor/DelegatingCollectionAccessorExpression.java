@@ -88,11 +88,10 @@ public class DelegatingCollectionAccessorExpression<T, R, INDEX, COLLECTION exte
             final int index = ((Number) pointer).intValue();
             return new CollectionObjectAccessor<R>(index).apply(collection);
         }
-        if (pointer instanceof String)
+        if (pointer instanceof final String key)
         {
             final DelegatingObjectAccessor<T, MAP> accessor = new DelegatingObjectAccessor<>(getAlias(), _property);
             final Map<String, R> map = accessor.apply(value);
-            final String key = (String) pointer;
             return new MapObjectAccessor<R>(key).apply(map);
         }
         throw QueryEvaluationException.fieldNotFound(_property);

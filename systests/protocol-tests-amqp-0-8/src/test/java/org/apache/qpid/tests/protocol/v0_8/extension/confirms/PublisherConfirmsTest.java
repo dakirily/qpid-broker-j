@@ -24,9 +24,9 @@ import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
 
+import java.util.HashSet;
 import java.util.Set;
 
-import com.google.common.collect.Sets;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -192,13 +192,12 @@ public class PublisherConfirmsTest extends BrokerAdminUsingTestBase
 
             interaction.tx().commit();
 
-            final Set<Class<?>> outstanding = Sets.newHashSet(TxCommitOkBody.class, BasicReturnBody.class,
-                                                              ContentHeaderBody.class);
+            final Set<Class<?>> outstanding = new HashSet<>(Set.of(TxCommitOkBody.class, BasicReturnBody.class, ContentHeaderBody.class));
 
             while (!outstanding.isEmpty())
             {
                 final Response<?> response =
-                        interaction.consumeResponse(outstanding.toArray(new Class<?>[outstanding.size()]))
+                        interaction.consumeResponse(outstanding.toArray(new Class<?>[0]))
                                    .getLatestResponse();
                 final boolean remove = outstanding.remove(response.getBody().getClass());
                 assertThat("" + response, remove, is(equalTo(true)));

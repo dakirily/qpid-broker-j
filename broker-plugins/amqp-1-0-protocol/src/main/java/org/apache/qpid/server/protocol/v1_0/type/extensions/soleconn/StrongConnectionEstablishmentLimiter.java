@@ -67,12 +67,11 @@ public class StrongConnectionEstablishmentLimiter implements ConnectionLimiterSe
     @Override
     public ConnectionSlot register(AMQPConnection<?> connection)
     {
-        if (!(connection instanceof AMQPConnection_1_0) || connection.isClosing())
+        if (!(connection instanceof final AMQPConnection_1_0<?> newConnection) || connection.isClosing())
         {
             return _underlyingLimiter.register(connection);
         }
         LOGGER.debug("Registering a new connection '{}'", connection);
-        final AMQPConnection_1_0<?> newConnection = (AMQPConnection_1_0<?>) connection;
         final String remoteContainerId = newConnection.getRemoteContainerId();
         if (remoteContainerId == null)
         {

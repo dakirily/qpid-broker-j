@@ -57,9 +57,8 @@ public class QueryExpressionValidator
         {
             throw QueryValidationException.of(Errors.VALIDATION.MISSING_EXPRESSION);
         }
-        if (setExpression instanceof SelectExpression)
+        if (setExpression instanceof final SelectExpression<T, R> selectExpression)
         {
-            final SelectExpression<T, R> selectExpression = (SelectExpression<T, R>) setExpression;
             _selectExpressionValidator.validate(selectExpression);
         }
     }

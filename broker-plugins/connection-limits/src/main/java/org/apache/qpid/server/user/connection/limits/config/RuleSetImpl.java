@@ -83,7 +83,7 @@ final class RuleSetImpl implements RuleSet
         }
         catch (RejectRegistration result)
         {
-            LOGGER.debug(String.format("Connection limiter %s, user limit exceeded", _name), result);
+            LOGGER.debug("Connection limiter {}, user limit exceeded", _name, result);
             throw new ConnectionLimitException(result.logMessage(_loggerFactory.apply(connection)));
         }
     }

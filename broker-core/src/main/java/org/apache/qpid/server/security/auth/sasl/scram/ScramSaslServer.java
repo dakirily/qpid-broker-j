@@ -22,6 +22,7 @@ package org.apache.qpid.server.security.auth.sasl.scram;
 
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -38,7 +39,7 @@ import org.apache.qpid.server.util.Strings;
 
 class ScramSaslServer implements SaslServer
 {
-    private static final Charset ASCII = Charset.forName("ASCII");
+    private static final Charset ASCII = StandardCharsets.US_ASCII;
 
     private final String _mechanism;
     private final String _hmacName;

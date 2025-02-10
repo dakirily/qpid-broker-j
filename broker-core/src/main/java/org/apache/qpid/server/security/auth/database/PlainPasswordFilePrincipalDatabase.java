@@ -21,8 +21,6 @@
 package org.apache.qpid.server.security.auth.database;
 
 import java.security.Principal;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 
 import javax.security.auth.login.AccountNotFoundException;
@@ -53,10 +51,10 @@ public class PlainPasswordFilePrincipalDatabase extends AbstractPasswordFilePrin
 {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(PlainPasswordFilePrincipalDatabase.class);
-    private final List<String> _mechanisms = Collections.unmodifiableList(Arrays.asList(PlainNegotiator.MECHANISM,
-                                                                                        CramMd5Negotiator.MECHANISM,
-                                                                                        ScramSHA1AuthenticationManager.MECHANISM,
-                                                                                        ScramSHA256AuthenticationManager.MECHANISM));
+    private final List<String> _mechanisms = List.of(PlainNegotiator.MECHANISM,
+                                                     CramMd5Negotiator.MECHANISM,
+                                                     ScramSHA1AuthenticationManager.MECHANISM,
+                                                     ScramSHA256AuthenticationManager.MECHANISM);
     private final ScramSaslServerSourceAdapter _scramSha1Adapter;
     private final ScramSaslServerSourceAdapter _scramSha256Adapter;
 

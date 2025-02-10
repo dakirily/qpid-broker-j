@@ -23,7 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.Serializable;
-import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
 import java.util.UUID;
 
 import javax.jms.Connection;
@@ -35,8 +35,6 @@ import javax.jms.ObjectMessage;
 import javax.jms.Queue;
 import javax.jms.Session;
 
-import com.google.common.reflect.AbstractInvocationHandler;
-import com.google.common.reflect.Reflection;
 
 import org.junit.jupiter.api.Test;
 
@@ -56,16 +54,8 @@ public class ForeignMessageTest extends JmsTestBase
             final String jmsType = "TestJmsType";
             final String correlationId = "testCorrelationId";
             final ObjectMessage message = session.createObjectMessage();
-            final ObjectMessage foreignMessage =
-                    Reflection.newProxy(ObjectMessage.class, new AbstractInvocationHandler()
-                    {
-                        @Override
-                        protected Object handleInvocation(final Object proxy, final Method method, final Object[] args)
-                                throws Throwable
-                        {
-                            return method.invoke(message, args);
-                        }
-                    });
+            final ObjectMessage foreignMessage = ObjectMessage.class.cast(Proxy.newProxyInstance(
+                    ObjectMessage.class.getClassLoader(), new Class<?>[] { ObjectMessage.class }, (proxy, method, args) -> method.invoke(message, args)));
 
             foreignMessage.setJMSCorrelationID(correlationId);
             foreignMessage.setJMSType(jmsType);

@@ -24,6 +24,7 @@ import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -141,7 +142,8 @@ public class CompositeTypeConstructorGenerator  extends AbstractProcessor
         try
         {
             JavaFileObject factoryFile = filer.createSourceFile(compositeTypeConstructorName);
-            PrintWriter pw = new PrintWriter(new OutputStreamWriter(factoryFile.openOutputStream(), "UTF-8"));
+            PrintWriter pw = new PrintWriter(new OutputStreamWriter(factoryFile.openOutputStream(),
+                                                                    StandardCharsets.UTF_8));
             pw.println("/*");
             for(String headerLine : License.LICENSE)
             {
@@ -278,9 +280,8 @@ public class CompositeTypeConstructorGenerator  extends AbstractProcessor
                                              annotatedField.isMandatory(),
                                              componentType,
                                              functionString));
-                optionallyWrapInNullCheck(!annotatedField.isMandatory(), pw, baseIndent, fieldName, indent -> {
-                    pw.println(indent + "obj." + getSetterName(variableElement) + "(" + fieldName + ");");
-                });
+                optionallyWrapInNullCheck(!annotatedField.isMandatory(), pw, baseIndent, fieldName, indent ->
+                        pw.println(indent + "obj." + getSetterName(variableElement) + "(" + fieldName + ");"));
             }
             else if (annotatedField.getFactory() != null || RESTRICTED_TYPES.contains(variableElement.asType().toString()))
             {
@@ -319,9 +320,8 @@ public class CompositeTypeConstructorGenerator  extends AbstractProcessor
                                          annotatedField.isMandatory(),
                                          args.get(0),
                                          args.get(1)));
-                optionallyWrapInNullCheck(!annotatedField.isMandatory(), pw, baseIndent, fieldName, indent -> {
-                    pw.println(indent + "obj." + getSetterName(variableElement) + "(" + fieldName + ");");
-                });
+                optionallyWrapInNullCheck(!annotatedField.isMandatory(), pw, baseIndent, fieldName, indent ->
+                        pw.println(indent + "obj." + getSetterName(variableElement) + "(" + fieldName + ");"));
             }
             else
             {
@@ -332,9 +332,8 @@ public class CompositeTypeConstructorGenerator  extends AbstractProcessor
                                          fieldName,
                                          annotatedField.isMandatory(),
                                          annotatedField.getVariableElement().asType()));
-                optionallyWrapInNullCheck(!annotatedField.isMandatory(), pw, baseIndent, fieldName, indent -> {
-                    pw.println(indent + "obj." + getSetterName(variableElement) + "(" + fieldName + ");");
-                });
+                optionallyWrapInNullCheck(!annotatedField.isMandatory(), pw, baseIndent, fieldName, indent ->
+                        pw.println(indent + "obj." + getSetterName(variableElement) + "(" + fieldName + ");"));
             }
 
             pw.println();

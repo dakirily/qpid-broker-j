@@ -84,7 +84,7 @@ public class GenericRecoverer
     {
         if (LOGGER.isDebugEnabled())
         {
-            LOGGER.debug("Recovering the children of " + _root);
+            LOGGER.debug("Recovering the children of {}", _root);
         }
 
         records = resolveDiscontinuity(records);
@@ -104,7 +104,7 @@ public class GenericRecoverer
                 // (required when restarting a virtualhost).  In the long term, when the objects take responsibility
                 // for the recovery of immediate descendants only, this will disappear.
             }
-            else if ((record.getParents() == null || record.getParents().size() == 0))
+            else if ((record.getParents() == null || record.getParents().isEmpty()))
             {
                 if (containsCategory(childTypesOfRoot, record.getType()))
                 {
@@ -183,7 +183,7 @@ public class GenericRecoverer
                 if (foundParents)
                 {
                     iter.remove();
-                    ConfiguredObject<?>[] parentArray = parents.toArray(new ConfiguredObject<?>[parents.size()]);
+                    ConfiguredObject<?>[] parentArray = parents.toArray(new ConfiguredObject<?>[0]);
                     UnresolvedConfiguredObject<? extends ConfiguredObject> recovered =  factory.recover(record, parentArray[0]);
                     Collection<ConfiguredObjectDependency<?>> dependencies = recovered.getUnresolvedDependencies();
                     if (dependencies.isEmpty())

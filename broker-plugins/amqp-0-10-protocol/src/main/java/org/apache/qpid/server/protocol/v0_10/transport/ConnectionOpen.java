@@ -31,32 +31,32 @@ public final class ConnectionOpen extends Method {
     public static final int TYPE = 263;
 
     @Override
-    public final int getStructType() {
+    public int getStructType() {
         return TYPE;
     }
 
     @Override
-    public final int getSizeWidth() {
+    public int getSizeWidth() {
         return 0;
     }
 
     @Override
-    public final int getPackWidth() {
+    public int getPackWidth() {
         return 2;
     }
 
     @Override
-    public final boolean hasPayload() {
+    public boolean hasPayload() {
         return false;
     }
 
     @Override
-    public final byte getEncodedTrack() {
+    public byte getEncodedTrack() {
         return Frame.L1;
     }
 
     @Override
-    public final boolean isConnectionControl()
+    public boolean isConnectionControl()
     {
         return true;
     }
@@ -77,14 +77,26 @@ public final class ConnectionOpen extends Method {
             setCapabilities(capabilities);
         }
 
-        for (int i=0; i < _options.length; i++) {
-            switch (_options[i]) {
-            case INSIST: packing_flags |= 1024; break;
-            case SYNC: this.setSync(true); break;
-            case BATCH: this.setBatch(true); break;
-            case UNRELIABLE: this.setUnreliable(true); break;
-            case NONE: break;
-            default: throw new IllegalArgumentException("invalid option: " + _options[i]);
+        for (final Option option : _options)
+        {
+            switch (option)
+            {
+                case INSIST:
+                    packing_flags |= 1024;
+                    break;
+                case SYNC:
+                    this.setSync(true);
+                    break;
+                case BATCH:
+                    this.setBatch(true);
+                    break;
+                case UNRELIABLE:
+                    this.setUnreliable(true);
+                    break;
+                case NONE:
+                    break;
+                default:
+                    throw new IllegalArgumentException("invalid option: " + option);
             }
         }
 
@@ -96,74 +108,74 @@ public final class ConnectionOpen extends Method {
     }
 
 
-    public final boolean hasVirtualHost() {
+    public boolean hasVirtualHost() {
         return (packing_flags & 256) != 0;
     }
 
-    public final ConnectionOpen clearVirtualHost() {
+    public ConnectionOpen clearVirtualHost() {
         packing_flags &= ~256;
         this.virtualHost = null;
         setDirty(true);
         return this;
     }
 
-    public final String getVirtualHost() {
+    public String getVirtualHost() {
         return virtualHost;
     }
 
-    public final ConnectionOpen setVirtualHost(String value) {
+    public ConnectionOpen setVirtualHost(String value) {
         this.virtualHost = value;
         packing_flags |= 256;
         setDirty(true);
         return this;
     }
 
-    public final ConnectionOpen virtualHost(String value) {
+    public ConnectionOpen virtualHost(String value) {
         return setVirtualHost(value);
     }
 
-    public final boolean hasCapabilities() {
+    public boolean hasCapabilities() {
         return (packing_flags & 512) != 0;
     }
 
-    public final ConnectionOpen clearCapabilities() {
+    public ConnectionOpen clearCapabilities() {
         packing_flags &= ~512;
         this.capabilities = null;
         setDirty(true);
         return this;
     }
 
-    public final java.util.List<Object> getCapabilities() {
+    public java.util.List<Object> getCapabilities() {
         return capabilities;
     }
 
-    public final ConnectionOpen setCapabilities(java.util.List<Object> value) {
+    public ConnectionOpen setCapabilities(java.util.List<Object> value) {
         this.capabilities = value;
         packing_flags |= 512;
         setDirty(true);
         return this;
     }
 
-    public final ConnectionOpen capabilities(java.util.List<Object> value) {
+    public ConnectionOpen capabilities(java.util.List<Object> value) {
         return setCapabilities(value);
     }
 
-    public final boolean hasInsist() {
+    public boolean hasInsist() {
         return (packing_flags & 1024) != 0;
     }
 
-    public final ConnectionOpen clearInsist() {
+    public ConnectionOpen clearInsist() {
         packing_flags &= ~1024;
 
         setDirty(true);
         return this;
     }
 
-    public final boolean getInsist() {
+    public boolean getInsist() {
         return hasInsist();
     }
 
-    public final ConnectionOpen setInsist(boolean value) {
+    public ConnectionOpen setInsist(boolean value) {
 
         if (value)
         {
@@ -178,7 +190,7 @@ public final class ConnectionOpen extends Method {
         return this;
     }
 
-    public final ConnectionOpen insist(boolean value) {
+    public ConnectionOpen insist(boolean value) {
         return setInsist(value);
     }
 

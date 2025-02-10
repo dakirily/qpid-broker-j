@@ -46,9 +46,8 @@ public class SessionError implements ErrorCondition, RestrictedType<Symbol>
 
     public static SessionError valueOf(Object obj)
     {
-        if (obj instanceof Symbol)
+        if (obj instanceof final Symbol val)
         {
-            Symbol val = (Symbol) obj;
 
             if (WINDOW_VIOLATION._val.equals(val))
             {

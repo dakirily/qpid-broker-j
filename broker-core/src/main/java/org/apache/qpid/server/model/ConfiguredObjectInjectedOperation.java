@@ -144,11 +144,7 @@ public class ConfiguredObjectInjectedOperation<C extends ConfiguredObject<?>> im
             Object[] paramValues = new Object[1+_staticParams.length+_params.size()];
             paramValues[0] = subject;
 
-
-            for(int i = 0; i < _staticParams.length; i++)
-            {
-                paramValues[i+1] = _staticParams[i];
-            }
+            System.arraycopy(_staticParams, 0, paramValues, 1, _staticParams.length);
 
             for (int i = 0; i < _params.size(); i++)
             {

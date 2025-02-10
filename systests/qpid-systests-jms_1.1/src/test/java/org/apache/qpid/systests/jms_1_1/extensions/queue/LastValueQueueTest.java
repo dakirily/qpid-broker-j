@@ -396,7 +396,7 @@ public class LastValueQueueTest extends JmsTestBase
                 }
             }
 
-            LOGGER.info("Finished receiving.  Received " + numberOfMessagesReceived + " message(s) in total");
+            LOGGER.info("Finished receiving.  Received {} message(s) in total", numberOfMessagesReceived);
         }
         finally
         {

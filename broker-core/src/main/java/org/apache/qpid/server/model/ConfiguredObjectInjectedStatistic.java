@@ -120,10 +120,7 @@ final public class ConfiguredObjectInjectedStatistic<C extends ConfiguredObject,
         {
             Object[] params = new Object[1+_staticParams.length];
             params[0] = configuredObject;
-            for(int i = 0; i < _staticParams.length; i++)
-            {
-                params[i+1] = _staticParams[i];
-            }
+            System.arraycopy(_staticParams, 0, params, 1, _staticParams.length);
             return (T) _method.invoke(null, params);
         }
         catch (IllegalAccessException e)

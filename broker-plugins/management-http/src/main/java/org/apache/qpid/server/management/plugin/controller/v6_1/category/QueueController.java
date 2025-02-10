@@ -21,10 +21,7 @@
 package org.apache.qpid.server.management.plugin.controller.v6_1.category;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -130,12 +127,11 @@ public class QueueController extends DestinationController
         static final String MESSAGE_GROUP_SHARED_GROUPS = "messageGroupSharedGroups";
         static final String MESSAGE_GROUP_KEY = "messageGroupKey";
 
-        Set<String> MOVED_ATTRIBUTES = Collections.unmodifiableSet(new HashSet<>(Arrays.asList(
-                QUEUE_FLOW_RESUME_SIZE_BYTES,
-                QUEUE_FLOW_CONTROL_SIZE_BYTES,
-                MESSAGE_GROUP_SHARED_GROUPS,
-                MESSAGE_GROUP_KEY,
-                ALTERNATE_EXCHANGE)));
+        Set<String> MOVED_ATTRIBUTES = Set.of(QUEUE_FLOW_RESUME_SIZE_BYTES,
+                                              QUEUE_FLOW_CONTROL_SIZE_BYTES,
+                                              MESSAGE_GROUP_SHARED_GROUPS,
+                                              MESSAGE_GROUP_KEY,
+                                              ALTERNATE_EXCHANGE);
 
         LegacyQueue(final LegacyManagementController managementController,
                     final LegacyConfiguredObject nextVersionQueue)
@@ -165,9 +161,8 @@ public class QueueController extends DestinationController
                 for (LegacyConfiguredObject exchange : exchanges)
                 {
                     Object bindings = exchange.getAttribute("bindings");
-                    if (bindings instanceof Collection)
+                    if (bindings instanceof final Collection<?> exchangeBindings)
                     {
-                        Collection<?> exchangeBindings = (Collection<?>) bindings;
                         exchangeBindings.stream()
                                         .map(Binding.class::cast)
                                         .filter(i -> i.getDestination().equals(queueName))

@@ -25,7 +25,6 @@ import java.net.URISyntaxException;
 import java.security.AccessControlException;
 import java.security.SecureRandom;
 import java.util.Base64;
-import java.util.Collections;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Map;
@@ -68,15 +67,20 @@ public class OAuth2InteractiveAuthenticator implements HttpRequestInteractiveAut
     static
     {
         // Authentication Endpoint
-        Map<String, Integer> errorResponses = new HashMap<>();
-        errorResponses.put("invalid_request", 400);
-        errorResponses.put("unauthorized_client", 400);
-        errorResponses.put("unsupported_response_type", 400);
-        errorResponses.put("invalid_scope", 400);
-        errorResponses.put("access_denied", 403);
-        errorResponses.put("server_error", 500);
-        errorResponses.put("temporarily_unavailable", 503);
-        ERROR_RESPONSES = Collections.unmodifiableMap(errorResponses);
+        ERROR_RESPONSES = Map.of("invalid_request",
+                                 400,
+                                 "unauthorized_client",
+                                 400,
+                                 "unsupported_response_type",
+                                 400,
+                                 "invalid_scope",
+                                 400,
+                                 "access_denied",
+                                 403,
+                                 "server_error",
+                                 500,
+                                 "temporarily_unavailable",
+                                 503);
     }
 
     private final SecureRandom _random = new SecureRandom();
@@ -93,10 +97,8 @@ public class OAuth2InteractiveAuthenticator implements HttpRequestInteractiveAut
     {
         final Port<?> port = configuration.getPort(request);
 
-        if (configuration.getAuthenticationProvider(request) instanceof OAuth2AuthenticationProvider)
+        if (configuration.getAuthenticationProvider(request) instanceof final OAuth2AuthenticationProvider oauth2Provider)
         {
-            final OAuth2AuthenticationProvider oauth2Provider =
-                    (OAuth2AuthenticationProvider) configuration.getAuthenticationProvider(request);
             final Map<String, String> requestParameters;
             try
             {
@@ -213,10 +215,8 @@ public class OAuth2InteractiveAuthenticator implements HttpRequestInteractiveAut
     public LogoutHandler getLogoutHandler(final HttpServletRequest request,
                                           final HttpManagementConfiguration configuration)
     {
-        if (configuration.getAuthenticationProvider(request) instanceof OAuth2AuthenticationProvider)
+        if (configuration.getAuthenticationProvider(request) instanceof final OAuth2AuthenticationProvider oauth2Provider)
         {
-            final OAuth2AuthenticationProvider oauth2Provider =
-                    (OAuth2AuthenticationProvider) configuration.getAuthenticationProvider(request);
 
             if (oauth2Provider.getPostLogoutURI() != null)
             {
@@ -262,7 +262,7 @@ public class OAuth2InteractiveAuthenticator implements HttpRequestInteractiveAut
         {
             urlBuilder.append("?");
         }
-        else if (query.length() > 0)
+        else if (!query.isEmpty())
         {
             urlBuilder.append("&");
         }
@@ -350,7 +350,7 @@ public class OAuth2InteractiveAuthenticator implements HttpRequestInteractiveAut
 
     private int decodeErrorAsResponseCode(final String error)
     {
-        return ERROR_RESPONSES.containsKey(error) ? ERROR_RESPONSES.get(error) : 500;
+        return ERROR_RESPONSES.getOrDefault(error, 500);
     }
 
     static class FailedAuthenticationHandler implements AuthenticationHandler

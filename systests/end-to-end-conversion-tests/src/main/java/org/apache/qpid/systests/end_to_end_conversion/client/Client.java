@@ -178,16 +178,12 @@ public class Client
             {
                 System.out.println(String.format("Process instruction: %s", instruction));
                 final ClientMessage clientMessage;
-                if (instruction instanceof MessagingInstruction.PublishMessage)
+                if (instruction instanceof final MessagingInstruction.PublishMessage publishInstruction)
                 {
-                    final MessagingInstruction.PublishMessage publishInstruction =
-                            (MessagingInstruction.PublishMessage) instruction;
                     clientMessage = publishMessage(context, session, publishInstruction);
                 }
-                else if (instruction instanceof MessagingInstruction.ReceiveMessage)
+                else if (instruction instanceof final MessagingInstruction.ReceiveMessage receiveInstruction)
                 {
-                    final MessagingInstruction.ReceiveMessage receiveInstruction =
-                            (MessagingInstruction.ReceiveMessage) instruction;
                     final Destination destination =
                             (Destination) context.lookup(receiveInstruction.getDestinationJndiName());
                     final MessageDescription messageDescription = receiveInstruction.getMessageDescription();

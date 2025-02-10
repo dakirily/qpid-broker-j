@@ -50,12 +50,12 @@ public final class MethodRegistry
         _protocolVersion = protocolVersion;
     }
 
-    public final AccessRequestBody createAccessRequestBody(final AMQShortString realm,
-                                                           final boolean exclusive,
-                                                           final boolean passive,
-                                                           final boolean active,
-                                                           final boolean write,
-                                                           final boolean read)
+    public AccessRequestBody createAccessRequestBody(final AMQShortString realm,
+                                                     final boolean exclusive,
+                                                     final boolean passive,
+                                                     final boolean active,
+                                                     final boolean write,
+                                                     final boolean read)
     {
         return new AccessRequestBody(realm,
                                      exclusive,
@@ -65,34 +65,34 @@ public final class MethodRegistry
                                      read);
     }
 
-    public final AccessRequestOkBody createAccessRequestOkBody(final int ticket)
+    public AccessRequestOkBody createAccessRequestOkBody(final int ticket)
     {
         return new AccessRequestOkBody(ticket);
     }
 
 
-    public final BasicQosBody createBasicQosBody(final long prefetchSize,
-                                                 final int prefetchCount,
-                                                 final boolean global)
+    public BasicQosBody createBasicQosBody(final long prefetchSize,
+                                           final int prefetchCount,
+                                           final boolean global)
     {
         return new BasicQosBody(prefetchSize,
                                 prefetchCount,
                                 global);
     }
 
-    public final BasicQosOkBody createBasicQosOkBody()
+    public BasicQosOkBody createBasicQosOkBody()
     {
         return new BasicQosOkBody();
     }
 
-    public final BasicConsumeBody createBasicConsumeBody(final int ticket,
-                                                         final String queue,
-                                                         final String consumerTag,
-                                                         final boolean noLocal,
-                                                         final boolean noAck,
-                                                         final boolean exclusive,
-                                                         final boolean nowait,
-                                                         final Map<String,Object> arguments)
+    public BasicConsumeBody createBasicConsumeBody(final int ticket,
+                                                   final String queue,
+                                                   final String consumerTag,
+                                                   final boolean noLocal,
+                                                   final boolean noAck,
+                                                   final boolean exclusive,
+                                                   final boolean nowait,
+                                                   final Map<String, Object> arguments)
     {
 
         return new BasicConsumeBody(ticket,
@@ -105,28 +105,28 @@ public final class MethodRegistry
                                     FieldTable.convertToFieldTable(arguments));
     }
 
-    public final BasicConsumeOkBody createBasicConsumeOkBody(final AMQShortString consumerTag)
+    public BasicConsumeOkBody createBasicConsumeOkBody(final AMQShortString consumerTag)
     {
         return new BasicConsumeOkBody(consumerTag);
     }
 
-    public final BasicCancelBody createBasicCancelBody(final AMQShortString consumerTag,
-                                                       final boolean nowait)
+    public BasicCancelBody createBasicCancelBody(final AMQShortString consumerTag,
+                                                 final boolean nowait)
     {
         return new BasicCancelBody(consumerTag,
                                    nowait);
     }
 
-    public final BasicCancelOkBody createBasicCancelOkBody(final AMQShortString consumerTag)
+    public BasicCancelOkBody createBasicCancelOkBody(final AMQShortString consumerTag)
     {
         return new BasicCancelOkBody(consumerTag);
     }
 
-    public final BasicPublishBody createBasicPublishBody(final int ticket,
-                                                         final String exchange,
-                                                         final String routingKey,
-                                                         final boolean mandatory,
-                                                         final boolean immediate)
+    public BasicPublishBody createBasicPublishBody(final int ticket,
+                                                   final String exchange,
+                                                   final String routingKey,
+                                                   final boolean mandatory,
+                                                   final boolean immediate)
     {
         return new BasicPublishBody(ticket,
                                     AMQShortString.valueOf(exchange),
@@ -135,10 +135,10 @@ public final class MethodRegistry
                                     immediate);
     }
 
-    public final BasicReturnBody createBasicReturnBody(final int replyCode,
-                                                       final AMQShortString replyText,
-                                                       final AMQShortString exchange,
-                                                       final AMQShortString routingKey)
+    public BasicReturnBody createBasicReturnBody(final int replyCode,
+                                                 final AMQShortString replyText,
+                                                 final AMQShortString exchange,
+                                                 final AMQShortString routingKey)
     {
         return new BasicReturnBody(replyCode,
                                    replyText,
@@ -146,11 +146,11 @@ public final class MethodRegistry
                                    routingKey);
     }
 
-    public final BasicDeliverBody createBasicDeliverBody(final AMQShortString consumerTag,
-                                                         final long deliveryTag,
-                                                         final boolean redelivered,
-                                                         final AMQShortString exchange,
-                                                         final AMQShortString routingKey)
+    public BasicDeliverBody createBasicDeliverBody(final AMQShortString consumerTag,
+                                                   final long deliveryTag,
+                                                   final boolean redelivered,
+                                                   final AMQShortString exchange,
+                                                   final AMQShortString routingKey)
     {
         return new BasicDeliverBody(consumerTag,
                                     deliveryTag,
@@ -159,20 +159,20 @@ public final class MethodRegistry
                                     routingKey);
     }
 
-    public final BasicGetBody createBasicGetBody(final int ticket,
-                                                 final AMQShortString queue,
-                                                 final boolean noAck)
+    public BasicGetBody createBasicGetBody(final int ticket,
+                                           final AMQShortString queue,
+                                           final boolean noAck)
     {
         return new BasicGetBody(ticket,
                                 queue,
                                 noAck);
     }
 
-    public final BasicGetOkBody createBasicGetOkBody(final long deliveryTag,
-                                                     final boolean redelivered,
-                                                     final AMQShortString exchange,
-                                                     final AMQShortString routingKey,
-                                                     final long messageCount)
+    public BasicGetOkBody createBasicGetOkBody(final long deliveryTag,
+                                               final boolean redelivered,
+                                               final AMQShortString exchange,
+                                               final AMQShortString routingKey,
+                                               final long messageCount)
     {
         return new BasicGetOkBody(deliveryTag,
                                   redelivered,
@@ -181,82 +181,82 @@ public final class MethodRegistry
                                   messageCount);
     }
 
-    public final BasicGetEmptyBody createBasicGetEmptyBody(final AMQShortString clusterId)
+    public BasicGetEmptyBody createBasicGetEmptyBody(final AMQShortString clusterId)
     {
         return new BasicGetEmptyBody(clusterId);
     }
 
-    public final BasicAckBody createBasicAckBody(final long deliveryTag,
-                                                 final boolean multiple)
+    public BasicAckBody createBasicAckBody(final long deliveryTag,
+                                           final boolean multiple)
     {
         return new BasicAckBody(deliveryTag,
                                 multiple);
     }
 
-    public final BasicRejectBody createBasicRejectBody(final long deliveryTag,
-                                                       final boolean requeue)
+    public BasicRejectBody createBasicRejectBody(final long deliveryTag,
+                                                 final boolean requeue)
     {
         return new BasicRejectBody(deliveryTag,
                                    requeue);
     }
 
-    public final BasicRecoverBody createBasicRecoverBody(final boolean requeue)
+    public BasicRecoverBody createBasicRecoverBody(final boolean requeue)
     {
         return new BasicRecoverBody(requeue);
     }
 
 
-    public final BasicRecoverSyncOkBody createBasicRecoverSyncOkBody()
+    public BasicRecoverSyncOkBody createBasicRecoverSyncOkBody()
     {
         return new BasicRecoverSyncOkBody(_protocolVersion);
     }
 
 
-    public final BasicRecoverSyncBody createBasicRecoverSyncBody(final boolean requeue)
+    public BasicRecoverSyncBody createBasicRecoverSyncBody(final boolean requeue)
     {
         return new BasicRecoverSyncBody(_protocolVersion, requeue);
     }
 
-    public final ChannelAlertBody createChannelAlertBody(final int replyCode,
-                                                         final AMQShortString replyText,
-                                                         final FieldTable details)
+    public ChannelAlertBody createChannelAlertBody(final int replyCode,
+                                                   final AMQShortString replyText,
+                                                   final FieldTable details)
     {
         return new ChannelAlertBody(replyCode,
                                     replyText,
                                     details);
     }
 
-    public final ChannelOpenBody createChannelOpenBody(final AMQShortString outOfBand)
+    public ChannelOpenBody createChannelOpenBody(final AMQShortString outOfBand)
     {
         return new ChannelOpenBody();
     }
 
-    public final ChannelOpenOkBody createChannelOpenOkBody(byte[] channelId)
+    public ChannelOpenOkBody createChannelOpenOkBody(byte[] channelId)
     {
         return createChannelOpenOkBody();
     }
 
-    public final ChannelOpenOkBody createChannelOpenOkBody()
+    public ChannelOpenOkBody createChannelOpenOkBody()
     {
         return _protocolVersion.equals(ProtocolVersion.v0_8)
                 ? ChannelOpenOkBody.INSTANCE_0_8
                 : ChannelOpenOkBody.INSTANCE_0_9;
     }
 
-    public final ChannelFlowBody createChannelFlowBody(final boolean active)
+    public ChannelFlowBody createChannelFlowBody(final boolean active)
     {
         return new ChannelFlowBody(active);
     }
 
-    public final ChannelFlowOkBody createChannelFlowOkBody(final boolean active)
+    public ChannelFlowOkBody createChannelFlowOkBody(final boolean active)
     {
         return new ChannelFlowOkBody(active);
     }
 
-    public final ChannelCloseBody createChannelCloseBody(final int replyCode, final AMQShortString replyText,
-                                                         final int classId,
-                                                         final int methodId
-                                                        )
+    public ChannelCloseBody createChannelCloseBody(final int replyCode, final AMQShortString replyText,
+                                                   final int classId,
+                                                   final int methodId
+                                                  )
     {
         return new ChannelCloseBody(replyCode,
                                     replyText,
@@ -264,7 +264,7 @@ public final class MethodRegistry
                                     methodId);
     }
 
-    public final ChannelCloseOkBody createChannelCloseOkBody()
+    public ChannelCloseOkBody createChannelCloseOkBody()
     {
         return ChannelCloseOkBody.INSTANCE;
     }
@@ -272,11 +272,11 @@ public final class MethodRegistry
 
 
 
-    public final ConnectionStartBody createConnectionStartBody(final short versionMajor,
-                                                               final short versionMinor,
-                                                               final FieldTable serverProperties,
-                                                               final byte[] mechanisms,
-                                                               final byte[] locales)
+    public ConnectionStartBody createConnectionStartBody(final short versionMajor,
+                                                         final short versionMinor,
+                                                         final FieldTable serverProperties,
+                                                         final byte[] mechanisms,
+                                                         final byte[] locales)
     {
         return new ConnectionStartBody(versionMajor,
                                        versionMinor,
@@ -285,10 +285,10 @@ public final class MethodRegistry
                                        locales);
     }
 
-    public final ConnectionStartOkBody createConnectionStartOkBody(final FieldTable clientProperties,
-                                                                   final AMQShortString mechanism,
-                                                                   final byte[] response,
-                                                                   final AMQShortString locale)
+    public ConnectionStartOkBody createConnectionStartOkBody(final FieldTable clientProperties,
+                                                             final AMQShortString mechanism,
+                                                             final byte[] response,
+                                                             final AMQShortString locale)
     {
         return new ConnectionStartOkBody(clientProperties,
                                          mechanism,
@@ -296,60 +296,60 @@ public final class MethodRegistry
                                          locale);
     }
 
-    public final ConnectionSecureBody createConnectionSecureBody(final byte[] challenge)
+    public ConnectionSecureBody createConnectionSecureBody(final byte[] challenge)
     {
         return new ConnectionSecureBody(challenge);
     }
 
-    public final ConnectionSecureOkBody createConnectionSecureOkBody(final byte[] response)
+    public ConnectionSecureOkBody createConnectionSecureOkBody(final byte[] response)
     {
         return new ConnectionSecureOkBody(response);
     }
 
-    public final ConnectionTuneBody createConnectionTuneBody(final int channelMax,
-                                                             final long frameMax,
-                                                             final int heartbeat)
+    public ConnectionTuneBody createConnectionTuneBody(final int channelMax,
+                                                       final long frameMax,
+                                                       final int heartbeat)
     {
         return new ConnectionTuneBody(channelMax,
                                       frameMax,
                                       heartbeat);
     }
 
-    public final ConnectionTuneOkBody createConnectionTuneOkBody(final int channelMax,
-                                                                 final long frameMax,
-                                                                 final int heartbeat)
+    public ConnectionTuneOkBody createConnectionTuneOkBody(final int channelMax,
+                                                           final long frameMax,
+                                                           final int heartbeat)
     {
         return new ConnectionTuneOkBody(channelMax,
                                         frameMax,
                                         heartbeat);
     }
 
-    public final ConnectionOpenBody createConnectionOpenBody(final AMQShortString virtualHost,
-                                                             final AMQShortString capabilities,
-                                                             final boolean insist)
+    public ConnectionOpenBody createConnectionOpenBody(final AMQShortString virtualHost,
+                                                       final AMQShortString capabilities,
+                                                       final boolean insist)
     {
         return new ConnectionOpenBody(virtualHost,
                                       capabilities,
                                       insist);
     }
 
-    public final ConnectionOpenOkBody createConnectionOpenOkBody(final AMQShortString knownHosts)
+    public ConnectionOpenOkBody createConnectionOpenOkBody(final AMQShortString knownHosts)
     {
         return new ConnectionOpenOkBody(knownHosts);
     }
 
-    public final ConnectionRedirectBody createConnectionRedirectBody(final AMQShortString host,
-                                                                         final AMQShortString knownHosts)
+    public ConnectionRedirectBody createConnectionRedirectBody(final AMQShortString host,
+                                                               final AMQShortString knownHosts)
     {
         return new ConnectionRedirectBody(_protocolVersion,
                                               host,
                                               knownHosts);
     }
 
-    public final ConnectionCloseBody createConnectionCloseBody(final int replyCode,
-                                                                   final AMQShortString replyText,
-                                                                   final int classId,
-                                                                   final int methodId)
+    public ConnectionCloseBody createConnectionCloseBody(final int replyCode,
+                                                         final AMQShortString replyText,
+                                                         final int classId,
+                                                         final int methodId)
     {
         return new ConnectionCloseBody(_protocolVersion,
                                            replyCode,
@@ -358,7 +358,7 @@ public final class MethodRegistry
                                            methodId);
     }
 
-    public final ConnectionCloseOkBody createConnectionCloseOkBody()
+    public ConnectionCloseOkBody createConnectionCloseOkBody()
     {
         return ProtocolVersion.v0_8.equals(_protocolVersion)
                 ? ConnectionCloseOkBody.CONNECTION_CLOSE_OK_0_8
@@ -366,7 +366,7 @@ public final class MethodRegistry
     }
 
 
-    public final ExchangeDeclareBody createExchangeDeclareBody(final int ticket,
+    public ExchangeDeclareBody createExchangeDeclareBody(final int ticket,
                                                          final String exchange,
                                                          final String type,
                                                          final boolean passive,
@@ -374,7 +374,7 @@ public final class MethodRegistry
                                                          final boolean autoDelete,
                                                          final boolean internal,
                                                          final boolean nowait,
-                                                         final Map<String,Object> arguments)
+                                                         final Map<String, Object> arguments)
     {
 
         return new ExchangeDeclareBody(ticket,
@@ -388,15 +388,15 @@ public final class MethodRegistry
                                        FieldTable.convertToFieldTable(arguments));
     }
 
-    public final ExchangeDeclareOkBody createExchangeDeclareOkBody()
+    public ExchangeDeclareOkBody createExchangeDeclareOkBody()
     {
         return new ExchangeDeclareOkBody();
     }
 
-    public final ExchangeDeleteBody createExchangeDeleteBody(final int ticket,
-                                                             final String exchange,
-                                                             final boolean ifUnused,
-                                                             final boolean nowait)
+    public ExchangeDeleteBody createExchangeDeleteBody(final int ticket,
+                                                       final String exchange,
+                                                       final boolean ifUnused,
+                                                       final boolean nowait)
     {
         return new ExchangeDeleteBody(ticket,
                                       AMQShortString.valueOf(exchange),
@@ -405,21 +405,21 @@ public final class MethodRegistry
         );
     }
 
-    public final ExchangeDeleteOkBody createExchangeDeleteOkBody()
+    public ExchangeDeleteOkBody createExchangeDeleteOkBody()
     {
         return new ExchangeDeleteOkBody();
     }
 
-    public final ExchangeBoundBody createExchangeBoundBody(final String exchange,
-                                                           final String routingKey,
-                                                           final String queue)
+    public ExchangeBoundBody createExchangeBoundBody(final String exchange,
+                                                     final String routingKey,
+                                                     final String queue)
     {
         return new ExchangeBoundBody(AMQShortString.valueOf(exchange),
                                      AMQShortString.valueOf(routingKey),
                                      AMQShortString.valueOf(queue));
     }
 
-    public final ExchangeBoundOkBody createExchangeBoundOkBody(final int replyCode,
+    public ExchangeBoundOkBody createExchangeBoundOkBody(final int replyCode,
                                                          final AMQShortString replyText)
     {
         return new ExchangeBoundOkBody(replyCode,
@@ -427,14 +427,14 @@ public final class MethodRegistry
     }
 
 
-    public final QueueDeclareBody createQueueDeclareBody(final int ticket,
-                                                         final String queue,
-                                                         final boolean passive,
-                                                         final boolean durable,
-                                                         final boolean exclusive,
-                                                         final boolean autoDelete,
-                                                         final boolean nowait,
-                                                         final Map<String,Object> arguments)
+    public QueueDeclareBody createQueueDeclareBody(final int ticket,
+                                                   final String queue,
+                                                   final boolean passive,
+                                                   final boolean durable,
+                                                   final boolean exclusive,
+                                                   final boolean autoDelete,
+                                                   final boolean nowait,
+                                                   final Map<String, Object> arguments)
     {
 
         return new QueueDeclareBody(ticket,
@@ -447,7 +447,7 @@ public final class MethodRegistry
                                     FieldTable.convertToFieldTable(arguments));
     }
 
-    public final QueueDeclareOkBody createQueueDeclareOkBody(final AMQShortString queue,
+    public QueueDeclareOkBody createQueueDeclareOkBody(final AMQShortString queue,
                                                        final long messageCount,
                                                        final long consumerCount)
     {
@@ -456,12 +456,12 @@ public final class MethodRegistry
                                       consumerCount);
     }
 
-    public final QueueBindBody createQueueBindBody(final int ticket,
+    public QueueBindBody createQueueBindBody(final int ticket,
                                              final String queue,
                                              final String exchange,
                                              final String routingKey,
                                              final boolean nowait,
-                                             final Map<String,Object> arguments)
+                                             final Map<String, Object> arguments)
     {
 
         return new QueueBindBody(ticket,
@@ -474,12 +474,12 @@ public final class MethodRegistry
     }
 
 
-    public final QueueBindOkBody createQueueBindOkBody()
+    public QueueBindOkBody createQueueBindOkBody()
     {
         return new QueueBindOkBody();
     }
 
-    public final QueuePurgeBody createQueuePurgeBody(final int ticket,
+    public QueuePurgeBody createQueuePurgeBody(final int ticket,
                                                final AMQShortString queue,
                                                final boolean nowait)
     {
@@ -488,12 +488,12 @@ public final class MethodRegistry
                                   nowait);
     }
 
-    public final QueuePurgeOkBody createQueuePurgeOkBody(final long messageCount)
+    public QueuePurgeOkBody createQueuePurgeOkBody(final long messageCount)
     {
         return new QueuePurgeOkBody(messageCount);
     }
 
-    public final QueueDeleteBody createQueueDeleteBody(final int ticket,
+    public QueueDeleteBody createQueueDeleteBody(final int ticket,
                                                  final String queue,
                                                  final boolean ifUnused,
                                                  final boolean ifEmpty,
@@ -506,16 +506,16 @@ public final class MethodRegistry
                                    nowait);
     }
 
-    public final QueueDeleteOkBody createQueueDeleteOkBody(final long messageCount)
+    public QueueDeleteOkBody createQueueDeleteOkBody(final long messageCount)
     {
         return new QueueDeleteOkBody(messageCount);
     }
 
-    public final QueueUnbindBody createQueueUnbindBody(final int ticket,
-                                                           final AMQShortString queue,
-                                                           final AMQShortString exchange,
-                                                           final AMQShortString routingKey,
-                                                           final FieldTable arguments)
+    public QueueUnbindBody createQueueUnbindBody(final int ticket,
+                                                 final AMQShortString queue,
+                                                 final AMQShortString exchange,
+                                                 final AMQShortString routingKey,
+                                                 final FieldTable arguments)
     {
         return new QueueUnbindBody(ticket,
                                        queue,
@@ -524,38 +524,38 @@ public final class MethodRegistry
                                        arguments);
     }
 
-    public final QueueUnbindOkBody createQueueUnbindOkBody()
+    public QueueUnbindOkBody createQueueUnbindOkBody()
     {
         return new QueueUnbindOkBody();
     }
 
 
-    public final TxSelectBody createTxSelectBody()
+    public TxSelectBody createTxSelectBody()
     {
         return TxSelectBody.INSTANCE;
     }
 
-    public final TxSelectOkBody createTxSelectOkBody()
+    public TxSelectOkBody createTxSelectOkBody()
     {
         return TxSelectOkBody.INSTANCE;
     }
 
-    public final TxCommitBody createTxCommitBody()
+    public TxCommitBody createTxCommitBody()
     {
         return TxCommitBody.INSTANCE;
     }
 
-    public final TxCommitOkBody createTxCommitOkBody()
+    public TxCommitOkBody createTxCommitOkBody()
     {
         return TxCommitOkBody.INSTANCE;
     }
 
-    public final TxRollbackBody createTxRollbackBody()
+    public TxRollbackBody createTxRollbackBody()
     {
         return TxRollbackBody.INSTANCE;
     }
 
-    public final TxRollbackOkBody createTxRollbackOkBody()
+    public TxRollbackOkBody createTxRollbackOkBody()
     {
         return TxRollbackOkBody.INSTANCE;
     }

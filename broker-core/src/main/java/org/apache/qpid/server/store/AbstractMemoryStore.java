@@ -89,7 +89,7 @@ public abstract class AbstractMemoryStore implements DurableConfigurationStore, 
                 removed.add(record.getId());
             }
         }
-        return removed.toArray(new UUID[removed.size()]);
+        return removed.toArray(new UUID[0]);
     }
 
     @Override

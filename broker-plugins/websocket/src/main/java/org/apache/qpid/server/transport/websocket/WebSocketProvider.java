@@ -271,7 +271,7 @@ class WebSocketProvider implements AcceptingTransport
         }
         catch (Exception e)
         {
-            LOGGER.warn("Error closing the web socket for : " +  _port.getPort(), e);
+            LOGGER.warn("Error closing the web socket for : {}", _port.getPort(), e);
             _server = null;
         }
     }
@@ -345,9 +345,8 @@ class WebSocketProvider implements AcceptingTransport
             session.setIdleTimeout(Duration.ZERO);
 
             _connectionWrapper = new ConnectionWrapper(session, localAddress, remoteAddress, _protocolEngine, _server.getThreadPool());
-            if (session.getUpgradeRequest() instanceof JettyServerUpgradeRequest)
+            if (session.getUpgradeRequest() instanceof final JettyServerUpgradeRequest upgradeRequest)
             {
-                JettyServerUpgradeRequest upgradeRequest = (JettyServerUpgradeRequest) session.getUpgradeRequest();
                 if (upgradeRequest.getCertificates() != null && upgradeRequest.getCertificates().length > 0)
                 {
                     _connectionWrapper.setPeerCertificate(upgradeRequest.getCertificates()[0]);

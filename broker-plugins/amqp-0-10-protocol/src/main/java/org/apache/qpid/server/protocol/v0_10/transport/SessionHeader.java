@@ -31,29 +31,29 @@ public final class SessionHeader extends Struct {
     public static final int TYPE = -1;
 
     @Override
-    public final int getStructType() {
+    public int getStructType() {
         return TYPE;
     }
 
     @Override
-    public final int getSizeWidth() {
+    public int getSizeWidth() {
         return 1;
     }
 
     @Override
-    public final int getPackWidth() {
+    public int getPackWidth() {
         return 1;
     }
 
-    public final boolean hasPayload() {
+    public boolean hasPayload() {
         return false;
     }
 
-    public final byte getEncodedTrack() {
+    public byte getEncodedTrack() {
         return -1;
     }
 
-    public final boolean isConnectionControl()
+    public boolean isConnectionControl()
     {
         return false;
     }
@@ -66,11 +66,17 @@ public final class SessionHeader extends Struct {
 
     public SessionHeader(Option ... _options) {
 
-        for (int i=0; i < _options.length; i++) {
-            switch (_options[i]) {
-            case SYNC: packing_flags |= 1; break;
-            case NONE: break;
-            default: throw new IllegalArgumentException("invalid option: " + _options[i]);
+        for (final Option option : _options)
+        {
+            switch (option)
+            {
+                case SYNC:
+                    packing_flags |= 1;
+                    break;
+                case NONE:
+                    break;
+                default:
+                    throw new IllegalArgumentException("invalid option: " + option);
             }
         }
 
@@ -79,22 +85,22 @@ public final class SessionHeader extends Struct {
 
 
 
-    public final boolean hasSync() {
+    public boolean hasSync() {
         return (packing_flags & 1) != 0;
     }
 
-    public final SessionHeader clearSync() {
+    public SessionHeader clearSync() {
         packing_flags &= ~1;
 
         setDirty(true);
         return this;
     }
 
-    public final boolean getSync() {
+    public boolean getSync() {
         return hasSync();
     }
 
-    public final SessionHeader setSync(boolean value) {
+    public SessionHeader setSync(boolean value) {
 
         if (value)
         {
@@ -109,7 +115,7 @@ public final class SessionHeader extends Struct {
         return this;
     }
 
-    public final SessionHeader sync(boolean value) {
+    public SessionHeader sync(boolean value) {
         return setSync(value);
     }
 

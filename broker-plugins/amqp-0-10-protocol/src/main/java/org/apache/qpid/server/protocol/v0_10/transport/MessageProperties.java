@@ -31,29 +31,29 @@ public final class MessageProperties extends Struct {
     public static final int TYPE = 1027;
 
     @Override
-    public final int getStructType() {
+    public int getStructType() {
         return TYPE;
     }
 
     @Override
-    public final int getSizeWidth() {
+    public int getSizeWidth() {
         return 4;
     }
 
     @Override
-    public final int getPackWidth() {
+    public int getPackWidth() {
         return 2;
     }
 
-    public final boolean hasPayload() {
+    public boolean hasPayload() {
         return false;
     }
 
-    public final byte getEncodedTrack() {
+    public byte getEncodedTrack() {
         return -1;
     }
 
-    public final boolean isConnectionControl()
+    public boolean isConnectionControl()
     {
         return false;
     }
@@ -113,237 +113,237 @@ public final class MessageProperties extends Struct {
 
 
 
-    public final boolean hasContentLength() {
+    public boolean hasContentLength() {
         return (packing_flags & 256) != 0;
     }
 
-    public final MessageProperties clearContentLength() {
+    public MessageProperties clearContentLength() {
         packing_flags &= ~256;
         this.contentLength = 0;
         setDirty(true);
         return this;
     }
 
-    public final long getContentLength() {
+    public long getContentLength() {
         return contentLength;
     }
 
-    public final MessageProperties setContentLength(long value) {
+    public MessageProperties setContentLength(long value) {
         this.contentLength = value;
         packing_flags |= 256;
         setDirty(true);
         return this;
     }
 
-    public final MessageProperties contentLength(long value) {
+    public MessageProperties contentLength(long value) {
         return setContentLength(value);
     }
 
-    public final boolean hasMessageId() {
+    public boolean hasMessageId() {
         return (packing_flags & 512) != 0;
     }
 
-    public final MessageProperties clearMessageId() {
+    public MessageProperties clearMessageId() {
         packing_flags &= ~512;
         this.messageId = null;
         setDirty(true);
         return this;
     }
 
-    public final java.util.UUID getMessageId() {
+    public java.util.UUID getMessageId() {
         return messageId;
     }
 
-    public final MessageProperties setMessageId(java.util.UUID value) {
+    public MessageProperties setMessageId(java.util.UUID value) {
         this.messageId = value;
         packing_flags |= 512;
         setDirty(true);
         return this;
     }
 
-    public final MessageProperties messageId(java.util.UUID value) {
+    public MessageProperties messageId(java.util.UUID value) {
         return setMessageId(value);
     }
 
-    public final boolean hasCorrelationId() {
+    public boolean hasCorrelationId() {
         return (packing_flags & 1024) != 0;
     }
 
-    public final MessageProperties clearCorrelationId() {
+    public MessageProperties clearCorrelationId() {
         packing_flags &= ~1024;
         this.correlationId = null;
         setDirty(true);
         return this;
     }
 
-    public final byte[] getCorrelationId() {
+    public byte[] getCorrelationId() {
         return correlationId;
     }
 
-    public final MessageProperties setCorrelationId(byte[] value) {
+    public MessageProperties setCorrelationId(byte[] value) {
         this.correlationId = value;
         packing_flags |= 1024;
         setDirty(true);
         return this;
     }
 
-    public final MessageProperties correlationId(byte[] value) {
+    public MessageProperties correlationId(byte[] value) {
         return setCorrelationId(value);
     }
 
-    public final boolean hasReplyTo() {
+    public boolean hasReplyTo() {
         return (packing_flags & 2048) != 0;
     }
 
-    public final MessageProperties clearReplyTo() {
+    public MessageProperties clearReplyTo() {
         packing_flags &= ~2048;
         this.replyTo = null;
         setDirty(true);
         return this;
     }
 
-    public final ReplyTo getReplyTo() {
+    public ReplyTo getReplyTo() {
         return replyTo;
     }
 
-    public final MessageProperties setReplyTo(ReplyTo value) {
+    public MessageProperties setReplyTo(ReplyTo value) {
         this.replyTo = value;
         packing_flags |= 2048;
         setDirty(true);
         return this;
     }
 
-    public final MessageProperties replyTo(ReplyTo value) {
+    public MessageProperties replyTo(ReplyTo value) {
         return setReplyTo(value);
     }
 
-    public final boolean hasContentType() {
+    public boolean hasContentType() {
         return (packing_flags & 4096) != 0;
     }
 
-    public final MessageProperties clearContentType() {
+    public MessageProperties clearContentType() {
         packing_flags &= ~4096;
         this.contentType = null;
         setDirty(true);
         return this;
     }
 
-    public final String getContentType() {
+    public String getContentType() {
         return contentType;
     }
 
-    public final MessageProperties setContentType(String value) {
+    public MessageProperties setContentType(String value) {
         this.contentType = value;
         packing_flags |= 4096;
         setDirty(true);
         return this;
     }
 
-    public final MessageProperties contentType(String value) {
+    public MessageProperties contentType(String value) {
         return setContentType(value);
     }
 
-    public final boolean hasContentEncoding() {
+    public boolean hasContentEncoding() {
         return (packing_flags & 8192) != 0;
     }
 
-    public final MessageProperties clearContentEncoding() {
+    public MessageProperties clearContentEncoding() {
         packing_flags &= ~8192;
         this.contentEncoding = null;
         setDirty(true);
         return this;
     }
 
-    public final String getContentEncoding() {
+    public String getContentEncoding() {
         return contentEncoding;
     }
 
-    public final MessageProperties setContentEncoding(String value) {
+    public MessageProperties setContentEncoding(String value) {
         this.contentEncoding = value;
         packing_flags |= 8192;
         setDirty(true);
         return this;
     }
 
-    public final MessageProperties contentEncoding(String value) {
+    public MessageProperties contentEncoding(String value) {
         return setContentEncoding(value);
     }
 
-    public final boolean hasUserId() {
+    public boolean hasUserId() {
         return (packing_flags & 16384) != 0;
     }
 
-    public final MessageProperties clearUserId() {
+    public MessageProperties clearUserId() {
         packing_flags &= ~16384;
         this.userId = null;
         setDirty(true);
         return this;
     }
 
-    public final byte[] getUserId() {
+    public byte[] getUserId() {
         return userId;
     }
 
-    public final MessageProperties setUserId(byte[] value) {
+    public MessageProperties setUserId(byte[] value) {
         this.userId = value;
         packing_flags |= 16384;
         setDirty(true);
         return this;
     }
 
-    public final MessageProperties userId(byte[] value) {
+    public MessageProperties userId(byte[] value) {
         return setUserId(value);
     }
 
-    public final boolean hasAppId() {
+    public boolean hasAppId() {
         return (packing_flags & 32768) != 0;
     }
 
-    public final MessageProperties clearAppId() {
+    public MessageProperties clearAppId() {
         packing_flags &= ~32768;
         this.appId = null;
         setDirty(true);
         return this;
     }
 
-    public final byte[] getAppId() {
+    public byte[] getAppId() {
         return appId;
     }
 
-    public final MessageProperties setAppId(byte[] value) {
+    public MessageProperties setAppId(byte[] value) {
         this.appId = value;
         packing_flags |= 32768;
         setDirty(true);
         return this;
     }
 
-    public final MessageProperties appId(byte[] value) {
+    public MessageProperties appId(byte[] value) {
         return setAppId(value);
     }
 
-    public final boolean hasApplicationHeaders() {
+    public boolean hasApplicationHeaders() {
         return (packing_flags & 1) != 0;
     }
 
-    public final MessageProperties clearApplicationHeaders() {
+    public MessageProperties clearApplicationHeaders() {
         packing_flags &= ~1;
         this.applicationHeaders = null;
         setDirty(true);
         return this;
     }
 
-    public final Map<String,Object> getApplicationHeaders() {
+    public Map<String,Object> getApplicationHeaders() {
         return applicationHeaders;
     }
 
-    public final MessageProperties setApplicationHeaders(Map<String,Object> value) {
+    public MessageProperties setApplicationHeaders(Map<String, Object> value) {
         this.applicationHeaders = value;
         packing_flags |= 1;
         setDirty(true);
         return this;
     }
 
-    public final MessageProperties applicationHeaders(Map<String,Object> value) {
+    public MessageProperties applicationHeaders(Map<String, Object> value) {
         return setApplicationHeaders(value);
     }
 

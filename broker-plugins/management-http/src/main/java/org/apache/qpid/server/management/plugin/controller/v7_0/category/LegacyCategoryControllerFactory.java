@@ -20,8 +20,6 @@
  */
 package org.apache.qpid.server.management.plugin.controller.v7_0.category;
 
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
@@ -61,36 +59,31 @@ public class LegacyCategoryControllerFactory implements CategoryControllerFactor
     private static final String CATEGORY_SESSION = "Session";
     static final String CATEGORY_SYSTEM_CONFIG = "SystemConfig";
     public static final Map<String, String> SUPPORTED_CATEGORIES =
-            Collections.unmodifiableMap(new HashMap<>()
-            {
-                {
-                    put(CATEGORY_BROKER_LOGGER, CATEGORY_BROKER);
-                    put(CATEGORY_BROKER_LOG_INCLUSION_RULE, CATEGORY_BROKER_LOGGER);
-                    put(CATEGORY_AUTHENTICATION_PROVIDER, CATEGORY_BROKER);
-                    put(CATEGORY_USER, CATEGORY_AUTHENTICATION_PROVIDER);
-                    put(CATEGORY_ACCESS_CONTROL_PROVIDER, CATEGORY_BROKER);
-                    put(CATEGORY_PLUGIN, CATEGORY_BROKER);
-                    put(CATEGORY_TRUST_STORE, CATEGORY_BROKER);
-                    put(CATEGORY_KEY_STORE, CATEGORY_BROKER);
-                    put(CATEGORY_PORT, CATEGORY_BROKER);
-                    put(CATEGORY_VIRTUAL_HOST_ALIAS, CATEGORY_PORT);
-                    put(CATEGORY_GROUP_PROVIDER, CATEGORY_BROKER);
-                    put(CATEGORY_GROUP, CATEGORY_GROUP_PROVIDER);
-                    put(CATEGORY_GROUP_MEMBER, CATEGORY_GROUP);
-                    put(CATEGORY_VIRTUAL_HOST_NODE, CATEGORY_BROKER);
-                    put(CATEGORY_REMOTE_REPLICATION_NODE, CATEGORY_VIRTUAL_HOST_NODE);
-                    put(CATEGORY_VIRTUAL_HOST, CATEGORY_VIRTUAL_HOST_NODE);
-                    put(CATEGORY_VIRTUAL_HOST_LOGGER, CATEGORY_VIRTUAL_HOST);
-                    put(CATEGORY_VIRTUAL_HOST_LOG_INCLUSION_RULE, CATEGORY_VIRTUAL_HOST_LOGGER);
-                    put(CATEGORY_VIRTUAL_HOST_ACCESS_CONTROL_PROVIDER, CATEGORY_VIRTUAL_HOST);
-                    put(CATEGORY_EXCHANGE, CATEGORY_VIRTUAL_HOST);
-                    put(CATEGORY_QUEUE, CATEGORY_VIRTUAL_HOST);
-                    put(CATEGORY_CONSUMER, CATEGORY_QUEUE);
-                    put(CATEGORY_CONNECTION, CATEGORY_VIRTUAL_HOST);
-                    put(CATEGORY_SESSION, CATEGORY_CONNECTION);
-                    put(CATEGORY_BROKER, CATEGORY_SYSTEM_CONFIG);
-                }
-            });
+            Map.ofEntries(Map.entry(CATEGORY_BROKER_LOGGER, CATEGORY_BROKER),
+                          Map.entry(CATEGORY_BROKER_LOG_INCLUSION_RULE, CATEGORY_BROKER_LOGGER),
+                          Map.entry(CATEGORY_AUTHENTICATION_PROVIDER, CATEGORY_BROKER),
+                          Map.entry(CATEGORY_USER, CATEGORY_AUTHENTICATION_PROVIDER),
+                          Map.entry(CATEGORY_ACCESS_CONTROL_PROVIDER, CATEGORY_BROKER),
+                          Map.entry(CATEGORY_PLUGIN, CATEGORY_BROKER),
+                          Map.entry(CATEGORY_TRUST_STORE, CATEGORY_BROKER),
+                          Map.entry(CATEGORY_KEY_STORE, CATEGORY_BROKER),
+                          Map.entry(CATEGORY_PORT, CATEGORY_BROKER),
+                          Map.entry(CATEGORY_VIRTUAL_HOST_ALIAS, CATEGORY_PORT),
+                          Map.entry(CATEGORY_GROUP_PROVIDER, CATEGORY_BROKER),
+                          Map.entry(CATEGORY_GROUP, CATEGORY_GROUP_PROVIDER),
+                          Map.entry(CATEGORY_GROUP_MEMBER, CATEGORY_GROUP),
+                          Map.entry(CATEGORY_VIRTUAL_HOST_NODE, CATEGORY_BROKER),
+                          Map.entry(CATEGORY_REMOTE_REPLICATION_NODE, CATEGORY_VIRTUAL_HOST_NODE),
+                          Map.entry(CATEGORY_VIRTUAL_HOST, CATEGORY_VIRTUAL_HOST_NODE),
+                          Map.entry(CATEGORY_VIRTUAL_HOST_LOGGER, CATEGORY_VIRTUAL_HOST),
+                          Map.entry(CATEGORY_VIRTUAL_HOST_LOG_INCLUSION_RULE, CATEGORY_VIRTUAL_HOST_LOGGER),
+                          Map.entry(CATEGORY_VIRTUAL_HOST_ACCESS_CONTROL_PROVIDER, CATEGORY_VIRTUAL_HOST),
+                          Map.entry(CATEGORY_EXCHANGE, CATEGORY_VIRTUAL_HOST),
+                          Map.entry(CATEGORY_QUEUE, CATEGORY_VIRTUAL_HOST),
+                          Map.entry(CATEGORY_CONSUMER, CATEGORY_QUEUE),
+                          Map.entry(CATEGORY_CONNECTION, CATEGORY_VIRTUAL_HOST),
+                          Map.entry(CATEGORY_SESSION, CATEGORY_CONNECTION),
+                          Map.entry(CATEGORY_BROKER, CATEGORY_SYSTEM_CONFIG));
 
     public static final Map<String, String> DEFAULT_TYPES = Map.of(CATEGORY_BROKER_LOGGER, "Broker",
             CATEGORY_TRUST_STORE, "FileTrustStore",

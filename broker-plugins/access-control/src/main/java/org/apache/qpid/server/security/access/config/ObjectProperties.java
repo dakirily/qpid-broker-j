@@ -26,7 +26,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-import com.google.common.base.Joiner;
+import org.apache.qpid.server.util.StringUtil;
 
 public final class ObjectProperties
 {
@@ -141,9 +141,8 @@ public final class ObjectProperties
         {
             return true;
         }
-        if (o instanceof ObjectProperties)
+        if (o instanceof final ObjectProperties that)
         {
-            final ObjectProperties that = (ObjectProperties) o;
             return _attributeNames.equals(that._attributeNames) &&
                     _properties.equals(that._properties);
         }
@@ -161,11 +160,10 @@ public final class ObjectProperties
     {
         final StringBuilder sb = new StringBuilder();
         sb.append("ObjectProperties[");
-        final Joiner joiner = Joiner.on(",");
         if (!_properties.isEmpty())
         {
             sb.append("properties=[");
-            joiner.withKeyValueSeparator("=").appendTo(sb, _properties);
+            sb.append(StringUtil.join(_properties, ",", "="));
             sb.append("]");
         }
         if (!_attributeNames.isEmpty())
@@ -176,7 +174,7 @@ public final class ObjectProperties
             }
             sb.append(Property.ATTRIBUTES.name());
             sb.append("=[");
-            joiner.appendTo(sb, _attributeNames);
+            sb.append(StringUtil.join(_attributeNames, ",", "="));
             sb.append("]");
         }
         if (!_description.isEmpty())

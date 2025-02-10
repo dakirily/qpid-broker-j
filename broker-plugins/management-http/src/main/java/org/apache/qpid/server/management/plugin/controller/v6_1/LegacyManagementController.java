@@ -100,9 +100,8 @@ public class LegacyManagementController extends AbstractLegacyConfiguredObjectCo
         final boolean actuals = Boolean.parseBoolean(getParameter(ACTUALS_PARAM, parameters));
         final boolean excludeInheritedContext = isInheritedContextExcluded(parameters);
 
-        if (content instanceof LegacyConfiguredObject)
+        if (content instanceof final LegacyConfiguredObject legacyConfiguredObjectObject)
         {
-            LegacyConfiguredObject legacyConfiguredObjectObject = (LegacyConfiguredObject) content;
             return convertManageableToMap(
                     legacyConfiguredObjectObject,
                     depth,

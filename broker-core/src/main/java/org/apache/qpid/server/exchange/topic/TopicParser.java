@@ -240,7 +240,7 @@ public class TopicParser
 
         calculateNextStates(state, stateMap, positions);
 
-        SimpleState[] simpleStates = stateMap.values().toArray(new SimpleState[stateMap.size()]);
+        SimpleState[] simpleStates = stateMap.values().toArray(new SimpleState[0]);
         HashMap<TopicWord, TopicMatcherDFAState>[] dfaStateMaps = new HashMap[simpleStates.length];
         Map<SimpleState, TopicMatcherDFAState> simple2DFAMap = new HashMap<>();
 
@@ -300,24 +300,14 @@ public class TopicParser
         {
             if(pos.isSelfTransition())
             {
-                Set<Position> dest = transitions.get(TopicWord.ANY_WORD);
-                if(dest == null)
-                {
-                    dest = new HashSet<>();
-                    transitions.put(TopicWord.ANY_WORD,dest);
-                }
+                Set<Position> dest = transitions.computeIfAbsent(TopicWord.ANY_WORD, key -> new HashSet<>());
                 dest.add(pos);
             }
 
             final int nextPos = pos.getPosition() + 1;
             Position nextPosition = nextPos == positions.length ? ERROR_POSITION : positions[nextPos];
 
-            Set<Position> dest = transitions.get(pos.getWord());
-            if(dest == null)
-            {
-                dest = new HashSet<>();
-                transitions.put(pos.getWord(),dest);
-            }
+            Set<Position> dest = transitions.computeIfAbsent(pos.getWord(), key -> new HashSet<>());
             dest.add(nextPosition);
 
         }

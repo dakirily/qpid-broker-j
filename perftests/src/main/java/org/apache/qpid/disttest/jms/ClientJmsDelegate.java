@@ -109,13 +109,9 @@ public class ClientJmsDelegate
             _testSessionToConnections = new ConcurrentHashMap<>();
             _queueCreator = QpidQueueCreatorFactory.createInstance();
         }
-        catch (final NamingException ne)
+        catch (final NamingException | JMSException ne)
         {
             throw new DistributedTestException("Unable to create client jms delegate", ne);
-        }
-        catch (final JMSException jmse)
-        {
-            throw new DistributedTestException("Unable to create client jms delegate", jmse);
         }
     }
 
@@ -158,7 +154,7 @@ public class ClientJmsDelegate
         {
             final Message message = JmsMessageAdaptor.commandToMessage(_controllerSession, command);
             _controlQueueProducer.send(message);
-            LOGGER.debug("Sent message for " + command.getType() + ". message id: " + message.getJMSMessageID());
+            LOGGER.debug("Sent message for {}. message id: {}", command.getType(), message.getJMSMessageID());
         }
         catch (final JMSException jmse)
         {
@@ -176,7 +172,9 @@ public class ClientJmsDelegate
             addConnection(command.getConnectionName(), newConnection);
             if (LOGGER.isDebugEnabled())
             {
-                LOGGER.debug("Connection " + command.getConnectionName() + " is created " + metaDataToString(newConnection.getMetaData()));
+                LOGGER.debug("Connection {} is created {}",
+                             command.getConnectionName(),
+                             metaDataToString(newConnection.getMetaData()));
             }
         }
         catch (final NamingException ne)
@@ -309,7 +307,7 @@ public class ClientJmsDelegate
                         jmsConsumer = session.createDurableSubscriber(topic, subscription);
 
                         addSubscription(subscription, session);
-                        LOGGER.debug("created durable subscription " + subscription + " to topic " + topic);
+                        LOGGER.debug("created durable subscription {} to topic {}", subscription, topic);
                     }
                     else
                     {
@@ -598,7 +596,7 @@ public class ClientJmsDelegate
             }
             catch (JMSException e)
             {
-                LOGGER.error("Failed to unsubscribe '" + subscription + "' :" + e.getLocalizedMessage(), e);
+                LOGGER.error("Failed to unsubscribe '{}' :{}", subscription, e.getLocalizedMessage(), e);
                 failureCounter++;
                 appendErrorMessage(jmsErrorMessages, e);
             }
@@ -613,7 +611,7 @@ public class ClientJmsDelegate
             }
             catch (JMSException e)
             {
-                LOGGER.error("Failed to close connection '" + entry.getKey() + "' :" + e.getLocalizedMessage(), e);
+                LOGGER.error("Failed to close connection '{}' :{}", entry.getKey(), e.getLocalizedMessage(), e);
                 failureCounter++;
                 appendErrorMessage(jmsErrorMessages, e);
             }
@@ -635,7 +633,7 @@ public class ClientJmsDelegate
 
     private void appendErrorMessage(StringBuilder errorMessages, JMSException e)
     {
-        if (errorMessages.length() > 0)
+        if (!errorMessages.isEmpty())
         {
             errorMessages.append('\n');
         }
@@ -650,7 +648,7 @@ public class ClientJmsDelegate
             try
             {
                 consumer.close();
-                LOGGER.debug("Closed test consumer " + consumerName);
+                LOGGER.debug("Closed test consumer {}", consumerName);
             }
             catch (JMSException e)
             {

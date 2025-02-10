@@ -67,11 +67,11 @@ public class ArgumentsParser
         Field[] fields = objectClass.getDeclaredFields();
 
         Field field = null;
-        for (int i = 0 ; i< fields.length ; i++)
+        for (final Field value : fields)
         {
-            if (fields[i].getName().equals(name) && !Modifier.isFinal(fields[i].getModifiers()))
+            if (value.getName().equals(name) && !Modifier.isFinal(value.getModifiers()))
             {
-                field = fields[i];
+                field = value;
                 break;
             }
         }
@@ -145,9 +145,8 @@ public class ArgumentsParser
             // ignore any
         }
 
-        for (int i = 0 ; i< fields.length ; i++)
+        for (final Field field : fields)
         {
-            final Field field = fields[i];
             if (!Modifier.isFinal(field.getModifiers()))
             {
                 Object defaultValue = null;
@@ -156,16 +155,18 @@ public class ArgumentsParser
                     field.setAccessible(true);
                     defaultValue = field.get(object);
                 }
-                catch(Exception e)
+                catch (Exception e)
                 {
                     // ignore any
                 }
 
-                System.out.println("    " + field.getName()  + " ( type: "
-                        + field.getType().getSimpleName().toLowerCase()
-                        + (object != null ? ", default: " + String.valueOf(defaultValue) : "")
-                        + (requiredFields != null && requiredFields.contains(field.getName()) ? ", mandatory" : "")
-                        + ")");
+                System.out.println("    " + field.getName() + " ( type: "
+                                   + field.getType().getSimpleName().toLowerCase()
+                                   + (object != null ? ", default: " + String.valueOf(defaultValue) : "")
+                                   + (requiredFields != null && requiredFields.contains(field.getName())
+                        ? ", mandatory"
+                        : "")
+                                   + ")");
             }
         }
     }

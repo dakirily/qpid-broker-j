@@ -29,11 +29,11 @@ import java.util.List;
 import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
-import com.google.common.util.concurrent.ListenableFuture;
 import com.sleepycat.bind.tuple.LongBinding;
 import com.sleepycat.je.Cursor;
 import com.sleepycat.je.Database;
@@ -111,8 +111,8 @@ public abstract class AbstractBDBMessageStore implements MessageStore
     private final Random _lockConflictRandom = new Random();
     private final AtomicLong _inMemorySize = new AtomicLong();
     private final AtomicLong _bytesEvacuatedFromMemory = new AtomicLong();
-    private final Set<StoredBDBMessage<?>> _messages = Collections.newSetFromMap(new ConcurrentHashMap<>());
-    private final Set<MessageDeleteListener> _messageDeleteListeners = Collections.newSetFromMap(new ConcurrentHashMap<>());
+    private final Set<StoredBDBMessage<?>> _messages = ConcurrentHashMap.newKeySet();
+    private final Set<MessageDeleteListener> _messageDeleteListeners = ConcurrentHashMap.newKeySet();
 
     @Override
     public void openMessageStore(final ConfiguredObject<?> parent)
@@ -815,14 +815,14 @@ public abstract class AbstractBDBMessageStore implements MessageStore
 
     }
 
-    private <X> ListenableFuture<X> commitTranAsyncImpl(final Transaction tx, X val) throws StoreException
+    private <X> CompletableFuture<X> commitTranAsyncImpl(final Transaction tx, X val) throws StoreException
     {
         if (tx == null)
         {
             throw new StoreException("Fatal internal error: transactional is null at commitTran");
         }
 
-        ListenableFuture<X> result = getEnvironmentFacade().commitAsync(tx, val);
+        CompletableFuture<X> result = getEnvironmentFacade().commitAsync(tx, val);
 
         getLogger().debug("commitTranAsynImpl completed transaction {}", tx);
 
@@ -1356,9 +1356,8 @@ public abstract class AbstractBDBMessageStore implements MessageStore
         {
             checkMessageStoreOpen();
 
-            if(message.getStoredMessage() instanceof StoredBDBMessage)
+            if(message.getStoredMessage() instanceof final StoredBDBMessage storedMessage)
             {
-                final StoredBDBMessage storedMessage = (StoredBDBMessage) message.getStoredMessage();
                 final long contentSize = storedMessage.getContentSize();
                 _preCommitActions.add(() ->
                 {
@@ -1414,12 +1413,12 @@ public abstract class AbstractBDBMessageStore implements MessageStore
         }
 
         @Override
-        public <X> ListenableFuture<X> commitTranAsync(final X val) throws StoreException
+        public <X> CompletableFuture<X> commitTranAsync(final X val) throws StoreException
         {
             checkMessageStoreOpen();
             doPreCommitActions();
             AbstractBDBMessageStore.this.storedSizeChangeOccurred(_storeSizeIncrease);
-            ListenableFuture<X> futureResult = AbstractBDBMessageStore.this.commitTranAsyncImpl(_txn, val);
+            CompletableFuture<X> futureResult = AbstractBDBMessageStore.this.commitTranAsyncImpl(_txn, val);
             doPostCommitActions();
             return futureResult;
         }

@@ -20,8 +20,6 @@
  */
 package org.apache.qpid.server.security.auth.manager;
 
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -43,10 +41,10 @@ import org.apache.qpid.server.security.auth.sasl.scram.ScramSaslServerSourceAdap
 public class PlainAuthenticationProvider
         extends ConfigModelPasswordManagingAuthenticationProvider<PlainAuthenticationProvider>
 {
-    private final List<String> _mechanisms = Collections.unmodifiableList(Arrays.asList(PlainNegotiator.MECHANISM,
-                                                                                        CramMd5Negotiator.MECHANISM,
-                                                                                        ScramSHA1AuthenticationManager.MECHANISM,
-                                                                                        ScramSHA256AuthenticationManager.MECHANISM));
+    private final List<String> _mechanisms = List.of(PlainNegotiator.MECHANISM,
+                                                     CramMd5Negotiator.MECHANISM,
+                                                     ScramSHA1AuthenticationManager.MECHANISM,
+                                                     ScramSHA256AuthenticationManager.MECHANISM);
     private volatile ScramSaslServerSourceAdapter _scramSha1Adapter;
     private volatile ScramSaslServerSourceAdapter _scramSha256Adapter;
 

@@ -146,9 +146,8 @@ public class AmqpManagementFacade
                 final int statusCode = response.getIntProperty("statusCode");
                 if (statusCode == responseStatus)
                 {
-                    if (response instanceof MapMessage)
+                    if (response instanceof final MapMessage bodyMap)
                     {
-                        final MapMessage bodyMap = (MapMessage) response;
                         final Map<String, Object> result = new HashMap<>();
                         final Enumeration keys = bodyMap.getMapNames();
                         while (keys.hasMoreElements())
@@ -343,9 +342,8 @@ public class AmqpManagementFacade
             {
                 throw new OperationUnsuccessfulException(response.getStringProperty("statusDescription"), statusCode);
             }
-            if (response instanceof StreamMessage)
+            if (response instanceof final StreamMessage bodyStream)
             {
-                final StreamMessage bodyStream = (StreamMessage) response;
                 final List<Object> result = new ArrayList<>();
                 boolean done = false;
                 do
@@ -363,9 +361,8 @@ public class AmqpManagementFacade
                 while (!done);
                 return result;
             }
-            else if (response instanceof MapMessage)
+            else if (response instanceof final MapMessage bodyMap)
             {
-                final MapMessage bodyMap = (MapMessage) response;
                 final Map<String, Object> result = new TreeMap<>();
                 final Enumeration mapNames = bodyMap.getMapNames();
                 while (mapNames.hasMoreElements())
@@ -379,9 +376,8 @@ public class AmqpManagementFacade
             {
                 return ((ObjectMessage) response).getObject();
             }
-            else if (response instanceof BytesMessage)
+            else if (response instanceof final BytesMessage bytesMessage)
             {
-                final BytesMessage bytesMessage = (BytesMessage) response;
                 if (bytesMessage.getBodyLength() == 0)
                 {
                     return null;
@@ -440,9 +436,8 @@ public class AmqpManagementFacade
         final Message response = consumer.receive(5000);
         try
         {
-            if (response instanceof MapMessage)
+            if (response instanceof final MapMessage bodyMap)
             {
-                final MapMessage bodyMap = (MapMessage) response;
                 final List<String> attributeNames = (List<String>) bodyMap.getObject("attributeNames");
                 final List<List<Object>> attributeValues = (List<List<Object>>) bodyMap.getObject("results");
                 return getResultsAsMaps(attributeNames, attributeValues);
@@ -515,9 +510,8 @@ public class AmqpManagementFacade
         }
         try
         {
-            if (response instanceof MapMessage)
+            if (response instanceof final MapMessage bodyMap)
             {
-                final MapMessage bodyMap = (MapMessage) response;
                 final Map<String, Object> data = new HashMap<>();
                 @SuppressWarnings("unchecked")
                 final Enumeration<String> keys = bodyMap.getMapNames();

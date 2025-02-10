@@ -126,7 +126,7 @@ public class ChartingUtil
             }
             catch (Exception e)
             {
-                LOGGER.error("Couldn't produce chart " + chartingDefinition, e);
+                LOGGER.error("Couldn't produce chart {}", chartingDefinition, e);
             }
         }
 

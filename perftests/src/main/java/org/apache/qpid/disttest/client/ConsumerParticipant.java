@@ -253,7 +253,7 @@ public class ConsumerParticipant implements Participant
         }
         catch (Exception e)
         {
-            LOGGER.error("Error occurred consuming message " + _totalNumberOfMessagesReceived, e);
+            LOGGER.error("Error occurred consuming message {}", _totalNumberOfMessagesReceived, e);
             continueRunning = false;
             _asyncMessageListenerException = e;
         }
@@ -285,9 +285,9 @@ public class ConsumerParticipant implements Participant
 
     private void waitUntilMsgListenerHasFinished() throws Exception
     {
-        LOGGER.debug("waiting until message listener has finished for " + this);
+        LOGGER.debug("waiting until message listener has finished for {}", this);
         _asyncRunHasFinished.await();
-        LOGGER.debug("Message listener has finished for " + this);
+        LOGGER.debug("Message listener has finished for {}", this);
     }
 
     @Override

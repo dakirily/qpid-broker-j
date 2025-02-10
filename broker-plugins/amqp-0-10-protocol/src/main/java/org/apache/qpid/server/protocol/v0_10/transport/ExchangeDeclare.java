@@ -31,32 +31,32 @@ public final class ExchangeDeclare extends Method {
     public static final int TYPE = 1793;
 
     @Override
-    public final int getStructType() {
+    public int getStructType() {
         return TYPE;
     }
 
     @Override
-    public final int getSizeWidth() {
+    public int getSizeWidth() {
         return 0;
     }
 
     @Override
-    public final int getPackWidth() {
+    public int getPackWidth() {
         return 2;
     }
 
     @Override
-    public final boolean hasPayload() {
+    public boolean hasPayload() {
         return false;
     }
 
     @Override
-    public final byte getEncodedTrack() {
+    public byte getEncodedTrack() {
         return Frame.L4;
     }
 
     @Override
-    public final boolean isConnectionControl()
+    public boolean isConnectionControl()
     {
         return false;
     }
@@ -85,16 +85,32 @@ public final class ExchangeDeclare extends Method {
             setArguments(arguments);
         }
 
-        for (int i=0; i < _options.length; i++) {
-            switch (_options[i]) {
-            case PASSIVE: packing_flags |= 2048; break;
-            case DURABLE: packing_flags |= 4096; break;
-            case AUTO_DELETE: packing_flags |= 8192; break;
-            case SYNC: this.setSync(true); break;
-            case BATCH: this.setBatch(true); break;
-            case UNRELIABLE: this.setUnreliable(true); break;
-            case NONE: break;
-            default: throw new IllegalArgumentException("invalid option: " + _options[i]);
+        for (final Option option : _options)
+        {
+            switch (option)
+            {
+                case PASSIVE:
+                    packing_flags |= 2048;
+                    break;
+                case DURABLE:
+                    packing_flags |= 4096;
+                    break;
+                case AUTO_DELETE:
+                    packing_flags |= 8192;
+                    break;
+                case SYNC:
+                    this.setSync(true);
+                    break;
+                case BATCH:
+                    this.setBatch(true);
+                    break;
+                case UNRELIABLE:
+                    this.setUnreliable(true);
+                    break;
+                case NONE:
+                    break;
+                default:
+                    throw new IllegalArgumentException("invalid option: " + option);
             }
         }
 
@@ -106,100 +122,100 @@ public final class ExchangeDeclare extends Method {
     }
 
 
-    public final boolean hasExchange() {
+    public boolean hasExchange() {
         return (packing_flags & 256) != 0;
     }
 
-    public final ExchangeDeclare clearExchange() {
+    public ExchangeDeclare clearExchange() {
         packing_flags &= ~256;
         this.exchange = null;
         setDirty(true);
         return this;
     }
 
-    public final String getExchange() {
+    public String getExchange() {
         return exchange;
     }
 
-    public final ExchangeDeclare setExchange(String value) {
+    public ExchangeDeclare setExchange(String value) {
         this.exchange = value;
         packing_flags |= 256;
         setDirty(true);
         return this;
     }
 
-    public final ExchangeDeclare exchange(String value) {
+    public ExchangeDeclare exchange(String value) {
         return setExchange(value);
     }
 
-    public final boolean hasType() {
+    public boolean hasType() {
         return (packing_flags & 512) != 0;
     }
 
-    public final ExchangeDeclare clearType() {
+    public ExchangeDeclare clearType() {
         packing_flags &= ~512;
         this.type = null;
         setDirty(true);
         return this;
     }
 
-    public final String getType() {
+    public String getType() {
         return type;
     }
 
-    public final ExchangeDeclare setType(String value) {
+    public ExchangeDeclare setType(String value) {
         this.type = value;
         packing_flags |= 512;
         setDirty(true);
         return this;
     }
 
-    public final ExchangeDeclare type(String value) {
+    public ExchangeDeclare type(String value) {
         return setType(value);
     }
 
-    public final boolean hasAlternateExchange() {
+    public boolean hasAlternateExchange() {
         return (packing_flags & 1024) != 0;
     }
 
-    public final ExchangeDeclare clearAlternateExchange() {
+    public ExchangeDeclare clearAlternateExchange() {
         packing_flags &= ~1024;
         this.alternateExchange = null;
         setDirty(true);
         return this;
     }
 
-    public final String getAlternateExchange() {
+    public String getAlternateExchange() {
         return alternateExchange;
     }
 
-    public final ExchangeDeclare setAlternateExchange(String value) {
+    public ExchangeDeclare setAlternateExchange(String value) {
         this.alternateExchange = value;
         packing_flags |= 1024;
         setDirty(true);
         return this;
     }
 
-    public final ExchangeDeclare alternateExchange(String value) {
+    public ExchangeDeclare alternateExchange(String value) {
         return setAlternateExchange(value);
     }
 
-    public final boolean hasPassive() {
+    public boolean hasPassive() {
         return (packing_flags & 2048) != 0;
     }
 
-    public final ExchangeDeclare clearPassive() {
+    public ExchangeDeclare clearPassive() {
         packing_flags &= ~2048;
 
         setDirty(true);
         return this;
     }
 
-    public final boolean getPassive() {
+    public boolean getPassive() {
         return hasPassive();
     }
 
-    public final ExchangeDeclare setPassive(boolean value) {
+    public ExchangeDeclare setPassive(boolean value) {
 
         if (value)
         {
@@ -214,26 +230,26 @@ public final class ExchangeDeclare extends Method {
         return this;
     }
 
-    public final ExchangeDeclare passive(boolean value) {
+    public ExchangeDeclare passive(boolean value) {
         return setPassive(value);
     }
 
-    public final boolean hasDurable() {
+    public boolean hasDurable() {
         return (packing_flags & 4096) != 0;
     }
 
-    public final ExchangeDeclare clearDurable() {
+    public ExchangeDeclare clearDurable() {
         packing_flags &= ~4096;
 
         setDirty(true);
         return this;
     }
 
-    public final boolean getDurable() {
+    public boolean getDurable() {
         return hasDurable();
     }
 
-    public final ExchangeDeclare setDurable(boolean value) {
+    public ExchangeDeclare setDurable(boolean value) {
 
         if (value)
         {
@@ -248,26 +264,26 @@ public final class ExchangeDeclare extends Method {
         return this;
     }
 
-    public final ExchangeDeclare durable(boolean value) {
+    public ExchangeDeclare durable(boolean value) {
         return setDurable(value);
     }
 
-    public final boolean hasAutoDelete() {
+    public boolean hasAutoDelete() {
         return (packing_flags & 8192) != 0;
     }
 
-    public final ExchangeDeclare clearAutoDelete() {
+    public ExchangeDeclare clearAutoDelete() {
         packing_flags &= ~8192;
 
         setDirty(true);
         return this;
     }
 
-    public final boolean getAutoDelete() {
+    public boolean getAutoDelete() {
         return hasAutoDelete();
     }
 
-    public final ExchangeDeclare setAutoDelete(boolean value) {
+    public ExchangeDeclare setAutoDelete(boolean value) {
 
         if (value)
         {
@@ -282,33 +298,33 @@ public final class ExchangeDeclare extends Method {
         return this;
     }
 
-    public final ExchangeDeclare autoDelete(boolean value) {
+    public ExchangeDeclare autoDelete(boolean value) {
         return setAutoDelete(value);
     }
 
-    public final boolean hasArguments() {
+    public boolean hasArguments() {
         return (packing_flags & 16384) != 0;
     }
 
-    public final ExchangeDeclare clearArguments() {
+    public ExchangeDeclare clearArguments() {
         packing_flags &= ~16384;
         this.arguments = null;
         setDirty(true);
         return this;
     }
 
-    public final Map<String,Object> getArguments() {
+    public Map<String,Object> getArguments() {
         return arguments;
     }
 
-    public final ExchangeDeclare setArguments(Map<String,Object> value) {
+    public ExchangeDeclare setArguments(Map<String, Object> value) {
         this.arguments = value;
         packing_flags |= 16384;
         setDirty(true);
         return this;
     }
 
-    public final ExchangeDeclare arguments(Map<String,Object> value) {
+    public ExchangeDeclare arguments(Map<String, Object> value) {
         return setArguments(value);
     }
 

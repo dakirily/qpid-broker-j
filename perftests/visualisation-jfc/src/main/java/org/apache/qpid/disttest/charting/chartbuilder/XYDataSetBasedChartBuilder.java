@@ -82,9 +82,8 @@ public abstract class XYDataSetBasedChartBuilder extends BaseChartBuilder
             {
                 double[][] seriesData = new double[2][_xyPairs.size()];
                 int i = 0;
-                for (Iterator<Double[]> iterator = _xyPairs.iterator(); iterator.hasNext();)
+                for (Double[] xyPair : _xyPairs)
                 {
-                    Double[] xyPair = iterator.next();
                     seriesData[0][i] = xyPair[0];
                     seriesData[1][i] = xyPair[1];
                     i++;
@@ -121,9 +120,8 @@ public abstract class XYDataSetBasedChartBuilder extends BaseChartBuilder
             public void setSeriesShape(final int seriesIndex, final Shape shape, final JFreeChart targetChart)
             {
                 XYItemRenderer renderer = targetChart.getXYPlot().getRenderer();
-                if (renderer instanceof XYLineAndShapeRenderer)
+                if (renderer instanceof final XYLineAndShapeRenderer lineAndShapeRenderer)
                 {
-                    XYLineAndShapeRenderer lineAndShapeRenderer = (XYLineAndShapeRenderer) renderer;
                     lineAndShapeRenderer.setSeriesShapesVisible(seriesIndex, true);
                     lineAndShapeRenderer.setSeriesShape(seriesIndex, shape);
                 }

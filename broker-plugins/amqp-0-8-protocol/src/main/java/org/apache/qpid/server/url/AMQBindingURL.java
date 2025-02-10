@@ -48,7 +48,7 @@ public class AMQBindingURL implements BindingURL
         // <exch_class>://<exch_name>/[<destination>]/[<queue>]?<option>='<value>'[,<option>='<value>']*
         if (LOGGER.isDebugEnabled())
         {
-            LOGGER.debug("Parsing URL: " + url);
+            LOGGER.debug("Parsing URL: {}", url);
         }
         _url = url;
         _options = new HashMap<>();
@@ -70,7 +70,7 @@ public class AMQBindingURL implements BindingURL
         }
         if (LOGGER.isDebugEnabled())
         {
-            LOGGER.debug("URL Parsed: " + this);
+            LOGGER.debug("URL Parsed: {}", this);
         }
     }
 

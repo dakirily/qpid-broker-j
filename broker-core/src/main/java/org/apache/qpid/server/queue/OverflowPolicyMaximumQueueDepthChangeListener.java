@@ -53,9 +53,8 @@ abstract class OverflowPolicyMaximumQueueDepthChangeListener extends AbstractCon
     public void bulkChangeEnd(final ConfiguredObject<?> object)
     {
         super.bulkChangeEnd(object);
-        if (object instanceof Queue)
+        if (object instanceof final Queue<?> queue)
         {
-            Queue<?> queue = (Queue<?>) object;
 
             if (queue.getOverflowPolicy() == _overflowPolicy)
             {

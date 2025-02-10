@@ -100,8 +100,8 @@ public class ProtocolEngineCreator_1_0_0 implements ProtocolEngineCreator
         else
         {
             LOGGER.info(
-                    "Attempt to connect using AMQP 1.0 without using SASL authentication on a port which does not support ANONYMOUS or EXTERNAL by "
-                    + network.getRemoteAddress());
+                    "Attempt to connect using AMQP 1.0 without using SASL authentication on a port which does not support ANONYMOUS or EXTERNAL by {}",
+                    network.getRemoteAddress());
             return null;
         }
     }

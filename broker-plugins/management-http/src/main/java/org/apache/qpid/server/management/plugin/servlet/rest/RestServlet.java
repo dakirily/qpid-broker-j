@@ -43,7 +43,6 @@ import jakarta.servlet.http.Part;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
-import com.google.common.base.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -214,7 +213,7 @@ public class RestServlet extends AbstractServlet
     private String toContentDispositionHeader(final String attachmentFilename)
     {
         String filenameRfc2183 = HttpManagementUtil.ensureFilenameIsRfc2183(attachmentFilename);
-        if (filenameRfc2183.length() > 0)
+        if (!filenameRfc2183.isEmpty())
         {
             return String.format("attachment; filename=\"%s\"", filenameRfc2183);
         }
@@ -250,9 +249,8 @@ public class RestServlet extends AbstractServlet
         response.setStatus(managementResponse.getResponseCode());
 
         Object body = managementResponse.getBody();
-        if (body instanceof Content)
+        if (body instanceof final Content content)
         {
-            Content content = (Content) body;
             try
             {
                 writeTypedContent(content, request, response);
@@ -301,7 +299,7 @@ public class RestServlet extends AbstractServlet
 
     private static Map<String, List<String>> parseQueryString(String queryString)
     {
-        if (Strings.isNullOrEmpty(queryString))
+        if (queryString == null || queryString.isEmpty())
         {
             return Map.of();
         }

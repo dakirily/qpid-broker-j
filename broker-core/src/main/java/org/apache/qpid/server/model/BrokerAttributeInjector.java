@@ -72,7 +72,7 @@ public class BrokerAttributeInjector implements ConfiguredObjectAttributeInjecto
         }
         catch (IllegalArgumentException | ClassNotFoundException e)
         {
-            LOGGER.debug("Cannot find com.sun.management.HotSpotDiagnosticMXBean MXBean: " + e);
+            LOGGER.debug("Cannot find com.sun.management.HotSpotDiagnosticMXBean MXBean: {}", e);
         }
 
         _hotSpotDiagnosticMXBeanClass = hotSpotDiagnosticMXBeanClass;
@@ -91,7 +91,7 @@ public class BrokerAttributeInjector implements ConfiguredObjectAttributeInjecto
         }
         catch (IllegalArgumentException | ClassNotFoundException e)
         {
-            LOGGER.debug("com.sun.management.OperatingSystemMXBean MXBean: " + e);
+            LOGGER.debug("com.sun.management.OperatingSystemMXBean MXBean: {}", e);
         }
 
         _operatingSystemMXBeanClass = operatingSystemMXBeanClass;
@@ -471,7 +471,7 @@ public class BrokerAttributeInjector implements ConfiguredObjectAttributeInjecto
             }
             catch (IllegalAccessException e)
             {
-                LOGGER.warn("Cannot access setVMOption " + setVMOption);
+                LOGGER.warn("Cannot access setVMOption {}", setVMOption);
             }
             catch (InvocationTargetException e)
             {
@@ -518,7 +518,7 @@ public class BrokerAttributeInjector implements ConfiguredObjectAttributeInjecto
         }
         catch (IllegalAccessException e)
         {
-            LOGGER.warn("Cannot access dumpHeap " + dumpHeapMethod);
+            LOGGER.warn("Cannot access dumpHeap {}", dumpHeapMethod);
         }
         catch (InvocationTargetException e)
         {

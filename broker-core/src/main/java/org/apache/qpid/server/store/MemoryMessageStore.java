@@ -22,18 +22,15 @@ package org.apache.qpid.server.store;
 
 import java.io.File;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicLong;
-
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
 
 import org.apache.qpid.server.message.EnqueueableMessage;
 import org.apache.qpid.server.model.ConfiguredObject;
@@ -54,7 +51,7 @@ public class MemoryMessageStore implements MessageStore
     private final Map<UUID, Set<Long>> _messageInstances = new HashMap<>();
     private final Map<Xid, DistributedTransactionRecords> _distributedTransactions = new HashMap<>();
     private final AtomicLong _inMemorySize = new AtomicLong();
-    private final Set<MessageDeleteListener> _messageDeleteListeners = Collections.newSetFromMap(new ConcurrentHashMap<>());
+    private final Set<MessageDeleteListener> _messageDeleteListeners = ConcurrentHashMap.newKeySet();
 
 
 
@@ -67,21 +64,16 @@ public class MemoryMessageStore implements MessageStore
         private final Set<Xid> _localDistributedTransactionsRemoves = new HashSet<>();
 
         @Override
-        public <X> ListenableFuture<X> commitTranAsync(final X val)
+        public <X> CompletableFuture<X> commitTranAsync(final X val)
         {
             commitTran();
-            return Futures.immediateFuture(val);
+            return CompletableFuture.completedFuture(val);
         }
 
         @Override
         public MessageEnqueueRecord enqueueMessage(TransactionLogResource queue, EnqueueableMessage message)
         {
-            Set<Long> messageIds = _localEnqueueMap.get(queue.getId());
-            if (messageIds == null)
-            {
-                messageIds = new HashSet<>();
-                _localEnqueueMap.put(queue.getId(), messageIds);
-            }
+            Set<Long> messageIds = _localEnqueueMap.computeIfAbsent(queue.getId(), key -> new HashSet<>());
             messageIds.add(message.getMessageNumber());
             return new MemoryEnqueueRecord(queue.getId(), message.getMessageNumber());
         }

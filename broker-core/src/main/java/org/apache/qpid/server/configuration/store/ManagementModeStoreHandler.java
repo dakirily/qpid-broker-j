@@ -167,7 +167,7 @@ public class ManagementModeStoreHandler implements DurableConfigurationStore
                 }
                 actualUpdates.add(record);
             }
-            _store.update(createIfNecessary, actualUpdates.toArray(new ConfiguredObjectRecord[actualUpdates.size()]));
+            _store.update(createIfNecessary, actualUpdates.toArray(new ConfiguredObjectRecord[0]));
         }
         for(ConfiguredObjectRecord record : records)
         {
@@ -252,8 +252,10 @@ public class ManagementModeStoreHandler implements DurableConfigurationStore
                 Map.of(parent.getType(),parent.getId()));
         if (LOGGER.isDebugEnabled())
         {
-            LOGGER.debug("Add management mode port configuration " + portEntry + " for port " + port + " and protocol "
-                    + protocol);
+            LOGGER.debug("Add management mode port configuration {} for port {} and protocol {}",
+                         portEntry,
+                         port,
+                         protocol);
         }
         return portEntry;
     }

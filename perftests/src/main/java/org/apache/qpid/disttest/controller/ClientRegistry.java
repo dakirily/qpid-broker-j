@@ -51,7 +51,7 @@ public class ClientRegistry
 
         if (LOGGER.isInfoEnabled())
         {
-            LOGGER.info("Client registered: " + clientName);
+            LOGGER.info("Client registered: {}", clientName);
         }
     }
 

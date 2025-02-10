@@ -277,7 +277,7 @@ public class PriorityQueueTest extends JmsTestBase
             {
                 _latch.countDown();
                 long msgNum = _origCount - _latch.getCount();
-                LOGGER.info("Received message " + msgNum + " with ID: " + message.getIntProperty("msg"));
+                LOGGER.info("Received message {} with ID: {}", msgNum, message.getIntProperty("msg"));
 
                 if(_latch.getCount() > 0)
                 {

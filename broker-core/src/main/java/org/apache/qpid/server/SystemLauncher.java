@@ -35,13 +35,13 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 import javax.security.auth.Subject;
 
-import com.google.common.util.concurrent.ListenableFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -158,7 +158,7 @@ public class SystemLauncher
         {
             if(_systemConfig != null)
             {
-                ListenableFuture<Void> closeResult = _systemConfig.closeAsync();
+                CompletableFuture<Void> closeResult = _systemConfig.closeAsync();
                 closeResult.get(30000L, TimeUnit.MILLISECONDS);
             }
 
@@ -235,7 +235,9 @@ public class SystemLauncher
         SystemConfigFactory configFactory = configFactoryLoader.get(storeType);
         if(configFactory == null)
         {
-            LOGGER.error("Unknown config store type '" + storeType + "', only the following types are supported: " + configFactoryLoader.getSupportedTypes());
+            LOGGER.error("Unknown config store type '{}', only the following types are supported: {}",
+                         storeType,
+                         configFactoryLoader.getSupportedTypes());
             throw new IllegalArgumentException("Unknown config store type '"+storeType+"', only the following types are supported: " + configFactoryLoader.getSupportedTypes());
         }
 

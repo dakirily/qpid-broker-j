@@ -77,7 +77,7 @@
 
   <properties>
     <minimum-maven-version>3.0.0</minimum-maven-version>
-    <minimum-java-version>11</minimum-java-version>
+    <minimum-java-version>17</minimum-java-version>
     <maven.compiler.source>${minimum-java-version}</maven.compiler.source>
     <maven.compiler.target>${minimum-java-version}</maven.compiler.target>
     <skipTests>false</skipTests>
@@ -107,6 +107,7 @@
     <logback-version>1.4.14</logback-version>
     <logback-db-version>1.2.11.1</logback-db-version>
     <guava-version>33.0.0-jre</guava-version>
+    <caffeine-version>3.1.8</caffeine-version>
     <fasterxml-jackson-version>2.16.1</fasterxml-jackson-version>
     <fasterxml-jackson-databind-version>2.16.1</fasterxml-jackson-databind-version>
     <slf4j-version>2.0.11</slf4j-version>
@@ -585,27 +586,9 @@
         </exclusions>
       </dependency>
       <dependency>
-        <groupId>com.google.guava</groupId>
-        <artifactId>guava</artifactId>
-        <version>${guava-version}</version>
-        <exclusions>
-          <exclusion>
-            <groupId>com.google.errorprone</groupId>
-            <artifactId>error_prone_annotations</artifactId>
-          </exclusion>
-          <exclusion>
-            <groupId>com.google.code.findbugs</groupId>
-            <artifactId>jsr305</artifactId>
-          </exclusion>
-          <exclusion>
-            <groupId>com.google.guava</groupId>
-            <artifactId>listenablefuture</artifactId>
-          </exclusion>
-          <exclusion>
-            <groupId>org.checkerframework</groupId>
-            <artifactId>checker-qual</artifactId>
-          </exclusion>
-        </exclusions>
+        <groupId>com.github.ben-manes.caffeine</groupId>
+        <artifactId>caffeine</artifactId>
+        <version>${caffeine-version}</version>
       </dependency>
       <dependency>
         <groupId>com.fasterxml.jackson.core</groupId>

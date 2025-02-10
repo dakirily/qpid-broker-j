@@ -155,7 +155,7 @@ public final class BrokerModel extends Model
     }
 
     @Override
-    public final ConfiguredObjectTypeRegistry getTypeRegistry()
+    public ConfiguredObjectTypeRegistry getTypeRegistry()
     {
         return _typeRegistry;
     }
@@ -225,12 +225,8 @@ public final class BrokerModel extends Model
             throw new IllegalArgumentException("Child class " + child.getSimpleName() + " already has parent " + _parents.get(child).getSimpleName());
         }
 
-        Collection<Class<? extends ConfiguredObject>> children = _children.get(parent);
-        if (children == null)
-        {
-            children = new ArrayList<>();
-            _children.put(parent, children);
-        }
+        Collection<Class<? extends ConfiguredObject>> children =
+                _children.computeIfAbsent(parent, key -> new ArrayList<>());
         children.add(child);
 
         _supportedTypes.add(parent);

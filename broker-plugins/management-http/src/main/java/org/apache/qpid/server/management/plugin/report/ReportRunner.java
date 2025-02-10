@@ -123,21 +123,18 @@ public class ReportRunner<T>
                             }
                             catch (NoSuchMethodException | IllegalAccessException e)
                             {
-                                LOGGER.info("Unknown parameter '"
-                                            + key
-                                            + "' (no setter) for report "
-                                            + report.getName());
+                                LOGGER.info("Unknown parameter '{}' (no setter) for report {}", key, report.getName());
                             }
                         }
                     }
                     catch (InvocationTargetException e)
                     {
-                        LOGGER.info("Error setting parameter '" + key + "' for report " + report.getName(), e);
+                        LOGGER.info("Error setting parameter '{}' for report {}", key, report.getName(), e);
                     }
                 }
                 else
                 {
-                    LOGGER.info("Invalid parameter name '" + key + "' running report " + report.getName());
+                    LOGGER.info("Invalid parameter name '{}' running report {}", key, report.getName());
                 }
             }
         }
@@ -145,7 +142,7 @@ public class ReportRunner<T>
 
     private static boolean isValidName(final String key)
     {
-        if(key != null && key.length() != 0)
+        if(key != null && !key.isEmpty())
         {
             if(Character.isJavaIdentifierStart(key.charAt(0)))
             {
@@ -381,9 +378,8 @@ public class ReportRunner<T>
         {
             return ByteBuffer.wrap((byte[])value).asReadOnlyBuffer();
         }
-        else if(value instanceof List)
+        else if(value instanceof final List orig)
         {
-            List orig = (List) value;
             List<Object> copy = new ArrayList<>(orig.size());
             for(Object element : orig)
             {
@@ -391,9 +387,8 @@ public class ReportRunner<T>
             }
             return copy;
         }
-        else if(value instanceof Map)
+        else if(value instanceof final Map<?, ?> orig)
         {
-            Map<?,?> orig = (Map<?,?>) value;
             LinkedHashMap<Object,Object> copy = new LinkedHashMap<>();
             for(Map.Entry<?,?> entry : orig.entrySet())
             {

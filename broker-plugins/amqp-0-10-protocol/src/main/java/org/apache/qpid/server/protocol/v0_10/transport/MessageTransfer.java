@@ -34,32 +34,32 @@ public final class MessageTransfer extends Method {
     private int _bodySize;
 
     @Override
-    public final int getStructType() {
+    public int getStructType() {
         return TYPE;
     }
 
     @Override
-    public final int getSizeWidth() {
+    public int getSizeWidth() {
         return 0;
     }
 
     @Override
-    public final int getPackWidth() {
+    public int getPackWidth() {
         return 2;
     }
 
     @Override
-    public final boolean hasPayload() {
+    public boolean hasPayload() {
         return true;
     }
 
     @Override
-    public final byte getEncodedTrack() {
+    public byte getEncodedTrack() {
         return Frame.L4;
     }
 
     @Override
-    public final boolean isConnectionControl()
+    public boolean isConnectionControl()
     {
         return false;
     }
@@ -97,13 +97,23 @@ public final class MessageTransfer extends Method {
         setHeader(header);
         setBody(body);
 
-        for (int i=0; i < _options.length; i++) {
-            switch (_options[i]) {
-            case SYNC: this.setSync(true); break;
-            case BATCH: this.setBatch(true); break;
-            case UNRELIABLE: this.setUnreliable(true); break;
-            case NONE: break;
-            default: throw new IllegalArgumentException("invalid option: " + _options[i]);
+        for (final Option option : _options)
+        {
+            switch (option)
+            {
+                case SYNC:
+                    this.setSync(true);
+                    break;
+                case BATCH:
+                    this.setBatch(true);
+                    break;
+                case UNRELIABLE:
+                    this.setUnreliable(true);
+                    break;
+                case NONE:
+                    break;
+                default:
+                    throw new IllegalArgumentException("invalid option: " + option);
             }
         }
 
@@ -115,109 +125,109 @@ public final class MessageTransfer extends Method {
     }
 
 
-    public final boolean hasDestination() {
+    public boolean hasDestination() {
         return (packing_flags & 256) != 0;
     }
 
-    public final MessageTransfer clearDestination() {
+    public MessageTransfer clearDestination() {
         packing_flags &= ~256;
         this.destination = null;
         setDirty(true);
         return this;
     }
 
-    public final String getDestination() {
+    public String getDestination() {
         return destination;
     }
 
-    public final MessageTransfer setDestination(String value) {
+    public MessageTransfer setDestination(String value) {
         this.destination = value;
         packing_flags |= 256;
         setDirty(true);
         return this;
     }
 
-    public final MessageTransfer destination(String value) {
+    public MessageTransfer destination(String value) {
         return setDestination(value);
     }
 
-    public final boolean hasAcceptMode() {
+    public boolean hasAcceptMode() {
         return (packing_flags & 512) != 0;
     }
 
-    public final MessageTransfer clearAcceptMode() {
+    public MessageTransfer clearAcceptMode() {
         packing_flags &= ~512;
         this.acceptMode = null;
         setDirty(true);
         return this;
     }
 
-    public final MessageAcceptMode getAcceptMode() {
+    public MessageAcceptMode getAcceptMode() {
         return acceptMode;
     }
 
-    public final MessageTransfer setAcceptMode(MessageAcceptMode value) {
+    public MessageTransfer setAcceptMode(MessageAcceptMode value) {
         this.acceptMode = value;
         packing_flags |= 512;
         setDirty(true);
         return this;
     }
 
-    public final MessageTransfer acceptMode(MessageAcceptMode value) {
+    public MessageTransfer acceptMode(MessageAcceptMode value) {
         return setAcceptMode(value);
     }
 
-    public final boolean hasAcquireMode() {
+    public boolean hasAcquireMode() {
         return (packing_flags & 1024) != 0;
     }
 
-    public final MessageTransfer clearAcquireMode() {
+    public MessageTransfer clearAcquireMode() {
         packing_flags &= ~1024;
         this.acquireMode = null;
         setDirty(true);
         return this;
     }
 
-    public final MessageAcquireMode getAcquireMode() {
+    public MessageAcquireMode getAcquireMode() {
         return acquireMode;
     }
 
-    public final MessageTransfer setAcquireMode(MessageAcquireMode value) {
+    public MessageTransfer setAcquireMode(MessageAcquireMode value) {
         this.acquireMode = value;
         packing_flags |= 1024;
         setDirty(true);
         return this;
     }
 
-    public final MessageTransfer acquireMode(MessageAcquireMode value) {
+    public MessageTransfer acquireMode(MessageAcquireMode value) {
         return setAcquireMode(value);
     }
 
 
     @Override
-    public final Header getHeader() {
+    public Header getHeader() {
         return this.header;
     }
 
     @Override
-    public final void setHeader(Header header) {
+    public void setHeader(Header header) {
         this.header = header;
     }
 
-    public final MessageTransfer header(Header header)
+    public MessageTransfer header(Header header)
     {
         setHeader(header);
         return this;
     }
 
     @Override
-    public final QpidByteBuffer getBody()
+    public QpidByteBuffer getBody()
     {
         return _body;
     }
 
     @Override
-    public final void setBody(QpidByteBuffer body)
+    public void setBody(QpidByteBuffer body)
     {
         if (body == null)
         {

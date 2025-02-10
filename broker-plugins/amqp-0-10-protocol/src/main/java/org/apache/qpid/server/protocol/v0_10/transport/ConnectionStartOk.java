@@ -31,32 +31,32 @@ public final class ConnectionStartOk extends Method {
     public static final int TYPE = 258;
 
     @Override
-    public final int getStructType() {
+    public int getStructType() {
         return TYPE;
     }
 
     @Override
-    public final int getSizeWidth() {
+    public int getSizeWidth() {
         return 0;
     }
 
     @Override
-    public final int getPackWidth() {
+    public int getPackWidth() {
         return 2;
     }
 
     @Override
-    public final boolean hasPayload() {
+    public boolean hasPayload() {
         return false;
     }
 
     @Override
-    public final byte getEncodedTrack() {
+    public byte getEncodedTrack() {
         return Frame.L1;
     }
 
     @Override
-    public final boolean isConnectionControl()
+    public boolean isConnectionControl()
     {
         return true;
     }
@@ -85,13 +85,23 @@ public final class ConnectionStartOk extends Method {
             setLocale(locale);
         }
 
-        for (int i=0; i < _options.length; i++) {
-            switch (_options[i]) {
-            case SYNC: this.setSync(true); break;
-            case BATCH: this.setBatch(true); break;
-            case UNRELIABLE: this.setUnreliable(true); break;
-            case NONE: break;
-            default: throw new IllegalArgumentException("invalid option: " + _options[i]);
+        for (final Option option : _options)
+        {
+            switch (option)
+            {
+                case SYNC:
+                    this.setSync(true);
+                    break;
+                case BATCH:
+                    this.setBatch(true);
+                    break;
+                case UNRELIABLE:
+                    this.setUnreliable(true);
+                    break;
+                case NONE:
+                    break;
+                default:
+                    throw new IllegalArgumentException("invalid option: " + option);
             }
         }
 
@@ -103,107 +113,107 @@ public final class ConnectionStartOk extends Method {
     }
 
 
-    public final boolean hasClientProperties() {
+    public boolean hasClientProperties() {
         return (packing_flags & 256) != 0;
     }
 
-    public final ConnectionStartOk clearClientProperties() {
+    public ConnectionStartOk clearClientProperties() {
         packing_flags &= ~256;
         this.clientProperties = null;
         setDirty(true);
         return this;
     }
 
-    public final Map<String,Object> getClientProperties() {
+    public Map<String,Object> getClientProperties() {
         return clientProperties;
     }
 
-    public final ConnectionStartOk setClientProperties(Map<String,Object> value) {
+    public ConnectionStartOk setClientProperties(Map<String, Object> value) {
         this.clientProperties = value;
         packing_flags |= 256;
         setDirty(true);
         return this;
     }
 
-    public final ConnectionStartOk clientProperties(Map<String,Object> value) {
+    public ConnectionStartOk clientProperties(Map<String, Object> value) {
         return setClientProperties(value);
     }
 
-    public final boolean hasMechanism() {
+    public boolean hasMechanism() {
         return (packing_flags & 512) != 0;
     }
 
-    public final ConnectionStartOk clearMechanism() {
+    public ConnectionStartOk clearMechanism() {
         packing_flags &= ~512;
         this.mechanism = null;
         setDirty(true);
         return this;
     }
 
-    public final String getMechanism() {
+    public String getMechanism() {
         return mechanism;
     }
 
-    public final ConnectionStartOk setMechanism(String value) {
+    public ConnectionStartOk setMechanism(String value) {
         this.mechanism = value;
         packing_flags |= 512;
         setDirty(true);
         return this;
     }
 
-    public final ConnectionStartOk mechanism(String value) {
+    public ConnectionStartOk mechanism(String value) {
         return setMechanism(value);
     }
 
-    public final boolean hasResponse() {
+    public boolean hasResponse() {
         return (packing_flags & 1024) != 0;
     }
 
-    public final ConnectionStartOk clearResponse() {
+    public ConnectionStartOk clearResponse() {
         packing_flags &= ~1024;
         this.response = null;
         setDirty(true);
         return this;
     }
 
-    public final byte[] getResponse() {
+    public byte[] getResponse() {
         return response;
     }
 
-    public final ConnectionStartOk setResponse(byte[] value) {
+    public ConnectionStartOk setResponse(byte[] value) {
         this.response = value;
         packing_flags |= 1024;
         setDirty(true);
         return this;
     }
 
-    public final ConnectionStartOk response(byte[] value) {
+    public ConnectionStartOk response(byte[] value) {
         return setResponse(value);
     }
 
-    public final boolean hasLocale() {
+    public boolean hasLocale() {
         return (packing_flags & 2048) != 0;
     }
 
-    public final ConnectionStartOk clearLocale() {
+    public ConnectionStartOk clearLocale() {
         packing_flags &= ~2048;
         this.locale = null;
         setDirty(true);
         return this;
     }
 
-    public final String getLocale() {
+    public String getLocale() {
         return locale;
     }
 
-    public final ConnectionStartOk setLocale(String value) {
+    public ConnectionStartOk setLocale(String value) {
         this.locale = value;
         packing_flags |= 2048;
         setDirty(true);
         return this;
     }
 
-    public final ConnectionStartOk locale(String value) {
+    public ConnectionStartOk locale(String value) {
         return setLocale(value);
     }
 

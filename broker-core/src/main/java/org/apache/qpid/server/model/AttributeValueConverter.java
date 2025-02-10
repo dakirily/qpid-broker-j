@@ -60,10 +60,10 @@ import java.util.UUID;
 import java.util.regex.Pattern;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.base.Defaults;
 
 import org.apache.qpid.server.model.preferences.GenericPrincipal;
 import org.apache.qpid.server.transport.network.security.ssl.SSLUtil;
+import org.apache.qpid.server.util.ClassUtils;
 import org.apache.qpid.server.util.ServerScopedRuntimeException;
 import org.apache.qpid.server.util.Strings;
 
@@ -845,9 +845,8 @@ abstract class AttributeValueConverter<T>
         @Override
         public List convert(final Object value, final ConfiguredObject object)
         {
-            if(value instanceof Collection)
+            if(value instanceof final Collection original)
             {
-                Collection original = (Collection)value;
                 List converted = new ArrayList(original.size());
                 for(Object member : original)
                 {
@@ -896,9 +895,8 @@ abstract class AttributeValueConverter<T>
         @Override
         public Set convert(final Object value, final ConfiguredObject object)
         {
-            if(value instanceof Collection)
+            if(value instanceof final Collection original)
             {
-                Collection original = (Collection)value;
                 Set converted = new HashSet(original.size());
                 for(Object member : original)
                 {
@@ -948,9 +946,8 @@ abstract class AttributeValueConverter<T>
         @Override
         public Collection convert(final Object value, final ConfiguredObject object)
         {
-            if(value instanceof Collection)
+            if(value instanceof final Collection original)
             {
-                Collection original = (Collection)value;
                 Collection converted = new ArrayList(original.size());
                 for(Object member : original)
                 {
@@ -1004,9 +1001,8 @@ abstract class AttributeValueConverter<T>
         @Override
         public Map convert(final Object value, final ConfiguredObject object)
         {
-            if(value instanceof Map)
+            if(value instanceof final Map<?, ?> original)
             {
-                Map<?,?> original = (Map<?,?>)value;
                 Map converted = new LinkedHashMap(original.size());
                 for(Map.Entry<?,?> entry : original.entrySet())
                 {
@@ -1382,7 +1378,7 @@ abstract class AttributeValueConverter<T>
                                 }
                                 else
                                 {
-                                    return Defaults.defaultValue(method.getReturnType());
+                                    return ClassUtils.defaultValue(method.getReturnType());
                                 }
                             }
                         });

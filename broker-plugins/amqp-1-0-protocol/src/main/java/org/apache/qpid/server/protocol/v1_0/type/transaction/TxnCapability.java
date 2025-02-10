@@ -91,9 +91,8 @@ public class TxnCapability implements org.apache.qpid.server.protocol.v1_0.type.
 
     public static TxnCapability valueOf(Object obj)
     {
-        if (obj instanceof Symbol)
+        if (obj instanceof final Symbol val)
         {
-            Symbol val = (Symbol) obj;
 
             if (LOCAL_TXN._val.equals(val))
             {

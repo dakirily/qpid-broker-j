@@ -264,11 +264,10 @@ public class JsonHandlerTest extends UnitTestBase
         @Override
         public boolean equals(final Object obj)
         {
-            if (obj == null || !(obj instanceof TestCommand))
+            if (obj == null || !(obj instanceof final TestCommand other))
             {
                 return false;
             }
-            TestCommand other = (TestCommand)obj;
             if (_messageProperties == null && other._messageProperties != null )
             {
                 return false;

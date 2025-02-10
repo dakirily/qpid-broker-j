@@ -79,11 +79,10 @@ public class QueryExpression<T, R> extends AbstractExpressionNode<T, R>
     @SuppressWarnings("unchecked")
     public R apply(final T value)
     {
-        if (!(value instanceof QueryEvaluator))
+        if (!(value instanceof final QueryEvaluator queryEvaluator))
         {
             throw QueryEvaluationException.of(Errors.EVALUATION.EVALUATOR_NOT_SUPPLIED);
         }
-        final QueryEvaluator queryEvaluator = (QueryEvaluator) value;
         return (R) queryEvaluator.evaluate(this);
     }
 

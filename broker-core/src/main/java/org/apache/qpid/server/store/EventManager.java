@@ -36,12 +36,7 @@ public class EventManager
     {
         for(Event event : events)
         {
-            List<EventListener> list = _listeners.get(event);
-            if(list == null)
-            {
-                list = new ArrayList<>();
-                _listeners.put(event,list);
-            }
+            List<EventListener> list = _listeners.computeIfAbsent(event, key -> new ArrayList<>());
             list.add(listener);
         }
     }
@@ -52,7 +47,7 @@ public class EventManager
         {
             if(LOGGER.isDebugEnabled())
             {
-                LOGGER.debug("Received event " + event);
+                LOGGER.debug("Received event {}", event);
             }
 
             for (EventListener listener : _listeners.get(event))

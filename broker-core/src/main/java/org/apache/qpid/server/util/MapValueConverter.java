@@ -81,9 +81,8 @@ public class MapValueConverter
         {
             return (T) rawValue;
         }
-        else if (rawValue instanceof String)
+        else if (rawValue instanceof final String stringValue)
         {
-            final String stringValue = (String) rawValue;
 
             return "null".equals(stringValue) ? null : (T) Enum.valueOf(enumType, stringValue);
         }
@@ -204,9 +203,8 @@ public class MapValueConverter
             return null;
         }
         HashSet<T> set = new HashSet<>();
-        if (rawValue instanceof Iterable)
+        if (rawValue instanceof final Iterable<?> iterable)
         {
-            Iterable<?> iterable = (Iterable<?>)rawValue;
             for (Object object : iterable)
             {
                 T converted = convert(object, setItemClass, attributeName);

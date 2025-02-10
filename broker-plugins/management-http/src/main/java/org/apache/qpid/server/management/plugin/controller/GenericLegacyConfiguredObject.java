@@ -165,10 +165,9 @@ public class GenericLegacyConfiguredObject implements LegacyConfiguredObject
         {
             return _managementController.convertFromNextVersion((LegacyConfiguredObject) value);
         }
-        else if (value instanceof Collection)
+        else if (value instanceof final Collection<?> collection)
         {
-            Collection<?> collection = (Collection<?>) value;
-            if (collection.size() > 0 && collection.iterator().next() instanceof LegacyConfiguredObject)
+            if (!collection.isEmpty() && collection.iterator().next() instanceof LegacyConfiguredObject)
             {
                 return collection.stream()
                                  .filter(o -> o instanceof LegacyConfiguredObject)

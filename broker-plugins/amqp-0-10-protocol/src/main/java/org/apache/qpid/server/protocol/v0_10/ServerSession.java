@@ -52,6 +52,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.ConcurrentSkipListMap;
@@ -62,7 +63,6 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import javax.security.auth.Subject;
 
-import com.google.common.util.concurrent.ListenableFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -232,9 +232,8 @@ public class ServerSession extends SessionInvoker
                     m = new ExecutionSync();
                     m.setId(i);
                 }
-                else if (m instanceof MessageTransfer)
+                else if (m instanceof final MessageTransfer xfr)
                 {
-                    MessageTransfer xfr = (MessageTransfer)m;
 
                     Header header = xfr.getHeader();
 
@@ -1610,7 +1609,7 @@ public class ServerSession extends SessionInvoker
     }
 
     @Override
-    public void recordFuture(final ListenableFuture<Void> future, final ServerTransaction.Action action)
+    public void recordFuture(final CompletableFuture<Void> future, final ServerTransaction.Action action)
     {
         _unfinishedCommandsQueue.add(new AsyncCommand(future, action));
     }

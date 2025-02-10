@@ -102,7 +102,7 @@ public class ProducerConfig extends ParticipantConfig
         }
         else if(overriddenMessageSizeString != null)
         {
-            LOGGER.error("Couldn't parse overridden message size as integer :" + overriddenMessageSizeString);
+            LOGGER.error("Couldn't parse overridden message size as integer :{}", overriddenMessageSizeString);
         }
         return null;
     }

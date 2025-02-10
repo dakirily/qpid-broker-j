@@ -281,9 +281,8 @@ public class FixedKeyMapCreator
             {
                 return true;
             }
-            else if(o instanceof Map.Entry)
+            else if(o instanceof final Map.Entry e2)
             {
-                Map.Entry e2 = (Map.Entry) o;
                 return _key.equals(e2.getKey())
                        && (_value == null ? e2.getValue() == null
                         : _value.equals(e2.getValue()));

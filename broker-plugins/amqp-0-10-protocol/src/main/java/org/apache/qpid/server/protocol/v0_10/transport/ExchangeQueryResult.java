@@ -31,29 +31,29 @@ public final class ExchangeQueryResult extends Struct {
     public static final int TYPE = 1793;
 
     @Override
-    public final int getStructType() {
+    public int getStructType() {
         return TYPE;
     }
 
     @Override
-    public final int getSizeWidth() {
+    public int getSizeWidth() {
         return 4;
     }
 
     @Override
-    public final int getPackWidth() {
+    public int getPackWidth() {
         return 2;
     }
 
-    public final boolean hasPayload() {
+    public boolean hasPayload() {
         return false;
     }
 
-    public final byte getEncodedTrack() {
+    public byte getEncodedTrack() {
         return -1;
     }
 
-    public final boolean isConnectionControl()
+    public boolean isConnectionControl()
     {
         return false;
     }
@@ -74,12 +74,20 @@ public final class ExchangeQueryResult extends Struct {
             setArguments(arguments);
         }
 
-        for (int i=0; i < _options.length; i++) {
-            switch (_options[i]) {
-            case DURABLE: packing_flags |= 512; break;
-            case NOT_FOUND: packing_flags |= 1024; break;
-            case NONE: break;
-            default: throw new IllegalArgumentException("invalid option: " + _options[i]);
+        for (final Option option : _options)
+        {
+            switch (option)
+            {
+                case DURABLE:
+                    packing_flags |= 512;
+                    break;
+                case NOT_FOUND:
+                    packing_flags |= 1024;
+                    break;
+                case NONE:
+                    break;
+                default:
+                    throw new IllegalArgumentException("invalid option: " + option);
             }
         }
 
@@ -88,48 +96,48 @@ public final class ExchangeQueryResult extends Struct {
 
 
 
-    public final boolean hasType() {
+    public boolean hasType() {
         return (packing_flags & 256) != 0;
     }
 
-    public final ExchangeQueryResult clearType() {
+    public ExchangeQueryResult clearType() {
         packing_flags &= ~256;
         this.type = null;
         setDirty(true);
         return this;
     }
 
-    public final String getType() {
+    public String getType() {
         return type;
     }
 
-    public final ExchangeQueryResult setType(String value) {
+    public ExchangeQueryResult setType(String value) {
         this.type = value;
         packing_flags |= 256;
         setDirty(true);
         return this;
     }
 
-    public final ExchangeQueryResult type(String value) {
+    public ExchangeQueryResult type(String value) {
         return setType(value);
     }
 
-    public final boolean hasDurable() {
+    public boolean hasDurable() {
         return (packing_flags & 512) != 0;
     }
 
-    public final ExchangeQueryResult clearDurable() {
+    public ExchangeQueryResult clearDurable() {
         packing_flags &= ~512;
 
         setDirty(true);
         return this;
     }
 
-    public final boolean getDurable() {
+    public boolean getDurable() {
         return hasDurable();
     }
 
-    public final ExchangeQueryResult setDurable(boolean value) {
+    public ExchangeQueryResult setDurable(boolean value) {
 
         if (value)
         {
@@ -144,26 +152,26 @@ public final class ExchangeQueryResult extends Struct {
         return this;
     }
 
-    public final ExchangeQueryResult durable(boolean value) {
+    public ExchangeQueryResult durable(boolean value) {
         return setDurable(value);
     }
 
-    public final boolean hasNotFound() {
+    public boolean hasNotFound() {
         return (packing_flags & 1024) != 0;
     }
 
-    public final ExchangeQueryResult clearNotFound() {
+    public ExchangeQueryResult clearNotFound() {
         packing_flags &= ~1024;
 
         setDirty(true);
         return this;
     }
 
-    public final boolean getNotFound() {
+    public boolean getNotFound() {
         return hasNotFound();
     }
 
-    public final ExchangeQueryResult setNotFound(boolean value) {
+    public ExchangeQueryResult setNotFound(boolean value) {
 
         if (value)
         {
@@ -178,33 +186,33 @@ public final class ExchangeQueryResult extends Struct {
         return this;
     }
 
-    public final ExchangeQueryResult notFound(boolean value) {
+    public ExchangeQueryResult notFound(boolean value) {
         return setNotFound(value);
     }
 
-    public final boolean hasArguments() {
+    public boolean hasArguments() {
         return (packing_flags & 2048) != 0;
     }
 
-    public final ExchangeQueryResult clearArguments() {
+    public ExchangeQueryResult clearArguments() {
         packing_flags &= ~2048;
         this.arguments = null;
         setDirty(true);
         return this;
     }
 
-    public final Map<String,Object> getArguments() {
+    public Map<String,Object> getArguments() {
         return arguments;
     }
 
-    public final ExchangeQueryResult setArguments(Map<String,Object> value) {
+    public ExchangeQueryResult setArguments(Map<String, Object> value) {
         this.arguments = value;
         packing_flags |= 2048;
         setDirty(true);
         return this;
     }
 
-    public final ExchangeQueryResult arguments(Map<String,Object> value) {
+    public ExchangeQueryResult arguments(Map<String, Object> value) {
         return setArguments(value);
     }
 

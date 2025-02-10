@@ -26,7 +26,6 @@ import static org.apache.qpid.server.store.berkeleydb.EnvironmentFacade.LOG_HAND
 import static org.apache.qpid.server.util.ParameterizedTypes.MAP_OF_STRING_STRING;
 
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
@@ -194,22 +193,15 @@ public class Slf4jLoggingHandler extends Handler
         }
     };
 
-    private static final Map<Level, MappedLevel> LEVEL_MAP;
-    static
-    {
-        Map<Level, MappedLevel> map = new HashMap<>();
-        map.put(Level.SEVERE, ERROR);
-        map.put(Level.WARNING, WARN);
-        //Note that INFO comes out at DEBUG level as the BDB logging at INFO seems to be more of a DEBUG nature
-        map.put(Level.INFO, DEBUG);
-        map.put(Level.CONFIG, DEBUG);
-        map.put(Level.FINE, TRACE);
-        map.put(Level.FINER, TRACE);
-        map.put(Level.FINEST, TRACE);
-        map.put(Level.ALL, TRACE);
-
-        LEVEL_MAP = Collections.unmodifiableMap(map);
-    }
+    private static final Map<Level, MappedLevel> LEVEL_MAP = Map.of(Level.SEVERE, ERROR,
+            Level.WARNING, WARN,
+            //Note that INFO comes out at DEBUG level as the BDB logging at INFO seems to be more of a DEBUG nature
+            Level.INFO, DEBUG,
+            Level.CONFIG, DEBUG,
+            Level.FINE, TRACE,
+            Level.FINER, TRACE,
+            Level.FINEST, TRACE,
+            Level.ALL, TRACE);
 
     @Override
     public void publish(final LogRecord record)

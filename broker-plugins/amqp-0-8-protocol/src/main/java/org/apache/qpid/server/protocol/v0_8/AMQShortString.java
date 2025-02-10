@@ -25,7 +25,7 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 
-import com.google.common.cache.Cache;
+import com.github.benmanes.caffeine.cache.Cache;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -327,10 +327,9 @@ public final class AMQShortString implements Comparable<AMQShortString>
 
     public boolean contains(final byte b)
     {
-        final int end = _data.length;
-        for(int i = 0; i < end; i++)
+        for (final byte datum : _data)
         {
-            if(_data[i] == b)
+            if (datum == b)
             {
                 return true;
             }

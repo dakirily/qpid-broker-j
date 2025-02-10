@@ -668,12 +668,8 @@ public class VirtualHostStoreUpgraderAndRecoverer extends AbstractConfigurationS
                                                           record.getParents().get("Queue").toString(),
                                                           record.getAttributes().get("arguments"));
                 final UUID exchangeId = record.getParents().get("Exchange");
-                List<BindingRecord> existingBindings = _exchangeBindings.get(exchangeId);
-                if(existingBindings == null)
-                {
-                    existingBindings = new ArrayList<>();
-                    _exchangeBindings.put(exchangeId, existingBindings);
-                }
+                List<BindingRecord> existingBindings =
+                        _exchangeBindings.computeIfAbsent(exchangeId, key -> new ArrayList<>());
                 existingBindings.add(binding);
                 getDeleteMap().put(record.getId(), record);
             }
@@ -683,12 +679,8 @@ public class VirtualHostStoreUpgraderAndRecoverer extends AbstractConfigurationS
                 _exchanges.put(exchangeId, record);
                 if(record.getAttributes().containsKey("bindings"))
                 {
-                    List<BindingRecord> existingBindings = _exchangeBindings.get(exchangeId);
-                    if(existingBindings == null)
-                    {
-                        existingBindings = new ArrayList<>();
-                        _exchangeBindings.put(exchangeId, existingBindings);
-                    }
+                    List<BindingRecord> existingBindings =
+                            _exchangeBindings.computeIfAbsent(exchangeId, key -> new ArrayList<>());
 
                     List<Map<String,Object>> bindingList =
                             (List<Map<String, Object>>) record.getAttributes().get("bindings");
@@ -850,9 +842,8 @@ public class VirtualHostStoreUpgraderAndRecoverer extends AbstractConfigurationS
             {
                 value = (Boolean) attributeValue;
             }
-            else if (attributeValue instanceof String)
+            else if (attributeValue instanceof final String strValue)
             {
-                String strValue = (String)attributeValue;
                 if(strValue.equalsIgnoreCase("true"))
                 {
                     value = true;
@@ -895,12 +886,8 @@ public class VirtualHostStoreUpgraderAndRecoverer extends AbstractConfigurationS
                     {
                         exchangeId = getExchangeIdFromNameOrId( existingBinding.get("exchange").toString());
                     }
-                    List<BindingRecord> existingBindings = _exchangeBindings.get(exchangeId);
-                    if(existingBindings == null)
-                    {
-                        existingBindings = new ArrayList<>();
-                        _exchangeBindings.put(exchangeId, existingBindings);
-                    }
+                    List<BindingRecord> existingBindings =
+                            _exchangeBindings.computeIfAbsent(exchangeId, key -> new ArrayList<>());
                     existingBindings.add(new BindingRecord((String)existingBinding.get("name"),
                                                            entry.getKey(),
                                                            existingBinding.get("arguments")));

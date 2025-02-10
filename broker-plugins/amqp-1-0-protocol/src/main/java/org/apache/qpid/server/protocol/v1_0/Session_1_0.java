@@ -26,7 +26,6 @@ import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -37,16 +36,14 @@ import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import javax.security.auth.Subject;
 
-import com.google.common.collect.Sets;
-import com.google.common.util.concurrent.FutureCallback;
-import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.MoreExecutors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -151,7 +148,7 @@ public class Session_1_0 extends AbstractAMQPSession<Session_1_0, ConsumerTarget
                       "Force detach the link because the session is remotely ended.");
 
     private final String _primaryDomain;
-    private final Set<Object> _blockingEntities = Collections.newSetFromMap(new ConcurrentHashMap<>());
+    private final Set<Object> _blockingEntities = ConcurrentHashMap.newKeySet();
 
     public Session_1_0(final AMQPConnection_1_0 connection,
                        Begin begin,
@@ -203,9 +200,61 @@ public class Session_1_0 extends AbstractAMQPSession<Session_1_0, ConsumerTarget
                     link = getAddressSpace().getReceivingLink(getConnection().getRemoteContainerId(), attach.getName());
                 }
 
-                final ListenableFuture<? extends LinkEndpoint<?,?>> future = link.attach(this, attach);
+                final CompletableFuture<? extends LinkEndpoint<?,?>> future = link.attach(this, attach);
 
-                addFutureCallback(future, new EndpointCreationCallback(attach), MoreExecutors.directExecutor());
+                future.whenComplete((endpoint, error) ->
+                {
+                    if (error != null)
+                    {
+                        String errorMessage = String.format("Failed to create LinkEndpoint in response to Attach: %s", attach);
+                        LOGGER.error(errorMessage, error);
+                        throw new ConnectionScopedRuntimeException(errorMessage, error);
+                    }
+                    else
+                    {
+                        doOnIOThreadAsync(() ->
+                        {
+                            _associatedLinkEndpoints.add(endpoint);
+                            _inputHandleToEndpoint.put(attach.getHandle(), endpoint);
+                            UnsignedInteger nextAvailableOutputHandle = findNextAvailableOutputHandle();
+                            if (nextAvailableOutputHandle == null)
+                            {
+                                endpoint.close(new Error(AmqpError.RESOURCE_LIMIT_EXCEEDED,
+                                                         String.format(
+                                                                 "Cannot find free handle for endpoint '%s' on session '%s'",
+                                                                 attach.getName(),
+                                                                 endpoint.getSession().toLogString())));
+                            }
+                            else
+                            {
+                                endpoint.setLocalHandle(nextAvailableOutputHandle);
+                                if (endpoint instanceof ErrantLinkEndpoint)
+                                {
+                                    endpoint.sendAttach();
+                                    ((ErrantLinkEndpoint) endpoint).closeWithError();
+                                }
+                                else
+                                {
+
+                                    if (!_endpointToOutputHandle.containsKey(endpoint))
+                                    {
+                                        _endpointToOutputHandle.put(endpoint, endpoint.getLocalHandle());
+                                        checkMessageDestinationFlowForReceivingLinkEndpoint(endpoint);
+                                        endpoint.sendAttach();
+                                        endpoint.start();
+                                    }
+                                    else
+                                    {
+                                        final End end = new End();
+                                        end.setError(new Error(AmqpError.INTERNAL_ERROR,
+                                                               "Endpoint is already registered with session."));
+                                        endpoint.getSession().end(end);
+                                    }
+                                }
+                            }
+                        });
+                    }
+                });
             }
         }
     }
@@ -614,7 +663,7 @@ public class Session_1_0 extends AbstractAMQPSession<Session_1_0, ConsumerTarget
             _connection.close(error);
 
         }
-        else if(!(linkEndpoint instanceof AbstractReceivingLinkEndpoint))
+        else if(!(linkEndpoint instanceof final AbstractReceivingLinkEndpoint endpoint))
         {
 
             Error error = new Error();
@@ -625,7 +674,6 @@ public class Session_1_0 extends AbstractAMQPSession<Session_1_0, ConsumerTarget
         }
         else
         {
-            AbstractReceivingLinkEndpoint endpoint = ((AbstractReceivingLinkEndpoint) linkEndpoint);
             endpoint.receiveTransfer(transfer);
         }
     }
@@ -706,13 +754,11 @@ public class Session_1_0 extends AbstractAMQPSession<Session_1_0, ConsumerTarget
                                                 final SendingDestination newDestination)
     {
         SendingDestination oldDestination = linkEndpoint.getDestination();
-        if (oldDestination instanceof ExchangeSendingDestination)
+        if (oldDestination instanceof final ExchangeSendingDestination oldExchangeDestination)
         {
-            ExchangeSendingDestination oldExchangeDestination = (ExchangeSendingDestination) oldDestination;
             String newAddress = newSource.getAddress();
-            if (newDestination instanceof ExchangeSendingDestination)
+            if (newDestination instanceof final ExchangeSendingDestination newExchangeDestination)
             {
-                ExchangeSendingDestination newExchangeDestination = (ExchangeSendingDestination) newDestination;
                 if (oldExchangeDestination.getQueue() != newExchangeDestination.getQueue())
                 {
                     Source oldSource = linkEndpoint.getSource();
@@ -817,7 +863,7 @@ public class Session_1_0 extends AbstractAMQPSession<Session_1_0, ConsumerTarget
 
             if (terminus.getCapabilities() != null)
             {
-                final Set<Symbol> capabilities = Sets.newHashSet(terminus.getCapabilities());
+                final Set<Symbol> capabilities = Stream.of(terminus.getCapabilities()).collect(Collectors.toSet());
                 if (capabilities.contains(Symbol.valueOf("temporary-queue"))
                     || capabilities.contains(Symbol.valueOf("temporary-topic")))
                 {
@@ -843,7 +889,7 @@ public class Session_1_0 extends AbstractAMQPSession<Session_1_0, ConsumerTarget
                                                         final Terminus terminus) throws AmqpErrorException
     {
         final Symbol[] capabilities = terminus.getCapabilities();
-        final Set<Symbol> capabilitySet = capabilities == null ? Set.of() : Sets.newHashSet(capabilities);
+        final Set<Symbol> capabilitySet = capabilities == null ? Set.of() : Stream.of(capabilities).collect(Collectors.toSet());
         boolean isTopic = capabilitySet.contains(Symbol.valueOf("temporary-topic")) || capabilitySet.contains(Symbol.valueOf("topic"));
         final String destName = (isTopic ? "TempTopic" : "TempQueue") + UUID.randomUUID();
         try
@@ -964,10 +1010,10 @@ public class Session_1_0 extends AbstractAMQPSession<Session_1_0, ConsumerTarget
         }
 
         int id = 0;
-        for (int i = 0; i < data.length; i++)
+        for (final byte datum : data)
         {
             id <<= 8;
-            id |= ((int) data[i] & 0xff);
+            id |= ((int) datum & 0xff);
         }
 
         return id;
@@ -1336,7 +1382,7 @@ public class Session_1_0 extends AbstractAMQPSession<Session_1_0, ConsumerTarget
 
     void receivedComplete()
     {
-        _associatedLinkEndpoints.forEach(linkedEnpoint -> linkedEnpoint.receiveComplete());
+        _associatedLinkEndpoints.forEach(LinkEndpoint::receiveComplete);
     }
 
     private void checkMessageDestinationFlowForReceivingLinkEndpoint(final LinkEndpoint<?,?> endpoint)
@@ -1350,79 +1396,13 @@ public class Session_1_0 extends AbstractAMQPSession<Session_1_0, ConsumerTarget
             {
                 endpoint.setStopped(true);
             }
-            else if (destination.getMessageDestination() instanceof Queue)
+            else if (destination.getMessageDestination() instanceof final Queue<?> queue)
             {
-                Queue<?> queue = (Queue<?>)destination.getMessageDestination();
                 if (queue.isQueueFlowStopped())
                 {
                     queue.checkCapacity();
                 }
             }
-        }
-    }
-
-    private class EndpointCreationCallback<T extends LinkEndpoint<? extends BaseSource, ? extends BaseTarget>> implements FutureCallback<T>
-    {
-
-        private final Attach _attach;
-
-        EndpointCreationCallback(final Attach attach)
-        {
-            _attach = attach;
-        }
-
-        @Override
-        public void onSuccess(final T endpoint)
-        {
-            doOnIOThreadAsync(() ->
-            {
-                _associatedLinkEndpoints.add(endpoint);
-                _inputHandleToEndpoint.put(_attach.getHandle(), endpoint);
-                UnsignedInteger nextAvailableOutputHandle = findNextAvailableOutputHandle();
-                if (nextAvailableOutputHandle == null)
-                {
-                    endpoint.close(new Error(AmqpError.RESOURCE_LIMIT_EXCEEDED,
-                                             String.format(
-                                                     "Cannot find free handle for endpoint '%s' on session '%s'",
-                                                     _attach.getName(),
-                                                     endpoint.getSession().toLogString())));
-                }
-                else
-                {
-                    endpoint.setLocalHandle(nextAvailableOutputHandle);
-                    if (endpoint instanceof ErrantLinkEndpoint)
-                    {
-                        endpoint.sendAttach();
-                        ((ErrantLinkEndpoint) endpoint).closeWithError();
-                    }
-                    else
-                    {
-
-                        if (!_endpointToOutputHandle.containsKey(endpoint))
-                        {
-                            _endpointToOutputHandle.put(endpoint, endpoint.getLocalHandle());
-                            checkMessageDestinationFlowForReceivingLinkEndpoint(endpoint);
-                            endpoint.sendAttach();
-                            endpoint.start();
-                        }
-                        else
-                        {
-                            final End end = new End();
-                            end.setError(new Error(AmqpError.INTERNAL_ERROR,
-                                                   "Endpoint is already registered with session."));
-                            endpoint.getSession().end(end);
-                        }
-                    }
-                }
-            });
-        }
-
-        @Override
-        public void onFailure(final Throwable t)
-        {
-            String errorMessage = String.format("Failed to create LinkEndpoint in response to Attach: %s", _attach);
-            LOGGER.error(errorMessage, t);
-            throw new ConnectionScopedRuntimeException(errorMessage, t);
         }
     }
 }

@@ -20,10 +20,9 @@ package org.apache.qpid.server.user.connection.limits.plugins;
 
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -95,7 +94,7 @@ public abstract class AbstractConnectionLimitProvider<X extends AbstractConnecti
 
     @StateTransition(currentState = {State.UNINITIALIZED, State.QUIESCED, State.ERRORED}, desiredState = State.ACTIVE)
     @SuppressWarnings("unused")
-    ListenableFuture<Void> activate()
+    CompletableFuture<Void> activate()
     {
         final boolean isManagementMode = getModel().getAncestor(SystemConfig.class, this).isManagementMode();
         final RuleSetCreator creator;
@@ -118,38 +117,37 @@ public abstract class AbstractConnectionLimitProvider<X extends AbstractConnecti
         }
         catch (RuntimeException e)
         {
-            LOGGER.debug(String.format(
-                    "Connection limit provider '%s' can not be activated because of the error: ", getName()), e);
+            LOGGER.debug("Connection limit provider '{}' can not be activated because of the error: ", getName(), e);
             setState(State.ERRORED);
             if (isManagementMode)
             {
-                LOGGER.warn(String.format("Failed to activate connection limit provider: %s", getName()));
+                LOGGER.warn("Failed to activate connection limit provider: {}", getName());
             }
             else
             {
                 throw e;
             }
         }
-        return Futures.immediateFuture(null);
+        return CompletableFuture.completedFuture(null);
     }
 
     @StateTransition(currentState = {
             State.UNINITIALIZED, State.QUIESCED, State.ACTIVE, State.STOPPED, State.DELETED, State.UNAVAILABLE},
             desiredState = State.ERRORED)
     @SuppressWarnings("unused")
-    ListenableFuture<Void> error()
+    CompletableFuture<Void> error()
     {
         _creator.set(null);
         setState(State.ERRORED);
-        return Futures.immediateFuture(null);
+        return CompletableFuture.completedFuture(null);
     }
 
     @StateTransition(currentState = State.UNINITIALIZED, desiredState = State.QUIESCED)
     @SuppressWarnings("unused")
-    private ListenableFuture<Void> startQuiesced()
+    private CompletableFuture<Void> startQuiesced()
     {
         setState(State.QUIESCED);
-        return Futures.immediateFuture(null);
+        return CompletableFuture.completedFuture(null);
     }
 
     protected void forceNewRuleSetCreator()

@@ -499,7 +499,7 @@ public class CommitRollbackTest extends JmsTestBase
             {
                 try
                 {
-                    LOGGER.info("received message " + message);
+                    LOGGER.info("received message {}", message);
                     assertEquals(commitCounter.get(), message.getIntProperty(INDEX), "Unexpected message received");
                     LOGGER.info("commit session");
                     session.commit();
@@ -648,13 +648,13 @@ public class CommitRollbackTest extends JmsTestBase
                         assertEquals(m, remaining.getIntProperty(INDEX), "Received remaining message out of order");
                     }
 
-                    LOGGER.debug(String.format("Rolling back transaction for message with index %d", expectedIndex));
+                    LOGGER.debug("Rolling back transaction for message with index {}", expectedIndex);
                     session.rollback();
                     messageSeen++;
                 }
                 else
                 {
-                    LOGGER.debug(String.format("Committing transaction for message with index %d", expectedIndex));
+                    LOGGER.debug("Committing transaction for message with index {}", expectedIndex);
                     messageSeen = 0;
                     expectedIndex++;
                     session.commit();

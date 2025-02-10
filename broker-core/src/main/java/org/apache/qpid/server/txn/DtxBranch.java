@@ -210,8 +210,8 @@ public class DtxBranch
         _storedXidRecord = txn.recordXid(_xid.getFormat(),
                       _xid.getGlobalId(),
                       _xid.getBranchId(),
-                      _enqueueRecords.toArray(new EnqueueRecord[_enqueueRecords.size()]),
-                      _dequeueRecords.toArray(new DequeueRecord[_dequeueRecords.size()]));
+                      _enqueueRecords.toArray(new EnqueueRecord[0]),
+                      _dequeueRecords.toArray(new DequeueRecord[0]));
         txn.commitTran();
 
         prePrepareTransaction();

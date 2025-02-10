@@ -160,23 +160,13 @@ public class DerbyUtils
 
     public static boolean tableExists(final String tableName, final Connection conn) throws SQLException
     {
-        PreparedStatement stmt = conn.prepareStatement(TABLE_EXISTENCE_QUERY);
-        try
+        try (PreparedStatement stmt = conn.prepareStatement(TABLE_EXISTENCE_QUERY))
         {
             stmt.setString(1, tableName);
-            ResultSet rs = stmt.executeQuery();
-            try
+            try (ResultSet rs = stmt.executeQuery())
             {
                 return rs.next();
             }
-            finally
-            {
-                rs.close();
-            }
-        }
-        finally
-        {
-            stmt.close();
         }
     }
 

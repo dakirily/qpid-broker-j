@@ -29,11 +29,11 @@ import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.regex.Pattern;
 
-import com.google.common.util.concurrent.ListenableFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -161,10 +161,9 @@ public class SendingLinkEndpoint extends AbstractLinkEndpoint<Source, Target>
                         actualFilters.put(entry.getKey(), entry.getValue());
                         noLocal = true;
                     }
-                    else if(messageFilter == null && entry.getValue() instanceof org.apache.qpid.server.protocol.v1_0.type.messaging.JMSSelectorFilter)
+                    else if(messageFilter == null && entry.getValue() instanceof final org.apache.qpid.server.protocol.v1_0.type.messaging.JMSSelectorFilter selectorFilter)
                     {
 
-                        org.apache.qpid.server.protocol.v1_0.type.messaging.JMSSelectorFilter selectorFilter = (org.apache.qpid.server.protocol.v1_0.type.messaging.JMSSelectorFilter) entry.getValue();
                         try
                         {
                             messageFilter = new JMSSelectorFilter(selectorFilter.getValue());
@@ -721,9 +720,8 @@ public class SendingLinkEndpoint extends AbstractLinkEndpoint<Source, Target>
                 queueEntry.release(oldConsumer);
                 _unsettled.remove(deliveryTag);
             }
-            else if (remoteUnsettled.get(deliveryTag) instanceof Outcome)
+            else if (remoteUnsettled.get(deliveryTag) instanceof final Outcome outcome)
             {
-                Outcome outcome = (Outcome) remoteUnsettled.get(deliveryTag);
 
                 if (outcome instanceof Accepted)
                 {
@@ -935,7 +933,7 @@ public class SendingLinkEndpoint extends AbstractLinkEndpoint<Source, Target>
     }
 
     @Override
-    public void recordFuture(final ListenableFuture<Void> future, final ServerTransaction.Action action)
+    public void recordFuture(final CompletableFuture<Void> future, final ServerTransaction.Action action)
     {
         _unfinishedCommandsQueue.add(new AsyncCommand(future, action));
     }

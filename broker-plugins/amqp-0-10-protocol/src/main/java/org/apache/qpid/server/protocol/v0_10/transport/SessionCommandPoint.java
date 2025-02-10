@@ -31,32 +31,32 @@ public final class SessionCommandPoint extends Method {
     public static final int TYPE = 519;
 
     @Override
-    public final int getStructType() {
+    public int getStructType() {
         return TYPE;
     }
 
     @Override
-    public final int getSizeWidth() {
+    public int getSizeWidth() {
         return 0;
     }
 
     @Override
-    public final int getPackWidth() {
+    public int getPackWidth() {
         return 2;
     }
 
     @Override
-    public final boolean hasPayload() {
+    public boolean hasPayload() {
         return false;
     }
 
     @Override
-    public final byte getEncodedTrack() {
+    public byte getEncodedTrack() {
         return Frame.L3;
     }
 
     @Override
-    public final boolean isConnectionControl()
+    public boolean isConnectionControl()
     {
         return false;
     }
@@ -73,13 +73,23 @@ public final class SessionCommandPoint extends Method {
         setCommandId(commandId);
         setCommandOffset(commandOffset);
 
-        for (int i=0; i < _options.length; i++) {
-            switch (_options[i]) {
-            case SYNC: this.setSync(true); break;
-            case BATCH: this.setBatch(true); break;
-            case UNRELIABLE: this.setUnreliable(true); break;
-            case NONE: break;
-            default: throw new IllegalArgumentException("invalid option: " + _options[i]);
+        for (final Option option : _options)
+        {
+            switch (option)
+            {
+                case SYNC:
+                    this.setSync(true);
+                    break;
+                case BATCH:
+                    this.setBatch(true);
+                    break;
+                case UNRELIABLE:
+                    this.setUnreliable(true);
+                    break;
+                case NONE:
+                    break;
+                default:
+                    throw new IllegalArgumentException("invalid option: " + option);
             }
         }
 
@@ -91,55 +101,55 @@ public final class SessionCommandPoint extends Method {
     }
 
 
-    public final boolean hasCommandId() {
+    public boolean hasCommandId() {
         return (packing_flags & 256) != 0;
     }
 
-    public final SessionCommandPoint clearCommandId() {
+    public SessionCommandPoint clearCommandId() {
         packing_flags &= ~256;
         this.commandId = 0;
         setDirty(true);
         return this;
     }
 
-    public final int getCommandId() {
+    public int getCommandId() {
         return commandId;
     }
 
-    public final SessionCommandPoint setCommandId(int value) {
+    public SessionCommandPoint setCommandId(int value) {
         this.commandId = value;
         packing_flags |= 256;
         setDirty(true);
         return this;
     }
 
-    public final SessionCommandPoint commandId(int value) {
+    public SessionCommandPoint commandId(int value) {
         return setCommandId(value);
     }
 
-    public final boolean hasCommandOffset() {
+    public boolean hasCommandOffset() {
         return (packing_flags & 512) != 0;
     }
 
-    public final SessionCommandPoint clearCommandOffset() {
+    public SessionCommandPoint clearCommandOffset() {
         packing_flags &= ~512;
         this.commandOffset = 0;
         setDirty(true);
         return this;
     }
 
-    public final long getCommandOffset() {
+    public long getCommandOffset() {
         return commandOffset;
     }
 
-    public final SessionCommandPoint setCommandOffset(long value) {
+    public SessionCommandPoint setCommandOffset(long value) {
         this.commandOffset = value;
         packing_flags |= 512;
         setDirty(true);
         return this;
     }
 
-    public final SessionCommandPoint commandOffset(long value) {
+    public SessionCommandPoint commandOffset(long value) {
         return setCommandOffset(value);
     }
 
