@@ -44,7 +44,7 @@ public class StringWriter extends SimpleVariableWidthWriter<String>
         return (byte) 0xa1;
     }
 
-    public static void register(ValueWriter.Registry registry)
+    public static void register(final ValueWriter.Registry registry)
     {
         registry.register(String.class, FACTORY);
     }

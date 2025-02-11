@@ -29,7 +29,7 @@ import org.apache.qpid.server.protocol.v1_0.CompositeTypeField;
 import org.apache.qpid.server.protocol.v1_0.type.Symbol;
 import org.apache.qpid.server.protocol.v1_0.type.UnsignedInteger;
 
-@CompositeType( symbolicDescriptor = "amqp:properties:list", numericDescriptor = 0x0000000000000073L)
+@CompositeType(symbolicDescriptor = "amqp:properties:list", numericDescriptor = 0x0000000000000073L)
 public class Properties implements NonEncodingRetainingSection<Properties>
 {
     @CompositeTypeField(index = 0)
@@ -76,7 +76,7 @@ public class Properties implements NonEncodingRetainingSection<Properties>
         return _messageId;
     }
 
-    public void setMessageId(Object messageId)
+    public void setMessageId(final Object messageId)
     {
         _messageId = messageId;
     }
@@ -86,7 +86,7 @@ public class Properties implements NonEncodingRetainingSection<Properties>
         return _userId;
     }
 
-    public void setUserId(Binary userId)
+    public void setUserId(final Binary userId)
     {
         _userId = userId;
     }
@@ -96,7 +96,7 @@ public class Properties implements NonEncodingRetainingSection<Properties>
         return _to;
     }
 
-    public void setTo(String to)
+    public void setTo(final String to)
     {
         _to = to;
     }
@@ -106,7 +106,7 @@ public class Properties implements NonEncodingRetainingSection<Properties>
         return _subject;
     }
 
-    public void setSubject(String subject)
+    public void setSubject(final String subject)
     {
         _subject = subject;
     }
@@ -116,7 +116,7 @@ public class Properties implements NonEncodingRetainingSection<Properties>
         return _replyTo;
     }
 
-    public void setReplyTo(String replyTo)
+    public void setReplyTo(final String replyTo)
     {
         _replyTo = replyTo;
     }
@@ -126,7 +126,7 @@ public class Properties implements NonEncodingRetainingSection<Properties>
         return _correlationId;
     }
 
-    public void setCorrelationId(Object correlationId)
+    public void setCorrelationId(final Object correlationId)
     {
         _correlationId = correlationId;
     }
@@ -136,7 +136,7 @@ public class Properties implements NonEncodingRetainingSection<Properties>
         return _contentType;
     }
 
-    public void setContentType(Symbol contentType)
+    public void setContentType(final Symbol contentType)
     {
         _contentType = contentType;
     }
@@ -146,7 +146,7 @@ public class Properties implements NonEncodingRetainingSection<Properties>
         return _contentEncoding;
     }
 
-    public void setContentEncoding(Symbol contentEncoding)
+    public void setContentEncoding(final Symbol contentEncoding)
     {
         _contentEncoding = contentEncoding;
     }
@@ -156,7 +156,7 @@ public class Properties implements NonEncodingRetainingSection<Properties>
         return _absoluteExpiryTime;
     }
 
-    public void setAbsoluteExpiryTime(Date absoluteExpiryTime)
+    public void setAbsoluteExpiryTime(final Date absoluteExpiryTime)
     {
         _absoluteExpiryTime = absoluteExpiryTime;
     }
@@ -166,7 +166,7 @@ public class Properties implements NonEncodingRetainingSection<Properties>
         return _creationTime;
     }
 
-    public void setCreationTime(Date creationTime)
+    public void setCreationTime(final Date creationTime)
     {
         _creationTime = creationTime;
     }
@@ -176,7 +176,7 @@ public class Properties implements NonEncodingRetainingSection<Properties>
         return _groupId;
     }
 
-    public void setGroupId(String groupId)
+    public void setGroupId(final String groupId)
     {
         _groupId = groupId;
     }
@@ -186,7 +186,7 @@ public class Properties implements NonEncodingRetainingSection<Properties>
         return _groupSequence;
     }
 
-    public void setGroupSequence(UnsignedInteger groupSequence)
+    public void setGroupSequence(final UnsignedInteger groupSequence)
     {
         _groupSequence = groupSequence;
     }
@@ -196,7 +196,7 @@ public class Properties implements NonEncodingRetainingSection<Properties>
         return _replyToGroupId;
     }
 
-    public void setReplyToGroupId(String replyToGroupId)
+    public void setReplyToGroupId(final String replyToGroupId)
     {
         _replyToGroupId = replyToGroupId;
     }
@@ -204,15 +204,11 @@ public class Properties implements NonEncodingRetainingSection<Properties>
     @Override
     public String toString()
     {
-        StringBuilder builder = new StringBuilder("Properties{");
+        final StringBuilder builder = new StringBuilder("Properties{");
         final int origLength = builder.length();
 
         if (_messageId != null)
         {
-            if (builder.length() != origLength)
-            {
-                builder.append(',');
-            }
             builder.append("messageId=").append(_messageId);
         }
 

@@ -26,6 +26,8 @@ import org.apache.qpid.server.plugin.Pluggable;
 public interface LinkStoreFactory extends Pluggable
 {
     LinkStore create(NamedAddressSpace addressSpace);
+
     boolean supports(NamedAddressSpace addressSpace);
+
     int getPriority();
 }

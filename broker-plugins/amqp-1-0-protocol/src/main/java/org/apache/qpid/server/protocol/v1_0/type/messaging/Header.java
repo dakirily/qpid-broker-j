@@ -1,4 +1,3 @@
-
 /*
 *
 * Licensed to the Apache Software Foundation (ASF) under one
@@ -20,19 +19,16 @@
 *
 */
 
-
 package org.apache.qpid.server.protocol.v1_0.type.messaging;
-
 
 import org.apache.qpid.server.protocol.v1_0.CompositeType;
 import org.apache.qpid.server.protocol.v1_0.CompositeTypeField;
 import org.apache.qpid.server.protocol.v1_0.type.UnsignedByte;
 import org.apache.qpid.server.protocol.v1_0.type.UnsignedInteger;
 
-@CompositeType( symbolicDescriptor = "amqp:header:list", numericDescriptor = 0x0000000000000070L)
+@CompositeType(symbolicDescriptor = "amqp:header:list", numericDescriptor = 0x0000000000000070L)
 public class Header implements NonEncodingRetainingSection<Header>
 {
-
     @CompositeTypeField(index = 0)
     private Boolean _durable;
 
@@ -53,7 +49,7 @@ public class Header implements NonEncodingRetainingSection<Header>
         return _durable;
     }
 
-    public void setDurable(Boolean durable)
+    public void setDurable(final Boolean durable)
     {
         _durable = durable;
     }
@@ -63,7 +59,7 @@ public class Header implements NonEncodingRetainingSection<Header>
         return _priority;
     }
 
-    public void setPriority(UnsignedByte priority)
+    public void setPriority(final UnsignedByte priority)
     {
         _priority = priority;
     }
@@ -73,7 +69,7 @@ public class Header implements NonEncodingRetainingSection<Header>
         return _ttl;
     }
 
-    public void setTtl(UnsignedInteger ttl)
+    public void setTtl(final UnsignedInteger ttl)
     {
         _ttl = ttl;
     }
@@ -83,7 +79,7 @@ public class Header implements NonEncodingRetainingSection<Header>
         return _firstAcquirer;
     }
 
-    public void setFirstAcquirer(Boolean firstAcquirer)
+    public void setFirstAcquirer(final Boolean firstAcquirer)
     {
         _firstAcquirer = firstAcquirer;
     }
@@ -93,7 +89,7 @@ public class Header implements NonEncodingRetainingSection<Header>
         return _deliveryCount;
     }
 
-    public void setDeliveryCount(UnsignedInteger deliveryCount)
+    public void setDeliveryCount(final UnsignedInteger deliveryCount)
     {
         _deliveryCount = deliveryCount;
     }
@@ -101,15 +97,11 @@ public class Header implements NonEncodingRetainingSection<Header>
     @Override
     public String toString()
     {
-        StringBuilder builder = new StringBuilder("Header{");
+        final StringBuilder builder = new StringBuilder("Header{");
         final int origLength = builder.length();
 
         if (_durable != null)
         {
-            if (builder.length() != origLength)
-            {
-                builder.append(',');
-            }
             builder.append("durable=").append(_durable);
         }
 

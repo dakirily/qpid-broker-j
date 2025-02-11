@@ -25,7 +25,6 @@ import java.util.List;
 
 import org.apache.qpid.server.bytebuffer.QpidByteBuffer;
 import org.apache.qpid.server.protocol.v1_0.type.AmqpErrorException;
-import org.apache.qpid.server.protocol.v1_0.type.transport.AmqpError;
 
 public class ListConstructor extends VariableWidthTypeConstructor<List<Object>>
 {
@@ -39,17 +38,15 @@ public class ListConstructor extends VariableWidthTypeConstructor<List<Object>>
     {
         int size;
         int count;
-        long remaining = (long) in.remaining();
-        if (remaining < getSize() * 2)
+        long remaining = in.remaining();
+        if (remaining < _size * 2L)
         {
-            throw new AmqpErrorException(AmqpError.DECODE_ERROR,
-                                         String.format("Not sufficient data for deserialization of 'list'."
-                                                       + " Expected at least %d bytes. Got %d bytes.",
-                                                       getSize(),
-                                                       remaining));
+            throw AmqpErrorException.decode()
+                    .message("Not sufficient data for deserialization of 'list'. Expected at least %d bytes. Got %d bytes.")
+                    .args(_size, remaining);
         }
 
-        if (getSize() == 1)
+        if (_size == 1)
         {
             size = in.getUnsignedByte();
             count = in.getUnsignedByte();
@@ -59,25 +56,22 @@ public class ListConstructor extends VariableWidthTypeConstructor<List<Object>>
             size = in.getInt();
             count = in.getInt();
         }
-        remaining -= getSize();
+        remaining -= _size;
         if (remaining < size)
         {
-            throw new AmqpErrorException(AmqpError.DECODE_ERROR,
-                                         String.format("Not sufficient data for deserialization of 'list'."
-                                                       + " Expected at least %d bytes. Got %d bytes.",
-                                                       size,
-                                                       remaining));
+            throw AmqpErrorException.decode()
+                    .message("Not sufficient data for deserialization of 'list'. Expected at least %d bytes. Got %d bytes.")
+                    .args(size, remaining);
         }
-        return construct(in, handler, size, count);
+        return construct(in, handler, count);
     }
 
     protected List<Object> construct(final QpidByteBuffer in,
                                      final ValueHandler handler,
-                                     final int size,
                                      final int count)
             throws AmqpErrorException
     {
-        List<Object> list = new ArrayList<>(count);
+        final List<Object> list = new ArrayList<>(count);
 
         for (int i = 0; i < count; i++)
         {
@@ -87,7 +81,7 @@ public class ListConstructor extends VariableWidthTypeConstructor<List<Object>>
         return list;
     }
 
-    public static TypeConstructor getInstance(final int size)
+    public static TypeConstructor<List<Object>> getInstance(final int size)
     {
         return new ListConstructor(size);
     }

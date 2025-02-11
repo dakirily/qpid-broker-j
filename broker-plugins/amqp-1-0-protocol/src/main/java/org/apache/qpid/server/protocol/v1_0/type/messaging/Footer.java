@@ -25,18 +25,17 @@ import java.util.Map;
 
 import org.apache.qpid.server.protocol.v1_0.type.Symbol;
 
-public class Footer implements NonEncodingRetainingSection<Map<Symbol,Object>>
+public class Footer implements NonEncodingRetainingSection<Map<Symbol, Object>>
 {
-
     private final Map<Symbol,Object> _value;
 
-    public Footer(Map<Symbol,Object> value)
-  {
-    _value = value;
-  }
+    public Footer(final Map<Symbol, Object> value)
+    {
+        _value = value;
+    }
 
     @Override
-    public Map<Symbol,Object> getValue()
+    public Map<Symbol, Object> getValue()
     {
         return _value;
     }

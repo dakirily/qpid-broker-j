@@ -45,7 +45,7 @@ public class SourceWriter extends AbstractDescribedTypeWriter<Source>
         private final Source _value;
         private final int _count;
 
-        public Writer(final Registry registry, Source value)
+        public Writer(final Registry registry, final Source value)
         {
             super(registry);
             _value = value;
@@ -54,64 +54,63 @@ public class SourceWriter extends AbstractDescribedTypeWriter<Source>
 
         private int calculateCount()
         {
-            if( _value.getCapabilities() != null)
+            if ( _value.getCapabilities() != null)
             {
                 return 11;
             }
 
-            if( _value.getOutcomes() != null)
+            if ( _value.getOutcomes() != null)
             {
                 return 10;
             }
 
-            if( _value.getDefaultOutcome() != null)
+            if ( _value.getDefaultOutcome() != null)
             {
                 return 9;
             }
 
-            if( _value.getFilter() != null)
+            if ( _value.getFilter() != null)
             {
                 return 8;
             }
 
-            if( _value.getDistributionMode() != null)
+            if ( _value.getDistributionMode() != null)
             {
                 return 7;
             }
 
-            if( _value.getDynamicNodeProperties() != null)
+            if ( _value.getDynamicNodeProperties() != null)
             {
                 return 6;
             }
 
-            if( _value.getDynamic() != null)
+            if ( _value.getDynamic() != null)
             {
                 return 5;
             }
 
-            if( _value.getTimeout() != null)
+            if ( _value.getTimeout() != null)
             {
                 return 4;
             }
 
-            if( _value.getExpiryPolicy() != null)
+            if ( _value.getExpiryPolicy() != null)
             {
                 return 3;
             }
 
-            if( _value.getDurable() != null)
+            if ( _value.getDurable() != null)
             {
                 return 2;
             }
 
-            if( _value.getAddress() != null)
+            if ( _value.getAddress() != null)
             {
                 return 1;
             }
 
             return 0;
         }
-
 
         @Override
         protected int getCount()
@@ -128,45 +127,21 @@ public class SourceWriter extends AbstractDescribedTypeWriter<Source>
         @Override
         protected Object next()
         {
-            switch(_field++)
+            return switch (_field++)
             {
-
-                case 0:
-                    return _value.getAddress();
-
-                case 1:
-                    return _value.getDurable();
-
-                case 2:
-                    return _value.getExpiryPolicy();
-
-                case 3:
-                    return _value.getTimeout();
-
-                case 4:
-                    return _value.getDynamic();
-
-                case 5:
-                    return _value.getDynamicNodeProperties();
-
-                case 6:
-                    return _value.getDistributionMode();
-
-                case 7:
-                    return _value.getFilter();
-
-                case 8:
-                    return _value.getDefaultOutcome();
-
-                case 9:
-                    return _value.getOutcomes();
-
-                case 10:
-                    return _value.getCapabilities();
-
-                default:
-                    return null;
-            }
+                case 0 -> _value.getAddress();
+                case 1 -> _value.getDurable();
+                case 2 -> _value.getExpiryPolicy();
+                case 3 -> _value.getTimeout();
+                case 4 -> _value.getDynamic();
+                case 5 -> _value.getDynamicNodeProperties();
+                case 6 -> _value.getDistributionMode();
+                case 7 -> _value.getFilter();
+                case 8 -> _value.getDefaultOutcome();
+                case 9 -> _value.getOutcomes();
+                case 10 -> _value.getCapabilities();
+                default -> null;
+            };
         }
 
         @Override
@@ -176,7 +151,7 @@ public class SourceWriter extends AbstractDescribedTypeWriter<Source>
         }
     }
 
-    public static void register(ValueWriter.Registry registry)
+    public static void register(final ValueWriter.Registry registry)
     {
         registry.register(Source.class, FACTORY);
     }

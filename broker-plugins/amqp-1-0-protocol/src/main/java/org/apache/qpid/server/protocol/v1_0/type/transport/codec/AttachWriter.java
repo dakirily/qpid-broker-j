@@ -55,79 +55,78 @@ public class AttachWriter extends AbstractDescribedTypeWriter<Attach>
 
         private int calculateCount()
         {
-            if( _value.getProperties() != null)
+            if ( _value.getProperties() != null)
             {
                 return 14;
             }
 
-            if( _value.getDesiredCapabilities() != null)
+            if ( _value.getDesiredCapabilities() != null)
             {
                 return 13;
             }
 
-            if( _value.getOfferedCapabilities() != null)
+            if ( _value.getOfferedCapabilities() != null)
             {
                 return 12;
             }
 
-            if( _value.getMaxMessageSize() != null)
+            if ( _value.getMaxMessageSize() != null)
             {
                 return 11;
             }
 
-            if( _value.getInitialDeliveryCount() != null)
+            if ( _value.getInitialDeliveryCount() != null)
             {
                 return 10;
             }
 
-            if( _value.getIncompleteUnsettled() != null)
+            if ( _value.getIncompleteUnsettled() != null)
             {
                 return 9;
             }
 
-            if( _value.getUnsettled() != null)
+            if ( _value.getUnsettled() != null)
             {
                 return 8;
             }
 
-            if( _value.getTarget() != null)
+            if ( _value.getTarget() != null)
             {
                 return 7;
             }
 
-            if( _value.getSource() != null)
+            if ( _value.getSource() != null)
             {
                 return 6;
             }
 
-            if( _value.getRcvSettleMode() != null)
+            if ( _value.getRcvSettleMode() != null)
             {
                 return 5;
             }
 
-            if( _value.getSndSettleMode() != null)
+            if ( _value.getSndSettleMode() != null)
             {
                 return 4;
             }
 
-            if( _value.getRole() != null)
+            if ( _value.getRole() != null)
             {
                 return 3;
             }
 
-            if( _value.getHandle() != null)
+            if ( _value.getHandle() != null)
             {
                 return 2;
             }
 
-            if( _value.getName() != null)
+            if ( _value.getName() != null)
             {
                 return 1;
             }
 
             return 0;
         }
-
 
         @Override
         protected int getCount()
@@ -144,54 +143,24 @@ public class AttachWriter extends AbstractDescribedTypeWriter<Attach>
         @Override
         protected Object next()
         {
-            switch(_field++)
+            return switch (_field++)
             {
-
-                case 0:
-                    return _value.getName();
-
-                case 1:
-                    return _value.getHandle();
-
-                case 2:
-                    return _value.getRole();
-
-                case 3:
-                    return _value.getSndSettleMode();
-
-                case 4:
-                    return _value.getRcvSettleMode();
-
-                case 5:
-                    return _value.getSource();
-
-                case 6:
-                    return _value.getTarget();
-
-                case 7:
-                    return _value.getUnsettled();
-
-                case 8:
-                    return _value.getIncompleteUnsettled();
-
-                case 9:
-                    return _value.getInitialDeliveryCount();
-
-                case 10:
-                    return _value.getMaxMessageSize();
-
-                case 11:
-                    return _value.getOfferedCapabilities();
-
-                case 12:
-                    return _value.getDesiredCapabilities();
-
-                case 13:
-                    return _value.getProperties();
-
-                default:
-                    return null;
-            }
+                case 0 -> _value.getName();
+                case 1 -> _value.getHandle();
+                case 2 -> _value.getRole();
+                case 3 -> _value.getSndSettleMode();
+                case 4 -> _value.getRcvSettleMode();
+                case 5 -> _value.getSource();
+                case 6 -> _value.getTarget();
+                case 7 -> _value.getUnsettled();
+                case 8 -> _value.getIncompleteUnsettled();
+                case 9 -> _value.getInitialDeliveryCount();
+                case 10 -> _value.getMaxMessageSize();
+                case 11 -> _value.getOfferedCapabilities();
+                case 12 -> _value.getDesiredCapabilities();
+                case 13 -> _value.getProperties();
+                default -> null;
+            };
         }
 
         @Override
@@ -201,7 +170,7 @@ public class AttachWriter extends AbstractDescribedTypeWriter<Attach>
         }
     }
 
-    public static void register(ValueWriter.Registry registry)
+    public static void register(final ValueWriter.Registry registry)
     {
         registry.register(Attach.class, FACTORY);
     }

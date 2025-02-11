@@ -1,4 +1,3 @@
-
 /*
 *
 * Licensed to the Apache Software Foundation (ASF) under one
@@ -20,17 +19,13 @@
 *
 */
 
-
 package org.apache.qpid.server.protocol.v1_0.type.messaging;
-
 
 public class AmqpValue implements NonEncodingRetainingSection<Object>
 {
-
-
     private final Object _value;
 
-    public AmqpValue(Object value)
+    public AmqpValue(final Object value)
     {
         _value = value;
     }
@@ -41,13 +36,11 @@ public class AmqpValue implements NonEncodingRetainingSection<Object>
         return _value;
     }
 
-
     @Override
     public String toString()
     {
         return "AmqpValue{(" + _value.getClass().getName() + ')' + _value + '}';
     }
-
 
     @Override
     public AmqpValueSection createEncodingRetainingSection()

@@ -49,7 +49,7 @@ public abstract class AbstractLinkStore implements LinkStore
                 throw new StoreException("Store is already opened");
             }
 
-            Collection<LinkDefinition<Source, Target>> linkDefinitions = doOpenAndLoad(updater);
+            final Collection<LinkDefinition<Source, Target>> linkDefinitions = doOpenAndLoad(updater);
             _storeState = StoreState.OPENED;
             return linkDefinitions;
         }

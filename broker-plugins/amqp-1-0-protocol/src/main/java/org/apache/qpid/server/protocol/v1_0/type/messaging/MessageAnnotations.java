@@ -25,11 +25,11 @@ import java.util.Map;
 
 import org.apache.qpid.server.protocol.v1_0.type.Symbol;
 
-public class MessageAnnotations implements NonEncodingRetainingSection<Map<Symbol,Object>>
+public class MessageAnnotations implements NonEncodingRetainingSection<Map<Symbol, Object>>
 {
-    private final Map<Symbol,Object> _value;
+    private final Map<Symbol, Object> _value;
 
-    public MessageAnnotations(Map<Symbol,Object> value)
+    public MessageAnnotations(final Map<Symbol, Object> value)
     {
         _value = value;
     }

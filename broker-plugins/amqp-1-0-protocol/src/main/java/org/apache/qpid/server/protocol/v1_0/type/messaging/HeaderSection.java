@@ -53,5 +53,4 @@ public class HeaderSection extends AbstractSection<Header, Header>
     {
         return new HeaderConstructor();
     }
-
 }

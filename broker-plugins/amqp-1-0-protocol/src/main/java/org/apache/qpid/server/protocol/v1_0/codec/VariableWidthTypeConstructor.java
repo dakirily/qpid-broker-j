@@ -24,7 +24,7 @@ public abstract class VariableWidthTypeConstructor<T> implements TypeConstructor
 {
     protected final int _size;
 
-    public VariableWidthTypeConstructor(int size)
+    public VariableWidthTypeConstructor(final int size)
     {
         _size = size;
     }
@@ -33,6 +33,4 @@ public abstract class VariableWidthTypeConstructor<T> implements TypeConstructor
     {
         return _size;
     }
-
-
 }

@@ -27,16 +27,15 @@ public abstract class SimpleVariableWidthWriter<V> extends VariableWidthWriter<V
 {
     private final byte[] _buf;
 
-    public SimpleVariableWidthWriter(byte[] value)
+    public SimpleVariableWidthWriter(final byte[] value)
     {
         super(value.length);
         _buf = value;
     }
 
     @Override
-    protected final void writeBytes(QpidByteBuffer buf, int offset, int length)
+    protected final void writeBytes(final QpidByteBuffer buf, final int offset, final int length)
     {
         buf.put(_buf, offset, length);
     }
-
 }

@@ -22,12 +22,10 @@ package org.apache.qpid.server.protocol.v1_0.codec;
 
 import org.apache.qpid.server.bytebuffer.QpidByteBuffer;
 import org.apache.qpid.server.protocol.v1_0.type.AmqpErrorException;
-import org.apache.qpid.server.protocol.v1_0.type.transport.AmqpError;
 
 public class CharTypeConstructor implements TypeConstructor<String>
 {
     private static final CharTypeConstructor INSTANCE = new CharTypeConstructor();
-
 
     public static CharTypeConstructor getInstance()
     {
@@ -43,13 +41,13 @@ public class CharTypeConstructor implements TypeConstructor<String>
     {
         if (in.hasRemaining(4))
         {
-            int codePoint = in.getInt(); // TODO look wrong AMQP 1.0 type is actually UTF-32BE not a code point
+            int codePoint = in.getChar(); // TODO look wrong AMQP 1.0 type is actually UTF-32BE not a code point
             char[] chars = Character.toChars(codePoint);
             return new String(chars);
         }
         else
         {
-            throw new AmqpErrorException(AmqpError.DECODE_ERROR, "Cannot construct char: insufficient input data");
+            throw AmqpErrorException.decode().message("Cannot construct char: insufficient input data").build();
         }
     }
 }

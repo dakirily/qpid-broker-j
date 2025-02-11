@@ -54,6 +54,7 @@ import org.apache.qpid.server.protocol.v1_0.messaging.SectionEncoder;
 import org.apache.qpid.server.protocol.v1_0.messaging.SectionEncoderImpl;
 import org.apache.qpid.server.protocol.v1_0.type.Binary;
 import org.apache.qpid.server.protocol.v1_0.type.Symbol;
+import org.apache.qpid.server.protocol.v1_0.type.Symbols;
 import org.apache.qpid.server.protocol.v1_0.type.codec.AMQPDescribedTypeRegistry;
 import org.apache.qpid.server.protocol.v1_0.type.messaging.AmqpSequence;
 import org.apache.qpid.server.protocol.v1_0.type.messaging.AmqpSequenceSection;
@@ -112,7 +113,7 @@ public abstract class MessageConverter_to_1_0<M extends ServerMessage> implement
                                                              final String contentMimeType)
     {
         MessageAnnotations messageAnnotations = null;
-        final Symbol key = Symbol.valueOf("x-opt-jms-msg-type");
+        final Symbol key = Symbols.ANNOTATION_KEY;
         if (contentMimeType != null)
         {
             if (TEXT_CONTENT_TYPES.matcher(contentMimeType).matches())

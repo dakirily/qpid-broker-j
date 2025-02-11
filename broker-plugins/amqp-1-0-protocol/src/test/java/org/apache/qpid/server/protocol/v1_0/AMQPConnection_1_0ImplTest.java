@@ -25,10 +25,12 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.CoreMatchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.net.SocketAddress;
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.Map;
 
@@ -36,6 +38,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import org.apache.qpid.server.configuration.updater.TaskExecutor;
+import org.apache.qpid.server.model.AuthenticationProvider;
 import org.apache.qpid.server.model.Broker;
 import org.apache.qpid.server.model.BrokerTestHelper;
 import org.apache.qpid.server.model.Model;
@@ -61,12 +64,15 @@ class AMQPConnection_1_0ImplTest extends UnitTestBase
         _broker = BrokerTestHelper.createBrokerMock();
         final Model model = _broker.getModel();
         final TaskExecutor taskExecutor = _broker.getTaskExecutor();
+        final AuthenticationProvider authenticationProvider = mock(AuthenticationProvider.class);
+        when(authenticationProvider.getAvailableMechanisms(anyBoolean())).thenReturn(new ArrayList<>());
         _network = mock(ServerNetworkConnection.class);
         when(_network.getLocalAddress()).thenReturn(mock(SocketAddress.class));
         _port = mock(AmqpPort.class);
         when(_port.getModel()).thenReturn(model);
         when(_port.getTaskExecutor()).thenReturn(taskExecutor);
         when(_port.getChildExecutor()).thenReturn(taskExecutor);
+        when(_port.getAuthenticationProvider()).thenReturn(authenticationProvider);
         _aggregateTicket = mock(AggregateTicker.class);
         _virtualHost = BrokerTestHelper.createVirtualHost("test", _broker, true, this);
     }

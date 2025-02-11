@@ -1,4 +1,3 @@
-
 /*
 *
 * Licensed to the Apache Software Foundation (ASF) under one
@@ -20,7 +19,6 @@
 *
 */
 
-
 package org.apache.qpid.server.protocol.v1_0.type.messaging.codec;
 
 import org.apache.qpid.server.protocol.v1_0.codec.AbstractDescribedTypeWriter;
@@ -40,7 +38,7 @@ public class DataWriter extends AbstractDescribedTypeWriter<Data>
         super(DESCRIPTOR_WRITER, registry.getValueWriter(object.getValue()));
     }
 
-    public static void register(ValueWriter.Registry registry)
+    public static void register(final ValueWriter.Registry registry)
     {
         registry.register(Data.class, FACTORY);
     }

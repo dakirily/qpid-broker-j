@@ -19,9 +19,7 @@
 *
 */
 
-
 package org.apache.qpid.server.protocol.v1_0.type.transport;
-
 
 import org.apache.qpid.server.protocol.v1_0.type.RestrictedType;
 import org.apache.qpid.server.protocol.v1_0.type.UnsignedByte;
@@ -33,13 +31,12 @@ public class ReceiverSettleMode implements RestrictedType<UnsignedByte>
 
     private final UnsignedByte _val;
 
-
-    private ReceiverSettleMode(UnsignedByte val)
+    private ReceiverSettleMode(final UnsignedByte val)
     {
         _val = val;
     }
 
-    public static ReceiverSettleMode valueOf(Object obj)
+    public static ReceiverSettleMode valueOf(final Object obj)
     {
         if (obj instanceof final UnsignedByte val)
         {
@@ -78,9 +75,6 @@ public class ReceiverSettleMode implements RestrictedType<UnsignedByte>
             return "second";
         }
 
-        else
-        {
-            return String.valueOf(_val);
-        }
+        return String.valueOf(_val);
     }
 }

@@ -19,8 +19,6 @@ package org.apache.qpid.server.protocol.v1_0;/*
  *
  */
 
-import static org.apache.qpid.server.protocol.v1_0.Session_1_0.DELAYED_DELIVERY;
-
 import java.util.Arrays;
 
 import org.apache.qpid.server.logging.EventLogger;
@@ -30,6 +28,7 @@ import org.apache.qpid.server.message.ServerMessage;
 import org.apache.qpid.server.model.DestinationAddress;
 import org.apache.qpid.server.model.NamedAddressSpace;
 import org.apache.qpid.server.protocol.v1_0.type.Symbol;
+import org.apache.qpid.server.protocol.v1_0.type.Symbols;
 import org.apache.qpid.server.protocol.v1_0.type.messaging.Target;
 import org.apache.qpid.server.protocol.v1_0.type.transport.AmqpError;
 import org.apache.qpid.server.security.SecurityToken;
@@ -50,13 +49,13 @@ public class AnonymousRelayDestination implements ReceivingDestination
         _target = target;
         _eventLogger = eventLogger;
         _discardUnroutable = target.getCapabilities() != null && Arrays.asList(target.getCapabilities())
-                                                                       .contains(DISCARD_UNROUTABLE);
+                                                                       .contains(Symbols.DISCARD_UNROUTABLE);
     }
 
     @Override
     public Symbol[] getCapabilities()
     {
-        return new Symbol[]{DELAYED_DELIVERY};
+        return new Symbol[]{Symbols.DELAYED_DELIVERY};
     }
 
     @Override

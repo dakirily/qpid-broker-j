@@ -48,21 +48,18 @@ public class CloseWriter extends AbstractDescribedTypeWriter<Close>
         public Writer(final Registry registry, final Close object)
         {
             super(registry);
-
             _value = object;
             _count = calculateCount();
         }
 
         private int calculateCount()
         {
-            if( _value.getError() != null)
+            if ( _value.getError() != null)
             {
                 return 1;
             }
-
             return 0;
         }
-
 
         @Override
         protected int getCount()
@@ -79,15 +76,11 @@ public class CloseWriter extends AbstractDescribedTypeWriter<Close>
         @Override
         protected Object next()
         {
-            switch(_field++)
+            if (_field++ == 0)
             {
-
-                case 0:
-                    return _value.getError();
-
-                default:
-                    return null;
+                return _value.getError();
             }
+            return null;
         }
 
         @Override
@@ -97,9 +90,8 @@ public class CloseWriter extends AbstractDescribedTypeWriter<Close>
         }
     }
 
-    public static void register(ValueWriter.Registry registry)
+    public static void register(final ValueWriter.Registry registry)
     {
         registry.register(Close.class, FACTORY);
     }
-
 }

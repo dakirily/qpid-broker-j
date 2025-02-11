@@ -27,9 +27,9 @@ import java.util.concurrent.ConcurrentMap;
 public final class Symbol implements Comparable<Symbol>, CharSequence
 {
     private final String _underlying;
-    private static final ConcurrentMap<String, Symbol> _symbols = new ConcurrentHashMap<>(2048);
+    private static final ConcurrentMap<String, Symbol> SYMBOLS = new ConcurrentHashMap<>(2048);
 
-    private Symbol(String underlying)
+    private Symbol(final String underlying)
     {
         _underlying = underlying;
     }
@@ -41,19 +41,19 @@ public final class Symbol implements Comparable<Symbol>, CharSequence
     }
 
     @Override
-    public int compareTo(Symbol o)
+    public int compareTo(final Symbol o)
     {
         return _underlying.compareTo(o._underlying);
     }
 
     @Override
-    public char charAt(int index)
+    public char charAt(final int index)
     {
         return _underlying.charAt(index);
     }
 
     @Override
-    public CharSequence subSequence(int beginIndex, int endIndex)
+    public CharSequence subSequence(final int beginIndex, final int endIndex)
     {
         return _underlying.subSequence(beginIndex, endIndex);
     }
@@ -87,30 +87,28 @@ public final class Symbol implements Comparable<Symbol>, CharSequence
         return _underlying.hashCode();
     }
 
-    public static Symbol valueOf(String symbolVal)
+    public static Symbol valueOf(final String symbolVal)
     {
         return getSymbol(symbolVal);
     }
 
     public static Symbol getSymbol(String symbolVal)
     {
-        if(symbolVal == null)
+        if (symbolVal == null)
         {
             return null;
         }
-        Symbol symbol = _symbols.get(symbolVal);
-        if(symbol == null)
+        Symbol symbol = SYMBOLS.get(symbolVal);
+        if (symbol == null)
         {
             symbolVal = symbolVal.intern();
             symbol = new Symbol(symbolVal);
             Symbol existing;
-            if((existing = _symbols.putIfAbsent(symbolVal, symbol)) != null)
+            if ((existing = SYMBOLS.putIfAbsent(symbolVal, symbol)) != null)
             {
                 symbol = existing;
             }
         }
         return symbol;
     }
-
-
 }

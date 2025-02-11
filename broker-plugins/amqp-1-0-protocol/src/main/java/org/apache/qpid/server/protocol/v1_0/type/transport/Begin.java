@@ -19,9 +19,7 @@
 *
 */
 
-
 package org.apache.qpid.server.protocol.v1_0.type.transport;
-
 
 import java.util.Arrays;
 import java.util.Map;
@@ -34,10 +32,9 @@ import org.apache.qpid.server.protocol.v1_0.type.Symbol;
 import org.apache.qpid.server.protocol.v1_0.type.UnsignedInteger;
 import org.apache.qpid.server.protocol.v1_0.type.UnsignedShort;
 
-@CompositeType( symbolicDescriptor = "amqp:begin:list", numericDescriptor = 0x0000000000000011L)
+@CompositeType(symbolicDescriptor = "amqp:begin:list", numericDescriptor = 0x0000000000000011L)
 public class Begin implements FrameBody
 {
-
     @CompositeTypeField(index = 0)
     private UnsignedShort _remoteChannel;
 
@@ -67,7 +64,7 @@ public class Begin implements FrameBody
         return _remoteChannel;
     }
 
-    public void setRemoteChannel(UnsignedShort remoteChannel)
+    public void setRemoteChannel(final UnsignedShort remoteChannel)
     {
         _remoteChannel = remoteChannel;
     }
@@ -77,7 +74,7 @@ public class Begin implements FrameBody
         return _nextOutgoingId;
     }
 
-    public void setNextOutgoingId(UnsignedInteger nextOutgoingId)
+    public void setNextOutgoingId(final UnsignedInteger nextOutgoingId)
     {
         _nextOutgoingId = nextOutgoingId;
     }
@@ -87,7 +84,7 @@ public class Begin implements FrameBody
         return _incomingWindow;
     }
 
-    public void setIncomingWindow(UnsignedInteger incomingWindow)
+    public void setIncomingWindow(final UnsignedInteger incomingWindow)
     {
         _incomingWindow = incomingWindow;
     }
@@ -97,7 +94,7 @@ public class Begin implements FrameBody
         return _outgoingWindow;
     }
 
-    public void setOutgoingWindow(UnsignedInteger outgoingWindow)
+    public void setOutgoingWindow(final UnsignedInteger outgoingWindow)
     {
         _outgoingWindow = outgoingWindow;
     }
@@ -107,7 +104,7 @@ public class Begin implements FrameBody
         return _handleMax;
     }
 
-    public void setHandleMax(UnsignedInteger handleMax)
+    public void setHandleMax(final UnsignedInteger handleMax)
     {
         _handleMax = handleMax;
     }
@@ -117,7 +114,7 @@ public class Begin implements FrameBody
         return _offeredCapabilities;
     }
 
-    public void setOfferedCapabilities(Symbol[] offeredCapabilities)
+    public void setOfferedCapabilities(final Symbol[] offeredCapabilities)
     {
         _offeredCapabilities = offeredCapabilities;
     }
@@ -127,7 +124,7 @@ public class Begin implements FrameBody
         return _desiredCapabilities;
     }
 
-    public void setDesiredCapabilities(Symbol[] desiredCapabilities)
+    public void setDesiredCapabilities(final Symbol[] desiredCapabilities)
     {
         _desiredCapabilities = desiredCapabilities;
     }
@@ -137,7 +134,7 @@ public class Begin implements FrameBody
         return _properties;
     }
 
-    public void setProperties(Map<Symbol, Object> properties)
+    public void setProperties(final Map<Symbol, Object> properties)
     {
         _properties = properties;
     }
@@ -145,15 +142,11 @@ public class Begin implements FrameBody
     @Override
     public String toString()
     {
-        StringBuilder builder = new StringBuilder("Begin{");
+        final StringBuilder builder = new StringBuilder("Begin{");
         final int origLength = builder.length();
 
         if (_remoteChannel != null)
         {
-            if (builder.length() != origLength)
-            {
-                builder.append(',');
-            }
             builder.append("remoteChannel=").append(_remoteChannel);
         }
 
@@ -225,7 +218,7 @@ public class Begin implements FrameBody
     }
 
     @Override
-    public void invoke(int channel, ConnectionHandler conn)
+    public void invoke(final int channel, final ConnectionHandler conn)
     {
         conn.receiveBegin(channel, this);
     }

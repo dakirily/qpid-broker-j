@@ -54,5 +54,4 @@ public class DataSection extends AbstractSection<Binary, Data>
     {
         return new DataConstructor();
     }
-
 }

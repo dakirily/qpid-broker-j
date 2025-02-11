@@ -21,12 +21,10 @@ package org.apache.qpid.server.protocol.v1_0.codec;
 
 import org.apache.qpid.server.bytebuffer.QpidByteBuffer;
 import org.apache.qpid.server.protocol.v1_0.type.AmqpErrorException;
-import org.apache.qpid.server.protocol.v1_0.type.transport.AmqpError;
 
 public class SmallLongConstructor implements TypeConstructor<Long>
 {
     private static final SmallLongConstructor INSTANCE = new SmallLongConstructor();
-
 
     public static SmallLongConstructor getInstance()
     {
@@ -47,7 +45,7 @@ public class SmallLongConstructor implements TypeConstructor<Long>
         }
         else
         {
-            throw new AmqpErrorException(AmqpError.DECODE_ERROR, "Cannot construct long: insufficient input data");
+            throw AmqpErrorException.decode().message("Cannot construct long: insufficient input data").build();
         }
     }
 }

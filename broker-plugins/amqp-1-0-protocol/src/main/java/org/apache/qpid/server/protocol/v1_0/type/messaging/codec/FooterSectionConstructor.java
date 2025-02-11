@@ -1,4 +1,3 @@
-
 /*
 *
 * Licensed to the Apache Software Foundation (ASF) under one
@@ -20,12 +19,11 @@
 *
 */
 
-
 package org.apache.qpid.server.protocol.v1_0.type.messaging.codec;
 
 import org.apache.qpid.server.bytebuffer.QpidByteBuffer;
 import org.apache.qpid.server.protocol.v1_0.codec.DescribedTypeConstructorRegistry;
-import org.apache.qpid.server.protocol.v1_0.type.Symbol;
+import org.apache.qpid.server.protocol.v1_0.type.Symbols;
 import org.apache.qpid.server.protocol.v1_0.type.UnsignedLong;
 import org.apache.qpid.server.protocol.v1_0.type.messaging.FooterSection;
 
@@ -33,14 +31,14 @@ public class FooterSectionConstructor extends DescribedMapSectionConstructor<Foo
 {
     private static final Object[] DESCRIPTORS =
     {
-            Symbol.valueOf("amqp:footer:map"),UnsignedLong.valueOf(0x0000000000000078L),
+            Symbols.AMQP_FOOTER, UnsignedLong.valueOf(0x0000000000000078L),
     };
 
     private static final FooterSectionConstructor INSTANCE = new FooterSectionConstructor();
 
-    public static void register(DescribedTypeConstructorRegistry registry)
+    public static void register(final DescribedTypeConstructorRegistry registry)
     {
-        for(Object descriptor : DESCRIPTORS)
+        for (final Object descriptor : DESCRIPTORS)
         {
             registry.register(descriptor, INSTANCE);
         }
@@ -52,5 +50,4 @@ public class FooterSectionConstructor extends DescribedMapSectionConstructor<Foo
     {
         return new FooterSection(encodedForm);
     }
-
 }

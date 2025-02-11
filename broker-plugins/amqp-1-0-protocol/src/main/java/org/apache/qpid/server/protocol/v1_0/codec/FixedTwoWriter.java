@@ -25,19 +25,15 @@ import org.apache.qpid.server.bytebuffer.QpidByteBuffer;
 
 public abstract class FixedTwoWriter <T> implements ValueWriter<T>
 {
-    private short _value;
+    private final short _value;
 
-    public FixedTwoWriter()
+    public FixedTwoWriter(final T object)
     {
-    }
-
-    public FixedTwoWriter(T object)
-    {
-        setValue(object);
+        _value = convertValueToShort(object);
     }
 
     @Override
-    public final void writeToBuffer(QpidByteBuffer buffer)
+    public final void writeToBuffer(final QpidByteBuffer buffer)
     {
         buffer.put(getFormatCode());
         buffer.putShort(_value);
@@ -49,14 +45,7 @@ public abstract class FixedTwoWriter <T> implements ValueWriter<T>
         return 3;
     }
 
-    public final void setValue(T value)
-    {
-        _value = convertValueToShort(value);
-    }
-
-    abstract short convertValueToShort(T value);
+    abstract short convertValueToShort(final T value);
 
     abstract byte getFormatCode();
-
-
 }

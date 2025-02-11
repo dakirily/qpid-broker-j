@@ -49,19 +49,18 @@ public class TransactionalStateWriter extends AbstractDescribedTypeWriter<Transa
         public Writer(final Registry registry, final TransactionalState object)
         {
             super(registry);
-
             _value = object;
             _count = calculateCount();
         }
 
         private int calculateCount()
         {
-            if( _value.getOutcome() != null)
+            if ( _value.getOutcome() != null)
             {
                 return 2;
             }
 
-            if( _value.getTxnId() != null)
+            if ( _value.getTxnId() != null)
             {
                 return 1;
             }
@@ -84,18 +83,12 @@ public class TransactionalStateWriter extends AbstractDescribedTypeWriter<Transa
         @Override
         protected Object next()
         {
-            switch(_field++)
+            return switch (_field++)
             {
-
-                case 0:
-                    return _value.getTxnId();
-
-                case 1:
-                    return _value.getOutcome();
-
-                default:
-                    return null;
-            }
+                case 0 -> _value.getTxnId();
+                case 1 -> _value.getOutcome();
+                default -> null;
+            };
         }
 
         @Override
@@ -105,7 +98,7 @@ public class TransactionalStateWriter extends AbstractDescribedTypeWriter<Transa
         }
     }
 
-    public static void register(ValueWriter.Registry registry)
+    public static void register(final ValueWriter.Registry registry)
     {
         registry.register(TransactionalState.class, FACTORY);
     }

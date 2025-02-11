@@ -20,6 +20,8 @@
  */
 package org.apache.qpid.server.protocol.v1_0.codec;
 
+import java.util.Objects;
+
 public class DescribedType
 {
     private final Object _descriptor;
@@ -55,16 +57,12 @@ public class DescribedType
 
         final DescribedType that = (DescribedType) o;
 
-        if (_described != null ? !_described.equals(that._described) : that._described != null)
-        {
-            return false;
-        }
-        if (_descriptor != null ? !_descriptor.equals(that._descriptor) : that._descriptor != null)
+        if (!Objects.equals(_described, that._described))
         {
             return false;
         }
 
-        return true;
+        return Objects.equals(_descriptor, that._descriptor);
     }
 
     @Override

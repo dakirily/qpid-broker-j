@@ -27,6 +27,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 
+import org.apache.qpid.server.protocol.v1_0.delivery.DeliveryRegistry;
 import org.apache.qpid.server.protocol.v1_0.delivery.UnsettledDelivery;
 import org.apache.qpid.server.protocol.v1_0.messaging.SectionDecoder;
 import org.apache.qpid.server.protocol.v1_0.messaging.SectionDecoderImpl;
@@ -37,22 +38,21 @@ import org.apache.qpid.server.protocol.v1_0.type.Outcome;
 import org.apache.qpid.server.protocol.v1_0.type.Symbol;
 import org.apache.qpid.server.protocol.v1_0.type.UnsignedInteger;
 import org.apache.qpid.server.protocol.v1_0.type.messaging.Source;
-import org.apache.qpid.server.protocol.v1_0.type.transaction.TransactionError;
 import org.apache.qpid.server.protocol.v1_0.type.transaction.TransactionalState;
 import org.apache.qpid.server.protocol.v1_0.type.transport.AmqpError;
 import org.apache.qpid.server.protocol.v1_0.type.transport.Attach;
 import org.apache.qpid.server.protocol.v1_0.type.transport.End;
 import org.apache.qpid.server.protocol.v1_0.type.transport.Error;
+import org.apache.qpid.server.protocol.v1_0.type.transport.Errors;
 import org.apache.qpid.server.protocol.v1_0.type.transport.Flow;
-import org.apache.qpid.server.protocol.v1_0.type.transport.LinkError;
 import org.apache.qpid.server.protocol.v1_0.type.transport.ReceiverSettleMode;
 import org.apache.qpid.server.protocol.v1_0.type.transport.Role;
-import org.apache.qpid.server.protocol.v1_0.type.transport.SessionError;
 import org.apache.qpid.server.protocol.v1_0.type.transport.Transfer;
 
 public abstract class AbstractReceivingLinkEndpoint<T extends BaseTarget> extends AbstractLinkEndpoint<Source, T>
 {
     private final SectionDecoder _sectionDecoder;
+    private final DeliveryRegistry _deliveryRegistry;
     final Map<Binary, DeliveryState> _unsettled = Collections.synchronizedMap(new LinkedHashMap<>());
 
     private volatile boolean _creditWindow;
@@ -62,8 +62,9 @@ public abstract class AbstractReceivingLinkEndpoint<T extends BaseTarget> extend
     {
         super(session, link);
         _sectionDecoder = new SectionDecoderImpl(session.getConnection()
-                                                        .getDescribedTypeRegistry()
-                                                        .getSectionDecoderRegistry());
+                .getDescribedTypeRegistry()
+                .getSectionDecoderRegistry());
+        _deliveryRegistry = getSession().getIncomingDeliveryRegistry();
     }
 
     @Override
@@ -72,7 +73,6 @@ public abstract class AbstractReceivingLinkEndpoint<T extends BaseTarget> extend
         return Collections.emptyMap();
     }
 
-
     @Override public Role getRole()
     {
         return Role.RECEIVER;
@@ -80,111 +80,105 @@ public abstract class AbstractReceivingLinkEndpoint<T extends BaseTarget> extend
 
     void receiveTransfer(final Transfer transfer)
     {
-        if (!isErrored())
+        if (isErrored())
         {
-            Error error = validateTransfer(transfer);
+            final End end = new End();
+            end.setError(Errors.Session.LINK_HANDLE_IN_ERRORED_STATE.apply(transfer.getHandle()));
+            getSession().end(end);
+            return;
+        }
+
+        Error error = validateTransfer(transfer);
+        if (error != null)
+        {
+            transfer.dispose();
+            if (_currentDelivery != null)
+            {
+                _currentDelivery.discard();
+                _currentDelivery = null;
+            }
+            close(error);
+            return;
+        }
+
+        if (_currentDelivery == null)
+        {
+            error = validateNewTransfer(transfer);
             if (error != null)
             {
                 transfer.dispose();
-                if (_currentDelivery != null)
-                {
-                    _currentDelivery.discard();
-                    _currentDelivery = null;
-                }
                 close(error);
                 return;
             }
+            _currentDelivery = new Delivery(transfer, this);
 
-            if (_currentDelivery == null)
+            setLinkCredit(getLinkCredit().subtract(UnsignedInteger.ONE));
+            getDeliveryCount().incr();
+
+            final UnsettledDelivery delivery = new UnsettledDelivery(transfer.getDeliveryTag(), this);
+            _deliveryRegistry.addDelivery(transfer.getDeliveryId(), delivery);
+        }
+        else
+        {
+            error = validateSubsequentTransfer(transfer);
+            if (error != null)
             {
-                error = validateNewTransfer(transfer);
-                if (error != null)
-                {
-                    transfer.dispose();
-                    close(error);
-                    return;
-                }
-                _currentDelivery = new Delivery(transfer, this);
-
-                setLinkCredit(getLinkCredit().subtract(UnsignedInteger.ONE));
-                getDeliveryCount().incr();
-
-                getSession().getIncomingDeliveryRegistry()
-                            .addDelivery(transfer.getDeliveryId(),
-                                         new UnsettledDelivery(transfer.getDeliveryTag(), this));
-            }
-            else
-            {
-                error = validateSubsequentTransfer(transfer);
-                if (error != null)
-                {
-                    transfer.dispose();
-                    _currentDelivery.discard();
-                    _currentDelivery = null;
-                    close(error);
-                    return;
-                }
-                _currentDelivery.addTransfer(transfer);
-            }
-
-            if (_currentDelivery.getTotalPayloadSize() > getSession().getConnection().getMaxMessageSize())
-            {
-                error = new Error(LinkError.MESSAGE_SIZE_EXCEEDED,
-                                  String.format("delivery '%s' exceeds max-message-size %d",
-                                                _currentDelivery.getDeliveryTag(),
-                                                getSession().getConnection().getMaxMessageSize()));
+                transfer.dispose();
                 _currentDelivery.discard();
                 _currentDelivery = null;
                 close(error);
                 return;
             }
+            _currentDelivery.addTransfer(transfer);
+        }
 
-            if (!_currentDelivery.getResume())
+        final long maxMessageSize = getSession().getConnection().getMaxMessageSize();
+        if (_currentDelivery.getTotalPayloadSize() > maxMessageSize)
+        {
+            error = Errors.Link.MAX_MSG_SIZE_EXCEEDED.apply(_currentDelivery.getDeliveryTag(), maxMessageSize);
+            _currentDelivery.discard();
+            _currentDelivery = null;
+            close(error);
+            return;
+        }
+
+        if (!_currentDelivery.getResume())
+        {
+            _unsettled.put(_currentDelivery.getDeliveryTag(), _currentDelivery.getState());
+        }
+
+        if (_currentDelivery.isAborted() || (_currentDelivery.getResume() && !_unsettled.containsKey(_currentDelivery.getDeliveryTag())))
+        {
+            _unsettled.remove(_currentDelivery.getDeliveryTag());
+            _deliveryRegistry.removeDelivery(_currentDelivery.getDeliveryId());
+            _currentDelivery = null;
+
+            setLinkCredit(getLinkCredit().add(UnsignedInteger.ONE));
+            getDeliveryCount().decr();
+        }
+        else if (_currentDelivery.isComplete())
+        {
+            try
             {
-                _unsettled.put(_currentDelivery.getDeliveryTag(), _currentDelivery.getState());
+                if (_currentDelivery.isSettled())
+                {
+                    _unsettled.remove(_currentDelivery.getDeliveryTag());
+                    _deliveryRegistry.removeDelivery(_currentDelivery.getDeliveryId());
+                }
+                error = receiveDelivery(_currentDelivery);
+                if (error != null)
+                {
+                    close(error);
+                }
             }
-
-            if (_currentDelivery.isAborted() || (_currentDelivery.getResume() && !_unsettled.containsKey(_currentDelivery.getDeliveryTag())))
+            finally
             {
-                _unsettled.remove(_currentDelivery.getDeliveryTag());
-                getSession().getIncomingDeliveryRegistry().removeDelivery(_currentDelivery.getDeliveryId());
                 _currentDelivery = null;
-
-                setLinkCredit(getLinkCredit().add(UnsignedInteger.ONE));
-                getDeliveryCount().decr();
-            }
-            else if (_currentDelivery.isComplete())
-            {
-                try
-                {
-                    if (_currentDelivery.isSettled())
-                    {
-                        _unsettled.remove(_currentDelivery.getDeliveryTag());
-                        getSession().getIncomingDeliveryRegistry().removeDelivery(_currentDelivery.getDeliveryId());
-                    }
-                    error = receiveDelivery(_currentDelivery);
-                    if (error != null)
-                    {
-                        close(error);
-                    }
-                }
-                finally
-                {
-                    _currentDelivery = null;
-                }
-            }
-            else
-            {
-                getSession().sendFlowConditional();
             }
         }
         else
         {
-            End end = new End();
-            end.setError(new Error(SessionError.ERRANT_LINK,
-                                   String.format("Received TRANSFER for link handle %s which is in errored state.",
-                                                 transfer.getHandle())));
-            getSession().end(end);
+            getSession().sendFlowConditional();
         }
     }
 
@@ -194,20 +188,18 @@ public abstract class AbstractReceivingLinkEndpoint<T extends BaseTarget> extend
         if (!ReceiverSettleMode.SECOND.equals(getReceivingSettlementMode())
             && ReceiverSettleMode.SECOND.equals(transfer.getRcvSettleMode()))
         {
-            error = new Error(AmqpError.INVALID_FIELD,
-                              "Transfer \"rcv-settle-mode\" cannot be \"first\" when link \"rcv-settle-mode\" is set to \"second\".");
+            error = Errors.InvalidField.TFR_RCV_SETTLE_MODE_CANNOT_BE_FIRST;
         }
-        else if (transfer.getState() instanceof TransactionalState)
+        else if (transfer.getState() instanceof TransactionalState txState)
         {
-            final Binary txnId = ((TransactionalState) transfer.getState()).getTxnId();
+            final Binary txnId = txState.getTxnId();
             try
             {
                 getSession().getTransaction(txnId);
             }
             catch (UnknownTransactionException e)
             {
-                error = new Error(TransactionError.UNKNOWN_ID,
-                                  String.format("Transfer has an unknown transaction-id '%s'.", txnId));
+                error = Errors.Txn.UNKNOWN_TXN_ID.apply(txnId);
             }
         }
         return error;
@@ -218,66 +210,56 @@ public abstract class AbstractReceivingLinkEndpoint<T extends BaseTarget> extend
         Error error = null;
         if (transfer.getDeliveryId() == null)
         {
-            error = new Error(AmqpError.INVALID_FIELD,
-                                    "Transfer \"delivery-id\" is required for a new delivery.");
+            error = Errors.InvalidField.DELIVERY_ID_REQUIRED;
         }
         else if (transfer.getDeliveryTag() == null)
         {
-            error = new Error(AmqpError.INVALID_FIELD,
-                                    "Transfer \"delivery-tag\" is required for a new delivery.");
+            error = Errors.InvalidField.DELIVERY_TAG_REQUIRED;
         }
         else if (!Boolean.TRUE.equals(transfer.getResume()))
         {
             if (_unsettled.containsKey(transfer.getDeliveryTag()))
             {
-                error = new Error(AmqpError.ILLEGAL_STATE,
-                                  String.format("Delivery-tag '%s' is used by another unsettled delivery."
-                                                + " The delivery-tag MUST be unique amongst all deliveries that"
-                                                + " could be considered unsettled by either end of the link.",
-                                                transfer.getDeliveryTag()));
+                error = Errors.IllegalState.DELIVERY_TAG_USED_BY_ANOTHER_UNSETTLED_DELIVERY.apply(transfer.getDeliveryTag());
             }
             else if (_localIncompleteUnsettled || _remoteIncompleteUnsettled)
             {
-                error = new Error(AmqpError.ILLEGAL_STATE,
-                                  "Cannot accept new deliveries while incomplete-unsettled is true.");
+                error = Errors.IllegalState.CANNOT_ACCEPT_DELIVERIES_INCOMPLETE_UNSETTLED_TRUE;
             }
         }
-
         return error;
     }
 
     private Error validateSubsequentTransfer(final Transfer transfer)
     {
         Error error = null;
-        if (transfer.getDeliveryId() != null && !_currentDelivery.getDeliveryId()
-                                                                 .equals(transfer.getDeliveryId()))
+        final UnsignedInteger tfrDeliveryId = transfer.getDeliveryId();
+        final UnsignedInteger tfrMsgFmt = transfer.getMessageFormat();
+        final Binary tfrDeliveryTag = transfer.getDeliveryTag();
+        if (tfrDeliveryId != null && !_currentDelivery.getDeliveryId().equals(tfrDeliveryId))
         {
             error = new Error(AmqpError.INVALID_FIELD,
                               String.format(
                                       "Unexpected transfer \"delivery-id\" for multi-transfer delivery: found '%s', expected '%s'.",
-                                      transfer.getDeliveryId(),
+                                      tfrDeliveryId,
                                       _currentDelivery.getDeliveryId()));
         }
-        else if (transfer.getDeliveryTag() != null && !_currentDelivery.getDeliveryTag()
-                                                                       .equals(transfer.getDeliveryTag()))
+        else if (tfrDeliveryTag != null && !_currentDelivery.getDeliveryTag().equals(tfrDeliveryTag))
         {
             error = new Error(AmqpError.INVALID_FIELD,
                               String.format(
                                       "Unexpected transfer \"delivery-tag\" for multi-transfer delivery: found '%s', expected '%s'.",
-                                      transfer.getDeliveryTag(),
+                                      tfrDeliveryTag,
                                       _currentDelivery.getDeliveryTag()));
         }
         else if (_currentDelivery.getReceiverSettleMode() != null && transfer.getRcvSettleMode() != null
                  && !_currentDelivery.getReceiverSettleMode().equals(transfer.getRcvSettleMode()))
         {
-            error = new Error(AmqpError.INVALID_FIELD,
-                              "Transfer \"rcv-settle-mode\" is set to different value than on previous transfer.");
+            error = Errors.InvalidField.TFR_RCV_SETTLE_MODE_SET_TO_DIFFERENT_VALUE;
         }
-        else if (transfer.getMessageFormat() != null && !_currentDelivery.getMessageFormat()
-                                                                         .equals(transfer.getMessageFormat()))
+        else if (tfrMsgFmt != null && !_currentDelivery.getMessageFormat().equals(tfrMsgFmt))
         {
-            error = new Error(AmqpError.INVALID_FIELD,
-                              "Transfer \"message-format\" is set to different value than on previous transfer.");
+            error = Errors.InvalidField.MSG_FMT_SET_TO_DIFFERENT_VALUE;
         }
 
         return error;
@@ -306,14 +288,13 @@ public abstract class AbstractReceivingLinkEndpoint<T extends BaseTarget> extend
                            final DeliveryState state,
                            final boolean settled)
     {
-        updateDispositions(Collections.singleton(deliveryTag), state, settled);
+        updateDispositions(Set.of(deliveryTag), state, settled);
     }
 
     void updateDispositions(final Set<Binary> deliveryTags,
-                           final DeliveryState state,
-                           final boolean settled)
+                            final DeliveryState state,
+                            final boolean settled)
     {
-
         final Set<Binary> unsettledKeys = new HashSet<>(_unsettled.keySet());
         unsettledKeys.retainAll(deliveryTags);
         final int settledDeliveryCount = deliveryTags.size() - unsettledKeys.size();
@@ -322,13 +303,13 @@ public abstract class AbstractReceivingLinkEndpoint<T extends BaseTarget> extend
         {
             boolean outcomeUpdate = false;
             Outcome outcome = null;
-            if (state instanceof Outcome)
+            if (state instanceof Outcome outcomeState)
             {
-                outcome = (Outcome) state;
+                outcome = outcomeState;
             }
-            else if (state instanceof TransactionalState)
+            else if (state instanceof TransactionalState txState)
             {
-                outcome = ((TransactionalState) state).getOutcome();
+                outcome = txState.getOutcome();
             }
 
             if (outcome != null)
@@ -337,7 +318,7 @@ public abstract class AbstractReceivingLinkEndpoint<T extends BaseTarget> extend
                 {
                     if (!(_unsettled.get(deliveryTag) instanceof Outcome))
                     {
-                        Object oldOutcome = _unsettled.put(deliveryTag, outcome);
+                        final Object oldOutcome = _unsettled.put(deliveryTag, outcome);
                         outcomeUpdate = outcomeUpdate || !outcome.equals(oldOutcome);
                     }
                 }
@@ -350,16 +331,12 @@ public abstract class AbstractReceivingLinkEndpoint<T extends BaseTarget> extend
 
             if (settled)
             {
-
                 int credit = 0;
                 for (final Binary deliveryTag : unsettledKeys)
                 {
-                    if (settled(deliveryTag))
+                    if (_creditWindow && settled(deliveryTag) && !isDetached())
                     {
-                        if (!isDetached() && _creditWindow)
-                        {
-                            credit++;
-                        }
+                        credit++;
                     }
                 }
 
@@ -399,7 +376,7 @@ public abstract class AbstractReceivingLinkEndpoint<T extends BaseTarget> extend
     }
 
     @Override
-    public void settle(Binary deliveryTag)
+    public void settle(final Binary deliveryTag)
     {
         super.settle(deliveryTag);
         _unsettled.remove(deliveryTag);
@@ -433,9 +410,11 @@ public abstract class AbstractReceivingLinkEndpoint<T extends BaseTarget> extend
     }
 
     @Override
-    protected void handleDeliveryState(Binary deliveryTag, DeliveryState state, Boolean settled)
+    protected void handleDeliveryState(final Binary deliveryTag,
+                                       final DeliveryState state,
+                                       final Boolean settled)
     {
-        if(Boolean.TRUE.equals(settled))
+        if (Boolean.TRUE.equals(settled))
         {
             _unsettled.remove(deliveryTag);
         }

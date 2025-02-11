@@ -20,7 +20,6 @@
  */
 package org.apache.qpid.server.protocol.v1_0.delivery;
 
-import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -31,22 +30,31 @@ import org.apache.qpid.server.protocol.v1_0.type.UnsignedInteger;
 public class DeliveryRegistryImpl implements DeliveryRegistry
 {
     private final Map<UnsignedInteger, UnsettledDelivery> _deliveries = new ConcurrentHashMap<>();
-    private final Map<UnsettledDelivery, UnsignedInteger> _deliveryIds = new ConcurrentHashMap<>();
+    private final Map<LinkEndpoint, Map<Binary, UnsignedInteger>> _deliveryIds = new ConcurrentHashMap<>();
 
     @Override
     public void addDelivery(final UnsignedInteger deliveryId, final UnsettledDelivery unsettledDelivery)
     {
         _deliveries.put(deliveryId, unsettledDelivery);
-        _deliveryIds.put(unsettledDelivery, deliveryId);
+        if (!_deliveryIds.containsKey(unsettledDelivery.getLinkEndpoint()))
+        {
+            _deliveryIds.put(unsettledDelivery.getLinkEndpoint(), new ConcurrentHashMap<>());
+        }
+        _deliveryIds.get(unsettledDelivery.getLinkEndpoint()).put(unsettledDelivery.getDeliveryTag(), deliveryId);
     }
 
     @Override
     public void removeDelivery(final UnsignedInteger deliveryId)
     {
-        UnsettledDelivery unsettledDelivery = _deliveries.remove(deliveryId);
+        final UnsettledDelivery unsettledDelivery = _deliveries.remove(deliveryId);
         if (unsettledDelivery != null)
         {
-            _deliveryIds.remove(unsettledDelivery);
+            final Map<Binary, UnsignedInteger> map = _deliveryIds.get(unsettledDelivery.getLinkEndpoint());
+            map.remove(unsettledDelivery.getDeliveryTag());
+            if (map.isEmpty())
+            {
+                _deliveryIds.remove(unsettledDelivery.getLinkEndpoint());
+            }
         }
     }
 
@@ -59,22 +67,17 @@ public class DeliveryRegistryImpl implements DeliveryRegistry
     @Override
     public void removeDeliveriesForLinkEndpoint(final LinkEndpoint<?, ?> linkEndpoint)
     {
-        Iterator<UnsettledDelivery> iterator = _deliveries.values().iterator();
-        while (iterator.hasNext())
+        final Map<Binary, UnsignedInteger> map = _deliveryIds.remove(linkEndpoint);
+        if (map != null)
         {
-            UnsettledDelivery unsettledDelivery = iterator.next();
-            if (unsettledDelivery.getLinkEndpoint() == linkEndpoint)
-            {
-                iterator.remove();
-                _deliveryIds.remove(unsettledDelivery);
-            }
+            map.values().forEach(_deliveries::remove);
         }
     }
 
     @Override
     public UnsignedInteger getDeliveryId(final Binary deliveryTag, final LinkEndpoint<?, ?> linkEndpoint)
     {
-        return _deliveryIds.get(new UnsettledDelivery(deliveryTag, linkEndpoint));
+        return _deliveryIds.get(linkEndpoint).get(deliveryTag);
     }
 
     @Override

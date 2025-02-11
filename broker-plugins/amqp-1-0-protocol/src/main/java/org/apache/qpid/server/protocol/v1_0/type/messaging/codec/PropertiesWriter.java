@@ -45,77 +45,76 @@ public class PropertiesWriter extends AbstractDescribedTypeWriter<Properties>
         private final Properties _value;
         private final int _count;
 
-        public Writer(final Registry registry, Properties value)
+        public Writer(final Registry registry, final Properties value)
         {
             super(registry);
             _value = value;
             _count = calculateCount();
-
         }
 
         private int calculateCount()
         {
-            if( _value.getReplyToGroupId() != null)
+            if ( _value.getReplyToGroupId() != null)
             {
                 return 13;
             }
 
-            if( _value.getGroupSequence() != null)
+            if ( _value.getGroupSequence() != null)
             {
                 return 12;
             }
 
-            if( _value.getGroupId() != null)
+            if ( _value.getGroupId() != null)
             {
                 return 11;
             }
 
-            if( _value.getCreationTime() != null)
+            if ( _value.getCreationTime() != null)
             {
                 return 10;
             }
 
-            if( _value.getAbsoluteExpiryTime() != null)
+            if ( _value.getAbsoluteExpiryTime() != null)
             {
                 return 9;
             }
 
-            if( _value.getContentEncoding() != null)
+            if ( _value.getContentEncoding() != null)
             {
                 return 8;
             }
 
-            if( _value.getContentType() != null)
+            if ( _value.getContentType() != null)
             {
                 return 7;
             }
 
-            if( _value.getCorrelationId() != null)
+            if ( _value.getCorrelationId() != null)
             {
                 return 6;
             }
 
-            if( _value.getReplyTo() != null)
+            if ( _value.getReplyTo() != null)
             {
                 return 5;
             }
 
-            if( _value.getSubject() != null)
+            if ( _value.getSubject() != null)
             {
                 return 4;
             }
 
-            if( _value.getTo() != null)
+            if ( _value.getTo() != null)
             {
                 return 3;
             }
 
-            if( _value.getUserId() != null)
+            if ( _value.getUserId() != null)
             {
                 return 2;
             }
 
-            if( _value.getMessageId() != null)
+            if ( _value.getMessageId() != null)
             {
                 return 1;
             }
@@ -138,51 +137,23 @@ public class PropertiesWriter extends AbstractDescribedTypeWriter<Properties>
         @Override
         protected Object next()
         {
-            switch(_field++)
+            return switch (_field++)
             {
-
-                case 0:
-                    return _value.getMessageId();
-
-                case 1:
-                    return _value.getUserId();
-
-                case 2:
-                    return _value.getTo();
-
-                case 3:
-                    return _value.getSubject();
-
-                case 4:
-                    return _value.getReplyTo();
-
-                case 5:
-                    return _value.getCorrelationId();
-
-                case 6:
-                    return _value.getContentType();
-
-                case 7:
-                    return _value.getContentEncoding();
-
-                case 8:
-                    return _value.getAbsoluteExpiryTime();
-
-                case 9:
-                    return _value.getCreationTime();
-
-                case 10:
-                    return _value.getGroupId();
-
-                case 11:
-                    return _value.getGroupSequence();
-
-                case 12:
-                    return _value.getReplyToGroupId();
-
-                default:
-                    return null;
-            }
+                case 0 -> _value.getMessageId();
+                case 1 -> _value.getUserId();
+                case 2 -> _value.getTo();
+                case 3 -> _value.getSubject();
+                case 4 -> _value.getReplyTo();
+                case 5 -> _value.getCorrelationId();
+                case 6 -> _value.getContentType();
+                case 7 -> _value.getContentEncoding();
+                case 8 -> _value.getAbsoluteExpiryTime();
+                case 9 -> _value.getCreationTime();
+                case 10 -> _value.getGroupId();
+                case 11 -> _value.getGroupSequence();
+                case 12 -> _value.getReplyToGroupId();
+                default -> null;
+            };
         }
 
         @Override
@@ -192,7 +163,7 @@ public class PropertiesWriter extends AbstractDescribedTypeWriter<Properties>
         }
     }
 
-    public static void register(ValueWriter.Registry registry)
+    public static void register(final ValueWriter.Registry registry)
     {
         registry.register(Properties.class, FACTORY);
     }

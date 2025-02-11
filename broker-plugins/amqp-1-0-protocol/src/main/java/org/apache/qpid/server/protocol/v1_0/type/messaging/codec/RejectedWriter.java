@@ -45,25 +45,22 @@ public class RejectedWriter extends AbstractDescribedTypeWriter<Rejected>
         private final int _count;
         private int _field;
 
-        public Writer(final Registry registry, Rejected value)
+        public Writer(final Registry registry, final Rejected value)
         {
             super(registry);
             _value = value;
             _count = calculateCount();
-
         }
 
         private int calculateCount()
         {
-
-
-            if( _value.getError() != null)
+            if ( _value.getError() != null)
             {
                 return 1;
             }
-
             return 0;
         }
+
         @Override
         protected int getCount()
         {
@@ -79,15 +76,11 @@ public class RejectedWriter extends AbstractDescribedTypeWriter<Rejected>
         @Override
         protected Object next()
         {
-            switch(_field++)
+            if (_field++ == 0)
             {
-
-                case 0:
-                    return _value.getError();
-
-                default:
-                    return null;
+                return _value.getError();
             }
+            return null;
         }
 
         @Override
@@ -97,7 +90,7 @@ public class RejectedWriter extends AbstractDescribedTypeWriter<Rejected>
         }
     }
 
-    public static void register(ValueWriter.Registry registry)
+    public static void register(final ValueWriter.Registry registry)
     {
         registry.register(Rejected.class, FACTORY);
     }

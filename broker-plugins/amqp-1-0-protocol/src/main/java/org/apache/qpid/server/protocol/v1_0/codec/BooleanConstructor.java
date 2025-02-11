@@ -20,7 +20,6 @@
 package org.apache.qpid.server.protocol.v1_0.codec;
 
 import org.apache.qpid.server.protocol.v1_0.type.AmqpErrorException;
-import org.apache.qpid.server.protocol.v1_0.type.transport.AmqpError;
 
 public class BooleanConstructor
 {
@@ -35,7 +34,7 @@ public class BooleanConstructor
         }
         else
         {
-            throw new AmqpErrorException(AmqpError.DECODE_ERROR, "Cannot construct boolean: insufficient input data");
+            throw AmqpErrorException.decode().message("Cannot construct boolean: insufficient input data").build();
         }
     };
 

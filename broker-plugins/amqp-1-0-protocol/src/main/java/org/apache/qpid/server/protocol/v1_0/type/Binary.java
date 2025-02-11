@@ -18,6 +18,7 @@
  * under the License.
  *
  */
+
 package org.apache.qpid.server.protocol.v1_0.type;
 
 import java.nio.ByteBuffer;
@@ -25,7 +26,6 @@ import java.util.Arrays;
 
 public class Binary
 {
-
     private final byte[] _data;
     private final int _hashCode;
 
@@ -35,7 +35,7 @@ public class Binary
         int hc = 0;
         for (int i = 0; i < _data.length; i++)
         {
-            hc = 31*hc + (0xFF & data[i]);
+            hc = 31 * hc + (0xFF & data[i]);
         }
         _hashCode = hc;
     }
@@ -54,26 +54,22 @@ public class Binary
     @Override
     public final boolean equals(Object o)
     {
-        if(o instanceof final Binary buf)
+        if (o instanceof final Binary buf)
         {
             return Arrays.equals(_data, buf._data);
         }
-
         return false;
     }
-
-
 
     public byte[] getArray()
     {
         return _data;
     }
 
-
     @Override
     public String toString()
     {
-        StringBuilder str = new StringBuilder();
+        final StringBuilder str = new StringBuilder();
 
         for (byte c : _data)
         {
@@ -86,8 +82,6 @@ public class Binary
                 str.append(String.format("\\x%02x", c));
             }
         }
-
         return str.toString();
-
     }
 }

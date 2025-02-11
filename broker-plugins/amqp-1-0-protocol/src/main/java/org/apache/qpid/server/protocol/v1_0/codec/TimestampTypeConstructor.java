@@ -24,12 +24,10 @@ import java.util.Date;
 
 import org.apache.qpid.server.bytebuffer.QpidByteBuffer;
 import org.apache.qpid.server.protocol.v1_0.type.AmqpErrorException;
-import org.apache.qpid.server.protocol.v1_0.type.transport.AmqpError;
 
 public class TimestampTypeConstructor implements TypeConstructor<Date>
 {
     private static final TimestampTypeConstructor INSTANCE = new TimestampTypeConstructor();
-
 
     public static TimestampTypeConstructor getInstance()
     {
@@ -45,12 +43,12 @@ public class TimestampTypeConstructor implements TypeConstructor<Date>
     {
         if (in.hasRemaining(8))
         {
-            long l = in.getLong();
+            final long l = in.getLong();
             return new Date(l);
         }
         else
         {
-            throw new AmqpErrorException(AmqpError.DECODE_ERROR, "Cannot construct timestamp: insufficient input data");
+            throw AmqpErrorException.decode().message("Cannot construct timestamp: insufficient input data").build();
         }
     }
 }

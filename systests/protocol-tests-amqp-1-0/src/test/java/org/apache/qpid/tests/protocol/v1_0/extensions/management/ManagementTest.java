@@ -33,6 +33,7 @@ import org.junit.jupiter.api.Test;
 
 import org.apache.qpid.server.protocol.v1_0.Session_1_0;
 import org.apache.qpid.server.protocol.v1_0.type.Symbol;
+import org.apache.qpid.server.protocol.v1_0.type.Symbols;
 import org.apache.qpid.server.protocol.v1_0.type.UnsignedInteger;
 import org.apache.qpid.server.protocol.v1_0.type.messaging.DeleteOnClose;
 import org.apache.qpid.server.protocol.v1_0.type.messaging.Source;
@@ -64,7 +65,7 @@ public class ManagementTest extends BrokerAdminUsingTestBase
         try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
         {
             Target target = new Target();
-            target.setDynamicNodeProperties(Map.of(Session_1_0.LIFETIME_POLICY, new DeleteOnClose()));
+            target.setDynamicNodeProperties(Map.of(Symbols.LIFETIME_POLICY, new DeleteOnClose()));
             target.setExpiryPolicy(TerminusExpiryPolicy.LINK_DETACH);
             target.setDynamic(true);
             target.setCapabilities(new Symbol[]{Symbol.valueOf("temporary-queue")});

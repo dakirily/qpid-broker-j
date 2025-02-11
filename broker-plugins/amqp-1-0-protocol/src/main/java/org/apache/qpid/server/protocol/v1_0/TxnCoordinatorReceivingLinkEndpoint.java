@@ -32,6 +32,7 @@ import org.apache.qpid.server.model.Session;
 import org.apache.qpid.server.protocol.v1_0.type.AmqpErrorException;
 import org.apache.qpid.server.protocol.v1_0.type.Binary;
 import org.apache.qpid.server.protocol.v1_0.type.DeliveryState;
+import org.apache.qpid.server.protocol.v1_0.type.Symbols;
 import org.apache.qpid.server.protocol.v1_0.type.UnsignedInteger;
 import org.apache.qpid.server.protocol.v1_0.type.messaging.Accepted;
 import org.apache.qpid.server.protocol.v1_0.type.messaging.AmqpValueSection;
@@ -120,7 +121,7 @@ public class TxnCoordinatorReceivingLinkEndpoint extends AbstractReceivingLinkEn
                             {
                                 outcome = new Accepted();
                             }
-                            else if (CollectionUtils.nullSafeList(getSource().getOutcomes()).contains(Rejected.REJECTED_SYMBOL))
+                            else if (CollectionUtils.nullSafeList(getSource().getOutcomes()).contains(Symbols.AMQP_REJECTED))
                             {
                                 final Rejected rejected = new Rejected();
                                 rejected.setError(error);

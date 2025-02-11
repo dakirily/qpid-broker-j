@@ -1,4 +1,3 @@
-
 /*
 *
 * Licensed to the Apache Software Foundation (ASF) under one
@@ -20,15 +19,13 @@
 *
 */
 
-
 package org.apache.qpid.server.protocol.v1_0.type.transaction;
-
 
 import org.apache.qpid.server.protocol.v1_0.type.Binary;
 import org.apache.qpid.server.protocol.v1_0.CompositeType;
 import org.apache.qpid.server.protocol.v1_0.CompositeTypeField;
 
-@CompositeType( symbolicDescriptor = "amqp:discharge:list", numericDescriptor = 0x0000000000000032L)
+@CompositeType(symbolicDescriptor = "amqp:discharge:list", numericDescriptor = 0x0000000000000032L)
 public class Discharge
 {
     @CompositeTypeField(index = 0, mandatory = true)
@@ -42,7 +39,7 @@ public class Discharge
         return _txnId;
     }
 
-    public void setTxnId(Binary txnId)
+    public void setTxnId(final Binary txnId)
     {
         _txnId = txnId;
     }
@@ -52,7 +49,7 @@ public class Discharge
         return _fail;
     }
 
-    public void setFail(Boolean fail)
+    public void setFail(final Boolean fail)
     {
         _fail = fail;
     }
@@ -60,15 +57,11 @@ public class Discharge
     @Override
     public String toString()
     {
-        StringBuilder builder = new StringBuilder("Discharge{");
+        final StringBuilder builder = new StringBuilder("Discharge{");
         final int origLength = builder.length();
 
         if (_txnId != null)
         {
-            if (builder.length() != origLength)
-            {
-                builder.append(',');
-            }
             builder.append("txnId=").append(_txnId);
         }
 

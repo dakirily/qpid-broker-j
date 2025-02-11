@@ -28,7 +28,7 @@ public class DoubleWriter extends FixedEightWriter<Double>
 
     public DoubleWriter(final Double object)
     {
-        super(Double.doubleToLongBits(object.doubleValue()));
+        super(Double.doubleToLongBits(object));
     }
 
     @Override
@@ -37,7 +37,7 @@ public class DoubleWriter extends FixedEightWriter<Double>
         return FORMAT_CODE;
     }
 
-    public static void register(ValueWriter.Registry registry)
+    public static void register(final ValueWriter.Registry registry)
     {
         registry.register(Double.class, FACTORY);
     }

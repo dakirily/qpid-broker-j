@@ -1,4 +1,3 @@
-
 /*
 *
 * Licensed to the Apache Software Foundation (ASF) under one
@@ -20,50 +19,44 @@
 *
 */
 
-
 package org.apache.qpid.server.protocol.v1_0.type.messaging.codec;
 
 import org.apache.qpid.server.protocol.v1_0.codec.AbstractDescribedTypeConstructor;
 import org.apache.qpid.server.protocol.v1_0.codec.DescribedTypeConstructorRegistry;
 import org.apache.qpid.server.protocol.v1_0.type.AmqpErrorException;
-import org.apache.qpid.server.protocol.v1_0.type.Symbol;
+import org.apache.qpid.server.protocol.v1_0.type.Symbols;
 import org.apache.qpid.server.protocol.v1_0.type.UnsignedLong;
 import org.apache.qpid.server.protocol.v1_0.type.messaging.MatchingSubjectFilter;
-import org.apache.qpid.server.protocol.v1_0.type.transport.AmqpError;
 
 public class MatchingSubjectFilterConstructor extends AbstractDescribedTypeConstructor<MatchingSubjectFilter>
 {
     private static final Object[] DESCRIPTORS =
     {
-            Symbol.valueOf("apache.org:legacy-amqp-topic-binding:string"), UnsignedLong.valueOf(0x0000468C00000001L)
+            Symbols.APACHE_LEGACY_TOPIC_BINDING, UnsignedLong.valueOf(0x0000468C00000001L)
     };
 
     private static final MatchingSubjectFilterConstructor INSTANCE = new MatchingSubjectFilterConstructor();
 
-    public static void register(DescribedTypeConstructorRegistry registry)
+    public static void register(final DescribedTypeConstructorRegistry registry)
     {
-        for(Object descriptor : DESCRIPTORS)
+        for (final Object descriptor : DESCRIPTORS)
         {
             registry.register(descriptor, INSTANCE);
         }
     }
 
-
     @Override
-    public MatchingSubjectFilter construct(Object underlying) throws AmqpErrorException
+    public MatchingSubjectFilter construct(final Object underlying) throws AmqpErrorException
     {
-
-        if(underlying instanceof String)
+        if (underlying instanceof String)
         {
-            return new MatchingSubjectFilter((String)underlying);
+            return new MatchingSubjectFilter((String) underlying);
         }
         else
         {
-            final String msg = String.format("Cannot decode 'apache.org:legacy-amqp-topic-binding' from '%s'",
-                                             underlying == null ? null : underlying.getClass().getSimpleName());
-            throw new AmqpErrorException(AmqpError.DECODE_ERROR, msg);
+            throw AmqpErrorException.decode()
+                    .message("Cannot decode 'apache.org:legacy-amqp-topic-binding' from '%s'")
+                    .args(underlying == null ? null : underlying.getClass().getSimpleName());
         }
     }
-
-
 }

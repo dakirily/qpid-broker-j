@@ -48,13 +48,12 @@ import org.apache.qpid.server.protocol.v1_0.type.FrameBody;
 import org.apache.qpid.server.protocol.v1_0.type.Outcome;
 import org.apache.qpid.server.protocol.v1_0.type.SaslFrameBody;
 import org.apache.qpid.server.protocol.v1_0.type.Symbol;
+import org.apache.qpid.server.protocol.v1_0.type.Symbols;
 import org.apache.qpid.server.protocol.v1_0.type.UnsignedInteger;
 import org.apache.qpid.server.protocol.v1_0.type.UnsignedShort;
-import org.apache.qpid.server.protocol.v1_0.type.messaging.Accepted;
 import org.apache.qpid.server.protocol.v1_0.type.messaging.AmqpValue;
 import org.apache.qpid.server.protocol.v1_0.type.messaging.AmqpValueSection;
 import org.apache.qpid.server.protocol.v1_0.type.messaging.Filter;
-import org.apache.qpid.server.protocol.v1_0.type.messaging.Rejected;
 import org.apache.qpid.server.protocol.v1_0.type.messaging.Source;
 import org.apache.qpid.server.protocol.v1_0.type.messaging.Target;
 import org.apache.qpid.server.protocol.v1_0.type.security.SaslCode;
@@ -988,8 +987,8 @@ public class Interaction extends AbstractInteraction<Interaction>
     {
         return txnAttachCoordinatorLink(handle,
                                         this::txDefaultUnexpectedResponseHandler,
-                                        Accepted.ACCEPTED_SYMBOL,
-                                        Rejected.REJECTED_SYMBOL);
+                                        Symbols.AMQP_ACCEPTED,
+                                        Symbols.AMQP_REJECTED);
     }
 
     public Interaction txnAttachCoordinatorLink(final UnsignedInteger handle,
@@ -997,8 +996,8 @@ public class Interaction extends AbstractInteraction<Interaction>
     {
         return txnAttachCoordinatorLink(handle,
                                         unexpectedResponseHandler,
-                                        Accepted.ACCEPTED_SYMBOL,
-                                        Rejected.REJECTED_SYMBOL);
+                                        Symbols.AMQP_ACCEPTED,
+                                        Symbols.AMQP_REJECTED);
     }
 
     public Interaction txnAttachCoordinatorLink(final UnsignedInteger handle,

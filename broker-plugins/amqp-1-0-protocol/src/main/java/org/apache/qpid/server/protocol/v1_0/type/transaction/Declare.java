@@ -1,4 +1,3 @@
-
 /*
 *
 * Licensed to the Apache Software Foundation (ASF) under one
@@ -20,15 +19,13 @@
 *
 */
 
-
 package org.apache.qpid.server.protocol.v1_0.type.transaction;
-
 
 import org.apache.qpid.server.protocol.v1_0.CompositeType;
 import org.apache.qpid.server.protocol.v1_0.CompositeTypeField;
 import org.apache.qpid.server.protocol.v1_0.type.GlobalTxId;
 
-@CompositeType( symbolicDescriptor = "amqp:declare:list", numericDescriptor = 0x0000000000000031L)
+@CompositeType(symbolicDescriptor = "amqp:declare:list", numericDescriptor = 0x0000000000000031L)
 public class Declare
 {
     @CompositeTypeField(index = 0)
@@ -39,7 +36,7 @@ public class Declare
         return _globalId;
     }
 
-    public void setGlobalId(GlobalTxId globalId)
+    public void setGlobalId(final GlobalTxId globalId)
     {
         _globalId = globalId;
     }
@@ -47,15 +44,10 @@ public class Declare
     @Override
     public String toString()
     {
-        StringBuilder builder = new StringBuilder("Declare{");
-        final int origLength = builder.length();
+        final StringBuilder builder = new StringBuilder("Declare{");
 
         if (_globalId != null)
         {
-            if (builder.length() != origLength)
-            {
-                builder.append(',');
-            }
             builder.append("globalId=").append(_globalId);
         }
 

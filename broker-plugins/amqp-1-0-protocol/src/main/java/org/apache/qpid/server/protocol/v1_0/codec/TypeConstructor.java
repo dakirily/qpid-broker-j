@@ -25,7 +25,5 @@ import org.apache.qpid.server.protocol.v1_0.type.AmqpErrorException;
 
 public interface TypeConstructor<T>
 {
-
     T construct(final QpidByteBuffer in, ValueHandler handler) throws AmqpErrorException;
-
 }

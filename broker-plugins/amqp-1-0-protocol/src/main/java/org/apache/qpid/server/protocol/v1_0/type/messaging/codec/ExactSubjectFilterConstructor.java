@@ -1,4 +1,3 @@
-
 /*
 *
 * Licensed to the Apache Software Foundation (ASF) under one
@@ -20,49 +19,43 @@
 *
 */
 
-
 package org.apache.qpid.server.protocol.v1_0.type.messaging.codec;
 
 import org.apache.qpid.server.protocol.v1_0.codec.AbstractDescribedTypeConstructor;
 import org.apache.qpid.server.protocol.v1_0.codec.DescribedTypeConstructorRegistry;
 import org.apache.qpid.server.protocol.v1_0.type.AmqpErrorException;
-import org.apache.qpid.server.protocol.v1_0.type.Symbol;
+import org.apache.qpid.server.protocol.v1_0.type.Symbols;
 import org.apache.qpid.server.protocol.v1_0.type.messaging.ExactSubjectFilter;
-import org.apache.qpid.server.protocol.v1_0.type.transport.AmqpError;
 
 public class ExactSubjectFilterConstructor extends AbstractDescribedTypeConstructor<ExactSubjectFilter>
 {
     private static final Object[] DESCRIPTORS =
     {
-            Symbol.valueOf("apache.org:legacy-amqp-direct-binding:string"), 0x0000468C00000000L
+            Symbols.APACHE_LEGACY_DIRECT_BINDING, 0x0000468C00000000L
     };
 
     private static final ExactSubjectFilterConstructor INSTANCE = new ExactSubjectFilterConstructor();
 
-    public static void register(DescribedTypeConstructorRegistry registry)
+    public static void register(final DescribedTypeConstructorRegistry registry)
     {
-        for(Object descriptor : DESCRIPTORS)
+        for (final Object descriptor : DESCRIPTORS)
         {
             registry.register(descriptor, INSTANCE);
         }
     }
 
-
     @Override
-    public ExactSubjectFilter construct(Object underlying) throws AmqpErrorException
+    public ExactSubjectFilter construct(final Object underlying) throws AmqpErrorException
     {
-
-        if(underlying instanceof String)
+        if (underlying instanceof String)
         {
             return new ExactSubjectFilter((String)underlying);
         }
         else
         {
-            final String msg = String.format("Cannot decode 'apache.org:legacy-amqp-direct-binding' from '%s'",
-                                             underlying == null ? null : underlying.getClass().getSimpleName());
-            throw new AmqpErrorException(AmqpError.DECODE_ERROR, msg);
+            throw AmqpErrorException.decode()
+                    .message("Cannot decode 'apache.org:legacy-amqp-direct-binding' from '%s'")
+                    .args(underlying == null ? null : underlying.getClass().getSimpleName());
         }
     }
-
-
 }

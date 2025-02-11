@@ -55,11 +55,10 @@ public class DeclareWriter extends AbstractDescribedTypeWriter<Declare>
 
         private int calculateCount()
         {
-            if( _value.getGlobalId() != null)
+            if ( _value.getGlobalId() != null)
             {
                 return 1;
             }
-
             return 0;
         }
 
@@ -78,15 +77,11 @@ public class DeclareWriter extends AbstractDescribedTypeWriter<Declare>
         @Override
         protected Object next()
         {
-            switch(_field++)
+            if (_field++ == 0)
             {
-
-                case 0:
-                    return _value.getGlobalId();
-
-                default:
-                    return null;
+                return _value.getGlobalId();
             }
+            return null;
         }
 
         @Override
@@ -96,7 +91,7 @@ public class DeclareWriter extends AbstractDescribedTypeWriter<Declare>
         }
     }
 
-    public static void register(ValueWriter.Registry registry)
+    public static void register(final ValueWriter.Registry registry)
     {
         registry.register(Declare.class, FACTORY);
     }

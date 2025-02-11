@@ -22,12 +22,10 @@ package org.apache.qpid.server.protocol.v1_0.codec;
 
 import org.apache.qpid.server.bytebuffer.QpidByteBuffer;
 import org.apache.qpid.server.protocol.v1_0.type.AmqpErrorException;
-import org.apache.qpid.server.protocol.v1_0.type.transport.AmqpError;
 
 public class FloatTypeConstructor implements TypeConstructor<Float>
 {
     private static final FloatTypeConstructor INSTANCE = new FloatTypeConstructor();
-
 
     public static FloatTypeConstructor getInstance()
     {
@@ -47,7 +45,7 @@ public class FloatTypeConstructor implements TypeConstructor<Float>
         }
         else
         {
-            throw new AmqpErrorException(AmqpError.DECODE_ERROR, "Cannot construct float: insufficient input data");
+            throw AmqpErrorException.decode().message("Cannot construct float: insufficient input data").build();
         }
     }
 }

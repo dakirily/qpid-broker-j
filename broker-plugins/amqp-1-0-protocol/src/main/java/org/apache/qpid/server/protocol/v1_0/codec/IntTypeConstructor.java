@@ -22,12 +22,10 @@ package org.apache.qpid.server.protocol.v1_0.codec;
 
 import org.apache.qpid.server.bytebuffer.QpidByteBuffer;
 import org.apache.qpid.server.protocol.v1_0.type.AmqpErrorException;
-import org.apache.qpid.server.protocol.v1_0.type.transport.AmqpError;
 
 public class IntTypeConstructor implements TypeConstructor<Integer>
 {
     private static final IntTypeConstructor INSTANCE = new IntTypeConstructor();
-
 
     public static IntTypeConstructor getInstance()
     {
@@ -47,7 +45,7 @@ public class IntTypeConstructor implements TypeConstructor<Integer>
         }
         else
         {
-            throw new AmqpErrorException(AmqpError.DECODE_ERROR, "Cannot construct int: insufficient input data");
+            throw AmqpErrorException.decode().message("Cannot construct int: insufficient input data").build();
         }
     }
 }

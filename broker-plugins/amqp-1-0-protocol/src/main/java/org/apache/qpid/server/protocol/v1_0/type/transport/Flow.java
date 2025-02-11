@@ -19,9 +19,7 @@
 *
 */
 
-
 package org.apache.qpid.server.protocol.v1_0.type.transport;
-
 
 import java.util.Map;
 
@@ -32,10 +30,9 @@ import org.apache.qpid.server.protocol.v1_0.type.FrameBody;
 import org.apache.qpid.server.protocol.v1_0.type.Symbol;
 import org.apache.qpid.server.protocol.v1_0.type.UnsignedInteger;
 
-@CompositeType( symbolicDescriptor = "amqp:flow:list", numericDescriptor = 0x0000000000000013L)
+@CompositeType(symbolicDescriptor = "amqp:flow:list", numericDescriptor = 0x0000000000000013L)
 public class Flow implements FrameBody
 {
-
     @CompositeTypeField(index = 0)
     private UnsignedInteger _nextIncomingId;
 
@@ -74,7 +71,7 @@ public class Flow implements FrameBody
         return _nextIncomingId;
     }
 
-    public void setNextIncomingId(UnsignedInteger nextIncomingId)
+    public void setNextIncomingId(final UnsignedInteger nextIncomingId)
     {
         _nextIncomingId = nextIncomingId;
     }
@@ -84,7 +81,7 @@ public class Flow implements FrameBody
         return _incomingWindow;
     }
 
-    public void setIncomingWindow(UnsignedInteger incomingWindow)
+    public void setIncomingWindow(final UnsignedInteger incomingWindow)
     {
         _incomingWindow = incomingWindow;
     }
@@ -94,7 +91,7 @@ public class Flow implements FrameBody
         return _nextOutgoingId;
     }
 
-    public void setNextOutgoingId(UnsignedInteger nextOutgoingId)
+    public void setNextOutgoingId(final UnsignedInteger nextOutgoingId)
     {
         _nextOutgoingId = nextOutgoingId;
     }
@@ -104,7 +101,7 @@ public class Flow implements FrameBody
         return _outgoingWindow;
     }
 
-    public void setOutgoingWindow(UnsignedInteger outgoingWindow)
+    public void setOutgoingWindow(final UnsignedInteger outgoingWindow)
     {
         _outgoingWindow = outgoingWindow;
     }
@@ -114,7 +111,7 @@ public class Flow implements FrameBody
         return _handle;
     }
 
-    public void setHandle(UnsignedInteger handle)
+    public void setHandle(final UnsignedInteger handle)
     {
         _handle = handle;
     }
@@ -124,7 +121,7 @@ public class Flow implements FrameBody
         return _deliveryCount;
     }
 
-    public void setDeliveryCount(UnsignedInteger deliveryCount)
+    public void setDeliveryCount(final UnsignedInteger deliveryCount)
     {
         _deliveryCount = deliveryCount;
     }
@@ -134,7 +131,7 @@ public class Flow implements FrameBody
         return _linkCredit;
     }
 
-    public void setLinkCredit(UnsignedInteger linkCredit)
+    public void setLinkCredit(final UnsignedInteger linkCredit)
     {
         _linkCredit = linkCredit;
     }
@@ -144,7 +141,7 @@ public class Flow implements FrameBody
         return _available;
     }
 
-    public void setAvailable(UnsignedInteger available)
+    public void setAvailable(final UnsignedInteger available)
     {
         _available = available;
     }
@@ -154,7 +151,7 @@ public class Flow implements FrameBody
         return _drain;
     }
 
-    public void setDrain(Boolean drain)
+    public void setDrain(final Boolean drain)
     {
         _drain = drain;
     }
@@ -164,7 +161,7 @@ public class Flow implements FrameBody
         return _echo;
     }
 
-    public void setEcho(Boolean echo)
+    public void setEcho(final Boolean echo)
     {
         _echo = echo;
     }
@@ -174,7 +171,7 @@ public class Flow implements FrameBody
         return _properties;
     }
 
-    public void setProperties(Map<Symbol, Object> properties)
+    public void setProperties(final Map<Symbol, Object> properties)
     {
         _properties = properties;
     }
@@ -182,15 +179,11 @@ public class Flow implements FrameBody
     @Override
     public String toString()
     {
-        StringBuilder builder = new StringBuilder("Flow{");
+        final StringBuilder builder = new StringBuilder("Flow{");
         final int origLength = builder.length();
 
         if (_nextIncomingId != null)
         {
-            if (builder.length() != origLength)
-            {
-                builder.append(',');
-            }
             builder.append("nextIncomingId=").append(_nextIncomingId);
         }
 
@@ -289,7 +282,7 @@ public class Flow implements FrameBody
     }
 
     @Override
-    public void invoke(int channel, ConnectionHandler conn)
+    public void invoke(final int channel, final ConnectionHandler conn)
     {
         conn.receiveFlow(channel, this);
     }

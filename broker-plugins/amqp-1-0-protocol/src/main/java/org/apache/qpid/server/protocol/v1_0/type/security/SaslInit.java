@@ -1,4 +1,3 @@
-
 /*
 *
 * Licensed to the Apache Software Foundation (ASF) under one
@@ -20,9 +19,7 @@
 *
 */
 
-
 package org.apache.qpid.server.protocol.v1_0.type.security;
-
 
 import org.apache.qpid.server.protocol.v1_0.SASLEndpoint;
 import org.apache.qpid.server.protocol.v1_0.type.Binary;
@@ -31,10 +28,9 @@ import org.apache.qpid.server.protocol.v1_0.CompositeTypeField;
 import org.apache.qpid.server.protocol.v1_0.type.SaslFrameBody;
 import org.apache.qpid.server.protocol.v1_0.type.Symbol;
 
-@CompositeType( symbolicDescriptor = "amqp:sasl-init:list", numericDescriptor = 0x0000000000000041L)
+@CompositeType(symbolicDescriptor = "amqp:sasl-init:list", numericDescriptor = 0x0000000000000041L)
 public class SaslInit implements SaslFrameBody
 {
-
     @CompositeTypeField(index = 0, mandatory = true)
     private Symbol _mechanism;
 
@@ -49,7 +45,7 @@ public class SaslInit implements SaslFrameBody
         return _mechanism;
     }
 
-    public void setMechanism(Symbol mechanism)
+    public void setMechanism(final Symbol mechanism)
     {
         _mechanism = mechanism;
     }
@@ -59,7 +55,7 @@ public class SaslInit implements SaslFrameBody
         return _initialResponse;
     }
 
-    public void setInitialResponse(Binary initialResponse)
+    public void setInitialResponse(final Binary initialResponse)
     {
         _initialResponse = initialResponse;
     }
@@ -69,7 +65,7 @@ public class SaslInit implements SaslFrameBody
         return _hostname;
     }
 
-    public void setHostname(String hostname)
+    public void setHostname(final String hostname)
     {
         _hostname = hostname;
     }
@@ -77,15 +73,11 @@ public class SaslInit implements SaslFrameBody
     @Override
     public String toString()
     {
-        StringBuilder builder = new StringBuilder("SaslInit{");
+        final StringBuilder builder = new StringBuilder("SaslInit{");
         final int origLength = builder.length();
 
         if (_mechanism != null)
         {
-            if (builder.length() != origLength)
-            {
-                builder.append(',');
-            }
             builder.append("mechanism=").append(_mechanism);
         }
 
@@ -112,7 +104,7 @@ public class SaslInit implements SaslFrameBody
     }
 
     @Override
-    public void invoke(final int channel, SASLEndpoint conn)
+    public void invoke(final int channel, final SASLEndpoint conn)
     {
         conn.receiveSaslInit(this);
     }

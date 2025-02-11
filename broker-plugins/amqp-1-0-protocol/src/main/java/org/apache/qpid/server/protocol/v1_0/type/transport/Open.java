@@ -19,9 +19,7 @@
 *
 */
 
-
 package org.apache.qpid.server.protocol.v1_0.type.transport;
-
 
 import java.util.Arrays;
 import java.util.Map;
@@ -34,10 +32,9 @@ import org.apache.qpid.server.protocol.v1_0.type.Symbol;
 import org.apache.qpid.server.protocol.v1_0.type.UnsignedInteger;
 import org.apache.qpid.server.protocol.v1_0.type.UnsignedShort;
 
-@CompositeType( symbolicDescriptor = "amqp:open:list", numericDescriptor = 0x0000000000000010L)
+@CompositeType(symbolicDescriptor = "amqp:open:list", numericDescriptor = 0x0000000000000010L)
 public class Open implements FrameBody
 {
-
     @CompositeTypeField(index = 0, mandatory = true)
     private String _containerId;
 
@@ -73,7 +70,7 @@ public class Open implements FrameBody
         return _containerId;
     }
 
-    public void setContainerId(String containerId)
+    public void setContainerId(final String containerId)
     {
         _containerId = containerId;
     }
@@ -83,7 +80,7 @@ public class Open implements FrameBody
         return _hostname;
     }
 
-    public void setHostname(String hostname)
+    public void setHostname(final String hostname)
     {
         _hostname = hostname;
     }
@@ -93,7 +90,7 @@ public class Open implements FrameBody
         return _maxFrameSize;
     }
 
-    public void setMaxFrameSize(UnsignedInteger maxFrameSize)
+    public void setMaxFrameSize(final UnsignedInteger maxFrameSize)
     {
         _maxFrameSize = maxFrameSize;
     }
@@ -103,7 +100,7 @@ public class Open implements FrameBody
         return _channelMax;
     }
 
-    public void setChannelMax(UnsignedShort channelMax)
+    public void setChannelMax(final UnsignedShort channelMax)
     {
         _channelMax = channelMax;
     }
@@ -113,7 +110,7 @@ public class Open implements FrameBody
         return _idleTimeOut;
     }
 
-    public void setIdleTimeOut(UnsignedInteger idleTimeOut)
+    public void setIdleTimeOut(final UnsignedInteger idleTimeOut)
     {
         _idleTimeOut = idleTimeOut;
     }
@@ -123,7 +120,7 @@ public class Open implements FrameBody
         return _outgoingLocales;
     }
 
-    public void setOutgoingLocales(Symbol... outgoingLocales)
+    public void setOutgoingLocales(final Symbol... outgoingLocales)
     {
         _outgoingLocales = outgoingLocales;
     }
@@ -133,7 +130,7 @@ public class Open implements FrameBody
         return _incomingLocales;
     }
 
-    public void setIncomingLocales(Symbol... incomingLocales)
+    public void setIncomingLocales(final Symbol... incomingLocales)
     {
         _incomingLocales = incomingLocales;
     }
@@ -143,7 +140,7 @@ public class Open implements FrameBody
         return _offeredCapabilities;
     }
 
-    public void setOfferedCapabilities(Symbol... offeredCapabilities)
+    public void setOfferedCapabilities(final Symbol... offeredCapabilities)
     {
         _offeredCapabilities = offeredCapabilities;
     }
@@ -153,7 +150,7 @@ public class Open implements FrameBody
         return _desiredCapabilities;
     }
 
-    public void setDesiredCapabilities(Symbol[] desiredCapabilities)
+    public void setDesiredCapabilities(final Symbol[] desiredCapabilities)
     {
         _desiredCapabilities = desiredCapabilities;
     }
@@ -163,7 +160,7 @@ public class Open implements FrameBody
         return _properties;
     }
 
-    public void setProperties(Map<Symbol, Object> properties)
+    public void setProperties(final Map<Symbol, Object> properties)
     {
         _properties = properties;
     }
@@ -171,15 +168,11 @@ public class Open implements FrameBody
     @Override
     public String toString()
     {
-        StringBuilder builder = new StringBuilder("Open{");
+        final StringBuilder builder = new StringBuilder("Open{");
         final int origLength = builder.length();
 
         if (_containerId != null)
         {
-            if (builder.length() != origLength)
-            {
-                builder.append(',');
-            }
             builder.append("containerId=").append(_containerId);
         }
 
@@ -269,7 +262,7 @@ public class Open implements FrameBody
     }
 
     @Override
-    public void invoke(int channel, ConnectionHandler conn)
+    public void invoke(final int channel, final ConnectionHandler conn)
     {
         conn.receiveOpen(channel, this);
     }

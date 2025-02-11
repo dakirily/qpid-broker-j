@@ -69,21 +69,18 @@ import org.apache.qpid.server.protocol.v1_0.type.transport.codec.*;
 
 public class AMQPDescribedTypeRegistry implements DescribedTypeConstructorRegistry, ValueWriter.Registry
 {
-
     private final Map<Object, DescribedTypeConstructor> _constructorRegistry = new HashMap<>();
     private final Map<Object, DescribedTypeConstructor> _sectionDecoderRegistryMap = new HashMap<>();
-
-
-
+    private final Map<Class, ValueWriter.Factory> _writerMap = new HashMap<>();
 
     @Override
-    public void register(Object descriptor, DescribedTypeConstructor constructor)
+    public void register(final Object descriptor, final DescribedTypeConstructor constructor)
     {
         _constructorRegistry.put(descriptor, constructor);
     }
 
     @Override
-    public DescribedTypeConstructor getConstructor(Object descriptor)
+    public DescribedTypeConstructor getConstructor(final Object descriptor)
     {
         return _constructorRegistry.get(descriptor);
     }
@@ -168,11 +165,8 @@ public class AMQPDescribedTypeRegistry implements DescribedTypeConstructorRegist
         return registry;
     }
 
-
-        
     private static void registerTransportWriters(final AMQPDescribedTypeRegistry registry)
     {
-    
         OpenWriter.register(registry);
         BeginWriter.register(registry);
         AttachWriter.register(registry);
@@ -194,7 +188,6 @@ public class AMQPDescribedTypeRegistry implements DescribedTypeConstructorRegist
 
     private static void registerMessagingWriters(final AMQPDescribedTypeRegistry registry)
     {
-    
         HeaderWriter.register(registry);
         DeliveryAnnotationsWriter.register(registry);
         MessageAnnotationsWriter.register(registry);
@@ -219,7 +212,6 @@ public class AMQPDescribedTypeRegistry implements DescribedTypeConstructorRegist
         DeleteOnNoMessagesWriter.register(registry);
         DeleteOnNoLinksOrMessagesWriter.register(registry);
 
-
         ExactSubjectFilterWriter.register(registry);
         MatchingSubjectFilterWriter.register(registry);
         JMSSelectorFilterWriter.register(registry);
@@ -228,7 +220,6 @@ public class AMQPDescribedTypeRegistry implements DescribedTypeConstructorRegist
 
     private static void registerTransactionsWriters(final AMQPDescribedTypeRegistry registry)
     {
-    
         CoordinatorWriter.register(registry);
         DeclareWriter.register(registry);
         DischargeWriter.register(registry);
@@ -256,7 +247,6 @@ public class AMQPDescribedTypeRegistry implements DescribedTypeConstructorRegist
 
     private static void registerTransportConstructors(final AMQPDescribedTypeRegistry registry)
     {
-    
         OpenConstructor.register(registry);
         BeginConstructor.register(registry);
         AttachConstructor.register(registry);
@@ -271,7 +261,6 @@ public class AMQPDescribedTypeRegistry implements DescribedTypeConstructorRegist
 
     private static void registerMessagingConstructors(final AMQPDescribedTypeRegistry registry)
     {
-    
         HeaderConstructor.register(registry);
         DeliveryAnnotationsConstructor.register(registry);
         MessageAnnotationsConstructor.register(registry);
@@ -301,7 +290,6 @@ public class AMQPDescribedTypeRegistry implements DescribedTypeConstructorRegist
 
     private static void registerTransactionsConstructors(final AMQPDescribedTypeRegistry registry)
     {
-    
         CoordinatorConstructor.register(registry);
         DeclareConstructor.register(registry);
         DischargeConstructor.register(registry);
@@ -311,7 +299,6 @@ public class AMQPDescribedTypeRegistry implements DescribedTypeConstructorRegist
 
     private static void registerSecurityConstructors(final AMQPDescribedTypeRegistry registry)
     {
-    
         SaslMechanismsConstructor.register(registry);
         SaslInitConstructor.register(registry);
         SaslChallengeConstructor.register(registry);
@@ -319,43 +306,39 @@ public class AMQPDescribedTypeRegistry implements DescribedTypeConstructorRegist
         SaslOutcomeConstructor.register(registry);
     }
 
-
-    private final Map<Class, ValueWriter.Factory> _writerMap = new HashMap<>();
-
-
     @Override
-    public <V> ValueWriter<V> getValueWriter(V value)
+    public <V> ValueWriter<V> getValueWriter(final V value)
     {
-        ValueWriter writer;
+        ValueWriter<V> writer;
 
-        Class<?> clazz = value == null ? Void.TYPE : value.getClass();
+        final Class<?> clazz = value == null ? Void.TYPE : value.getClass();
 
-        ValueWriter.Factory<V> factory = (ValueWriter.Factory<V>) (_writerMap.get(clazz));
+        ValueWriter.Factory<V> factory = (ValueWriter.Factory<V>) _writerMap.get(clazz);
 
-        if(factory == null)
+        if (factory == null)
         {
-            if(value instanceof List)
+            if (value instanceof List)
             {
                 factory = _writerMap.get(List.class);
                 _writerMap.put(value.getClass(), factory);
                 writer = factory.newInstance(this, value);
 
             }
-            else if(value instanceof Map)
+            else if (value instanceof Map)
             {
                 factory = _writerMap.get(Map.class);
                 _writerMap.put(value.getClass(), factory);
                 writer = factory.newInstance(this, value);
 
             }
-            else if(value.getClass().isArray())
+            else if (value.getClass().isArray())
             {
-                if(RestrictedType.class.isAssignableFrom(value.getClass().getComponentType()) && Array.getLength(value) > 0)
+                if (RestrictedType.class.isAssignableFrom(value.getClass().getComponentType()) && Array.getLength(value) > 0)
                 {
-                    RestrictedType[] restrictedTypes = (RestrictedType[]) value;
-                    Object[] newVals = (Object[]) Array.newInstance(restrictedTypes[0].getValue().getClass(),
+                    final RestrictedType[] restrictedTypes = (RestrictedType[]) value;
+                    final Object[] newVals = (Object[]) Array.newInstance(restrictedTypes[0].getValue().getClass(),
                                                                     restrictedTypes.length);
-                    for(int i = 0; i < restrictedTypes.length; i++)
+                    for (int i = 0; i < restrictedTypes.length; i++)
                     {
                         newVals[i] = restrictedTypes[i].getValue();
                     }
@@ -363,8 +346,7 @@ public class AMQPDescribedTypeRegistry implements DescribedTypeConstructorRegist
                 }
                 // TODO primitive array types
                 factory = _writerMap.get(List.class);
-                writer = factory.newInstance(this, (V)Arrays.asList((Object[])value));
-
+                writer = factory.newInstance(this, (V) Arrays.asList((Object[])value));
             }
             else
             {
@@ -375,14 +357,11 @@ public class AMQPDescribedTypeRegistry implements DescribedTypeConstructorRegist
         {
             writer = factory.newInstance(this, value);
         }
-
-
         return writer;
-
     }
 
     @Override
-    public <V> ValueWriter<V> register(Class<V> clazz, ValueWriter.Factory<V> writer)
+    public <V> ValueWriter<V> register(final Class<V> clazz, final ValueWriter.Factory<V> writer)
     {
         return (ValueWriter<V>) _writerMap.put(clazz, writer);
     }

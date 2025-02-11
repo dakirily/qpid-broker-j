@@ -27,6 +27,12 @@ import org.apache.qpid.server.bytebuffer.QpidByteBuffer;
 
 public class ListWriter
 {
+    public static final ValueWriter<List> EMPTY_LIST_WRITER = new EmptyListValueWriter();
+
+    private static final byte ZERO_BYTE_FORMAT_CODE = (byte) 0x45;
+    private static final ValueWriter.Factory<List> FACTORY =
+            (registry, object) -> object.isEmpty() ? EMPTY_LIST_WRITER : new NonEmptyListWriter(registry, object);
+
     private static class NonEmptyListWriter extends AbstractListWriter<List>
     {
         private final List _list;
@@ -61,19 +67,10 @@ public class ListWriter
         {
             _position = 0;
         }
-
     }
-
-    private static final byte ZERO_BYTE_FORMAT_CODE = (byte) 0x45;
-
-    public static final ValueWriter<List> EMPTY_LIST_WRITER = new EmptyListValueWriter();
-
-    private static final ValueWriter.Factory<List> FACTORY =
-            (registry, object) -> object.isEmpty() ? EMPTY_LIST_WRITER : new NonEmptyListWriter(registry, object);
 
     public static class EmptyListValueWriter implements ValueWriter<List>
     {
-
         @Override
         public int getEncodedSize()
         {

@@ -19,37 +19,32 @@
 *
 */
 
-
 package org.apache.qpid.server.protocol.v1_0.type.transport;
-
 
 import org.apache.qpid.server.protocol.v1_0.type.ErrorCondition;
 import org.apache.qpid.server.protocol.v1_0.type.RestrictedType;
 import org.apache.qpid.server.protocol.v1_0.type.Symbol;
+import org.apache.qpid.server.protocol.v1_0.type.Symbols;
 
 public class LinkError implements ErrorCondition, RestrictedType<Symbol>
 {
-    public static final LinkError DETACH_FORCED = new LinkError(Symbol.valueOf("amqp:link:detach-forced"));
-    public static final LinkError TRANSFER_LIMIT_EXCEEDED =
-            new LinkError(Symbol.valueOf("amqp:link:transfer-limit-exceeded"));
-    public static final LinkError MESSAGE_SIZE_EXCEEDED =
-            new LinkError(Symbol.valueOf("amqp:link:message-size-exceeded"));
-    public static final LinkError REDIRECT = new LinkError(Symbol.valueOf("amqp:link:redirect"));
-    public static final LinkError STOLEN = new LinkError(Symbol.valueOf("amqp:link:stolen"));
+    public static final LinkError DETACH_FORCED = new LinkError(Symbols.AMQP_LINK_DETACH_FORCED);
+    public static final LinkError TRANSFER_LIMIT_EXCEEDED = new LinkError(Symbols.AMQP_LINK_TRANSFER_LIMIT_EXCEEDED);
+    public static final LinkError MESSAGE_SIZE_EXCEEDED = new LinkError(Symbols.AMQP_LINK_MSG_SIZE_EXCEEDED);
+    public static final LinkError REDIRECT = new LinkError(Symbols.AMQP_LINK_REDIRECT);
+    public static final LinkError STOLEN = new LinkError(Symbols.AMQP_LINK_STOLEN);
 
     private final Symbol _val;
 
-
-    private LinkError(Symbol val)
+    private LinkError(final Symbol val)
     {
         _val = val;
     }
 
-    public static LinkError valueOf(Object obj)
+    public static LinkError valueOf(final Object obj)
     {
         if (obj instanceof final Symbol val)
         {
-
             if (DETACH_FORCED._val.equals(val))
             {
                 return DETACH_FORCED;
@@ -89,7 +84,6 @@ public class LinkError implements ErrorCondition, RestrictedType<Symbol>
     @Override
     public String toString()
     {
-
         if (this == DETACH_FORCED)
         {
             return "detach-forced";
@@ -115,9 +109,6 @@ public class LinkError implements ErrorCondition, RestrictedType<Symbol>
             return "stolen";
         }
 
-        else
-        {
-            return String.valueOf(_val);
-        }
+        return String.valueOf(_val);
     }
 }

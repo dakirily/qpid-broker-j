@@ -24,12 +24,10 @@ import java.util.UUID;
 
 import org.apache.qpid.server.bytebuffer.QpidByteBuffer;
 import org.apache.qpid.server.protocol.v1_0.type.AmqpErrorException;
-import org.apache.qpid.server.protocol.v1_0.type.transport.AmqpError;
 
 public class UUIDTypeConstructor implements TypeConstructor<UUID>
 {
     private static final UUIDTypeConstructor INSTANCE = new UUIDTypeConstructor();
-
 
     public static UUIDTypeConstructor getInstance()
     {
@@ -45,13 +43,13 @@ public class UUIDTypeConstructor implements TypeConstructor<UUID>
     {
         if (in.hasRemaining(16))
         {
-            long msb = in.getLong();
-            long lsb = in.getLong();
+            final long msb = in.getLong();
+            final long lsb = in.getLong();
             return new UUID(msb, lsb);
         }
         else
         {
-            throw new AmqpErrorException(AmqpError.DECODE_ERROR, "Cannot construct UUID: insufficient input data");
+            throw AmqpErrorException.decode().message("Cannot construct UUID: insufficient input data").build();
         }
     }
 }

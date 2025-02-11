@@ -56,12 +56,12 @@ public class DischargeWriter extends AbstractDescribedTypeWriter<Discharge>
 
         private int calculateCount()
         {
-            if( _value.getFail() != null)
+            if ( _value.getFail() != null)
             {
                 return 2;
             }
 
-            if( _value.getTxnId() != null)
+            if ( _value.getTxnId() != null)
             {
                 return 1;
             }
@@ -84,18 +84,12 @@ public class DischargeWriter extends AbstractDescribedTypeWriter<Discharge>
         @Override
         protected Object next()
         {
-            switch(_field++)
+            return switch (_field++)
             {
-
-                case 0:
-                    return _value.getTxnId();
-
-                case 1:
-                    return _value.getFail();
-
-                default:
-                    return null;
-            }
+                case 0 -> _value.getTxnId();
+                case 1 -> _value.getFail();
+                default -> null;
+            };
         }
 
         @Override
@@ -105,7 +99,7 @@ public class DischargeWriter extends AbstractDescribedTypeWriter<Discharge>
         }
     }
 
-    public static void register(ValueWriter.Registry registry)
+    public static void register(final ValueWriter.Registry registry)
     {
         registry.register(Discharge.class, FACTORY);
     }

@@ -38,7 +38,7 @@ public class MatchingSubjectFilterWriter extends AbstractDescribedTypeWriter<Mat
         super(DESCRIPTOR_WRITER, registry.getValueWriter(object.getValue()));
     }
 
-    public static void register(Registry registry)
+    public static void register(final Registry registry)
     {
         registry.register(MatchingSubjectFilter.class, FACTORY);
     }

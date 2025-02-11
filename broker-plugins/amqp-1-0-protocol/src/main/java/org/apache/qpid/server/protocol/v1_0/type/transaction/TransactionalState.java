@@ -1,4 +1,3 @@
-
 /*
 *
 * Licensed to the Apache Software Foundation (ASF) under one
@@ -20,9 +19,7 @@
 *
 */
 
-
 package org.apache.qpid.server.protocol.v1_0.type.transaction;
-
 
 import org.apache.qpid.server.protocol.v1_0.type.Binary;
 import org.apache.qpid.server.protocol.v1_0.CompositeType;
@@ -30,7 +27,7 @@ import org.apache.qpid.server.protocol.v1_0.CompositeTypeField;
 import org.apache.qpid.server.protocol.v1_0.type.DeliveryState;
 import org.apache.qpid.server.protocol.v1_0.type.Outcome;
 
-@CompositeType( symbolicDescriptor = "amqp:transactional-state:list", numericDescriptor = 0x0000000000000034L)
+@CompositeType(symbolicDescriptor = "amqp:transactional-state:list", numericDescriptor = 0x0000000000000034L)
 public class TransactionalState implements DeliveryState
 {
     @CompositeTypeField(index = 0, mandatory = true)
@@ -44,7 +41,7 @@ public class TransactionalState implements DeliveryState
         return _txnId;
     }
 
-    public void setTxnId(Binary txnId)
+    public void setTxnId(final Binary txnId)
     {
         _txnId = txnId;
     }
@@ -54,7 +51,7 @@ public class TransactionalState implements DeliveryState
         return _outcome;
     }
 
-    public void setOutcome(Outcome outcome)
+    public void setOutcome(final Outcome outcome)
     {
         _outcome = outcome;
     }
@@ -62,15 +59,11 @@ public class TransactionalState implements DeliveryState
     @Override
     public String toString()
     {
-        StringBuilder builder = new StringBuilder("TransactionalState{");
+        final StringBuilder builder = new StringBuilder("TransactionalState{");
         final int origLength = builder.length();
 
         if (_txnId != null)
         {
-            if (builder.length() != origLength)
-            {
-                builder.append(',');
-            }
             builder.append("txnId=").append(_txnId);
         }
 

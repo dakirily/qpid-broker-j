@@ -31,7 +31,6 @@ public class ValueHandler implements DescribedTypeConstructorRegistry.Source
 
     private final DescribedTypeConstructorRegistry _describedTypeConstructorRegistry;
 
-
     private static final TypeConstructor[][] TYPE_CONSTRUCTORS =
             {
                     {},
@@ -75,57 +74,54 @@ public class ValueHandler implements DescribedTypeConstructorRegistry.Source
                     }
             };
 
-
-    public ValueHandler(DescribedTypeConstructorRegistry registry)
+    public ValueHandler(final DescribedTypeConstructorRegistry registry)
     {
         _describedTypeConstructorRegistry = registry;
     }
 
-
-    public Object parse(QpidByteBuffer in) throws AmqpErrorException
+    public Object parse(final QpidByteBuffer in) throws AmqpErrorException
     {
-        TypeConstructor constructor = readConstructor(in);
+        final TypeConstructor constructor = readConstructor(in);
         return constructor.construct(in, this);
     }
 
-    public TypeConstructor readConstructor(QpidByteBuffer in) throws AmqpErrorException
+    public TypeConstructor readConstructor(final QpidByteBuffer in) throws AmqpErrorException
     {
-        if(!in.hasRemaining())
+        if (!in.hasRemaining())
         {
             throw new AmqpErrorException(AmqpError.DECODE_ERROR, "Insufficient data - expected type, no data remaining");
         }
         byte formatCode = in.get();
 
-        if(formatCode == DESCRIBED_TYPE)
+        if (formatCode == DESCRIBED_TYPE)
         {
-            int originalPositions = in.position() - 1;
+            final int originalPositions = in.position() - 1;
 
-            Object descriptor = parse(in);
+            final Object descriptor = parse(in);
             DescribedTypeConstructor describedTypeConstructor = _describedTypeConstructorRegistry.getConstructor(descriptor);
-            if(describedTypeConstructor==null)
+            if (describedTypeConstructor == null)
             {
-                describedTypeConstructor=new DefaultDescribedTypeConstructor(descriptor);
+                describedTypeConstructor = new DefaultDescribedTypeConstructor(descriptor);
             }
 
             return describedTypeConstructor.construct(descriptor, in, originalPositions, this);
-
         }
         else
         {
-            int subCategory = (formatCode >> 4) & 0x0F;
-            int subtype =  formatCode & 0x0F;
+            final int subCategory = (formatCode >> 4) & 0x0F;
+            final int subtype =  formatCode & 0x0F;
 
             TypeConstructor tc;
             try
             {
                 tc = TYPE_CONSTRUCTORS[subCategory][subtype];
             }
-            catch(IndexOutOfBoundsException e)
+            catch (IndexOutOfBoundsException e)
             {
                 tc = null;
             }
 
-            if(tc == null)
+            if (tc == null)
             {
                 throw new AmqpErrorException(ConnectionError.FRAMING_ERROR,"Unknown type format-code 0x%02x", formatCode);
             }
@@ -133,7 +129,6 @@ public class ValueHandler implements DescribedTypeConstructorRegistry.Source
             return tc;
         }
     }
-
 
     @Override
     public String toString()
@@ -143,12 +138,9 @@ public class ValueHandler implements DescribedTypeConstructorRegistry.Source
                '}';
     }
 
-
     @Override
     public DescribedTypeConstructorRegistry getDescribedTypeRegistry()
     {
         return _describedTypeConstructorRegistry;
     }
-
-
 }

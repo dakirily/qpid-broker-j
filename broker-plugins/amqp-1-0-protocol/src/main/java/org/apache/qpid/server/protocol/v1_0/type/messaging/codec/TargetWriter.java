@@ -45,7 +45,7 @@ public class TargetWriter extends AbstractDescribedTypeWriter<Target>
         private final int _count;
         private int _field;
 
-        public Writer(final Registry registry, Target value)
+        public Writer(final Registry registry, final Target value)
         {
             super(registry);
             _value = value;
@@ -54,44 +54,43 @@ public class TargetWriter extends AbstractDescribedTypeWriter<Target>
 
         private int calculateCount()
         {
-            if( _value.getCapabilities() != null)
+            if ( _value.getCapabilities() != null)
             {
                 return 7;
             }
 
-            if( _value.getDynamicNodeProperties() != null)
+            if ( _value.getDynamicNodeProperties() != null)
             {
                 return 6;
             }
 
-            if( _value.getDynamic() != null)
+            if ( _value.getDynamic() != null)
             {
                 return 5;
             }
 
-            if( _value.getTimeout() != null)
+            if ( _value.getTimeout() != null)
             {
                 return 4;
             }
 
-            if( _value.getExpiryPolicy() != null)
+            if ( _value.getExpiryPolicy() != null)
             {
                 return 3;
             }
 
-            if( _value.getDurable() != null)
+            if ( _value.getDurable() != null)
             {
                 return 2;
             }
 
-            if( _value.getAddress() != null)
+            if ( _value.getAddress() != null)
             {
                 return 1;
             }
 
             return 0;
         }
-
 
         @Override
         protected int getCount()
@@ -108,33 +107,17 @@ public class TargetWriter extends AbstractDescribedTypeWriter<Target>
         @Override
         protected Object next()
         {
-            switch(_field++)
+            return switch (_field++)
             {
-
-                case 0:
-                    return _value.getAddress();
-
-                case 1:
-                    return _value.getDurable();
-
-                case 2:
-                    return _value.getExpiryPolicy();
-
-                case 3:
-                    return _value.getTimeout();
-
-                case 4:
-                    return _value.getDynamic();
-
-                case 5:
-                    return _value.getDynamicNodeProperties();
-
-                case 6:
-                    return _value.getCapabilities();
-
-                default:
-                    return null;
-            }
+                case 0 -> _value.getAddress();
+                case 1 -> _value.getDurable();
+                case 2 -> _value.getExpiryPolicy();
+                case 3 -> _value.getTimeout();
+                case 4 -> _value.getDynamic();
+                case 5 -> _value.getDynamicNodeProperties();
+                case 6 -> _value.getCapabilities();
+                default -> null;
+            };
         }
 
         @Override
@@ -144,7 +127,7 @@ public class TargetWriter extends AbstractDescribedTypeWriter<Target>
         }
     }
 
-    public static void register(ValueWriter.Registry registry)
+    public static void register(final ValueWriter.Registry registry)
     {
         registry.register(Target.class, FACTORY);
     }

@@ -33,8 +33,8 @@ public class LinkStoreUtils
 
     public static Object amqpBytesToObject(final byte[] bytes)
     {
-        ValueHandler valueHandler = new ValueHandler(DESCRIBED_TYPE_REGISTRY);
-        try (QpidByteBuffer qpidByteBuffer = QpidByteBuffer.wrap(bytes))
+        final ValueHandler valueHandler = new ValueHandler(DESCRIBED_TYPE_REGISTRY);
+        try (final QpidByteBuffer qpidByteBuffer = QpidByteBuffer.wrap(bytes))
         {
             return valueHandler.parse(qpidByteBuffer);
         }
@@ -46,9 +46,9 @@ public class LinkStoreUtils
 
     public static byte[] objectToAmqpBytes(final Object object)
     {
-        ValueWriter valueWriter = DESCRIBED_TYPE_REGISTRY.getValueWriter(object);
-        int encodedSize = valueWriter.getEncodedSize();
-        try (QpidByteBuffer qpidByteBuffer = QpidByteBuffer.allocate(encodedSize))
+        final ValueWriter valueWriter = DESCRIBED_TYPE_REGISTRY.getValueWriter(object);
+        final int encodedSize = valueWriter.getEncodedSize();
+        try (final QpidByteBuffer qpidByteBuffer = QpidByteBuffer.allocate(encodedSize))
         {
             valueWriter.writeToBuffer(qpidByteBuffer);
             return qpidByteBuffer.array();

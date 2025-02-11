@@ -1,4 +1,3 @@
-
 /*
 *
 * Licensed to the Apache Software Foundation (ASF) under one
@@ -20,17 +19,15 @@
 *
 */
 
-
 package org.apache.qpid.server.protocol.v1_0.type.messaging;
 
 import java.util.List;
 
 public class AmqpSequence implements NonEncodingRetainingSection<List>
 {
-
     private final List _value;
 
-    public AmqpSequence(List value)
+    public AmqpSequence(final List value)
     {
         _value = value;
     }
@@ -40,7 +37,6 @@ public class AmqpSequence implements NonEncodingRetainingSection<List>
     {
         return _value;
     }
-
 
     @Override
     public String toString()

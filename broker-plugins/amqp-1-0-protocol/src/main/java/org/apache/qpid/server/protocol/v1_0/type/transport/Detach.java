@@ -19,9 +19,7 @@
 *
 */
 
-
 package org.apache.qpid.server.protocol.v1_0.type.transport;
-
 
 import org.apache.qpid.server.protocol.v1_0.ConnectionHandler;
 import org.apache.qpid.server.protocol.v1_0.CompositeType;
@@ -29,10 +27,9 @@ import org.apache.qpid.server.protocol.v1_0.CompositeTypeField;
 import org.apache.qpid.server.protocol.v1_0.type.ErrorCarryingFrameBody;
 import org.apache.qpid.server.protocol.v1_0.type.UnsignedInteger;
 
-@CompositeType( symbolicDescriptor = "amqp:detach:list", numericDescriptor = 0x0000000000000016L)
+@CompositeType(symbolicDescriptor = "amqp:detach:list", numericDescriptor = 0x0000000000000016L)
 public class Detach implements ErrorCarryingFrameBody
 {
-
     @CompositeTypeField(index = 0, mandatory = true)
     private UnsignedInteger _handle;
 
@@ -47,7 +44,7 @@ public class Detach implements ErrorCarryingFrameBody
         return _handle;
     }
 
-    public void setHandle(UnsignedInteger handle)
+    public void setHandle(final UnsignedInteger handle)
     {
         _handle = handle;
     }
@@ -57,7 +54,7 @@ public class Detach implements ErrorCarryingFrameBody
         return _closed;
     }
 
-    public void setClosed(Boolean closed)
+    public void setClosed(final Boolean closed)
     {
         _closed = closed;
     }
@@ -68,7 +65,7 @@ public class Detach implements ErrorCarryingFrameBody
         return _error;
     }
 
-    public void setError(Error error)
+    public void setError(final Error error)
     {
         _error = error;
     }
@@ -76,15 +73,11 @@ public class Detach implements ErrorCarryingFrameBody
     @Override
     public String toString()
     {
-        StringBuilder builder = new StringBuilder("Detach{");
+        final StringBuilder builder = new StringBuilder("Detach{");
         final int origLength = builder.length();
 
         if (_handle != null)
         {
-            if (builder.length() != origLength)
-            {
-                builder.append(',');
-            }
             builder.append("handle=").append(_handle);
         }
 
@@ -111,7 +104,7 @@ public class Detach implements ErrorCarryingFrameBody
     }
 
     @Override
-    public void invoke(int channel, ConnectionHandler conn)
+    public void invoke(final int channel, final ConnectionHandler conn)
     {
         conn.receiveDetach(channel, this);
     }

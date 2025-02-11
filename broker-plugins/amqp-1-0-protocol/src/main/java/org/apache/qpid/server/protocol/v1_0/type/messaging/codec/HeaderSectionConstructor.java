@@ -1,4 +1,3 @@
-
 /*
 *
 * Licensed to the Apache Software Foundation (ASF) under one
@@ -20,12 +19,11 @@
 *
 */
 
-
 package org.apache.qpid.server.protocol.v1_0.type.messaging.codec;
 
 import org.apache.qpid.server.bytebuffer.QpidByteBuffer;
 import org.apache.qpid.server.protocol.v1_0.codec.DescribedTypeConstructorRegistry;
-import org.apache.qpid.server.protocol.v1_0.type.Symbol;
+import org.apache.qpid.server.protocol.v1_0.type.Symbols;
 import org.apache.qpid.server.protocol.v1_0.type.UnsignedLong;
 import org.apache.qpid.server.protocol.v1_0.type.messaging.HeaderSection;
 
@@ -33,14 +31,14 @@ public class HeaderSectionConstructor extends DescribedListSectionConstructor<He
 {
     private static final Object[] DESCRIPTORS =
     {
-            Symbol.valueOf("amqp:header:list"),UnsignedLong.valueOf(0x0000000000000070L),
+            Symbols.AMQP_HEADER, UnsignedLong.valueOf(0x0000000000000070L),
     };
 
     private static final HeaderSectionConstructor INSTANCE = new HeaderSectionConstructor();
 
-    public static void register(DescribedTypeConstructorRegistry registry)
+    public static void register(final DescribedTypeConstructorRegistry registry)
     {
-        for(Object descriptor : DESCRIPTORS)
+        for (final Object descriptor : DESCRIPTORS)
         {
             registry.register(descriptor, INSTANCE);
         }
@@ -51,6 +49,4 @@ public class HeaderSectionConstructor extends DescribedListSectionConstructor<He
     {
         return new HeaderSection(encodedForm);
     }
-
-
 }

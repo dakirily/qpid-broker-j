@@ -35,13 +35,12 @@ public class NullWriter implements ValueWriter<Void>
     }
 
     @Override
-    public void writeToBuffer(QpidByteBuffer buffer)
+    public void writeToBuffer(final QpidByteBuffer buffer)
     {
-
-        buffer.put((byte)0x40);
+        buffer.put((byte) 0x40);
     }
 
-    public static void register(ValueWriter.Registry registry)
+    public static void register(final ValueWriter.Registry registry)
     {
         registry.register(Void.TYPE, FACTORY);
     }

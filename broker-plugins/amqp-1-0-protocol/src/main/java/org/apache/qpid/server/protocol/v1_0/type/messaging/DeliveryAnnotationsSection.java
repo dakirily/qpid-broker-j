@@ -56,5 +56,4 @@ public class DeliveryAnnotationsSection extends AbstractSection<Map<Symbol,Objec
     {
         return new DeliveryAnnotationsConstructor();
     }
-
 }

@@ -23,12 +23,10 @@ package org.apache.qpid.server.protocol.v1_0.codec;
 import org.apache.qpid.server.bytebuffer.QpidByteBuffer;
 import org.apache.qpid.server.protocol.v1_0.type.AmqpErrorException;
 import org.apache.qpid.server.protocol.v1_0.type.UnsignedByte;
-import org.apache.qpid.server.protocol.v1_0.type.transport.AmqpError;
 
 public class UByteTypeConstructor implements TypeConstructor<UnsignedByte>
 {
     private static final UByteTypeConstructor INSTANCE = new UByteTypeConstructor();
-
 
     public static UByteTypeConstructor getInstance()
     {
@@ -44,12 +42,12 @@ public class UByteTypeConstructor implements TypeConstructor<UnsignedByte>
     {
         if (in.hasRemaining())
         {
-            byte b = in.get();
+            final byte b = in.get();
             return UnsignedByte.valueOf(b);
         }
         else
         {
-            throw new AmqpErrorException(AmqpError.DECODE_ERROR, "Cannot construct ubyte: insufficient input data");
+            throw AmqpErrorException.decode().message("Cannot construct ubyte: insufficient input data").build();
         }
     }
 }

@@ -39,5 +39,4 @@ class NullTypeConstructor implements TypeConstructor<Void>
     {
         return INSTANCE;
     }
-
 }

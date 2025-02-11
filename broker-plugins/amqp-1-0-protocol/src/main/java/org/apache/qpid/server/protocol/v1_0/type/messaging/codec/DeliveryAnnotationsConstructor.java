@@ -1,4 +1,3 @@
-
 /*
 *
 * Licensed to the Apache Software Foundation (ASF) under one
@@ -20,7 +19,6 @@
 *
 */
 
-
 package org.apache.qpid.server.protocol.v1_0.type.messaging.codec;
 
 import java.util.Map;
@@ -28,44 +26,39 @@ import java.util.Map;
 import org.apache.qpid.server.protocol.v1_0.codec.AbstractDescribedTypeConstructor;
 import org.apache.qpid.server.protocol.v1_0.codec.DescribedTypeConstructorRegistry;
 import org.apache.qpid.server.protocol.v1_0.type.AmqpErrorException;
-import org.apache.qpid.server.protocol.v1_0.type.Symbol;
+import org.apache.qpid.server.protocol.v1_0.type.Symbols;
 import org.apache.qpid.server.protocol.v1_0.type.UnsignedLong;
 import org.apache.qpid.server.protocol.v1_0.type.messaging.DeliveryAnnotations;
-import org.apache.qpid.server.protocol.v1_0.type.transport.AmqpError;
 
 public class DeliveryAnnotationsConstructor extends AbstractDescribedTypeConstructor<DeliveryAnnotations>
 {
     private static final Object[] DESCRIPTORS =
     {
-            Symbol.valueOf("amqp:delivery-annotations:map"),UnsignedLong.valueOf(0x0000000000000071L),
+            Symbols.AMQP_DELIVERY_ANNOTATIONS, UnsignedLong.valueOf(0x0000000000000071L),
     };
 
     private static final DeliveryAnnotationsConstructor INSTANCE = new DeliveryAnnotationsConstructor();
 
-    public static void register(DescribedTypeConstructorRegistry registry)
+    public static void register(final DescribedTypeConstructorRegistry registry)
     {
-        for(Object descriptor : DESCRIPTORS)
+        for (final Object descriptor : DESCRIPTORS)
         {
             registry.register(descriptor, INSTANCE);
         }
     }
 
-
     @Override
-    public DeliveryAnnotations construct(Object underlying) throws AmqpErrorException
+    public DeliveryAnnotations construct(final Object underlying) throws AmqpErrorException
     {
-
-        if(underlying instanceof Map)
+        if (underlying instanceof Map)
         {
-            return new DeliveryAnnotations((Map)underlying);
+            return new DeliveryAnnotations((Map) underlying);
         }
         else
         {
-            final String msg = String.format("Cannot decode 'delivery-annotations' from '%s'",
-                                             underlying == null ? null : underlying.getClass().getSimpleName());
-            throw new AmqpErrorException(AmqpError.DECODE_ERROR, msg);
+            throw AmqpErrorException.decode()
+                    .message("Cannot decode 'delivery-annotations' from '%s'")
+                    .args(underlying == null ? null : underlying.getClass().getSimpleName());
         }
     }
-
-
 }

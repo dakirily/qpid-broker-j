@@ -74,6 +74,7 @@ import org.apache.qpid.server.protocol.v1_0.type.ErrorCondition;
 import org.apache.qpid.server.protocol.v1_0.type.FrameBody;
 import org.apache.qpid.server.protocol.v1_0.type.LifetimePolicy;
 import org.apache.qpid.server.protocol.v1_0.type.Symbol;
+import org.apache.qpid.server.protocol.v1_0.type.Symbols;
 import org.apache.qpid.server.protocol.v1_0.type.UnsignedInteger;
 import org.apache.qpid.server.protocol.v1_0.type.messaging.DeleteOnClose;
 import org.apache.qpid.server.protocol.v1_0.type.messaging.DeleteOnNoLinks;
@@ -107,11 +108,7 @@ import org.apache.qpid.server.util.ConnectionScopedRuntimeException;
 public class Session_1_0 extends AbstractAMQPSession<Session_1_0, ConsumerTarget_1_0>
         implements LogSubject, org.apache.qpid.server.util.Deletable<Session_1_0>
 {
-    static final Symbol DELAYED_DELIVERY = Symbol.valueOf("DELAYED_DELIVERY");
-    static final Symbol SHARED_CAPABILITY = Symbol.getSymbol("shared");
-    static final Symbol GLOBAL_CAPABILITY = Symbol.getSymbol("global");
     private static final Logger LOGGER = LoggerFactory.getLogger(Session_1_0.class);
-    public static final Symbol LIFETIME_POLICY = Symbol.valueOf("lifetime-policy");
     private static final EnumSet<SessionState> END_STATES =
             EnumSet.of(SessionState.END_RECVD, SessionState.END_PIPE, SessionState.END_SENT, SessionState.ENDED);
 
@@ -864,8 +861,7 @@ public class Session_1_0 extends AbstractAMQPSession<Session_1_0, ConsumerTarget
             if (terminus.getCapabilities() != null)
             {
                 final Set<Symbol> capabilities = Stream.of(terminus.getCapabilities()).collect(Collectors.toSet());
-                if (capabilities.contains(Symbol.valueOf("temporary-queue"))
-                    || capabilities.contains(Symbol.valueOf("temporary-topic")))
+                if (capabilities.contains(Symbols.TEMPORARY_QUEUE) || capabilities.contains(Symbols.TEMPORARY_TOPIC))
                 {
                     attributes.put(Queue.EXCLUSIVE, ExclusivityPolicy.CONNECTION);
                 }
@@ -890,7 +886,7 @@ public class Session_1_0 extends AbstractAMQPSession<Session_1_0, ConsumerTarget
     {
         final Symbol[] capabilities = terminus.getCapabilities();
         final Set<Symbol> capabilitySet = capabilities == null ? Set.of() : Stream.of(capabilities).collect(Collectors.toSet());
-        boolean isTopic = capabilitySet.contains(Symbol.valueOf("temporary-topic")) || capabilitySet.contains(Symbol.valueOf("topic"));
+        boolean isTopic = capabilitySet.contains(Symbols.TEMPORARY_TOPIC) || capabilitySet.contains(Symbols.TOPIC);
         final String destName = (isTopic ? "TempTopic" : "TempQueue") + UUID.randomUUID();
         try
         {
@@ -902,7 +898,7 @@ public class Session_1_0 extends AbstractAMQPSession<Session_1_0, ConsumerTarget
             {
                 attributes.put(Exchange.TYPE, ExchangeDefaults.FANOUT_EXCHANGE_CLASS);
             }
-            else if (capabilitySet.contains(Symbol.valueOf("temporary-queue")))
+            else if (capabilitySet.contains(Symbols.TEMPORARY_QUEUE))
             {
                 attributes.put(Queue.EXCLUSIVE, ExclusivityPolicy.CONNECTION);
             }
@@ -931,7 +927,7 @@ public class Session_1_0 extends AbstractAMQPSession<Session_1_0, ConsumerTarget
         final TerminusExpiryPolicy expiryPolicy = terminus.getExpiryPolicy();
         LifetimePolicy lifetimePolicy = properties == null
                                         ? null
-                                        : (LifetimePolicy) properties.get(LIFETIME_POLICY);
+                                        : (LifetimePolicy) properties.get(Symbols.LIFETIME_POLICY);
 
         Map<String,Object> attributes = new HashMap<>();
         attributes.put(ConfiguredObject.ID, UUID.randomUUID());

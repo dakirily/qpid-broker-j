@@ -20,6 +20,8 @@
  */
 package org.apache.qpid.server.protocol.v1_0.type;
 
+import org.apache.qpid.server.protocol.v1_0.type.transport.AmqpError;
+import org.apache.qpid.server.protocol.v1_0.type.transport.ConnectionError;
 import org.apache.qpid.server.protocol.v1_0.type.transport.Error;
 
 import java.util.Formatter;
@@ -27,7 +29,6 @@ import java.util.Formatter;
 public class AmqpErrorException extends Exception
 {
     private final Error _error;
-
 
     public AmqpErrorException(final Error error)
     {
@@ -61,9 +62,63 @@ public class AmqpErrorException extends Exception
     @Override
     public String toString()
     {
-        final StringBuilder sb = new StringBuilder("AmqpErrorException{");
-        sb.append("error=").append(_error);
-        sb.append('}');
-        return sb.toString();
+        return "AmqpErrorException{error=" + _error + '}';
+    }
+
+    public static AmqpErrorExceptionBuilder decode()
+    {
+        return new AmqpErrorExceptionBuilder().condition(AmqpError.DECODE_ERROR);
+    }
+
+    public static AmqpErrorExceptionBuilder framing()
+    {
+        return new AmqpErrorExceptionBuilder().condition(ConnectionError.FRAMING_ERROR);
+    }
+
+    public static AmqpErrorExceptionBuilder of(final Error error)
+    {
+        return new AmqpErrorExceptionBuilder().error(error);
+    }
+
+    public static AmqpErrorExceptionBuilder of(final ErrorCondition condition)
+    {
+        return new AmqpErrorExceptionBuilder().condition(condition);
+    }
+
+    public static class AmqpErrorExceptionBuilder
+    {
+        Error error;
+        ErrorCondition condition;
+        String message;
+        Object[] args;
+
+        AmqpErrorExceptionBuilder error(final Error error)
+        {
+            this.error = error;
+            return this;
+        }
+
+        AmqpErrorExceptionBuilder condition(final ErrorCondition condition)
+        {
+            this.condition = condition;
+            return this;
+        }
+
+        public AmqpErrorExceptionBuilder message(final String message)
+        {
+            this.message = message;
+            return this;
+        }
+
+        public AmqpErrorException args(final Object... args)
+        {
+            this.args = args;
+            return new AmqpErrorException(condition, message, args);
+        }
+
+        public AmqpErrorException build()
+        {
+            return new AmqpErrorException(condition, message);
+        }
     }
 }

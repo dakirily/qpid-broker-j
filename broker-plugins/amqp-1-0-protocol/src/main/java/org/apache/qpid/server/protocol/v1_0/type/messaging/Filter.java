@@ -1,4 +1,3 @@
-
 /*
 *
 * Licensed to the Apache Software Foundation (ASF) under one
@@ -20,7 +19,6 @@
 *
 */
 
-
 package org.apache.qpid.server.protocol.v1_0.type.messaging;
 
 import org.apache.qpid.server.protocol.v1_0.codec.DescribedType;
@@ -28,14 +26,13 @@ import org.apache.qpid.server.protocol.v1_0.codec.SpecializedDescribedType;
 
 public interface Filter extends SpecializedDescribedType
 {
-
     interface InvalidFilter extends Filter
     {
         Object getDescriptor();
     }
 
     @SuppressWarnings("unused")
-    static Filter getInvalidValue(DescribedType describedType)
+    static Filter getInvalidValue(final DescribedType describedType)
     {
         return (InvalidFilter) describedType::getDescriptor;
     }

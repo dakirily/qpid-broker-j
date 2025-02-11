@@ -23,12 +23,10 @@ package org.apache.qpid.server.protocol.v1_0.codec;
 import org.apache.qpid.server.bytebuffer.QpidByteBuffer;
 import org.apache.qpid.server.protocol.v1_0.type.AmqpErrorException;
 import org.apache.qpid.server.protocol.v1_0.type.UnsignedShort;
-import org.apache.qpid.server.protocol.v1_0.type.transport.AmqpError;
 
 public class UShortTypeConstructor implements TypeConstructor<UnsignedShort>
 {
     private static final UShortTypeConstructor INSTANCE = new UShortTypeConstructor();
-
 
     public static UShortTypeConstructor getInstance()
     {
@@ -44,12 +42,12 @@ public class UShortTypeConstructor implements TypeConstructor<UnsignedShort>
     {
         if (in.hasRemaining(2))
         {
-            short s = in.getShort();
+            final short s = in.getShort();
             return UnsignedShort.valueOf(s);
         }
         else
         {
-            throw new AmqpErrorException(AmqpError.DECODE_ERROR, "Cannot construct ushort: insufficient input data");
+            throw AmqpErrorException.decode().message("Cannot construct ushort: insufficient input data").build();
         }
     }
 }

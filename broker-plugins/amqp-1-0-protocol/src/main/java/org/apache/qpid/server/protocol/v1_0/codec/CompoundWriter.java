@@ -33,23 +33,22 @@ public abstract class CompoundWriter<V> implements ValueWriter<V>
         _registry = registry;
     }
 
-    public CompoundWriter(final Registry registry, V object)
+    public CompoundWriter(final Registry registry, final V object)
     {
         _registry = registry;
     }
-
 
     @Override
     public final int getEncodedSize()
     {
         int encodedSize = 1; // byte for the count
-        if(_length == -1)
+        if (_length == -1)
         {
             while (hasNext())
             {
                 encodedSize += _registry.getValueWriter(next()).getEncodedSize();
             }
-            if(encodedSize > 255)
+            if (encodedSize > 255)
             {
                 encodedSize += 3;  // we'll need four bytes for the count, to match the length
             }
@@ -59,7 +58,7 @@ public abstract class CompoundWriter<V> implements ValueWriter<V>
         {
             encodedSize = _length;
         }
-        if(encodedSize>255)
+        if (encodedSize>255)
         {
             encodedSize+=5; // 1 byte constructor, 4 bytes length
         }
@@ -71,22 +70,22 @@ public abstract class CompoundWriter<V> implements ValueWriter<V>
     }
 
     @Override
-    public final void writeToBuffer(QpidByteBuffer buffer)
+    public final void writeToBuffer(final QpidByteBuffer buffer)
     {
-        if(_length == -1)
+        if (_length == -1)
         {
             getEncodedSize();
         }
         writeToBuffer(buffer, _length>255);
     }
 
-    private void writeToBuffer(QpidByteBuffer buffer, boolean large)
+    private void writeToBuffer(final QpidByteBuffer buffer, final boolean large)
     {
         reset();
         final int count = getCount();
 
         buffer.put(large ? getFourOctetEncodingCode() : getSingleOctetEncodingCode());
-        if(large)
+        if (large)
         {
             buffer.putInt(_length);
             buffer.putInt(count);
@@ -97,14 +96,12 @@ public abstract class CompoundWriter<V> implements ValueWriter<V>
             buffer.put((byte) count);
         }
 
-        while(hasNext())
+        while (hasNext())
         {
             Object val = next();
              _registry.getValueWriter(val).writeToBuffer(buffer);
         }
-
     }
-
 
     protected abstract byte getFourOctetEncodingCode();
 

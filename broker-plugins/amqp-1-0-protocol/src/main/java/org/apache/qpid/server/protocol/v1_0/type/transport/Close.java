@@ -19,19 +19,16 @@
 *
 */
 
-
 package org.apache.qpid.server.protocol.v1_0.type.transport;
-
 
 import org.apache.qpid.server.protocol.v1_0.ConnectionHandler;
 import org.apache.qpid.server.protocol.v1_0.CompositeType;
 import org.apache.qpid.server.protocol.v1_0.CompositeTypeField;
 import org.apache.qpid.server.protocol.v1_0.type.ErrorCarryingFrameBody;
 
-@CompositeType( symbolicDescriptor = "amqp:close:list", numericDescriptor = 0x0000000000000018L)
+@CompositeType(symbolicDescriptor = "amqp:close:list", numericDescriptor = 0x0000000000000018L)
 public class Close implements ErrorCarryingFrameBody
 {
-
     @CompositeTypeField(index = 0)
     private Error _error;
 
@@ -41,7 +38,7 @@ public class Close implements ErrorCarryingFrameBody
         return _error;
     }
 
-    public void setError(Error error)
+    public void setError(final Error error)
     {
         _error = error;
     }
@@ -49,15 +46,10 @@ public class Close implements ErrorCarryingFrameBody
     @Override
     public String toString()
     {
-        StringBuilder builder = new StringBuilder("Close{");
-        final int origLength = builder.length();
+        final StringBuilder builder = new StringBuilder("Close{");
 
         if (_error != null)
         {
-            if (builder.length() != origLength)
-            {
-                builder.append(',');
-            }
             builder.append("error=").append(_error);
         }
 
@@ -66,7 +58,7 @@ public class Close implements ErrorCarryingFrameBody
     }
 
     @Override
-    public void invoke(int channel, ConnectionHandler conn)
+    public void invoke(final int channel, final ConnectionHandler conn)
     {
         conn.receiveClose(channel, this);
     }

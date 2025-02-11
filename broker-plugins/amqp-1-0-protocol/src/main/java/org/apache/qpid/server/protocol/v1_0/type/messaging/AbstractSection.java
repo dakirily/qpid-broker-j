@@ -18,6 +18,7 @@
  * under the License.
  *
  */
+
 package org.apache.qpid.server.protocol.v1_0.type.messaging;
 
 import org.apache.qpid.server.bytebuffer.QpidByteBuffer;
@@ -33,10 +34,11 @@ import org.apache.qpid.server.util.ConnectionScopedRuntimeException;
 public abstract class AbstractSection<T, S extends NonEncodingRetainingSection<T>> implements EncodingRetainingSection<T>
 {
     private static final AMQPDescribedTypeRegistry TYPE_REGISTRY = AMQPDescribedTypeRegistry.newInstance()
-                                                                                            .registerTransportLayer()
-                                                                                            .registerMessagingLayer()
-                                                                                            .registerTransactionLayer()
-                                                                                            .registerSecurityLayer();
+            .registerTransportLayer()
+            .registerMessagingLayer()
+            .registerTransactionLayer()
+            .registerSecurityLayer();
+
     private T _value;
 
     private S _section;
@@ -70,9 +72,9 @@ public abstract class AbstractSection<T, S extends NonEncodingRetainingSection<T
     @Override
     public synchronized T getValue()
     {
-        if(_value == null)
+        if (_value == null)
         {
-            S section = decode(createNonEncodingRetainingSectionConstructor());
+            final S section = decode(createNonEncodingRetainingSectionConstructor());
             _value = section.getValue();
         }
         return _value;
@@ -147,29 +149,28 @@ public abstract class AbstractSection<T, S extends NonEncodingRetainingSection<T
     {
         if (_encodedForm == null)
         {
-            SectionEncoder sectionEncoder = new SectionEncoderImpl(TYPE_REGISTRY);
+            final SectionEncoder sectionEncoder = new SectionEncoderImpl(TYPE_REGISTRY);
             _encodedForm = sectionEncoder.encodeObject(_section);
             _encodedSize = _encodedForm.remaining();
         }
     }
 
-    private S decode(DescribedTypeConstructor<S> constructor)
+    private S decode(final DescribedTypeConstructor<S> constructor)
     {
-        try (QpidByteBuffer input = getEncodedForm())
+        try (final QpidByteBuffer input = getEncodedForm())
         {
-
-            int originalPosition = input.position();
-            int describedByte = input.get();
+            final int originalPosition = input.position();
+            final int describedByte = input.get();
             if (describedByte != ValueHandler.DESCRIBED_TYPE)
             {
                 throw new ConnectionScopedRuntimeException("Cannot decode section",
                                                            new AmqpErrorException(AmqpError.DECODE_ERROR,
                                                                                   "Not a described type."));
             }
-            ValueHandler handler = new ValueHandler(TYPE_REGISTRY);
+            final ValueHandler handler = new ValueHandler(TYPE_REGISTRY);
             try
             {
-                Object descriptor = handler.parse(input);
+                final Object descriptor = handler.parse(input);
                 return constructor.construct(descriptor, input, originalPosition, handler).construct(input, handler);
             }
             catch (AmqpErrorException e)
@@ -178,5 +179,4 @@ public abstract class AbstractSection<T, S extends NonEncodingRetainingSection<T
             }
         }
     }
-
 }

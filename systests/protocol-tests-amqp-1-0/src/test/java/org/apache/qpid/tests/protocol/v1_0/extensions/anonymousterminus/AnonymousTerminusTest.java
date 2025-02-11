@@ -40,6 +40,7 @@ import org.apache.qpid.server.bytebuffer.QpidByteBuffer;
 import org.apache.qpid.server.protocol.v1_0.type.Binary;
 import org.apache.qpid.server.protocol.v1_0.type.DeliveryState;
 import org.apache.qpid.server.protocol.v1_0.type.Symbol;
+import org.apache.qpid.server.protocol.v1_0.type.Symbols;
 import org.apache.qpid.server.protocol.v1_0.type.UnsignedInteger;
 import org.apache.qpid.server.protocol.v1_0.type.messaging.Accepted;
 import org.apache.qpid.server.protocol.v1_0.type.messaging.Properties;
@@ -171,7 +172,7 @@ public class AnonymousTerminusTest extends BrokerAdminUsingTestBase
                        .consumeResponse(Begin.class)
 
                        .attachRole(Role.SENDER)
-                       .attachSourceOutcomes(Accepted.ACCEPTED_SYMBOL, Rejected.REJECTED_SYMBOL)
+                       .attachSourceOutcomes(Symbols.AMQP_ACCEPTED, Symbols.AMQP_REJECTED)
                        .attach().consumeResponse(Attach.class)
                        .consumeResponse(Flow.class)
                        .assertLatestResponse(Flow.class, this::assumeSufficientCredits)
@@ -218,7 +219,7 @@ public class AnonymousTerminusTest extends BrokerAdminUsingTestBase
                        .consumeResponse(Begin.class)
 
                        .attachRole(Role.SENDER)
-                       .attachSourceOutcomes(Accepted.ACCEPTED_SYMBOL)
+                       .attachSourceOutcomes(Symbols.AMQP_ACCEPTED)
                        .attach().consumeResponse(Attach.class)
                        .consumeResponse(Flow.class)
                        .assertLatestResponse(Flow.class, this::assumeSufficientCredits)
@@ -333,7 +334,7 @@ public class AnonymousTerminusTest extends BrokerAdminUsingTestBase
                        .txnDeclare()
 
                        .attachRole(Role.SENDER)
-                       .attachSourceOutcomes(Accepted.ACCEPTED_SYMBOL, Rejected.REJECTED_SYMBOL)
+                       .attachSourceOutcomes(Symbols.AMQP_ACCEPTED, Symbols.AMQP_REJECTED)
                        .attachHandle(linkHandle)
                        .attach().consumeResponse(Attach.class)
                        .consumeResponse(Flow.class)
@@ -381,7 +382,7 @@ public class AnonymousTerminusTest extends BrokerAdminUsingTestBase
                        .txnDeclare()
 
                        .attachRole(Role.SENDER)
-                       .attachSourceOutcomes(Accepted.ACCEPTED_SYMBOL)
+                       .attachSourceOutcomes(Symbols.AMQP_ACCEPTED)
                        .attachHandle(linkHandle)
                        .attach().consumeResponse(Attach.class)
                        .consumeResponse(Flow.class)
@@ -453,7 +454,7 @@ public class AnonymousTerminusTest extends BrokerAdminUsingTestBase
 
                        .attachRole(Role.SENDER)
                        .attachHandle(linkHandle)
-                       .attachSourceOutcomes(Accepted.ACCEPTED_SYMBOL, Rejected.REJECTED_SYMBOL)
+                       .attachSourceOutcomes(Symbols.AMQP_ACCEPTED, Symbols.AMQP_REJECTED)
                        .attach().consumeResponse(Attach.class)
                        .consumeResponse(Flow.class)
                        .assertLatestResponse(Flow.class, this::assumeSufficientCredits)
@@ -513,14 +514,14 @@ public class AnonymousTerminusTest extends BrokerAdminUsingTestBase
             interaction.begin()
                        .consumeResponse(Begin.class)
 
-                       .txnAttachCoordinatorLink(UnsignedInteger.ZERO, this::coordinatorAttachExpected, Accepted.ACCEPTED_SYMBOL)
+                       .txnAttachCoordinatorLink(UnsignedInteger.ZERO, this::coordinatorAttachExpected, Symbols.AMQP_ACCEPTED)
                        .txnDeclare()
 
                        .attachRole(Role.SENDER)
                        .attachHandle(linkHandle)
                        .attachTarget(new Target())
                        .attachName("link-" + linkHandle)
-                       .attachSourceOutcomes(Accepted.ACCEPTED_SYMBOL, Rejected.REJECTED_SYMBOL)
+                       .attachSourceOutcomes(Symbols.AMQP_ACCEPTED, Symbols.AMQP_REJECTED)
                        .attach().consumeResponse(Attach.class)
                        .consumeResponse(Flow.class)
                        .assertLatestResponse(Flow.class, this::assumeSufficientCredits)

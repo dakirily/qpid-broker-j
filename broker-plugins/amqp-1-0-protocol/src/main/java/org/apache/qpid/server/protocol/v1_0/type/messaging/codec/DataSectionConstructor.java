@@ -1,4 +1,3 @@
-
 /*
 *
 * Licensed to the Apache Software Foundation (ASF) under one
@@ -20,7 +19,6 @@
 *
 */
 
-
 package org.apache.qpid.server.protocol.v1_0.type.messaging.codec;
 
 import org.apache.qpid.server.bytebuffer.QpidByteBuffer;
@@ -29,60 +27,48 @@ import org.apache.qpid.server.protocol.v1_0.codec.DescribedTypeConstructorRegist
 import org.apache.qpid.server.protocol.v1_0.codec.TypeConstructor;
 import org.apache.qpid.server.protocol.v1_0.codec.ValueHandler;
 import org.apache.qpid.server.protocol.v1_0.type.AmqpErrorException;
-import org.apache.qpid.server.protocol.v1_0.type.Symbol;
+import org.apache.qpid.server.protocol.v1_0.type.Symbols;
 import org.apache.qpid.server.protocol.v1_0.type.UnsignedLong;
 import org.apache.qpid.server.protocol.v1_0.type.messaging.DataSection;
-import org.apache.qpid.server.protocol.v1_0.type.transport.AmqpError;
-import org.apache.qpid.server.protocol.v1_0.type.transport.ConnectionError;
 
 public class DataSectionConstructor implements DescribedTypeConstructor<DataSection>
 {
-
     private static final Object[] DESCRIPTORS =
-            {
-                    Symbol.valueOf("amqp:data:binary"), UnsignedLong.valueOf(0x0000000000000075L),
-            };
+    {
+            Symbols.AMQP_DATA, UnsignedLong.valueOf(0x0000000000000075L),
+    };
 
     private static final DataSectionConstructor INSTANCE = new DataSectionConstructor();
 
-    public static void register(DescribedTypeConstructorRegistry registry)
+    public static void register(final DescribedTypeConstructorRegistry registry)
     {
-        for(Object descriptor : DESCRIPTORS)
+        for (final Object descriptor : DESCRIPTORS)
         {
             registry.register(descriptor, INSTANCE);
         }
     }
 
-
     @Override
     public TypeConstructor<DataSection> construct(final Object descriptor,
-                                                        final QpidByteBuffer in,
-                                                        final int originalPosition,
-                                                        final ValueHandler valueHandler)
+                                                  final QpidByteBuffer in,
+                                                  final int originalPosition,
+                                                  final ValueHandler valueHandler)
             throws AmqpErrorException
     {
         if (!in.hasRemaining())
         {
-            throw new AmqpErrorException(AmqpError.DECODE_ERROR, "Insufficient data to decode data section.");
+            throw AmqpErrorException.decode().message("Insufficient data to decode data section.").build();
         }
         int constructorByte = in.getUnsignedByte();
-        int sizeBytes;
-        switch(constructorByte)
+        int sizeBytes = switch (constructorByte)
         {
-            case 0xa0:
-                sizeBytes = 1;
-                break;
-            case 0xb0:
-                sizeBytes = 4;
-                break;
-            default:
-                throw new AmqpErrorException(ConnectionError.FRAMING_ERROR,
-                                             "The described section must always be binary");
-        }
+            case 0xa0 -> 1;
+            case 0xb0 -> 4;
+            default -> throw AmqpErrorException.framing().message("The described section must always be binary").build();
+        };
 
         return new LazyConstructor(sizeBytes, originalPosition);
     }
-
 
     private static class LazyConstructor extends AbstractLazyConstructor<DataSection>
     {
@@ -105,23 +91,17 @@ public class DataSectionConstructor implements DescribedTypeConstructor<DataSect
         {
             if (!in.hasRemaining(_sizeBytes))
             {
-                throw new AmqpErrorException(AmqpError.DECODE_ERROR, "Insufficient data to decode data section.");
+                throw AmqpErrorException.decode().message("Insufficient data to decode data section.").build();
             }
-            int size;
-            switch(_sizeBytes)
+            int size = switch (_sizeBytes)
             {
-                case 1:
-                    size = in.getUnsignedByte();
-                    break;
-                case 4:
-                    size = in.getInt();
-                    break;
-                default:
-                    throw new AmqpErrorException(AmqpError.DECODE_ERROR, "Unexpected constructor type, can only be 1 or 4");
-            }
+                case 1 -> in.getUnsignedByte();
+                case 4 -> in.getInt();
+                default -> throw AmqpErrorException.decode().message("Unexpected constructor type, can only be 1 or 4").build();
+            };
             if (!in.hasRemaining(size))
             {
-                throw new AmqpErrorException(AmqpError.DECODE_ERROR, "Insufficient data to decode data section.");
+                throw AmqpErrorException.decode().message("Insufficient data to decode data section.").build();
             }
             in.position(in.position() + size);
         }

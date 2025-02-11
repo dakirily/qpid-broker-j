@@ -1,4 +1,3 @@
-
 /*
 *
 * Licensed to the Apache Software Foundation (ASF) under one
@@ -20,51 +19,45 @@
 *
 */
 
-
 package org.apache.qpid.server.protocol.v1_0.type.messaging.codec;
 
 import org.apache.qpid.server.protocol.v1_0.codec.AbstractDescribedTypeConstructor;
 import org.apache.qpid.server.protocol.v1_0.codec.DescribedTypeConstructorRegistry;
 import org.apache.qpid.server.protocol.v1_0.type.AmqpErrorException;
 import org.apache.qpid.server.protocol.v1_0.type.Binary;
-import org.apache.qpid.server.protocol.v1_0.type.Symbol;
+import org.apache.qpid.server.protocol.v1_0.type.Symbols;
 import org.apache.qpid.server.protocol.v1_0.type.UnsignedLong;
 import org.apache.qpid.server.protocol.v1_0.type.messaging.Data;
-import org.apache.qpid.server.protocol.v1_0.type.transport.AmqpError;
 
 public class DataConstructor extends AbstractDescribedTypeConstructor<Data>
 {
     private static final Object[] DESCRIPTORS =
     {
-            Symbol.valueOf("amqp:data:binary"),UnsignedLong.valueOf(0x0000000000000075L),
+            Symbols.AMQP_DATA, UnsignedLong.valueOf(0x0000000000000075L),
     };
 
     private static final DataConstructor INSTANCE = new DataConstructor();
 
-    public static void register(DescribedTypeConstructorRegistry registry)
+    public static void register(final DescribedTypeConstructorRegistry registry)
     {
-        for(Object descriptor : DESCRIPTORS)
+        for (final Object descriptor : DESCRIPTORS)
         {
             registry.register(descriptor, INSTANCE);
         }
     }
 
-
     @Override
-    public Data construct(Object underlying) throws AmqpErrorException
+    public Data construct(final Object underlying) throws AmqpErrorException
     {
-
-        if(underlying instanceof Binary)
+        if (underlying instanceof Binary)
         {
-            return new Data((Binary)underlying);
+            return new Data((Binary) underlying);
         }
         else
         {
-            final String msg = String.format("Cannot decode 'data' from '%s'",
-                                             underlying == null ? null : underlying.getClass().getSimpleName());
-            throw new AmqpErrorException(AmqpError.DECODE_ERROR, msg);
+            throw AmqpErrorException.decode()
+                    .message("Cannot decode 'data' from '%s'")
+                    .args(underlying == null ? null : underlying.getClass().getSimpleName());
         }
     }
-
-
 }

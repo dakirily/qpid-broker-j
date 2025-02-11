@@ -194,15 +194,13 @@ public abstract class AbstractAMQPConnection<C extends AbstractAMQPConnection<C,
     public final AccessControlContext getAccessControlContextFromSubject(final Subject subject)
     {
         final AccessControlContext acc = AccessController.getContext();
-        return AccessController.doPrivileged(
-                (PrivilegedAction<AccessControlContext>) () -> {
-                    if (subject == null)
-                        return new AccessControlContext(acc, null);
-                    else
-                        return new AccessControlContext
-                                (acc,
-                                 new SubjectDomainCombiner(subject));
-                });
+        return AccessController.doPrivileged((PrivilegedAction<AccessControlContext>) () ->
+        {
+            if (subject == null)
+                return new AccessControlContext(acc, null);
+            else
+                return new AccessControlContext(acc, new SubjectDomainCombiner(subject));
+        });
     }
 
     @Override
@@ -367,18 +365,18 @@ public abstract class AbstractAMQPConnection<C extends AbstractAMQPConnection<C,
     @Override
     public void pushScheduler(final NetworkConnectionScheduler networkConnectionScheduler)
     {
-        if (_network instanceof NonBlockingConnection)
+        if (_network instanceof NonBlockingConnection nonBlockingConnection)
         {
-            ((NonBlockingConnection) _network).pushScheduler(networkConnectionScheduler);
+            nonBlockingConnection.pushScheduler(networkConnectionScheduler);
         }
     }
 
     @Override
     public NetworkConnectionScheduler popScheduler()
     {
-        if (_network instanceof NonBlockingConnection)
+        if (_network instanceof NonBlockingConnection nonBlockingConnection)
         {
-            return ((NonBlockingConnection) _network).popScheduler();
+            return nonBlockingConnection.popScheduler();
         }
         return null;
     }

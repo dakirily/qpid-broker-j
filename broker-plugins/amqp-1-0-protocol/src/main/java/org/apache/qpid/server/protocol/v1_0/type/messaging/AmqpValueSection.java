@@ -53,5 +53,4 @@ public class AmqpValueSection extends AbstractSection<Object, AmqpValue>
     {
         return new AmqpValueConstructor();
     }
-
 }

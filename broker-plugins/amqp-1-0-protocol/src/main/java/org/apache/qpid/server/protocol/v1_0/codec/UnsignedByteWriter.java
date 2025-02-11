@@ -38,7 +38,7 @@ public class UnsignedByteWriter extends FixedOneWriter<UnsignedByte>
         return (byte) 0x50;
     }
 
-    public static void register(ValueWriter.Registry registry)
+    public static void register(final ValueWriter.Registry registry)
     {
         registry.register(UnsignedByte.class, FACTORY);
     }

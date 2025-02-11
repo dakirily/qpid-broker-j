@@ -45,7 +45,7 @@ public class SaslInitWriter extends AbstractDescribedTypeWriter<SaslInit>
         private final int _count;
         private int _field;
 
-        public Writer(final Registry registry, SaslInit value)
+        public Writer(final Registry registry, final SaslInit value)
         {
             super(registry);
             _value = value;
@@ -54,17 +54,17 @@ public class SaslInitWriter extends AbstractDescribedTypeWriter<SaslInit>
 
         private int calculateCount()
         {
-            if( _value.getHostname() != null)
+            if ( _value.getHostname() != null)
             {
                 return 3;
             }
 
-            if( _value.getInitialResponse() != null)
+            if ( _value.getInitialResponse() != null)
             {
                 return 2;
             }
 
-            if( _value.getMechanism() != null)
+            if ( _value.getMechanism() != null)
             {
                 return 1;
             }
@@ -86,21 +86,13 @@ public class SaslInitWriter extends AbstractDescribedTypeWriter<SaslInit>
         @Override
         protected Object next()
         {
-            switch(_field++)
+            return switch (_field++)
             {
-
-                case 0:
-                    return _value.getMechanism();
-
-                case 1:
-                    return _value.getInitialResponse();
-
-                case 2:
-                    return _value.getHostname();
-
-                default:
-                    return null;
-            }
+                case 0 -> _value.getMechanism();
+                case 1 -> _value.getInitialResponse();
+                case 2 -> _value.getHostname();
+                default -> null;
+            };
         }
 
         @Override
@@ -110,7 +102,7 @@ public class SaslInitWriter extends AbstractDescribedTypeWriter<SaslInit>
         }
     }
 
-    public static void register(ValueWriter.Registry registry)
+    public static void register(final ValueWriter.Registry registry)
     {
         registry.register(SaslInit.class, FACTORY);
     }

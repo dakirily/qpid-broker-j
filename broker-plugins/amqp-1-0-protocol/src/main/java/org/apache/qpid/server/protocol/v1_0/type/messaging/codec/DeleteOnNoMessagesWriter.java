@@ -39,7 +39,7 @@ public class DeleteOnNoMessagesWriter extends AbstractDescribedTypeWriter<Delete
         super(DESCRIPTOR_WRITER, ListWriter.EMPTY_LIST_WRITER);
     }
 
-    public static void register(ValueWriter.Registry registry)
+    public static void register(final ValueWriter.Registry registry)
     {
         registry.register(DeleteOnNoMessages.class, FACTORY);
     }

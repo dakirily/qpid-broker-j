@@ -33,13 +33,13 @@ public abstract class AbstractMapWriter<V> extends CompoundWriter<V>
     @Override
     protected byte getFourOctetEncodingCode()
     {
-        return (byte)0xd1;
+        return (byte) 0xd1;
     }
 
     @Override
     protected byte getSingleOctetEncodingCode()
     {
-        return (byte)0xc1;
+        return (byte) 0xc1;
     }
 
     @Override
@@ -61,7 +61,7 @@ public abstract class AbstractMapWriter<V> extends CompoundWriter<V>
     @Override
     protected final Object next()
     {
-        if(_onKey = !_onKey)
+        if (_onKey = !_onKey)
         {
             return nextKey();
         }

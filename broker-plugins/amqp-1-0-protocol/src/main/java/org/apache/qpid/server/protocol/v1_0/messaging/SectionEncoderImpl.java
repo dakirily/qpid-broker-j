@@ -34,10 +34,10 @@ public class SectionEncoderImpl implements SectionEncoder
     }
 
     @Override
-    public QpidByteBuffer encodeObject(Object obj)
+    public QpidByteBuffer encodeObject(final Object obj)
     {
         final ValueWriter<Object> valueWriter = _registry.getValueWriter(obj);
-        int size = valueWriter.getEncodedSize();
+        final int size = valueWriter.getEncodedSize();
         final QpidByteBuffer buf = QpidByteBuffer.allocateDirect(size);
         valueWriter.writeToBuffer(buf);
         buf.flip();

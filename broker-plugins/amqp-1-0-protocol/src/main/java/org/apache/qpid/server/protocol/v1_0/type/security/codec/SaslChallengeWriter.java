@@ -46,21 +46,19 @@ public class SaslChallengeWriter extends AbstractDescribedTypeWriter<SaslChallen
         private int _count = -1;
         private int _field;
 
-        public Writer(final Registry registry, SaslChallenge value)
+        public Writer(final Registry registry, final SaslChallenge value)
         {
             super(registry);
             _value = value;
             _count = calculateCount();
-
         }
 
         private int calculateCount()
         {
-            if( _value.getChallenge() != null)
+            if ( _value.getChallenge() != null)
             {
                 return 1;
             }
-
             return 0;
         }
 
@@ -79,14 +77,11 @@ public class SaslChallengeWriter extends AbstractDescribedTypeWriter<SaslChallen
         @Override
         protected Object next()
         {
-            switch(_field++)
+            if (_field++ == 0)
             {
-                case 0:
-                    return _value.getChallenge();
-
-                default:
-                    return null;
+                return _value.getChallenge();
             }
+            return null;
         }
 
         @Override
@@ -96,7 +91,7 @@ public class SaslChallengeWriter extends AbstractDescribedTypeWriter<SaslChallen
         }
     }
 
-    public static void register(ValueWriter.Registry registry)
+    public static void register(final ValueWriter.Registry registry)
     {
         registry.register(SaslChallenge.class, FACTORY);
     }

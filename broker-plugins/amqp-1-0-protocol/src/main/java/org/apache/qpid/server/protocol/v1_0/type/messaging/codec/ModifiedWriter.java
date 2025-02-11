@@ -45,7 +45,7 @@ public class ModifiedWriter extends AbstractDescribedTypeWriter<Modified>
         private final int _count;
         private final Modified _value;
 
-        public Writer(final Registry registry, Modified value)
+        public Writer(final Registry registry,final  Modified value)
         {
             super(registry);
             _value = value;
@@ -54,18 +54,17 @@ public class ModifiedWriter extends AbstractDescribedTypeWriter<Modified>
 
         private int calculateCount()
         {
-
-            if( _value.getMessageAnnotations() != null)
+            if ( _value.getMessageAnnotations() != null)
             {
                 return 3;
             }
 
-            if( _value.getUndeliverableHere() != null)
+            if ( _value.getUndeliverableHere() != null)
             {
                 return 2;
             }
 
-            if( _value.getDeliveryFailed() != null)
+            if ( _value.getDeliveryFailed() != null)
             {
                 return 1;
             }
@@ -88,21 +87,13 @@ public class ModifiedWriter extends AbstractDescribedTypeWriter<Modified>
         @Override
         protected Object next()
         {
-            switch(_field++)
+            return switch (_field++)
             {
-
-                case 0:
-                    return _value.getDeliveryFailed();
-
-                case 1:
-                    return _value.getUndeliverableHere();
-
-                case 2:
-                    return _value.getMessageAnnotations();
-
-                default:
-                    return null;
-            }
+                case 0 -> _value.getDeliveryFailed();
+                case 1 -> _value.getUndeliverableHere();
+                case 2 -> _value.getMessageAnnotations();
+                default -> null;
+            };
         }
 
         @Override
@@ -112,7 +103,7 @@ public class ModifiedWriter extends AbstractDescribedTypeWriter<Modified>
         }
     }
 
-    public static void register(ValueWriter.Registry registry)
+    public static void register(final ValueWriter.Registry registry)
     {
         registry.register(Modified.class, FACTORY);
     }

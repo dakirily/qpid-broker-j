@@ -16,10 +16,10 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+
 package org.apache.qpid.server.protocol.v1_0.type;
 
 public interface Section<T>
 {
     T getValue();
-
 }

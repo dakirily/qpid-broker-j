@@ -39,7 +39,6 @@ public class MapWriter extends AbstractMapWriter<Map>
         _iterator = object.entrySet().iterator();
     }
 
-
     @Override
     protected int getMapCount()
     {
@@ -55,18 +54,18 @@ public class MapWriter extends AbstractMapWriter<Map>
     @Override
     protected Object nextKey()
     {
-        Map.Entry entry = _iterator.next();
+        final Map.Entry entry = _iterator.next();
         _value = entry.getValue();
         return entry.getKey();
     }
+
     @Override
     protected Object nextValue()
     {
-        Object value = _value;
+        final Object value = _value;
         _value = null;
         return value;
     }
-
 
     @Override
     protected void onReset()
@@ -75,7 +74,7 @@ public class MapWriter extends AbstractMapWriter<Map>
         _value = null;
     }
 
-    public static void register(ValueWriter.Registry registry)
+    public static void register(final ValueWriter.Registry registry)
     {
         registry.register(Map.class, FACTORY);
     }

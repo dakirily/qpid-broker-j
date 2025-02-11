@@ -28,7 +28,6 @@ import com.github.benmanes.caffeine.cache.Cache;
 
 import org.apache.qpid.server.bytebuffer.QpidByteBuffer;
 import org.apache.qpid.server.protocol.v1_0.type.AmqpErrorException;
-import org.apache.qpid.server.protocol.v1_0.type.transport.AmqpError;
 import org.apache.qpid.server.virtualhost.CacheFactory;
 import org.apache.qpid.server.virtualhost.NullCache;
 
@@ -44,8 +43,7 @@ public class StringTypeConstructor extends VariableWidthTypeConstructor<String>
         return new StringTypeConstructor(i);
     }
 
-
-    private StringTypeConstructor(int size)
+    private StringTypeConstructor(final int size)
     {
         super(size);
     }
@@ -57,7 +55,7 @@ public class StringTypeConstructor extends VariableWidthTypeConstructor<String>
 
         if (!in.hasRemaining(getSize()))
         {
-            throw new AmqpErrorException(AmqpError.DECODE_ERROR, "Cannot construct string: insufficient input data");
+            throw AmqpErrorException.decode().message("Cannot construct string: insufficient input data").build();
         }
 
         if (getSize() == 1)
@@ -71,18 +69,21 @@ public class StringTypeConstructor extends VariableWidthTypeConstructor<String>
 
         if (!in.hasRemaining(size))
         {
-            throw new AmqpErrorException(AmqpError.DECODE_ERROR, "Cannot construct string: insufficient input data");
+            throw AmqpErrorException.decode().message("Cannot construct string: insufficient input data").build();
         }
 
-        byte[] data = new byte[size];
+        final byte[] data = new byte[size];
         in.get(data);
 
-        ByteBuffer buffer = ByteBuffer.wrap(data);
-        String cached = getCache().getIfPresent(buffer);
+        final ByteBuffer buffer = ByteBuffer.wrap(data);
+
+        final Cache<ByteBuffer, String> cache = getCache();
+
+        String cached = cache.getIfPresent(buffer);
         if (cached == null)
         {
             cached = new String(data, UTF_8);
-            getCache().put(buffer, cached);
+            cache.put(buffer, cached);
         }
         return cached;
     }

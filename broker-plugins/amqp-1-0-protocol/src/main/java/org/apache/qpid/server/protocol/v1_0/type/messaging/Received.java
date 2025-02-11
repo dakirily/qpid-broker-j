@@ -1,4 +1,3 @@
-
 /*
 *
 * Licensed to the Apache Software Foundation (ASF) under one
@@ -20,9 +19,7 @@
 *
 */
 
-
 package org.apache.qpid.server.protocol.v1_0.type.messaging;
-
 
 import org.apache.qpid.server.protocol.v1_0.CompositeType;
 import org.apache.qpid.server.protocol.v1_0.CompositeTypeField;
@@ -30,7 +27,7 @@ import org.apache.qpid.server.protocol.v1_0.type.DeliveryState;
 import org.apache.qpid.server.protocol.v1_0.type.UnsignedInteger;
 import org.apache.qpid.server.protocol.v1_0.type.UnsignedLong;
 
-@CompositeType( symbolicDescriptor = "amqp:received:list", numericDescriptor = 0x0000000000000023L)
+@CompositeType(symbolicDescriptor = "amqp:received:list", numericDescriptor = 0x0000000000000023L)
 public class Received implements DeliveryState
 {
     @CompositeTypeField(index = 0, mandatory = true)
@@ -44,7 +41,7 @@ public class Received implements DeliveryState
         return _sectionNumber;
     }
 
-    public void setSectionNumber(UnsignedInteger sectionNumber)
+    public void setSectionNumber(final UnsignedInteger sectionNumber)
     {
         _sectionNumber = sectionNumber;
     }
@@ -54,7 +51,7 @@ public class Received implements DeliveryState
         return _sectionOffset;
     }
 
-    public void setSectionOffset(UnsignedLong sectionOffset)
+    public void setSectionOffset(final UnsignedLong sectionOffset)
     {
         _sectionOffset = sectionOffset;
     }
@@ -62,15 +59,11 @@ public class Received implements DeliveryState
     @Override
     public String toString()
     {
-        StringBuilder builder = new StringBuilder("Received{");
+        final StringBuilder builder = new StringBuilder("Received{");
         final int origLength = builder.length();
 
         if (_sectionNumber != null)
         {
-            if (builder.length() != origLength)
-            {
-                builder.append(',');
-            }
             builder.append("sectionNumber=").append(_sectionNumber);
         }
 

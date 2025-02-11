@@ -33,6 +33,7 @@ import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 
 import org.apache.qpid.server.protocol.v1_0.Session_1_0;
+import org.apache.qpid.server.protocol.v1_0.type.Symbols;
 import org.apache.qpid.server.protocol.v1_0.type.messaging.DeleteOnClose;
 import org.apache.qpid.server.protocol.v1_0.type.messaging.Source;
 import org.apache.qpid.server.protocol.v1_0.type.messaging.Target;
@@ -62,7 +63,7 @@ public class DeleteOnCloseTest extends BrokerAdminUsingTestBase
         try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
         {
             Source source = new Source();
-            source.setDynamicNodeProperties(Map.of(Session_1_0.LIFETIME_POLICY, new DeleteOnClose()));
+            source.setDynamicNodeProperties(Map.of(Symbols.LIFETIME_POLICY, new DeleteOnClose()));
             source.setDynamic(true);
             final Interaction interaction = transport.newInteraction();
             final Attach attachResponse = interaction.negotiateOpen()
@@ -97,7 +98,7 @@ public class DeleteOnCloseTest extends BrokerAdminUsingTestBase
         try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
         {
             Target target = new Target();
-            target.setDynamicNodeProperties(Map.of(Session_1_0.LIFETIME_POLICY, new DeleteOnClose()));
+            target.setDynamicNodeProperties(Map.of(Symbols.LIFETIME_POLICY, new DeleteOnClose()));
             target.setDynamic(true);
             final Interaction interaction = transport.newInteraction();
             final Attach attachResponse = interaction.negotiateOpen()
@@ -135,7 +136,7 @@ public class DeleteOnCloseTest extends BrokerAdminUsingTestBase
         try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
         {
             Source source = new Source();
-            source.setDynamicNodeProperties(Map.of(Session_1_0.LIFETIME_POLICY, new DeleteOnClose()));
+            source.setDynamicNodeProperties(Map.of(Symbols.LIFETIME_POLICY, new DeleteOnClose()));
             source.setDynamic(true);
             final Interaction interaction = transport.newInteraction();
             final Attach attachResponse = interaction.negotiateOpen()
@@ -178,7 +179,7 @@ public class DeleteOnCloseTest extends BrokerAdminUsingTestBase
         try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
         {
             Source source = new Source();
-            source.setDynamicNodeProperties(Map.of(Session_1_0.LIFETIME_POLICY, new DeleteOnClose()));
+            source.setDynamicNodeProperties(Map.of(Symbols.LIFETIME_POLICY, new DeleteOnClose()));
             source.setExpiryPolicy(TerminusExpiryPolicy.NEVER);
             source.setDynamic(true);
             final Interaction interaction = transport.newInteraction();

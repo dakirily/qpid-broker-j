@@ -1,4 +1,3 @@
-
 /*
 *
 * Licensed to the Apache Software Foundation (ASF) under one
@@ -20,9 +19,7 @@
 *
 */
 
-
 package org.apache.qpid.server.protocol.v1_0.type.transaction;
-
 
 import java.util.Arrays;
 
@@ -42,7 +39,7 @@ public class Coordinator implements BaseTarget
         return _capabilities;
     }
 
-    public void setCapabilities(TxnCapability... capabilities)
+    public void setCapabilities(final TxnCapability... capabilities)
     {
         _capabilities = capabilities;
     }
@@ -50,15 +47,10 @@ public class Coordinator implements BaseTarget
     @Override
     public String toString()
     {
-        StringBuilder builder = new StringBuilder("Coordinator{");
-        final int origLength = builder.length();
+        final StringBuilder builder = new StringBuilder("Coordinator{");
 
         if (_capabilities != null)
         {
-            if (builder.length() != origLength)
-            {
-                builder.append(',');
-            }
             builder.append("capabilities=").append(Arrays.asList(_capabilities));
         }
 

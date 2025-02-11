@@ -1,4 +1,3 @@
-
 /*
 *
 * Licensed to the Apache Software Foundation (ASF) under one
@@ -20,21 +19,18 @@
 *
 */
 
-
 package org.apache.qpid.server.protocol.v1_0.type.transaction;
-
 
 import org.apache.qpid.server.protocol.v1_0.type.Binary;
 import org.apache.qpid.server.protocol.v1_0.CompositeType;
 import org.apache.qpid.server.protocol.v1_0.CompositeTypeField;
 import org.apache.qpid.server.protocol.v1_0.type.Outcome;
 import org.apache.qpid.server.protocol.v1_0.type.Symbol;
+import org.apache.qpid.server.protocol.v1_0.type.Symbols;
 
-@CompositeType( symbolicDescriptor = "amqp:declared:list", numericDescriptor = 0x0000000000000033L)
+@CompositeType(symbolicDescriptor = "amqp:declared:list", numericDescriptor = 0x0000000000000033L)
 public class Declared implements Outcome
 {
-    public static final Symbol DECLARED_SYMBOL = Symbol.valueOf("amqp:declared:list");
-
     @CompositeTypeField(index = 0, mandatory = true)
     private Binary _txnId;
 
@@ -43,7 +39,7 @@ public class Declared implements Outcome
         return _txnId;
     }
 
-    public void setTxnId(Binary txnId)
+    public void setTxnId(final Binary txnId)
     {
         _txnId = txnId;
     }
@@ -51,15 +47,10 @@ public class Declared implements Outcome
     @Override
     public String toString()
     {
-        StringBuilder builder = new StringBuilder("Declared{");
-        final int origLength = builder.length();
+        final StringBuilder builder = new StringBuilder("Declared{");
 
         if (_txnId != null)
         {
-            if (builder.length() != origLength)
-            {
-                builder.append(',');
-            }
             builder.append("txnId=").append(_txnId);
         }
 
@@ -67,10 +58,9 @@ public class Declared implements Outcome
         return builder.toString();
     }
 
-
     @Override
     public Symbol getSymbol()
     {
-        return DECLARED_SYMBOL;
+        return Symbols.AMQP_DECLARED;
     }
 }

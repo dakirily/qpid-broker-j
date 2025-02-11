@@ -1,4 +1,3 @@
-
 /*
 *
 * Licensed to the Apache Software Foundation (ASF) under one
@@ -19,7 +18,6 @@
 * under the License.
 *
 */
-
 
 package org.apache.qpid.server.protocol.v1_0.type.transaction.codec;
 
@@ -53,16 +51,14 @@ public class DeclaredWriter extends AbstractDescribedTypeWriter<Declared>
             super(registry);
             _value = object;
             _count = calculateCount();
-
         }
 
         private int calculateCount()
         {
-            if( _value.getTxnId() != null)
+            if ( _value.getTxnId() != null)
             {
                 return 1;
             }
-
             return 0;
         }
 
@@ -81,15 +77,11 @@ public class DeclaredWriter extends AbstractDescribedTypeWriter<Declared>
         @Override
         protected Object next()
         {
-            switch(_field++)
+            if (_field++ == 0)
             {
-
-                case 0:
-                    return _value.getTxnId();
-
-                default:
-                    return null;
+                return _value.getTxnId();
             }
+            return null;
         }
 
         @Override
@@ -99,7 +91,7 @@ public class DeclaredWriter extends AbstractDescribedTypeWriter<Declared>
         }
     }
 
-    public static void register(ValueWriter.Registry registry)
+    public static void register(final ValueWriter.Registry registry)
     {
         registry.register(Declared.class, FACTORY);
     }

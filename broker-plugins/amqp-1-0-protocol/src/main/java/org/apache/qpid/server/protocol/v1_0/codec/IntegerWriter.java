@@ -23,12 +23,12 @@ package org.apache.qpid.server.protocol.v1_0.codec;
 
 public class IntegerWriter
 {
-    private static final byte EIGHT_BYTE_FORMAT_CODE = (byte)0x71;
+    private static final byte EIGHT_BYTE_FORMAT_CODE = (byte) 0x71;
     private static final byte ONE_BYTE_FORMAT_CODE = (byte) 0x54;
 
     private static final ValueWriter.Factory<Integer> FACTORY = (registry, i) ->
     {
-        if(i >= -128 && i <= 127)
+        if (i >= -128 && i <= 127)
         {
             return new IntegerFixedOneWriter(i);
         }
@@ -38,7 +38,7 @@ public class IntegerWriter
         }
     };
 
-    public static void register(ValueWriter.Registry registry)
+    public static void register(final ValueWriter.Registry registry)
     {
         registry.register(Integer.class, FACTORY);
     }
@@ -55,12 +55,10 @@ public class IntegerWriter
         {
             return EIGHT_BYTE_FORMAT_CODE;
         }
-
     }
 
     private static class IntegerFixedOneWriter extends FixedOneWriter<Integer>
     {
-
         public IntegerFixedOneWriter(final Integer value)
         {
             super(value.byteValue());

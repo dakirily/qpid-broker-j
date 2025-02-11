@@ -29,10 +29,6 @@ public class BooleanWriter implements ValueWriter<Boolean>
 
     private boolean _value;
 
-    public BooleanWriter()
-    {
-    }
-
     public BooleanWriter(final Boolean object)
     {
         setValue(object);
@@ -45,17 +41,17 @@ public class BooleanWriter implements ValueWriter<Boolean>
     }
 
     @Override
-    public void writeToBuffer(QpidByteBuffer buffer)
+    public void writeToBuffer(final QpidByteBuffer buffer)
     {
-        buffer.put(_value ? (byte)0x41 : (byte)0x42);
+        buffer.put(_value ? (byte) 0x41 : (byte) 0x42);
     }
 
-    public void setValue(Boolean value)
+    public void setValue(final Boolean value)
     {
-        _value = value.booleanValue();
+        _value = value;
     }
 
-    public static void register(ValueWriter.Registry registry)
+    public static void register(final ValueWriter.Registry registry)
     {
         registry.register(Boolean.class, FACTORY);
     }

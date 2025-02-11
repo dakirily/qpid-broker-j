@@ -19,9 +19,7 @@
 *
 */
 
-
 package org.apache.qpid.server.protocol.v1_0.type.transport;
-
 
 import org.apache.qpid.server.bytebuffer.QpidByteBuffer;
 import org.apache.qpid.server.protocol.v1_0.CompositeType;
@@ -32,7 +30,7 @@ import org.apache.qpid.server.protocol.v1_0.type.DeliveryState;
 import org.apache.qpid.server.protocol.v1_0.type.FrameBody;
 import org.apache.qpid.server.protocol.v1_0.type.UnsignedInteger;
 
-@CompositeType( symbolicDescriptor = "amqp:transfer:list", numericDescriptor = 0x0000000000000014L)
+@CompositeType(symbolicDescriptor = "amqp:transfer:list", numericDescriptor = 0x0000000000000014L)
 public class Transfer implements FrameBody
 {
     private volatile QpidByteBuffer _payload;
@@ -75,7 +73,7 @@ public class Transfer implements FrameBody
         return _handle;
     }
 
-    public void setHandle(UnsignedInteger handle)
+    public void setHandle(final UnsignedInteger handle)
     {
         _handle = handle;
     }
@@ -85,7 +83,7 @@ public class Transfer implements FrameBody
         return _deliveryId;
     }
 
-    public void setDeliveryId(UnsignedInteger deliveryId)
+    public void setDeliveryId(final UnsignedInteger deliveryId)
     {
         _deliveryId = deliveryId;
     }
@@ -95,7 +93,7 @@ public class Transfer implements FrameBody
         return _deliveryTag;
     }
 
-    public void setDeliveryTag(Binary deliveryTag)
+    public void setDeliveryTag(final Binary deliveryTag)
     {
         _deliveryTag = deliveryTag;
     }
@@ -105,7 +103,7 @@ public class Transfer implements FrameBody
         return _messageFormat;
     }
 
-    public void setMessageFormat(UnsignedInteger messageFormat)
+    public void setMessageFormat(final UnsignedInteger messageFormat)
     {
         _messageFormat = messageFormat;
     }
@@ -115,7 +113,7 @@ public class Transfer implements FrameBody
         return _settled;
     }
 
-    public void setSettled(Boolean settled)
+    public void setSettled(final Boolean settled)
     {
         _settled = settled;
     }
@@ -125,7 +123,7 @@ public class Transfer implements FrameBody
         return _more;
     }
 
-    public void setMore(Boolean more)
+    public void setMore(final Boolean more)
     {
         _more = more;
     }
@@ -135,7 +133,7 @@ public class Transfer implements FrameBody
         return _rcvSettleMode;
     }
 
-    public void setRcvSettleMode(ReceiverSettleMode rcvSettleMode)
+    public void setRcvSettleMode(final ReceiverSettleMode rcvSettleMode)
     {
         _rcvSettleMode = rcvSettleMode;
     }
@@ -145,7 +143,7 @@ public class Transfer implements FrameBody
         return _state;
     }
 
-    public void setState(DeliveryState state)
+    public void setState(final DeliveryState state)
     {
         _state = state;
     }
@@ -155,7 +153,7 @@ public class Transfer implements FrameBody
         return _resume;
     }
 
-    public void setResume(Boolean resume)
+    public void setResume(final Boolean resume)
     {
         _resume = resume;
     }
@@ -165,7 +163,7 @@ public class Transfer implements FrameBody
         return _aborted;
     }
 
-    public void setAborted(Boolean aborted)
+    public void setAborted(final Boolean aborted)
     {
         _aborted = aborted;
     }
@@ -175,7 +173,7 @@ public class Transfer implements FrameBody
         return _batchable;
     }
 
-    public void setBatchable(Boolean batchable)
+    public void setBatchable(final Boolean batchable)
     {
         _batchable = batchable;
     }
@@ -183,15 +181,11 @@ public class Transfer implements FrameBody
     @Override
     public String toString()
     {
-        StringBuilder builder = new StringBuilder("Transfer{");
+        final StringBuilder builder = new StringBuilder("Transfer{");
         final int origLength = builder.length();
 
         if (_handle != null)
         {
-            if (builder.length() != origLength)
-            {
-                builder.append(',');
-            }
             builder.append("handle=").append(_handle);
         }
 
@@ -290,7 +284,7 @@ public class Transfer implements FrameBody
     }
 
     @Override
-    public void invoke(int channel, ConnectionHandler conn)
+    public void invoke(final int channel, final ConnectionHandler conn)
     {
         conn.receiveTransfer(channel, this);
     }
@@ -307,7 +301,7 @@ public class Transfer implements FrameBody
         }
     }
 
-    public void setPayload(QpidByteBuffer payload)
+    public void setPayload(final QpidByteBuffer payload)
     {
         if (payload == null)
         {

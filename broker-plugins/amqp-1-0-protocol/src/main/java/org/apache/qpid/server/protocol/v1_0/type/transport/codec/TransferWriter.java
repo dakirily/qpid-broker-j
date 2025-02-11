@@ -49,64 +49,63 @@ public class TransferWriter extends AbstractDescribedTypeWriter<Transfer>
         public Writer(final Registry registry, final Transfer object)
         {
             super(registry);
-
             _value = object;
             _count = calculateCount();
         }
 
         private int calculateCount()
         {
-            if( _value.getBatchable() != null)
+            if (_value.getBatchable() != null)
             {
                 return 11;
             }
 
-            if( _value.getAborted() != null)
+            if (_value.getAborted() != null)
             {
                 return 10;
             }
 
-            if( _value.getResume() != null)
+            if (_value.getResume() != null)
             {
                 return 9;
             }
 
-            if( _value.getState() != null)
+            if (_value.getState() != null)
             {
                 return 8;
             }
 
-            if( _value.getRcvSettleMode() != null)
+            if (_value.getRcvSettleMode() != null)
             {
                 return 7;
             }
 
-            if( _value.getMore() != null)
+            if (_value.getMore() != null)
             {
                 return 6;
             }
 
-            if( _value.getSettled() != null)
+            if (_value.getSettled() != null)
             {
                 return 5;
             }
 
-            if( _value.getMessageFormat() != null)
+            if (_value.getMessageFormat() != null)
             {
                 return 4;
             }
 
-            if( _value.getDeliveryTag() != null)
+            if (_value.getDeliveryTag() != null)
             {
                 return 3;
             }
 
-            if( _value.getDeliveryId() != null)
+            if (_value.getDeliveryId() != null)
             {
                 return 2;
             }
 
-            if( _value.getHandle() != null)
+            if (_value.getHandle() != null)
             {
                 return 1;
             }
@@ -129,45 +128,21 @@ public class TransferWriter extends AbstractDescribedTypeWriter<Transfer>
         @Override
         protected Object next()
         {
-            switch(_field++)
+            return switch (_field++)
             {
-
-                case 0:
-                    return _value.getHandle();
-
-                case 1:
-                    return _value.getDeliveryId();
-
-                case 2:
-                    return _value.getDeliveryTag();
-
-                case 3:
-                    return _value.getMessageFormat();
-
-                case 4:
-                    return _value.getSettled();
-
-                case 5:
-                    return _value.getMore();
-
-                case 6:
-                    return _value.getRcvSettleMode();
-
-                case 7:
-                    return _value.getState();
-
-                case 8:
-                    return _value.getResume();
-
-                case 9:
-                    return _value.getAborted();
-
-                case 10:
-                    return _value.getBatchable();
-
-                default:
-                    return null;
-            }
+                case 0 -> _value.getHandle();
+                case 1 -> _value.getDeliveryId();
+                case 2 -> _value.getDeliveryTag();
+                case 3 -> _value.getMessageFormat();
+                case 4 -> _value.getSettled();
+                case 5 -> _value.getMore();
+                case 6 -> _value.getRcvSettleMode();
+                case 7 -> _value.getState();
+                case 8 -> _value.getResume();
+                case 9 -> _value.getAborted();
+                case 10 -> _value.getBatchable();
+                default -> null;
+            };
         }
 
         @Override
@@ -177,7 +152,7 @@ public class TransferWriter extends AbstractDescribedTypeWriter<Transfer>
         }
     }
 
-    public static void register(ValueWriter.Registry registry)
+    public static void register(final ValueWriter.Registry registry)
     {
         registry.register(Transfer.class, FACTORY);
     }

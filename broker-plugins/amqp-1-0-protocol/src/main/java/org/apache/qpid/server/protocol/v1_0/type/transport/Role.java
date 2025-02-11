@@ -19,9 +19,7 @@
 *
 */
 
-
 package org.apache.qpid.server.protocol.v1_0.type.transport;
-
 
 import org.apache.qpid.server.protocol.v1_0.type.RestrictedType;
 
@@ -32,13 +30,12 @@ public class Role implements RestrictedType<Boolean>
 
     private final boolean _val;
 
-
     private Role(boolean val)
     {
         _val = val;
     }
 
-    public static Role valueOf(Object obj)
+    public static Role valueOf(final Object obj)
     {
         if (obj instanceof Boolean)
         {
@@ -78,9 +75,6 @@ public class Role implements RestrictedType<Boolean>
             return "receiver";
         }
 
-        else
-        {
-            return String.valueOf(_val);
-        }
+        return String.valueOf(_val);
     }
 }

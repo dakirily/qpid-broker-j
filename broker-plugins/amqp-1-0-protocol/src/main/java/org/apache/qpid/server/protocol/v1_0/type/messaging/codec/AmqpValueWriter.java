@@ -38,7 +38,7 @@ public class AmqpValueWriter extends AbstractDescribedTypeWriter<AmqpValue>
         super(DESCRIPTOR_WRITER, registry.getValueWriter(object.getValue()));
     }
 
-    public static void register(ValueWriter.Registry registry)
+    public static void register(final ValueWriter.Registry registry)
     {
         registry.register(AmqpValue.class, FACTORY);
     }

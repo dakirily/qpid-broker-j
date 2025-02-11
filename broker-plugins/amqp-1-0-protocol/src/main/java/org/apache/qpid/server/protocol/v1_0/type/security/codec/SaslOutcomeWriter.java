@@ -54,12 +54,12 @@ public class SaslOutcomeWriter extends AbstractDescribedTypeWriter<SaslOutcome>
 
         private int calculateCount()
         {
-            if( _value.getAdditionalData() != null)
+            if ( _value.getAdditionalData() != null)
             {
                 return 2;
             }
 
-            if( _value.getCode() != null)
+            if ( _value.getCode() != null)
             {
                 return 1;
             }
@@ -82,18 +82,12 @@ public class SaslOutcomeWriter extends AbstractDescribedTypeWriter<SaslOutcome>
         @Override
         protected Object next()
         {
-            switch(_field++)
+            return switch (_field++)
             {
-
-                case 0:
-                    return _value.getCode();
-
-                case 1:
-                    return _value.getAdditionalData();
-
-                default:
-                    return null;
-            }
+                case 0 -> _value.getCode();
+                case 1 -> _value.getAdditionalData();
+                default -> null;
+            };
         }
 
         @Override
@@ -103,7 +97,7 @@ public class SaslOutcomeWriter extends AbstractDescribedTypeWriter<SaslOutcome>
         }
     }
 
-    public static void register(ValueWriter.Registry registry)
+    public static void register(final ValueWriter.Registry registry)
     {
         registry.register(SaslOutcome.class, FACTORY);
     }

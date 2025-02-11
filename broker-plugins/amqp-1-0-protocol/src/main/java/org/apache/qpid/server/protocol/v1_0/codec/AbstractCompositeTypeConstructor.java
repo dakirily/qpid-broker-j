@@ -20,14 +20,11 @@
 
 package org.apache.qpid.server.protocol.v1_0.codec;
 
-
 import java.lang.reflect.Array;
 import java.util.Map;
 
 import org.apache.qpid.server.bytebuffer.QpidByteBuffer;
 import org.apache.qpid.server.protocol.v1_0.type.AmqpErrorException;
-import org.apache.qpid.server.protocol.v1_0.type.transport.AmqpError;
-import org.apache.qpid.server.protocol.v1_0.type.transport.Error;
 
 public abstract class AbstractCompositeTypeConstructor<T> implements DescribedTypeConstructor<T>
 {
@@ -60,22 +57,22 @@ public abstract class AbstractCompositeTypeConstructor<T> implements DescribedTy
 
         private T constructType() throws AmqpErrorException
         {
+            final String typeName = getTypeName();
+            final TypeConstructor<T> typeConstructor = _valueHandler.readConstructor(_in);
+            long remainingBytes = _in.remaining();
             int size;
-            final TypeConstructor typeConstructor = _valueHandler.readConstructor(_in);
-            long remaining = _in.remaining();
+
             if (typeConstructor instanceof final ListConstructor listConstructor)
             {
-                if (remaining < listConstructor.getSize() * 2)
+                final int sizeField = listConstructor.getSize();
+                if (remainingBytes < sizeField * 2L)
                 {
-                    throw new AmqpErrorException(AmqpError.DECODE_ERROR,
-                                                 String.format("Not sufficient data for deserialization of '%s'."
-                                                               + " Expected at least %d bytes. Got %d bytes.",
-                                                               getTypeName(),
-                                                               listConstructor.getSize(),
-                                                               remaining));
+                    throw AmqpErrorException.decode()
+                            .message("Not sufficient data for deserialization of '%s'. Expected at least %d bytes. Got %d bytes.")
+                            .args(typeName, sizeField, remainingBytes);
                 }
 
-                if (listConstructor.getSize() == 1)
+                if (sizeField == 1)
                 {
                     size = _in.getUnsignedByte();
                     _count = _in.getUnsignedByte();
@@ -86,15 +83,12 @@ public abstract class AbstractCompositeTypeConstructor<T> implements DescribedTy
                     _count = _in.getInt();
                 }
 
-                remaining -= listConstructor.getSize();
-                if (remaining < size)
+                remainingBytes -= sizeField;
+                if (remainingBytes < size)
                 {
-                    throw new AmqpErrorException(AmqpError.DECODE_ERROR,
-                                                 String.format("Not sufficient data for deserialization of '%s'."
-                                                               + " Expected at least %d bytes. Got %d bytes.",
-                                                               getTypeName(),
-                                                               size,
-                                                               remaining));
+                    throw AmqpErrorException.decode()
+                            .message("Not sufficient data for deserialization of '%s'. Expected at least %d bytes. Got %d bytes.")
+                            .args(typeName, size, remainingBytes);
                 }
             }
             else if (typeConstructor instanceof ZeroListConstructor)
@@ -104,75 +98,46 @@ public abstract class AbstractCompositeTypeConstructor<T> implements DescribedTy
             }
             else
             {
-                throw new AmqpErrorException(AmqpError.DECODE_ERROR,
-                                             String.format("Unexpected format when deserializing of '%s'",
-                                                           getTypeName()));
+                throw AmqpErrorException.decode()
+                        .message("Unexpected format when deserializing of '%s'")
+                        .args(typeName);
             }
 
             final T constructedObject = AbstractCompositeTypeConstructor.this.construct(this);
 
-            long expectedRemaining = remaining - size;
+            long expectedRemaining = remainingBytes - size;
             long unconsumedBytes = _in.remaining() - expectedRemaining;
-            if(unconsumedBytes > 0)
+            if (unconsumedBytes > 0)
             {
-                final String msg =
-                        String.format("%s incorrectly encoded, %d bytes remaining after decoding %d elements",
-                                      getTypeName(), unconsumedBytes, _count);
-                throw new AmqpErrorException(AmqpError.DECODE_ERROR, msg);
+                throw AmqpErrorException.decode()
+                        .message("%s incorrectly encoded, %d bytes remaining after decoding %d elements")
+                        .args(typeName, unconsumedBytes, _count);
             }
             else if (unconsumedBytes < 0)
             {
-                final String msg = String.format(
-                        "%s incorrectly encoded, %d bytes beyond provided size consumed after decoding %d elements",
-                        getTypeName(),
-                        -unconsumedBytes,
-                        _count);
-                throw new AmqpErrorException(AmqpError.DECODE_ERROR, msg);
+                throw AmqpErrorException.decode()
+                        .message("%s incorrectly encoded, %d bytes beyond provided size consumed after decoding %d elements")
+                        .args(typeName, -unconsumedBytes, _count);
             }
             return constructedObject;
         }
-
 
         public <F> F readValue(final int fieldIndex,
                                final String fieldName,
                                final boolean mandatory,
                                final Class<F> expectedType) throws AmqpErrorException
         {
-            if (fieldIndex >= _count)
-            {
-                if (mandatory)
-                {
-                    throw new AmqpErrorException(AmqpError.DECODE_ERROR,
-                                                 String.format("Mandatory field '%s' of '%s' was not provided",
-                                                               fieldName,
-                                                               getTypeName()));
-                }
-                return null;
-            }
-
-            Object value = _valueHandler.parse(_in);
-
-
-            if (value == null && mandatory)
-            {
-                throw new AmqpErrorException(AmqpError.DECODE_ERROR,
-                                             String.format("Mandatory field '%s' of '%s' was not provided",
-                                                           fieldName,
-                                                           getTypeName()));
-            }
+            final String typeName = getTypeName();
+            final Object value = read(fieldIndex, fieldName, mandatory, typeName);
 
             if (value != null && !expectedType.isAssignableFrom(value.getClass()))
             {
-                throw new AmqpErrorException(AmqpError.DECODE_ERROR,
-                                             String.format(
-                                                     "Wrong type for field '%s' of '%s'. Expected '%s' but got '%s'.",
-                                                     fieldName,
-                                                     getTypeName(),
-                                                     expectedType.getSimpleName(),
-                                                     value.getClass().getSimpleName()));
+                throw AmqpErrorException.decode()
+                        .message("Wrong type for field '%s' of '%s'. Expected '%s' but got '%s'.")
+                        .args(fieldName, typeName, expectedType.getSimpleName(), value.getClass().getSimpleName());
             }
 
-            return (F) value;
+            return expectedType.cast(value);
         }
 
         public <K, V> Map<K, V> readMapValue(final int fieldIndex,
@@ -182,14 +147,15 @@ public abstract class AbstractCompositeTypeConstructor<T> implements DescribedTy
                                              final Class<V> expectedValueType)
                 throws AmqpErrorException
         {
+            final String typeName = getTypeName();
+
             if (fieldIndex >= _count)
             {
                 if (mandatory)
                 {
-                    throw new AmqpErrorException(AmqpError.DECODE_ERROR,
-                                                 String.format("Mandatory field '%s' of '%s' was not provided",
-                                                               fieldName,
-                                                               getTypeName()));
+                    throw AmqpErrorException.decode()
+                            .message("Mandatory field '%s' of '%s' was not provided")
+                            .args(fieldName, typeName);
                 }
                 return null;
             }
@@ -197,28 +163,22 @@ public abstract class AbstractCompositeTypeConstructor<T> implements DescribedTy
             TypeConstructor typeConstructor = _valueHandler.readConstructor(_in);
             if (typeConstructor instanceof final MapConstructor mapConstructor)
             {
-
-                return mapConstructor.construct(_in,
-                                                _valueHandler,
-                                                expectedKeyType,
-                                                expectedValueType);
+                return mapConstructor.construct(_in, _valueHandler, expectedKeyType, expectedValueType);
             }
             else if (typeConstructor instanceof NullTypeConstructor)
             {
                 if (mandatory)
                 {
-                    throw new AmqpErrorException(AmqpError.DECODE_ERROR,
-                                                 "Mandatory field '%s' of '%s' was not provided",
-                                                 fieldName,
-                                                 getTypeName());
+                    throw AmqpErrorException.decode()
+                            .message("Mandatory field '%s' of '%s' was not provided")
+                            .args(fieldName, typeName);
                 }
             }
             else
             {
-                throw new AmqpErrorException(AmqpError.DECODE_ERROR,
-                                             String.format("Could not decode value field '%s' of '%s'",
-                                                           fieldName,
-                                                           getTypeName()));
+                throw AmqpErrorException.decode()
+                        .message("Could not decode value field '%s' of '%s'")
+                        .args(fieldName, typeName);
             }
 
             return null;
@@ -230,81 +190,90 @@ public abstract class AbstractCompositeTypeConstructor<T> implements DescribedTy
                                       final Class<F> expectedType,
                                       final Converter<F> converter) throws AmqpErrorException
         {
+            final String typeName = getTypeName();
+            final Object value = read(fieldIndex, fieldName , mandatory, typeName);
+
+            if (value == null)
+            {
+                return null;
+            }
+
+            if (value.getClass().isArray())
+            {
+                if (expectedType.isAssignableFrom(value.getClass().getComponentType()))
+                {
+                    return (F[]) value;
+                }
+                else
+                {
+                    final Object[] objects = (Object[]) value;
+                    F[] array = (F[]) Array.newInstance(expectedType, objects.length);
+                    try
+                    {
+                        for (int i = 0; i < objects.length; ++i)
+                        {
+                            array[i] = converter.convert(objects[i]);
+                        }
+                    }
+                    catch (RuntimeException e)
+                    {
+                        throw AmqpErrorException.decode()
+                                .message("Could not decode value field '%s' of '%s'")
+                                .args(fieldName, typeName);
+                    }
+                    return array;
+                }
+            }
+            else if (expectedType.isAssignableFrom(value.getClass()))
+            {
+                F[] array = (F[]) Array.newInstance(expectedType, 1);
+                array[0] = (F) value;
+                return array;
+            }
+            else
+            {
+                try
+                {
+                    final F convertedValue = converter.convert(value);
+                    F[] array = (F[]) Array.newInstance(expectedType, 1);
+                    array[0] = convertedValue;
+                    return array;
+                }
+                catch (RuntimeException e)
+                {
+                    throw AmqpErrorException.decode()
+                            .message("Could not decode value field '%s' of '%s'")
+                            .args(fieldName, typeName);
+                }
+            }
+        }
+
+        private Object read(final int fieldIndex,
+                            final String fieldName,
+                            final boolean mandatory,
+                            final String typeName) throws AmqpErrorException
+        {
             if (fieldIndex >= _count)
             {
                 if (mandatory)
                 {
-                    throw new AmqpErrorException(AmqpError.DECODE_ERROR,
-                                                 String.format("Mandatory field '%s' of '%s' was not provided",
-                                                               fieldName,
-                                                               getTypeName()));
+                    throw AmqpErrorException.decode()
+                            .message("Mandatory field '%s' of '%s' was not provided")
+                            .args(fieldName, typeName);
                 }
                 return null;
             }
 
-            Object value = _valueHandler.parse(_in);
+            final Object value = _valueHandler.parse(_in);
 
             if (mandatory && value == null)
             {
-                throw new AmqpErrorException(AmqpError.DECODE_ERROR,
-                                             String.format("Mandatory field '%s' of '%s' was not provided",
-                                                           fieldName,
-                                                           getTypeName()));
+                throw AmqpErrorException.decode()
+                        .message("Mandatory field '%s' of '%s' was not provided")
+                        .args(fieldName, typeName);
             }
 
-            if (value != null)
-            {
-                if (value.getClass().isArray())
-                {
-                    if (expectedType.isAssignableFrom(value.getClass().getComponentType()))
-                    {
-                        return (F[]) value;
-                    }
-                    else
-                    {
-                        final Object[] objects = (Object[]) value;
-                        F[] array = (F[]) Array.newInstance(expectedType, objects.length);
-                        try
-                        {
-                            for (int i = 0; i < objects.length; ++i)
-                            {
-                                array[i] = converter.convert(objects[i]);
-                            }
-                        }
-                        catch (RuntimeException e)
-                        {
-                            Error error = new Error(AmqpError.DECODE_ERROR,
-                                                    String.format("Could not decode value field '%s' of '%s'", fieldName, getTypeName()));
-                            throw new AmqpErrorException(error, e);
-                        }
-                        return array;
-                    }
-                }
-                else if (expectedType.isAssignableFrom(value.getClass()))
-                {
-                    F[] array = (F[]) Array.newInstance(expectedType, 1);
-                    array[0] = (F) value;
-                    return array;
-                }
-                else
-                {
-                    try
-                    {
-                        final F convertedValue = converter.convert(value);
-                        F[] array = (F[]) Array.newInstance(expectedType, 1);
-                        array[0] = convertedValue;
-                        return array;
-                    }
-                    catch (RuntimeException e)
-                    {
-                        Error error = new Error(AmqpError.DECODE_ERROR,
-                                                String.format("Could not decode value field '%s' of '%s'", fieldName, getTypeName()));
-                        throw new AmqpErrorException(error, e);
-                    }
-                }
-            }
-
-            return null;
+            return value;
         }
     }
 

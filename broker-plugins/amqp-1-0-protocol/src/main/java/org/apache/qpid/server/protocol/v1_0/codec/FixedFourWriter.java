@@ -27,14 +27,13 @@ public abstract class FixedFourWriter<T> implements ValueWriter<T>
 {
     private final int _value;
 
-
-    public FixedFourWriter(int object)
+    public FixedFourWriter(final int object)
     {
         _value = object;
     }
 
     @Override
-    public final void writeToBuffer(QpidByteBuffer buffer)
+    public final void writeToBuffer(final QpidByteBuffer buffer)
     {
         buffer.put(getFormatCode());
         buffer.putInt(_value);

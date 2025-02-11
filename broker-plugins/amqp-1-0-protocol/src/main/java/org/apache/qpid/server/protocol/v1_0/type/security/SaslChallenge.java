@@ -1,4 +1,3 @@
-
 /*
 *
 * Licensed to the Apache Software Foundation (ASF) under one
@@ -20,9 +19,7 @@
 *
 */
 
-
 package org.apache.qpid.server.protocol.v1_0.type.security;
-
 
 import org.apache.qpid.server.protocol.v1_0.SASLEndpoint;
 import org.apache.qpid.server.protocol.v1_0.type.Binary;
@@ -30,7 +27,7 @@ import org.apache.qpid.server.protocol.v1_0.CompositeType;
 import org.apache.qpid.server.protocol.v1_0.CompositeTypeField;
 import org.apache.qpid.server.protocol.v1_0.type.SaslFrameBody;
 
-@CompositeType( symbolicDescriptor = "amqp:sasl-challenge:list", numericDescriptor = 0x0000000000000042L)
+@CompositeType(symbolicDescriptor = "amqp:sasl-challenge:list", numericDescriptor = 0x0000000000000042L)
 public class SaslChallenge implements SaslFrameBody
 {
     @CompositeTypeField(index = 0, mandatory = true)
@@ -41,7 +38,7 @@ public class SaslChallenge implements SaslFrameBody
         return _challenge;
     }
 
-    public void setChallenge(Binary challenge)
+    public void setChallenge(final Binary challenge)
     {
         _challenge = challenge;
     }
@@ -49,15 +46,10 @@ public class SaslChallenge implements SaslFrameBody
     @Override
     public String toString()
     {
-        StringBuilder builder = new StringBuilder("SaslChallenge{");
-        final int origLength = builder.length();
+        final StringBuilder builder = new StringBuilder("SaslChallenge{");
 
         if (_challenge != null)
         {
-            if (builder.length() != origLength)
-            {
-                builder.append(',');
-            }
             builder.append("challenge=").append(_challenge);
         }
 
@@ -66,7 +58,7 @@ public class SaslChallenge implements SaslFrameBody
     }
 
     @Override
-    public void invoke(final int channel, SASLEndpoint conn)
+    public void invoke(final int channel, final SASLEndpoint conn)
     {
         conn.receiveSaslChallenge(this);
     }

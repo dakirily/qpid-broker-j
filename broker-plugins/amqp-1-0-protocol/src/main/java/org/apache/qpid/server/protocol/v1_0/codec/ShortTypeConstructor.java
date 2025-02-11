@@ -28,7 +28,6 @@ public class ShortTypeConstructor implements TypeConstructor<Short>
 {
     private static final ShortTypeConstructor INSTANCE = new ShortTypeConstructor();
 
-
     public static ShortTypeConstructor getInstance()
     {
         return INSTANCE;
@@ -49,6 +48,5 @@ public class ShortTypeConstructor implements TypeConstructor<Short>
         {
             throw new AmqpErrorException(AmqpError.DECODE_ERROR, "Cannot construct short: insufficient input data");
         }
-
     }
 }

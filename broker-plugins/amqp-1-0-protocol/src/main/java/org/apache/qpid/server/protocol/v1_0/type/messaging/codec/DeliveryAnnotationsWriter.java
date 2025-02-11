@@ -39,7 +39,7 @@ public class DeliveryAnnotationsWriter extends AbstractDescribedTypeWriter<Deliv
         super(DESCRIPTOR_WRITER, registry.getValueWriter(object.getValue()));
     }
 
-    public static void register(ValueWriter.Registry registry)
+    public static void register(final ValueWriter.Registry registry)
     {
         registry.register(DeliveryAnnotations.class, FACTORY);
     }

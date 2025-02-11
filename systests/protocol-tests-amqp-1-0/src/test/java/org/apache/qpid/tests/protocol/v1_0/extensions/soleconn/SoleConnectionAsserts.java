@@ -20,9 +20,6 @@
 
 package org.apache.qpid.tests.protocol.v1_0.extensions.soleconn;
 
-import static org.apache.qpid.server.protocol.v1_0.type.extensions.soleconn.SoleConnectionConnectionProperties.SOLE_CONNECTION_DETECTION_POLICY;
-import static org.apache.qpid.server.protocol.v1_0.type.extensions.soleconn.SoleConnectionConnectionProperties.SOLE_CONNECTION_ENFORCEMENT_POLICY;
-import static org.apache.qpid.server.protocol.v1_0.type.extensions.soleconn.SoleConnectionConnectionProperties.SOLE_CONNECTION_FOR_CONTAINER;
 import static org.apache.qpid.server.protocol.v1_0.type.extensions.soleconn.SoleConnectionEnforcementPolicy.CLOSE_EXISTING;
 import static org.apache.qpid.server.protocol.v1_0.type.extensions.soleconn.SoleConnectionEnforcementPolicy.REFUSE_CONNECTION;
 import static org.hamcrest.CoreMatchers.anyOf;
@@ -39,6 +36,7 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import java.util.Map;
 
 import org.apache.qpid.server.protocol.v1_0.type.Symbol;
+import org.apache.qpid.server.protocol.v1_0.type.Symbols;
 import org.apache.qpid.server.protocol.v1_0.type.extensions.soleconn.SoleConnectionDetectionPolicy;
 import org.apache.qpid.server.protocol.v1_0.type.transport.AmqpError;
 import org.apache.qpid.server.protocol.v1_0.type.transport.Close;
@@ -58,39 +56,39 @@ class SoleConnectionAsserts
     static void assumeSoleConnectionCapability(Open open)
     {
         assumeTrue(is(notNullValue()).matches(open.getOfferedCapabilities()));
-        assumeTrue(hasItemInArray(SOLE_CONNECTION_FOR_CONTAINER).matches(open.getOfferedCapabilities()));
+        assumeTrue(hasItemInArray(Symbols.SOLE_CONNECTION_FOR_CONTAINER).matches(open.getOfferedCapabilities()));
     }
 
     static void assertSoleConnectionCapability(Open open)
     {
         assertThat(open.getOfferedCapabilities(), is(notNullValue()));
-        assertThat(open.getOfferedCapabilities(), hasItemInArray(SOLE_CONNECTION_FOR_CONTAINER));
+        assertThat(open.getOfferedCapabilities(), hasItemInArray(Symbols.SOLE_CONNECTION_FOR_CONTAINER));
     }
 
     static void assumeEnforcementPolicyCloseExisting(Open open)
     {
         assumeTrue(is(notNullValue()).matches(open.getProperties()));
-        assumeTrue(hasEntry(SOLE_CONNECTION_ENFORCEMENT_POLICY, CLOSE_EXISTING.getValue()).matches(open.getProperties()));
+        assumeTrue(hasEntry(Symbols.SOLE_CONNECTION_ENFORCEMENT_POLICY, CLOSE_EXISTING.getValue()).matches(open.getProperties()));
     }
 
     static void assertEnforcementPolicyCloseExisting(Open open)
     {
         assertThat(open.getProperties(), is(notNullValue()));
-        assertThat(open.getProperties(), hasEntry(SOLE_CONNECTION_ENFORCEMENT_POLICY, CLOSE_EXISTING.getValue()));
+        assertThat(open.getProperties(), hasEntry(Symbols.SOLE_CONNECTION_ENFORCEMENT_POLICY, CLOSE_EXISTING.getValue()));
     }
 
     static void assumeEnforcementPolicyRefuse(Open open)
     {
         assumeTrue(is(notNullValue()).matches(open.getProperties()));
-        assumeTrue(anyOf(hasEntry(SOLE_CONNECTION_ENFORCEMENT_POLICY, REFUSE_CONNECTION.getValue()),
-                         is(not(hasKey(SOLE_CONNECTION_ENFORCEMENT_POLICY)))).matches(open.getProperties()));
+        assumeTrue(anyOf(hasEntry(Symbols.SOLE_CONNECTION_ENFORCEMENT_POLICY, REFUSE_CONNECTION.getValue()),
+                         is(not(hasKey(Symbols.SOLE_CONNECTION_ENFORCEMENT_POLICY)))).matches(open.getProperties()));
     }
 
     static void assumeDetectionPolicyStrong(Open open)
     {
         assumeTrue(is(notNullValue()).matches(open.getProperties()));
-        assumeTrue(anyOf(hasEntry(SOLE_CONNECTION_DETECTION_POLICY, SoleConnectionDetectionPolicy.STRONG.getValue()),
-                         is(not(hasKey(SOLE_CONNECTION_DETECTION_POLICY)))).matches(open.getProperties()));
+        assumeTrue(anyOf(hasEntry(Symbols.SOLE_CONNECTION_DETECTION_POLICY, SoleConnectionDetectionPolicy.STRONG.getValue()),
+                         is(not(hasKey(Symbols.SOLE_CONNECTION_DETECTION_POLICY)))).matches(open.getProperties()));
     }
 
     static void assertConnectionEstablishmentFailed(final Open open)

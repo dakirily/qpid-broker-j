@@ -20,8 +20,6 @@
  */
 package org.apache.qpid.server.protocol.v1_0;
 
-import static org.apache.qpid.server.protocol.v1_0.type.extensions.soleconn.SoleConnectionConnectionProperties.SOLE_CONNECTION_ENFORCEMENT_POLICY;
-
 import java.net.SocketAddress;
 import java.security.AccessControlContext;
 import java.security.AccessControlException;
@@ -30,9 +28,11 @@ import java.security.Principal;
 import java.security.PrivilegedAction;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -53,6 +53,7 @@ import java.util.stream.Stream;
 
 import org.apache.qpid.server.logging.EventLogger;
 import org.apache.qpid.server.logging.messages.ResourceLimitMessages;
+import org.apache.qpid.server.protocol.v1_0.type.Symbols;
 import org.apache.qpid.server.security.limit.ConnectionLimitException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -87,7 +88,6 @@ import org.apache.qpid.server.protocol.v1_0.type.Symbol;
 import org.apache.qpid.server.protocol.v1_0.type.UnsignedInteger;
 import org.apache.qpid.server.protocol.v1_0.type.UnsignedShort;
 import org.apache.qpid.server.protocol.v1_0.type.codec.AMQPDescribedTypeRegistry;
-import org.apache.qpid.server.protocol.v1_0.type.extensions.soleconn.SoleConnectionConnectionProperties;
 import org.apache.qpid.server.protocol.v1_0.type.extensions.soleconn.SoleConnectionDetectionPolicy;
 import org.apache.qpid.server.protocol.v1_0.type.extensions.soleconn.SoleConnectionEnforcementPolicy;
 import org.apache.qpid.server.protocol.v1_0.type.extensions.soleconn.SoleConnectionEnforcementPolicyException;
@@ -194,6 +194,8 @@ public class AMQPConnection_1_0Impl extends AbstractAMQPConnection<AMQPConnectio
 
     // positioned by the *incoming* channel
     private Session_1_0[] _receivingSessions;
+    private final BitSet usedChannels = new BitSet();
+
     private volatile boolean _closedForOutput;
 
     private final long _incomingIdleTimeout;
@@ -202,7 +204,7 @@ public class AMQPConnection_1_0Impl extends AbstractAMQPConnection<AMQPConnectio
 
     private volatile ConnectionState _connectionState = ConnectionState.AWAIT_AMQP_OR_SASL_HEADER;
 
-    private final AMQPDescribedTypeRegistry _describedTypeRegistry = AMQPDescribedTypeRegistry.newInstance()
+    private static final AMQPDescribedTypeRegistry _describedTypeRegistry = AMQPDescribedTypeRegistry.newInstance()
             .registerTransportLayer()
             .registerMessagingLayer()
             .registerTransactionLayer()
@@ -221,8 +223,7 @@ public class AMQPConnection_1_0Impl extends AbstractAMQPConnection<AMQPConnectio
 
     private final AtomicBoolean _orderlyClose = new AtomicBoolean(false);
 
-    private final Collection<Session_1_0>
-            _sessions = Collections.synchronizedCollection(new ArrayList<>());
+    private final Collection<Session_1_0> _sessions = Collections.synchronizedCollection(new ArrayList<>());
 
     private final Object _reference = new Object();
 
@@ -237,6 +238,11 @@ public class AMQPConnection_1_0Impl extends AbstractAMQPConnection<AMQPConnectio
     private volatile boolean _sendSaslFinalChallengeAsChallenge;
     private volatile String _closeCause;
 
+    private final Set<String> _availableMechanisms;
+    private final SASLFrame _saslFrameMechnisms;
+
+    private final SASLFrame _saslFrameAuth = new SASLFrame(new SaslOutcome(SaslCode.AUTH));
+
     AMQPConnection_1_0Impl(final Broker<?> broker,
                            final ServerNetworkConnection network,
                            AmqpPort<?> port,
@@ -249,9 +255,9 @@ public class AMQPConnection_1_0Impl extends AbstractAMQPConnection<AMQPConnectio
         _subjectCreator = port.getSubjectCreator(transport.isSecure(), network.getSelectedHost());
 
         List<Symbol> offeredCapabilities = new ArrayList<>();
-        offeredCapabilities.add(ANONYMOUS_RELAY);
-        offeredCapabilities.add(SHARED_SUBSCRIPTIONS);
-        offeredCapabilities.add(SoleConnectionConnectionProperties.SOLE_CONNECTION_FOR_CONTAINER);
+        offeredCapabilities.add(Symbols.ANONYMOUS_RELAY);
+        offeredCapabilities.add(Symbols.SHARED_SUBSCRIPTIONS);
+        offeredCapabilities.add(Symbols.SOLE_CONNECTION_FOR_CONTAINER);
 
         setOfferedCapabilities(offeredCapabilities);
 
@@ -262,6 +268,27 @@ public class AMQPConnection_1_0Impl extends AbstractAMQPConnection<AMQPConnectio
         _frameWriter = new FrameWriter(getDescribedTypeRegistry(), getSender());
 
         _maxFrameSize = getBroker().getNetworkBufferSize();
+
+        _availableMechanisms = new HashSet<>(port.getAuthenticationProvider().getAvailableMechanisms(transport.isSecure()));
+
+        final SaslMechanisms mechanisms = new SaslMechanisms();
+        final ArrayList<Symbol> mechanismsList = new ArrayList<>();
+        for (final String name : _availableMechanisms)
+        {
+            mechanismsList.add(Symbol.valueOf(name));
+        }
+        mechanisms.setSaslServerMechanisms(mechanismsList.toArray(new Symbol[0]));
+        _saslFrameMechnisms = new SASLFrame(mechanisms);
+
+        Map<String,Object> props = Map.of();
+        for (ConnectionPropertyEnricher enricher : getPort().getConnectionPropertyEnrichers())
+        {
+            props = enricher.addConnectionProperties(this, props);
+        }
+        for (Map.Entry<String,Object> entry : props.entrySet())
+        {
+            _properties.put(Symbol.valueOf(entry.getKey()), entry.getValue());
+        }
     }
 
     @Override
@@ -275,7 +302,7 @@ public class AMQPConnection_1_0Impl extends AbstractAMQPConnection<AMQPConnectio
     public void receiveSaslInit(final SaslInit saslInit)
     {
         assertState(ConnectionState.AWAIT_SASL_INIT);
-        if(saslInit.getHostname() != null && !"".equals(saslInit.getHostname().trim()))
+        if(saslInit.getHostname() != null && !saslInit.getHostname().trim().isEmpty())
         {
             _localHostname = saslInit.getHostname();
         }
@@ -287,9 +314,7 @@ public class AMQPConnection_1_0Impl extends AbstractAMQPConnection<AMQPConnectio
         final Binary initialResponse = saslInit.getInitialResponse();
         byte[] response = initialResponse == null ? new byte[0] : initialResponse.getArray();
 
-        List<String> availableMechanisms =
-                _subjectCreator.getAuthenticationProvider().getAvailableMechanisms(getTransport().isSecure());
-        if (!availableMechanisms.contains(mechanism))
+        if (!_availableMechanisms.contains(mechanism))
         {
             handleSaslError();
         }
@@ -385,9 +410,7 @@ public class AMQPConnection_1_0Impl extends AbstractAMQPConnection<AMQPConnectio
 
     private void handleSaslError()
     {
-        SaslOutcome outcome = new SaslOutcome();
-        outcome.setCode(SaslCode.AUTH);
-        send(new SASLFrame(outcome));
+        send(_saslFrameAuth);
         _saslComplete = true;
         closeSaslWithFailure();
     }
@@ -425,7 +448,6 @@ public class AMQPConnection_1_0Impl extends AbstractAMQPConnection<AMQPConnectio
     {
         return _outgoingIdleTimeout;
     }
-
 
     @Override
     public void receiveAttach(final int channel, final Attach attach)
@@ -657,6 +679,7 @@ public class AMQPConnection_1_0Impl extends AbstractAMQPConnection<AMQPConnectio
         if (remove)
         {
             _sendingSessions[channel] = null;
+            usedChannels.clear(channel);
         }
     }
 
@@ -737,6 +760,7 @@ public class AMQPConnection_1_0Impl extends AbstractAMQPConnection<AMQPConnectio
 
                     _receivingSessions[receivingChannelId] = session;
                     _sendingSessions[sendingChannelId] = session;
+                    usedChannels.set(sendingChannelId);
 
                     Begin beginToSend = new Begin();
                     beginToSend.setRemoteChannel(UnsignedShort.valueOf(receivingChannelId));
@@ -767,14 +791,8 @@ public class AMQPConnection_1_0Impl extends AbstractAMQPConnection<AMQPConnectio
 
     private int getFirstFreeChannel()
     {
-        for (int i = 0; i <= _channelMax; i++)
-        {
-            if (_sendingSessions[i] == null)
-            {
-                return i;
-            }
-        }
-        return -1;
+        int freeChannel = usedChannels.nextClearBit(0);
+        return (freeChannel > _channelMax) ? -1 : freeChannel;
     }
 
     @Override
@@ -856,23 +874,23 @@ public class AMQPConnection_1_0Impl extends AbstractAMQPConnection<AMQPConnectio
                 : Collections.unmodifiableMap(new LinkedHashMap<>(open.getProperties()));
         _remoteDesiredCapabilities = open.getDesiredCapabilities() == null ? Set.of() : Stream.of(open.getDesiredCapabilities())
                 .collect(Collectors.toSet());
-        if (remoteProperties.containsKey(Symbol.valueOf("product")))
+        if (remoteProperties.containsKey(Symbols.PRODUCT))
         {
-            setClientProduct(remoteProperties.get(Symbol.valueOf("product")).toString());
+            setClientProduct(remoteProperties.get(Symbols.PRODUCT).toString());
         }
-        if (remoteProperties.containsKey(Symbol.valueOf("version")))
+        if (remoteProperties.containsKey(Symbols.VERSION))
         {
-            setClientVersion(remoteProperties.get(Symbol.valueOf("version")).toString());
+            setClientVersion(remoteProperties.get(Symbols.VERSION).toString());
         }
         setClientId(_remoteContainerId);
-        if (_remoteDesiredCapabilities.contains(SoleConnectionConnectionProperties.SOLE_CONNECTION_FOR_CONTAINER))
+        if (_remoteDesiredCapabilities.contains(Symbols.SOLE_CONNECTION_FOR_CONTAINER))
         {
-            if (remoteProperties != null && remoteProperties.containsKey(SOLE_CONNECTION_ENFORCEMENT_POLICY))
+            if (remoteProperties != null && remoteProperties.containsKey(Symbols.SOLE_CONNECTION_ENFORCEMENT_POLICY))
             {
                 try
                 {
                     _soleConnectionEnforcementPolicy = SoleConnectionEnforcementPolicy.valueOf(remoteProperties.get(
-                            SOLE_CONNECTION_ENFORCEMENT_POLICY));
+                            Symbols.SOLE_CONNECTION_ENFORCEMENT_POLICY));
                 }
                 catch (IllegalArgumentException e)
                 {
@@ -978,10 +996,10 @@ public class AMQPConnection_1_0Impl extends AbstractAMQPConnection<AMQPConnectio
         if (e.getPolicy() == SoleConnectionEnforcementPolicy.REFUSE_CONNECTION)
         {
             LOGGER.debug("Closing newly open connection: {}", e.getMessage());
-            _properties.put(Symbol.valueOf("amqp:connection-establishment-failed"), true);
+            _properties.put(Symbols.AMQP_CONN_ESTABLISHMENT_FAILED, true);
             final Error error = new Error(AmqpError.INVALID_FIELD,
                     String.format("Connection closed due to sole-connection-enforcement-policy '%s'", e.getPolicy()));
-            error.setInfo(Map.of(Symbol.valueOf("invalid-field"), Symbol.valueOf("container-id")));
+            error.setInfo(Map.of(Symbols.INVALID_FIELD, Symbols.CONTAINER_ID));
             closeConnection(error);
             getEventLogger().message(ResourceLimitMessages.REJECTED(
                     "Opening", "connection", String.format("container '%s'", e.getContainerID()), e.getMessage()));
@@ -990,7 +1008,7 @@ public class AMQPConnection_1_0Impl extends AbstractAMQPConnection<AMQPConnectio
         {
             final Error error = new Error(AmqpError.RESOURCE_LOCKED,
                     String.format("Connection closed due to sole-connection-enforcement-policy '%s'", e.getPolicy()));
-            error.setInfo(Map.of(Symbol.valueOf("sole-connection-enforcement"), true));
+            error.setInfo(Map.of(Symbols.SOLE_CONNECTION_ENFORCEMENT, true));
 
             final EventLogger logger = getEventLogger();
             final List<CompletableFuture<Void>> rescheduleFutures = new ArrayList<>();
@@ -1014,7 +1032,7 @@ public class AMQPConnection_1_0Impl extends AbstractAMQPConnection<AMQPConnectio
     {
         final String redirectHost = addressSpace.getRedirectHost(getPort());
 
-        if(redirectHost == null)
+        if (redirectHost == null)
         {
             err.setCondition(ConnectionError.CONNECTION_FORCED);
             err.setDescription("Virtual host '" + _localHostname + "' is not active");
@@ -1024,7 +1042,7 @@ public class AMQPConnection_1_0Impl extends AbstractAMQPConnection<AMQPConnectio
             err.setCondition(ConnectionError.REDIRECT);
             String networkHost;
             int port;
-            if(redirectHost.matches("\\[[0-9a-f:]+\\](:[0-9]+)?"))
+            if (redirectHost.matches("\\[[0-9a-f:]+\\](:[0-9]+)?"))
             {
                 // IPv6 case
                 networkHost = redirectHost.substring(1, redirectHost.indexOf("]"));
@@ -1059,10 +1077,10 @@ public class AMQPConnection_1_0Impl extends AbstractAMQPConnection<AMQPConnectio
                 }
             }
             final Map<Symbol, Object> infoMap = new HashMap<>();
-            infoMap.put(Symbol.valueOf("network-host"), networkHost);
+            infoMap.put(Symbols.NETWORK_HOST, networkHost);
             if(port > 0)
             {
-                infoMap.put(Symbol.valueOf("port"), UnsignedInteger.valueOf(port));
+                infoMap.put(Symbols.PORT, UnsignedInteger.valueOf(port));
             }
             err.setInfo(infoMap);
         }
@@ -1213,7 +1231,7 @@ public class AMQPConnection_1_0Impl extends AbstractAMQPConnection<AMQPConnectio
             {
                 int size = writer.getEncodedSize();
                 int maxPayloadSize = _maxFrameSize - (size + 9);
-                long payloadLength = (long) payload.remaining();
+                long payloadLength = payload.remaining();
                 if (payloadLength <= maxPayloadSize)
                 {
                     send(new TransportFrame(channel, body, payload));
@@ -1371,14 +1389,8 @@ public class AMQPConnection_1_0Impl extends AbstractAMQPConnection<AMQPConnectio
                 {
                     getSender().send(protocolHeader);
                 }
-                SaslMechanisms mechanisms = new SaslMechanisms();
-                ArrayList<Symbol> mechanismsList = new ArrayList<>();
-                for (String name :  authenticationProvider.getAvailableMechanisms(getTransport().isSecure()))
-                {
-                    mechanismsList.add(Symbol.valueOf(name));
-                }
-                mechanisms.setSaslServerMechanisms(mechanismsList.toArray(new Symbol[0]));
-                send(new SASLFrame(mechanisms));
+
+                send(_saslFrameMechnisms);
 
                 _connectionState = ConnectionState.AWAIT_SASL_INIT;
                 _frameHandler = getFrameHandler(true);
@@ -1387,13 +1399,11 @@ public class AMQPConnection_1_0Impl extends AbstractAMQPConnection<AMQPConnectio
             {
                 if(!_saslComplete)
                 {
-                    final List<String> mechanisms = authenticationProvider.getAvailableMechanisms(getTransport().isSecure());
-
-                    if(mechanisms.contains(ExternalAuthenticationManagerImpl.MECHANISM_NAME) && getNetwork().getPeerPrincipal() != null)
+                    if(_availableMechanisms.contains(ExternalAuthenticationManagerImpl.MECHANISM_NAME) && getNetwork().getPeerPrincipal() != null)
                     {
                         setUserPrincipal(new AuthenticatedPrincipal(getNetwork().getPeerPrincipal()));
                     }
-                    else if(mechanisms.contains(AnonymousAuthenticationManager.MECHANISM_NAME))
+                    else if(_availableMechanisms.contains(AnonymousAuthenticationManager.MECHANISM_NAME))
                     {
                         setUserPrincipal(new AuthenticatedPrincipal(((AnonymousAuthenticationManager) authenticationProvider).getAnonymousPrincipal()));
                     }
@@ -1419,16 +1429,13 @@ public class AMQPConnection_1_0Impl extends AbstractAMQPConnection<AMQPConnectio
                 _connectionState = ConnectionState.CLOSED;
                 getNetwork().close();
             }
-
         }
-
     }
 
     private FrameHandler getFrameHandler(final boolean sasl)
     {
         return new FrameHandler(new ValueHandler(this.getDescribedTypeRegistry()), this, sasl);
     }
-
 
     @Override
     public void closed()
@@ -1685,20 +1692,9 @@ public class AMQPConnection_1_0Impl extends AbstractAMQPConnection<AMQPConnectio
         notifyWork();
     }
 
-
     private void sendOpen(final int channelMax, final int maxFrameSize)
     {
         Open open = new Open();
-
-        Map<String,Object> props = Map.of();
-        for(ConnectionPropertyEnricher enricher : getPort().getConnectionPropertyEnrichers())
-        {
-            props = enricher.addConnectionProperties(this, props);
-        }
-        for(Map.Entry<String,Object> entry : props.entrySet())
-        {
-            _properties.put(Symbol.valueOf(entry.getKey()), entry.getValue());
-        }
 
         if (_receivingSessions == null)
         {
@@ -1723,15 +1719,15 @@ public class AMQPConnection_1_0Impl extends AbstractAMQPConnection<AMQPConnectio
         }
 
         if (_remoteDesiredCapabilities != null
-                && _remoteDesiredCapabilities.contains(SoleConnectionConnectionProperties.SOLE_CONNECTION_FOR_CONTAINER))
+                && _remoteDesiredCapabilities.contains(Symbols.SOLE_CONNECTION_FOR_CONTAINER))
         {
-            _properties.put(SoleConnectionConnectionProperties.SOLE_CONNECTION_DETECTION_POLICY,
+            _properties.put(Symbols.SOLE_CONNECTION_DETECTION_POLICY,
                     SoleConnectionDetectionPolicy.STRONG);
         }
 
         if (_soleConnectionEnforcementPolicy == SoleConnectionEnforcementPolicy.CLOSE_EXISTING)
         {
-            _properties.put(SOLE_CONNECTION_ENFORCEMENT_POLICY, SoleConnectionEnforcementPolicy.CLOSE_EXISTING.getValue());
+            _properties.put(Symbols.SOLE_CONNECTION_ENFORCEMENT_POLICY, SoleConnectionEnforcementPolicy.CLOSE_EXISTING.getValue());
         }
 
         open.setProperties(_properties);
@@ -1758,7 +1754,6 @@ public class AMQPConnection_1_0Impl extends AbstractAMQPConnection<AMQPConnectio
         sendFrame(CONNECTION_CONTROL_CHANNEL, closeToSend);
         closeSender();
     }
-
 
     private void assertState(final ConnectionState state)
     {

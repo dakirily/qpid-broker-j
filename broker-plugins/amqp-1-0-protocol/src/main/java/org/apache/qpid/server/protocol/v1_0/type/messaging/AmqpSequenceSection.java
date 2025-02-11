@@ -55,5 +55,4 @@ public class AmqpSequenceSection extends AbstractSection<List, AmqpSequence>
     {
         return new AmqpSequenceConstructor();
     }
-
 }

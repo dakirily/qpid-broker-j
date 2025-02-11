@@ -1,4 +1,3 @@
-
 /*
 *
 * Licensed to the Apache Software Foundation (ASF) under one
@@ -20,18 +19,15 @@
 *
 */
 
-
 package org.apache.qpid.server.protocol.v1_0.type.messaging;
 
+import java.util.Objects;
 
 public class JMSSelectorFilter implements Filter
 {
-
-
-
     private final String _value;
 
-    public JMSSelectorFilter(String value)
+    public JMSSelectorFilter(final String value)
     {
         _value = value;
     }
@@ -41,27 +37,27 @@ public class JMSSelectorFilter implements Filter
         return _value;
     }
 
-      @Override
-      public String toString()
-      {
-          return "JMSSelector{" + _value + '}';
-      }
+    @Override
+    public String toString()
+    {
+        return "JMSSelector{" + _value + '}';
+    }
 
     @Override
-    public boolean equals(Object o)
+    public boolean equals(final Object o)
     {
-        if(this == o)
+        if (this == o)
         {
             return true;
         }
-        if(o == null || getClass() != o.getClass())
+        if (o == null || getClass() != o.getClass())
         {
             return false;
         }
 
-        JMSSelectorFilter that = (JMSSelectorFilter) o;
+        final JMSSelectorFilter that = (JMSSelectorFilter) o;
 
-        return _value != null ? _value.equals(that._value) : that._value == null;
+        return Objects.equals(_value, that._value);
     }
 
     @Override

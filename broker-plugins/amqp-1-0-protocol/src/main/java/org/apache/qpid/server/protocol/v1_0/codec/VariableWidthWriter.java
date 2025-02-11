@@ -28,30 +28,28 @@ public abstract class VariableWidthWriter<V> implements ValueWriter<V>
     private final int _length;
     private final int _size;
 
-    public VariableWidthWriter(int length)
+    public VariableWidthWriter(final int length)
     {
         _length = length;
         _size = (_length & 0xFFFFFF00) == 0 ? 1 : 4;
     }
 
     @Override
-    public final void writeToBuffer(QpidByteBuffer buffer)
+    public final void writeToBuffer(final QpidByteBuffer buffer)
     {
-
         final int length = getLength();
-        boolean singleOctetSize = _size == 1;
-        if(singleOctetSize)
+        final boolean singleOctetSize = _size == 1;
+        if (singleOctetSize)
         {
             buffer.put(getSingleOctetEncodingCode());
-            buffer.put((byte)length);
+            buffer.put((byte) length);
         }
         else
         {
-
             buffer.put(getFourOctetEncodingCode());
             buffer.putInt(length);
         }
-        writeBytes(buffer, 0,length);
+        writeBytes(buffer, 0, length);
     }
 
     @Override
@@ -69,5 +67,5 @@ public abstract class VariableWidthWriter<V> implements ValueWriter<V>
         return _length;
     }
 
-    protected abstract void writeBytes(QpidByteBuffer buf, int offset, int length);
+    protected abstract void writeBytes(final QpidByteBuffer buf, final int offset, final int length);
 }

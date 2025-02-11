@@ -28,10 +28,6 @@ public class UUIDWriter extends FixedSixteenWriter<UUID>
     private static final byte FORMAT_CODE = (byte) 0x98;
     private static final Factory<UUID> FACTORY = (registry, object) -> new UUIDWriter(object);
 
-    public UUIDWriter()
-    {
-    }
-
     public UUIDWriter(final UUID object)
     {
         super(object);
@@ -44,18 +40,18 @@ public class UUIDWriter extends FixedSixteenWriter<UUID>
     }
 
     @Override
-    long convertValueToMSB(UUID value)
+    long convertValueToMSB(final UUID value)
     {
         return value.getMostSignificantBits();
     }
 
     @Override
-    long convertValueToLSB(UUID value)
+    long convertValueToLSB(final UUID value)
     {
         return value.getLeastSignificantBits();
     }
 
-    public static void register(ValueWriter.Registry registry)
+    public static void register(final ValueWriter.Registry registry)
     {
         registry.register(UUID.class, FACTORY);
     }

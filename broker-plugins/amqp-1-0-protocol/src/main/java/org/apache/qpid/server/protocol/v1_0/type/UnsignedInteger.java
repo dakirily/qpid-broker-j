@@ -21,16 +21,19 @@
 
 package org.apache.qpid.server.protocol.v1_0.type;
 
+import java.io.Serial;
+
 public final class UnsignedInteger extends Number implements Comparable<UnsignedInteger>
 {
+    @Serial
     private static final long serialVersionUID = 1L;
+    private static final UnsignedInteger[] cachedValues = new UnsignedInteger[256];
 
     private final int _underlying;
-    private static final UnsignedInteger[] cachedValues = new UnsignedInteger[256];
 
     static
     {
-        for(int i = 0; i < 256; i++)
+        for (int i = 0; i < 256; i++)
         {
             cachedValues[i] = new UnsignedInteger(i);
         }
@@ -41,7 +44,7 @@ public final class UnsignedInteger extends Number implements Comparable<Unsigned
     public static final UnsignedInteger MAX_VALUE = new UnsignedInteger(0xffffffff);
 
 
-    public UnsignedInteger(int underlying)
+    public UnsignedInteger(final int underlying)
     {
         _underlying = underlying;
     }
@@ -71,7 +74,7 @@ public final class UnsignedInteger extends Number implements Comparable<Unsigned
     }
 
     @Override
-    public boolean equals(Object o)
+    public boolean equals(final Object o)
     {
         if (this == o)
         {
@@ -82,13 +85,13 @@ public final class UnsignedInteger extends Number implements Comparable<Unsigned
             return false;
         }
 
-        UnsignedInteger that = (UnsignedInteger) o;
+        final UnsignedInteger that = (UnsignedInteger) o;
 
         return _underlying == that._underlying;
     }
 
     @Override
-    public int compareTo(UnsignedInteger o)
+    public int compareTo(final UnsignedInteger o)
     {
         return Long.signum(longValue() - o.longValue());
     }
@@ -105,9 +108,9 @@ public final class UnsignedInteger extends Number implements Comparable<Unsigned
         return String.valueOf(longValue());
     }
 
-    public static UnsignedInteger valueOf(int underlying)
+    public static UnsignedInteger valueOf(final int underlying)
     {
-        if((underlying & 0xFFFFFF00) == 0)
+        if ((underlying & 0xFFFFFF00) == 0)
         {
             return cachedValues[underlying];
         }
@@ -137,11 +140,10 @@ public final class UnsignedInteger extends Number implements Comparable<Unsigned
 
     public static UnsignedInteger valueOf(final long longVal)
     {
-        if(longVal < 0L || longVal >= (1L<<32))
+        if (longVal < 0L || longVal >= (1L << 32))
         {
-            throw new NumberFormatException("Value \""+longVal+"\" lies outside the range [" + 0L + "-" + (1L<<32) +").");
+            throw new NumberFormatException("Value \"" + longVal + "\" lies outside the range [" + 0L + "-" + (1L << 32) + ").");
         }
         return valueOf((int)longVal);
     }
-
 }

@@ -21,20 +21,20 @@
 
 package org.apache.qpid.server.protocol.v1_0.type;
 
+import java.io.Serial;
 import java.math.BigInteger;
 
 public final class UnsignedLong extends Number implements Comparable<UnsignedLong>
 {
+    @Serial
     private static final long serialVersionUID = 1L;
-
-    private static final BigInteger TWO_TO_THE_SIXTY_FOUR = new BigInteger( new byte[] { (byte) 1, (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 0 });
+    private static final BigInteger TWO_TO_THE_SIXTY_FOUR = new BigInteger(new byte[] { (byte) 1, (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 0 });
     private static final BigInteger LONG_MAX_VALUE = BigInteger.valueOf(Long.MAX_VALUE);
-
     private static final UnsignedLong[] cachedValues = new UnsignedLong[256];
 
     static
     {
-        for(int i = 0; i<256; i++)
+        for (int i = 0; i<256; i++)
         {
             cachedValues[i] = new UnsignedLong(i);
         }
@@ -45,9 +45,7 @@ public final class UnsignedLong extends Number implements Comparable<UnsignedLon
 
     private final long _underlying;
 
-
-
-    public UnsignedLong(long underlying)
+    public UnsignedLong(final long underlying)
     {
         _underlying = underlying;
     }
@@ -66,7 +64,7 @@ public final class UnsignedLong extends Number implements Comparable<UnsignedLon
 
     public BigInteger bigIntegerValue()
     {
-        if(_underlying >= 0L)
+        if (_underlying >= 0L)
         {
             return BigInteger.valueOf(_underlying);
         }
@@ -89,7 +87,7 @@ public final class UnsignedLong extends Number implements Comparable<UnsignedLon
     }
 
     @Override
-    public boolean equals(Object o)
+    public boolean equals(final Object o)
     {
         if (this == o)
         {
@@ -100,13 +98,12 @@ public final class UnsignedLong extends Number implements Comparable<UnsignedLon
             return false;
         }
 
-        UnsignedLong that = (UnsignedLong) o;
-
+        final UnsignedLong that = (UnsignedLong) o;
         return _underlying == that._underlying;
     }
 
     @Override
-    public int compareTo(UnsignedLong o)
+    public int compareTo(final UnsignedLong o)
     {
         return bigIntegerValue().compareTo(o.bigIntegerValue());
     }
@@ -114,7 +111,7 @@ public final class UnsignedLong extends Number implements Comparable<UnsignedLon
     @Override
     public int hashCode()
     {
-        return (int)(_underlying ^ (_underlying >>> 32));
+        return Long.hashCode(_underlying);
     }
 
     @Override
@@ -123,9 +120,9 @@ public final class UnsignedLong extends Number implements Comparable<UnsignedLon
         return String.valueOf(bigIntegerValue());
     }
 
-    public static UnsignedLong valueOf(long underlying)
+    public static UnsignedLong valueOf(final long underlying)
     {
-        if((underlying & 0xFFL) == underlying)
+        if ((underlying & 0xFFL) == underlying)
         {
             return cachedValues[(int)underlying];
         }
@@ -137,12 +134,12 @@ public final class UnsignedLong extends Number implements Comparable<UnsignedLon
 
     public static UnsignedLong valueOf(final String value)
     {
-        BigInteger bigInt = new BigInteger(value);
-        if(bigInt.signum() == -1 || bigInt.bitCount()>64)
+        final BigInteger bigInt = new BigInteger(value);
+        if (bigInt.signum() == -1 || bigInt.bitCount() > 64)
         {
-            throw new NumberFormatException("Value \""+value+"\" lies outside the range [" + 0L + "- 2^64).");
+            throw new NumberFormatException("Value \"" + value + "\" lies outside the range [" + 0L + "- 2^64).");
         }
-        else if(bigInt.compareTo(LONG_MAX_VALUE)>=0)
+        else if(bigInt.compareTo(LONG_MAX_VALUE) >= 0)
         {
             return UnsignedLong.valueOf(bigInt.longValue());
         }
@@ -150,10 +147,9 @@ public final class UnsignedLong extends Number implements Comparable<UnsignedLon
         {
             return UnsignedLong.valueOf(TWO_TO_THE_SIXTY_FOUR.subtract(bigInt).negate().longValue());
         }
-
     }
 
-    public UnsignedLong add(UnsignedLong unsignedLong)
+    public UnsignedLong add(final UnsignedLong unsignedLong)
     {
         return UnsignedLong.valueOf(_underlying + unsignedLong._underlying);
     }

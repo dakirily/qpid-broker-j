@@ -48,31 +48,29 @@ public class DetachWriter extends AbstractDescribedTypeWriter<Detach>
         public Writer(final Registry registry, final Detach object)
         {
             super(registry);
-
             _value = object;
             _count = calculateCount();
         }
 
         private int calculateCount()
         {
-            if( _value.getError() != null)
+            if ( _value.getError() != null)
             {
                 return 3;
             }
 
-            if( _value.getClosed() != null)
+            if ( _value.getClosed() != null)
             {
                 return 2;
             }
 
-            if( _value.getHandle() != null)
+            if ( _value.getHandle() != null)
             {
                 return 1;
             }
 
             return 0;
         }
-
 
         @Override
         protected int getCount()
@@ -89,21 +87,13 @@ public class DetachWriter extends AbstractDescribedTypeWriter<Detach>
         @Override
         protected Object next()
         {
-            switch(_field++)
+            return switch (_field++)
             {
-
-                case 0:
-                    return _value.getHandle();
-
-                case 1:
-                    return _value.getClosed();
-
-                case 2:
-                    return _value.getError();
-
-                default:
-                    return null;
-            }
+                case 0 -> _value.getHandle();
+                case 1 -> _value.getClosed();
+                case 2 -> _value.getError();
+                default -> null;
+            };
         }
 
         @Override
@@ -113,7 +103,7 @@ public class DetachWriter extends AbstractDescribedTypeWriter<Detach>
         }
     }
 
-    public static void register(ValueWriter.Registry registry)
+    public static void register(final ValueWriter.Registry registry)
     {
         registry.register(Detach.class, FACTORY);
     }

@@ -42,5 +42,4 @@ class ZeroListConstructor implements TypeConstructor<List>
     {
         return INSTANCE;
     }
-
 }

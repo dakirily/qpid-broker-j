@@ -20,44 +20,42 @@
  */
 package org.apache.qpid.server.protocol.v1_0.codec;
 
+import java.nio.charset.Charset;
 
 final class BinaryString
 {
-
-    private byte[] _data;
-    private int _offset;
-    private int _size;
-    private int _hashCode;
+    private final byte[] _data;
+    private final int _offset;
+    private final int _size;
+    private final int _hashCode;
 
     BinaryString(final byte[] data)
     {
-
         this(data, 0, data.length);
     }
 
     BinaryString(final byte[] data, final int offset, final int size)
     {
-
-        setData(data, offset, size);
-    }
-
-    BinaryString()
-    {
-    }
-
-    void setData(byte[] data, int offset, int size)
-    {
         _data = data;
         _offset = offset;
         _size = size;
-        int hc = 0;
-        for (int i = 0; i < size; i++)
-        {
-            hc = 31*hc + (0xFF & data[offset + i]);
-        }
-        _hashCode = hc;
+        _hashCode = computeHashCode(data, offset, size);
     }
 
+    private static int computeHashCode(final byte[] data, final int offset, final int size)
+    {
+        int hc = 0;
+        for (int i = offset, end = offset + size; i < end; i++)
+        {
+            hc = ((hc << 5) - hc) + (0xFF & data[i]);
+        }
+        return hc;
+    }
+
+    public String asString(final Charset charset)
+    {
+        return new String(_data, _offset, _size, charset);
+    }
 
     @Override
     public int hashCode()
@@ -66,28 +64,29 @@ final class BinaryString
     }
 
     @Override
-    public boolean equals(Object o)
+    public boolean equals(final Object object)
     {
-        if(!(o instanceof final BinaryString buf))
+        // identity check
+        if (this == object)
+        {
+            return true;
+        }
+
+        if (!(object instanceof final BinaryString other))
         {
             return false;
         }
 
-        final int size = _size;
-        if (size != buf._size)
+        // check size and hashcode
+        if (this._size != other._size || this._hashCode != other._hashCode)
         {
             return false;
         }
 
-        final byte[] myData = _data;
-        final byte[] theirData = buf._data;
-        int myOffset = _offset;
-        int theirOffset = buf._offset;
-        final int myLimit = myOffset + size;
-
-        while(myOffset < myLimit)
+        // compare byte by byte
+        for (int i = 0; i < _size; i++)
         {
-            if (myData[myOffset++] != theirData[theirOffset++])
+            if (this._data[this._offset + i] != other._data[other._offset + i])
             {
                 return false;
             }
@@ -95,6 +94,4 @@ final class BinaryString
 
         return true;
     }
-
-
 }

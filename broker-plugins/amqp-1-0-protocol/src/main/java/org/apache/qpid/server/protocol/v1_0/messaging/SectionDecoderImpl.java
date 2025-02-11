@@ -31,9 +31,7 @@ import org.apache.qpid.server.protocol.v1_0.type.transport.AmqpError;
 
 public class SectionDecoderImpl implements SectionDecoder
 {
-
     private final ValueHandler _valueHandler;
-
 
     public SectionDecoderImpl(final SectionDecoderRegistry describedTypeRegistry)
     {
@@ -41,15 +39,13 @@ public class SectionDecoderImpl implements SectionDecoder
     }
 
     @Override
-    public List<EncodingRetainingSection<?>> parseAll(QpidByteBuffer buf) throws AmqpErrorException
+    public List<EncodingRetainingSection<?>> parseAll(final QpidByteBuffer buf) throws AmqpErrorException
     {
-
-        List<EncodingRetainingSection<?>> obj = new ArrayList<>();
+        final List<EncodingRetainingSection<?>> obj = new ArrayList<>();
         try
         {
             while (buf.hasRemaining())
             {
-
                 final Object parsedObject = _valueHandler.parse(buf);
                 if (parsedObject instanceof final EncodingRetainingSection<?> section)
                 {
@@ -57,16 +53,15 @@ public class SectionDecoderImpl implements SectionDecoder
                 }
                 else
                 {
-                    throw new AmqpErrorException(AmqpError.DECODE_ERROR,
-                                                 String.format(
-                                                         "Invalid Message: Expected type \"section\" but found \"%s\"",
-                                                         parsedObject.getClass().getSimpleName()));
+                    throw AmqpErrorException.decode()
+                            .message("Invalid Message: Expected type \"section\" but found \"%s\"")
+                            .args(parsedObject.getClass().getSimpleName());
                 }
             }
         }
         catch (AmqpErrorException e)
         {
-            for (EncodingRetainingSection<?> encodingRetainingSection : obj)
+            for (final EncodingRetainingSection<?> encodingRetainingSection : obj)
             {
                 encodingRetainingSection.dispose();
             }

@@ -18,10 +18,12 @@
  * under the License.
  *
  */
+
 package org.apache.qpid.server.protocol.v1_0.type.transport;
 
 public interface ChannelFrameBody
 {
     int getChannel();
+
     Object getFrameBody();
 }

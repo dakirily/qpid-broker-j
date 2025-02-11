@@ -1,4 +1,3 @@
-
 /*
 *
 * Licensed to the Apache Software Foundation (ASF) under one
@@ -20,13 +19,12 @@
 *
 */
 
-
 package org.apache.qpid.server.protocol.v1_0.type.messaging;
-
 
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Objects;
 
 import org.apache.qpid.server.protocol.v1_0.CompositeType;
 import org.apache.qpid.server.protocol.v1_0.CompositeTypeField;
@@ -36,7 +34,7 @@ import org.apache.qpid.server.protocol.v1_0.type.Outcome;
 import org.apache.qpid.server.protocol.v1_0.type.Symbol;
 import org.apache.qpid.server.protocol.v1_0.type.UnsignedInteger;
 
-@CompositeType( symbolicDescriptor = "amqp:source:list", numericDescriptor = 0x0000000000000028L)
+@CompositeType(symbolicDescriptor = "amqp:source:list", numericDescriptor = 0x0000000000000028L)
 public class Source implements BaseSource, Terminus
 {
     @CompositeTypeField(index = 0)
@@ -85,15 +83,15 @@ public class Source implements BaseSource, Terminus
         _expiryPolicy = source.getExpiryPolicy();
         _timeout = source.getTimeout();
         _dynamic = source.getDynamic();
-        Map<Symbol, Object> dynamicNodeProperties = source.getDynamicNodeProperties();
+        final Map<Symbol, Object> dynamicNodeProperties = source.getDynamicNodeProperties();
         _dynamicNodeProperties = dynamicNodeProperties == null ? null : new LinkedHashMap<>(dynamicNodeProperties);
         _distributionMode = source.getDistributionMode();
-        Map<Symbol, Filter> filter = source.getFilter();
+        final Map<Symbol, Filter> filter = source.getFilter();
         _filter = filter == null ? null : new LinkedHashMap<>(filter);
         _defaultOutcome = source.getDefaultOutcome();
-        Symbol[] outcomes = source.getOutcomes();
+        final Symbol[] outcomes = source.getOutcomes();
         _outcomes = outcomes == null ? null : Arrays.copyOf(outcomes, outcomes.length);;
-        Symbol[] capabilities = source.getCapabilities();
+        final Symbol[] capabilities = source.getCapabilities();
         _capabilities = capabilities == null ? null : Arrays.copyOf(capabilities, capabilities.length);
     }
 
@@ -102,7 +100,7 @@ public class Source implements BaseSource, Terminus
         return _address;
     }
 
-    public void setAddress(String address)
+    public void setAddress(final String address)
     {
         _address = address;
     }
@@ -112,7 +110,7 @@ public class Source implements BaseSource, Terminus
         return _durable;
     }
 
-    public void setDurable(TerminusDurability durable)
+    public void setDurable(final TerminusDurability durable)
     {
         _durable = durable;
     }
@@ -122,7 +120,7 @@ public class Source implements BaseSource, Terminus
         return _expiryPolicy;
     }
 
-    public void setExpiryPolicy(TerminusExpiryPolicy expiryPolicy)
+    public void setExpiryPolicy(final TerminusExpiryPolicy expiryPolicy)
     {
         _expiryPolicy = expiryPolicy;
     }
@@ -132,7 +130,7 @@ public class Source implements BaseSource, Terminus
         return _timeout;
     }
 
-    public void setTimeout(UnsignedInteger timeout)
+    public void setTimeout(final UnsignedInteger timeout)
     {
         _timeout = timeout;
     }
@@ -142,7 +140,7 @@ public class Source implements BaseSource, Terminus
         return _dynamic;
     }
 
-    public void setDynamic(Boolean dynamic)
+    public void setDynamic(final Boolean dynamic)
     {
         _dynamic = dynamic;
     }
@@ -152,7 +150,7 @@ public class Source implements BaseSource, Terminus
         return _dynamicNodeProperties;
     }
 
-    public void setDynamicNodeProperties(Map<Symbol, Object> dynamicNodeProperties)
+    public void setDynamicNodeProperties(final Map<Symbol, Object> dynamicNodeProperties)
     {
         _dynamicNodeProperties = dynamicNodeProperties;
     }
@@ -162,7 +160,7 @@ public class Source implements BaseSource, Terminus
         return _distributionMode;
     }
 
-    public void setDistributionMode(DistributionMode distributionMode)
+    public void setDistributionMode(final DistributionMode distributionMode)
     {
         _distributionMode = distributionMode;
     }
@@ -172,7 +170,7 @@ public class Source implements BaseSource, Terminus
         return _filter;
     }
 
-    public void setFilter(Map<Symbol, Filter> filter)
+    public void setFilter(final Map<Symbol, Filter> filter)
     {
         _filter = filter;
     }
@@ -182,7 +180,7 @@ public class Source implements BaseSource, Terminus
         return _defaultOutcome;
     }
 
-    public void setDefaultOutcome(Outcome defaultOutcome)
+    public void setDefaultOutcome(final Outcome defaultOutcome)
     {
         _defaultOutcome = defaultOutcome;
     }
@@ -192,7 +190,7 @@ public class Source implements BaseSource, Terminus
         return _outcomes;
     }
 
-    public void setOutcomes(Symbol... outcomes)
+    public void setOutcomes(final Symbol... outcomes)
     {
         _outcomes = outcomes;
     }
@@ -202,7 +200,7 @@ public class Source implements BaseSource, Terminus
         return _capabilities;
     }
 
-    public void setCapabilities(Symbol[] capabilities)
+    public void setCapabilities(final Symbol[] capabilities)
     {
         _capabilities = capabilities;
     }
@@ -210,102 +208,98 @@ public class Source implements BaseSource, Terminus
     @Override
     public String toString()
     {
-        StringBuilder builder = new StringBuilder("Source{");
+        final StringBuilder builder = new StringBuilder("Source{");
         final int origLength = builder.length();
 
-        if(_address != null)
+        if (_address != null)
         {
-            if(builder.length() != origLength)
-            {
-                builder.append(',');
-            }
             builder.append("address=").append(_address);
         }
 
-        if(_durable != null)
+        if (_durable != null)
         {
-            if(builder.length() != origLength)
+            if (builder.length() != origLength)
             {
                 builder.append(',');
             }
             builder.append("durable=").append(_durable);
         }
 
-        if(_expiryPolicy != null)
+        if (_expiryPolicy != null)
         {
-            if(builder.length() != origLength)
+            if (builder.length() != origLength)
             {
                 builder.append(',');
             }
             builder.append("expiryPolicy=").append(_expiryPolicy);
         }
 
-        if(_timeout != null)
+        if (_timeout != null)
         {
-            if(builder.length() != origLength)
+            if (builder.length() != origLength)
             {
                 builder.append(',');
             }
             builder.append("timeout=").append(_timeout);
         }
 
-        if(_dynamic != null)
+        if (_dynamic != null)
         {
-            if(builder.length() != origLength)
+            if (builder.length() != origLength)
             {
                 builder.append(',');
             }
             builder.append("dynamic=").append(_dynamic);
         }
 
-        if(_dynamicNodeProperties != null)
+        if (_dynamicNodeProperties != null)
         {
-            if(builder.length() != origLength)
+            if (builder.length() != origLength)
             {
                 builder.append(',');
             }
             builder.append("dynamicNodeProperties=").append(_dynamicNodeProperties);
         }
 
-        if(_distributionMode != null)
+        if (_distributionMode != null)
         {
-            if(builder.length() != origLength)
+            if (builder.length() != origLength)
             {
                 builder.append(',');
             }
             builder.append("distributionMode=").append(_distributionMode);
         }
 
-        if(_filter != null)
+        if (_filter != null)
         {
-            if(builder.length() != origLength)
+            if (builder.length() != origLength)
             {
                 builder.append(',');
             }
             builder.append("filter=").append(_filter);
         }
 
-        if(_defaultOutcome != null)
+        if (_defaultOutcome != null)
         {
-            if(builder.length() != origLength)
+            if (builder.length() != origLength)
             {
                 builder.append(',');
             }
             builder.append("defaultOutcome=").append(_defaultOutcome);
         }
 
-        if(_outcomes != null)
+        if (_outcomes != null)
         {
-            if(builder.length() != origLength)
+            if (builder.length() != origLength)
             {
                 builder.append(',');
             }
             builder.append("outcomes=").append(Arrays.toString(_outcomes));
         }
 
-        if(_capabilities != null)
+        if (_capabilities != null)
         {
-            if(builder.length() != origLength)
+            if (builder.length() != origLength)
             {
                 builder.append(',');
             }
@@ -330,39 +324,35 @@ public class Source implements BaseSource, Terminus
 
         final Source source = (Source) o;
 
-        if (_address != null ? !_address.equals(source._address) : source._address != null)
+        if (!Objects.equals(_address, source._address))
         {
             return false;
         }
-        if (_durable != null ? !_durable.equals(source._durable) : source._durable != null)
+        if (!Objects.equals(_durable, source._durable))
         {
             return false;
         }
-        if (_expiryPolicy != null ? !_expiryPolicy.equals(source._expiryPolicy) : source._expiryPolicy != null)
+        if (!Objects.equals(_expiryPolicy, source._expiryPolicy))
         {
             return false;
         }
-        if (_timeout != null ? !_timeout.equals(source._timeout) : source._timeout != null)
+        if (!Objects.equals(_timeout, source._timeout))
         {
             return false;
         }
-        if (_dynamic != null ? !_dynamic.equals(source._dynamic) : source._dynamic != null)
+        if (!Objects.equals(_dynamic, source._dynamic))
         {
             return false;
         }
-        if (_dynamicNodeProperties != null
-                ? !_dynamicNodeProperties.equals(source._dynamicNodeProperties)
-                : source._dynamicNodeProperties != null)
+        if (!Objects.equals(_dynamicNodeProperties, source._dynamicNodeProperties))
         {
             return false;
         }
-        if (_distributionMode != null
-                ? !_distributionMode.equals(source._distributionMode)
-                : source._distributionMode != null)
+        if (!Objects.equals(_distributionMode, source._distributionMode))
         {
             return false;
         }
-        if (_filter != null ? !_filter.equals(source._filter) : source._filter != null)
+        if (!Objects.equals(_filter, source._filter))
         {
             return false;
         }

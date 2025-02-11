@@ -25,20 +25,17 @@ import org.apache.qpid.server.bytebuffer.QpidByteBuffer;
 
 public abstract class FixedSixteenWriter<T> implements ValueWriter<T>
 {
-    private long _msb;
-    private long _lsb;
+    private final long _msb;
+    private final long _lsb;
 
-    public FixedSixteenWriter()
+    public FixedSixteenWriter(final T object)
     {
-    }
-
-    public FixedSixteenWriter(T object)
-    {
-        setValue(object);
+        _msb = convertValueToMSB(object);
+        _lsb = convertValueToLSB(object);
     }
 
     @Override
-    public final void writeToBuffer(QpidByteBuffer buffer)
+    public final void writeToBuffer(final QpidByteBuffer buffer)
     {
         buffer.put(getFormatCode());
         buffer.putLong(_msb);
@@ -53,12 +50,7 @@ public abstract class FixedSixteenWriter<T> implements ValueWriter<T>
 
     abstract byte getFormatCode();
 
-    public final void setValue(T value)
-    {
-        _msb = convertValueToMSB(value);
-        _lsb = convertValueToLSB(value);
-    }
+    abstract long convertValueToMSB(final T value);
 
-    abstract long convertValueToMSB(T value);
-    abstract long convertValueToLSB(T value);
+    abstract long convertValueToLSB(final T value);
 }

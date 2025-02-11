@@ -38,7 +38,7 @@ public class NoLocalFilterWriter extends AbstractDescribedTypeWriter<NoLocalFilt
         super(DESCRIPTOR_WRITER, ListWriter.EMPTY_LIST_WRITER);
     }
 
-    public static void register(Registry registry)
+    public static void register(final Registry registry)
     {
         registry.register(NoLocalFilter.class, FACTORY);
     }

@@ -1,4 +1,3 @@
-
 /*
 *
 * Licensed to the Apache Software Foundation (ASF) under one
@@ -20,9 +19,7 @@
 *
 */
 
-
 package org.apache.qpid.server.protocol.v1_0.type.messaging;
-
 
 import java.util.Map;
 
@@ -30,12 +27,11 @@ import org.apache.qpid.server.protocol.v1_0.CompositeType;
 import org.apache.qpid.server.protocol.v1_0.CompositeTypeField;
 import org.apache.qpid.server.protocol.v1_0.type.Outcome;
 import org.apache.qpid.server.protocol.v1_0.type.Symbol;
+import org.apache.qpid.server.protocol.v1_0.type.Symbols;
 
-@CompositeType( symbolicDescriptor = "amqp:modified:list", numericDescriptor = 0x0000000000000027L)
+@CompositeType(symbolicDescriptor = "amqp:modified:list", numericDescriptor = 0x0000000000000027L)
 public class Modified implements Outcome
 {
-    public static final Symbol MODIFIED_SYMBOL = Symbol.valueOf("amqp:modified:list");
-
     @CompositeTypeField(index = 0)
     private Boolean _deliveryFailed;
 
@@ -50,7 +46,7 @@ public class Modified implements Outcome
         return _deliveryFailed;
     }
 
-    public void setDeliveryFailed(Boolean deliveryFailed)
+    public void setDeliveryFailed(final Boolean deliveryFailed)
     {
         _deliveryFailed = deliveryFailed;
     }
@@ -60,7 +56,7 @@ public class Modified implements Outcome
         return _undeliverableHere;
     }
 
-    public void setUndeliverableHere(Boolean undeliverableHere)
+    public void setUndeliverableHere(final Boolean undeliverableHere)
     {
         _undeliverableHere = undeliverableHere;
     }
@@ -70,7 +66,7 @@ public class Modified implements Outcome
         return _messageAnnotations;
     }
 
-    public void setMessageAnnotations(Map<Symbol, Object> messageAnnotations)
+    public void setMessageAnnotations(final Map<Symbol, Object> messageAnnotations)
     {
         _messageAnnotations = messageAnnotations;
     }
@@ -78,21 +74,17 @@ public class Modified implements Outcome
     @Override
     public Symbol getSymbol()
     {
-        return MODIFIED_SYMBOL;
+        return Symbols.AMQP_MODIFIED;
     }
 
     @Override
     public String toString()
     {
-        StringBuilder builder = new StringBuilder("Modified{");
+        final StringBuilder builder = new StringBuilder("Modified{");
         final int origLength = builder.length();
 
         if (_deliveryFailed != null)
         {
-            if (builder.length() != origLength)
-            {
-                builder.append(',');
-            }
             builder.append("deliveryFailed=").append(_deliveryFailed);
         }
 

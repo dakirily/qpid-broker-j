@@ -31,5 +31,4 @@ public interface DescribedTypeConstructorRegistry
     void register(Object descriptor, DescribedTypeConstructor constructor);
 
     DescribedTypeConstructor getConstructor(Object descriptor);
-
 }

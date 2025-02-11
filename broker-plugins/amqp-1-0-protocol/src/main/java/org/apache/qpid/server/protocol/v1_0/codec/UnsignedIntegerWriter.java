@@ -26,14 +26,12 @@ import org.apache.qpid.server.protocol.v1_0.type.UnsignedInteger;
 
 public class UnsignedIntegerWriter
 {
-    private static final byte EIGHT_BYTE_FORMAT_CODE = (byte)0x70;
+    private static final byte EIGHT_BYTE_FORMAT_CODE = (byte) 0x70;
     private static final byte ONE_BYTE_FORMAT_CODE = (byte) 0x52;
     private static final byte ZERO_BYTE_FORMAT_CODE = (byte) 0x43;
 
-
     private static final ValueWriter<UnsignedInteger> ZERO_BYTE_WRITER = new ValueWriter<>()
     {
-
         @Override
         public int getEncodedSize()
         {
@@ -41,23 +39,19 @@ public class UnsignedIntegerWriter
         }
 
         @Override
-        public void writeToBuffer(QpidByteBuffer buffer)
+        public void writeToBuffer(final QpidByteBuffer buffer)
         {
             buffer.put(ZERO_BYTE_FORMAT_CODE);
         }
     };
 
-
-
-
-
     private static final ValueWriter.Factory<UnsignedInteger> FACTORY = (registry, uint) ->
     {
-        if(uint.equals(UnsignedInteger.ZERO))
+        if (uint.equals(UnsignedInteger.ZERO))
         {
             return ZERO_BYTE_WRITER;
         }
-        else if(uint.compareTo(UnsignedInteger.valueOf(256))<0)
+        else if (uint.compareTo(UnsignedInteger.valueOf(256)) < 0)
         {
             return new UnsignedIntegerFixedOneWriter(uint);
         }
@@ -67,14 +61,13 @@ public class UnsignedIntegerWriter
         }
     };
 
-    public static void register(ValueWriter.Registry registry)
+    public static void register(final ValueWriter.Registry registry)
     {
         registry.register(UnsignedInteger.class, FACTORY);
     }
 
     private static class UnsignedIntegerFixedFourWriter extends FixedFourWriter<UnsignedInteger>
     {
-
         UnsignedIntegerFixedFourWriter(final UnsignedInteger object)
         {
             super(object.intValue());
@@ -85,12 +78,10 @@ public class UnsignedIntegerWriter
         {
             return EIGHT_BYTE_FORMAT_CODE;
         }
-
     }
 
     private static class UnsignedIntegerFixedOneWriter extends FixedOneWriter<UnsignedInteger>
     {
-
         UnsignedIntegerFixedOneWriter(final UnsignedInteger value)
         {
             super(value.byteValue());

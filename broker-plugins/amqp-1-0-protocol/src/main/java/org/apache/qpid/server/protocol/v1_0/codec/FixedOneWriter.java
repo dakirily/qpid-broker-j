@@ -32,7 +32,7 @@ public abstract class FixedOneWriter<T> implements ValueWriter<T>
     }
 
     @Override
-    public final void writeToBuffer(QpidByteBuffer buffer)
+    public final void writeToBuffer(final QpidByteBuffer buffer)
     {
         buffer.put(getFormatCode());
         buffer.put(_value);

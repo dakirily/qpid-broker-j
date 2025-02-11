@@ -51,16 +51,16 @@ public class SymbolWriter extends VariableWidthWriter<Symbol>
     }
 
     @Override
-    protected void writeBytes(QpidByteBuffer buf, int offset, int length)
+    protected void writeBytes(final QpidByteBuffer buf, final int offset, final int length)
     {
-        int end = offset + length;
-        for(int i = offset; i < end; i++)
+        final int end = offset + length;
+        for (int i = offset; i < end; i++)
         {
-            buf.put((byte)_value.charAt(i));
+            buf.put((byte) _value.charAt(i));
         }
     }
 
-    public static void register(ValueWriter.Registry registry)
+    public static void register(final ValueWriter.Registry registry)
     {
         registry.register(Symbol.class, FACTORY);
     }

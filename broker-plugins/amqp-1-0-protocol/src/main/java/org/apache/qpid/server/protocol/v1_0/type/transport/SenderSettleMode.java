@@ -19,9 +19,7 @@
 *
 */
 
-
 package org.apache.qpid.server.protocol.v1_0.type.transport;
-
 
 import org.apache.qpid.server.protocol.v1_0.type.RestrictedType;
 import org.apache.qpid.server.protocol.v1_0.type.UnsignedByte;
@@ -34,17 +32,15 @@ public class SenderSettleMode implements RestrictedType<UnsignedByte>
 
     private final UnsignedByte _val;
 
-
-    private SenderSettleMode(UnsignedByte val)
+    private SenderSettleMode(final UnsignedByte val)
     {
         _val = val;
     }
 
-    public static SenderSettleMode valueOf(Object obj)
+    public static SenderSettleMode valueOf(final Object obj)
     {
         if (obj instanceof final UnsignedByte val)
         {
-
             if (UNSETTLED._val.equals(val))
             {
                 return UNSETTLED;
@@ -74,7 +70,6 @@ public class SenderSettleMode implements RestrictedType<UnsignedByte>
     @Override
     public String toString()
     {
-
         if (this == UNSETTLED)
         {
             return "unsettled";
@@ -90,9 +85,6 @@ public class SenderSettleMode implements RestrictedType<UnsignedByte>
             return "mixed";
         }
 
-        else
-        {
-            return String.valueOf(_val);
-        }
+        return String.valueOf(_val);
     }
 }

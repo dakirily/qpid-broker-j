@@ -43,7 +43,6 @@ public class OpenWriter extends AbstractDescribedTypeWriter<Open>
     {
         private final Open _value;
         private final int _count;
-
         private int _field;
 
         public Writer(final Registry registry, final Open object)
@@ -55,59 +54,58 @@ public class OpenWriter extends AbstractDescribedTypeWriter<Open>
 
         private int calculateCount()
         {
-            if( _value.getProperties() != null)
+            if (_value.getProperties() != null)
             {
                 return 10;
             }
 
-            if( _value.getDesiredCapabilities() != null)
+            if ( _value.getDesiredCapabilities() != null)
             {
                 return 9;
             }
 
-            if( _value.getOfferedCapabilities() != null)
+            if (_value.getOfferedCapabilities() != null)
             {
                 return 8;
             }
 
-            if( _value.getIncomingLocales() != null)
+            if (_value.getIncomingLocales() != null)
             {
                 return 7;
             }
 
-            if( _value.getOutgoingLocales() != null)
+            if (_value.getOutgoingLocales() != null)
             {
                 return 6;
             }
 
-            if( _value.getIdleTimeOut() != null)
+            if (_value.getIdleTimeOut() != null)
             {
                 return 5;
             }
 
-            if( _value.getChannelMax() != null)
+            if (_value.getChannelMax() != null)
             {
                 return 4;
             }
 
-            if( _value.getMaxFrameSize() != null)
+            if (_value.getMaxFrameSize() != null)
             {
                 return 3;
             }
 
-            if( _value.getHostname() != null)
+            if (_value.getHostname() != null)
             {
                 return 2;
             }
 
-            if( _value.getContainerId() != null)
+            if (_value.getContainerId() != null)
             {
                 return 1;
             }
 
             return 0;
         }
-
 
         @Override
         protected int getCount()
@@ -124,42 +122,20 @@ public class OpenWriter extends AbstractDescribedTypeWriter<Open>
         @Override
         protected Object next()
         {
-            switch(_field++)
+            return switch (_field++)
             {
-
-                case 0:
-                    return _value.getContainerId();
-
-                case 1:
-                    return _value.getHostname();
-
-                case 2:
-                    return _value.getMaxFrameSize();
-
-                case 3:
-                    return _value.getChannelMax();
-
-                case 4:
-                    return _value.getIdleTimeOut();
-
-                case 5:
-                    return _value.getOutgoingLocales();
-
-                case 6:
-                    return _value.getIncomingLocales();
-
-                case 7:
-                    return _value.getOfferedCapabilities();
-
-                case 8:
-                    return _value.getDesiredCapabilities();
-
-                case 9:
-                    return _value.getProperties();
-
-                default:
-                    return null;
-            }
+                case 0 -> _value.getContainerId();
+                case 1 -> _value.getHostname();
+                case 2 -> _value.getMaxFrameSize();
+                case 3 -> _value.getChannelMax();
+                case 4 -> _value.getIdleTimeOut();
+                case 5 -> _value.getOutgoingLocales();
+                case 6 -> _value.getIncomingLocales();
+                case 7 -> _value.getOfferedCapabilities();
+                case 8 -> _value.getDesiredCapabilities();
+                case 9 -> _value.getProperties();
+                default -> null;
+            };
         }
 
         @Override
@@ -169,7 +145,7 @@ public class OpenWriter extends AbstractDescribedTypeWriter<Open>
         }
     }
 
-    public static void register(ValueWriter.Registry registry)
+    public static void register(final ValueWriter.Registry registry)
     {
         registry.register(Open.class, FACTORY);
     }

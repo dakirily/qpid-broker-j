@@ -39,7 +39,7 @@ public class UnsignedLongWriter
         }
 
         @Override
-        public void writeToBuffer(QpidByteBuffer buffer)
+        public void writeToBuffer(final QpidByteBuffer buffer)
         {
             buffer.put(ZERO_BYTE_FORMAT_CODE);
         }
@@ -61,7 +61,7 @@ public class UnsignedLongWriter
         }
     };
 
-    public static void register(ValueWriter.Registry registry)
+    public static void register(final ValueWriter.Registry registry)
     {
         registry.register(UnsignedLong.class, FACTORY);
     }
@@ -73,7 +73,7 @@ public class UnsignedLongWriter
             super(value.byteValue());
         }
 
-        UnsignedLongFixedOneWriter(byte value)
+        UnsignedLongFixedOneWriter(final byte value)
         {
             super(value);
         }
@@ -91,6 +91,7 @@ public class UnsignedLongWriter
         {
             super(object.longValue());
         }
+
         public UnsignedLongFixedEightWriter(final long value)
         {
             super(value);
@@ -103,13 +104,12 @@ public class UnsignedLongWriter
         }
     }
 
-    public static ValueWriter<UnsignedLong> getWriter(byte value)
+    public static ValueWriter<UnsignedLong> getWriter(final byte value)
     {
         return new UnsignedLongFixedOneWriter(value);
     }
 
-
-    public static ValueWriter<UnsignedLong> getWriter(long value)
+    public static ValueWriter<UnsignedLong> getWriter(final long value)
     {
         return new UnsignedLongFixedEightWriter(value);
     }

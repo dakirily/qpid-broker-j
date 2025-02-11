@@ -33,15 +33,12 @@ import org.apache.qpid.server.protocol.v1_0.type.transport.AmqpError;
 public class SymbolTypeConstructor extends VariableWidthTypeConstructor<Symbol>
 {
     private static final Charset ASCII = StandardCharsets.US_ASCII;
-
-    private static final ConcurrentMap<BinaryString, Symbol> SYMBOL_MAP =
-            new ConcurrentHashMap<>(2048);
+    private static final ConcurrentMap<BinaryString, Symbol> SYMBOL_MAP = new ConcurrentHashMap<>(2048);
 
     public static SymbolTypeConstructor getInstance(int i)
     {
         return new SymbolTypeConstructor(i);
     }
-
 
     private SymbolTypeConstructor(int size)
     {
@@ -51,39 +48,25 @@ public class SymbolTypeConstructor extends VariableWidthTypeConstructor<Symbol>
     @Override
     public Symbol construct(final QpidByteBuffer in, final ValueHandler handler) throws AmqpErrorException
     {
+        final int lengthFieldSize = getSize();
 
-        int size;
-
-        if (!in.hasRemaining(getSize()))
+        if (!in.hasRemaining(lengthFieldSize))
         {
             throw new AmqpErrorException(AmqpError.DECODE_ERROR, "Cannot construct symbol: insufficient input data");
         }
 
-        if (getSize() == 1)
-        {
-            size = in.getUnsignedByte();
-        }
-        else
-        {
-            size = in.getInt();
-        }
+        final int length = lengthFieldSize == 1 ? in.getUnsignedByte() : in.getInt();
 
-        if (!in.hasRemaining(size))
+        if (!in.hasRemaining(length))
         {
             throw new AmqpErrorException(AmqpError.DECODE_ERROR, "Cannot construct symbol: insufficient input data");
         }
 
-        byte[] data = new byte[size];
+        byte[] data = new byte[length];
         in.get(data);
-        final BinaryString binaryStr = new BinaryString(data);
 
-        Symbol symbolVal = SYMBOL_MAP.get(binaryStr);
-        if (symbolVal == null)
-        {
-            symbolVal = Symbol.valueOf(new String(data, ASCII));
-            SYMBOL_MAP.putIfAbsent(binaryStr, symbolVal);
-        }
+        final BinaryString binaryKey = new BinaryString(data);
 
-        return symbolVal;
+        return SYMBOL_MAP.computeIfAbsent(binaryKey, key -> Symbol.valueOf(key.asString(ASCII)));
     }
 }

@@ -25,10 +25,16 @@ import org.apache.qpid.server.bytebuffer.QpidByteBuffer;
 public interface EncodingRetaining
 {
     void writeTo(QpidByteBuffer dest);
+
     long getEncodedSize();
+
     QpidByteBuffer getEncodedForm();
+
     void clearEncodedForm();
+
     EncodingRetaining copy();
+
     void reallocate();
+
     void dispose();
 }

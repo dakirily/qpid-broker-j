@@ -67,6 +67,7 @@ import org.apache.qpid.server.model.VirtualHost;
 import org.apache.qpid.server.protocol.v1_0.type.ErrorCondition;
 import org.apache.qpid.server.protocol.v1_0.type.FrameBody;
 import org.apache.qpid.server.protocol.v1_0.type.Symbol;
+import org.apache.qpid.server.protocol.v1_0.type.Symbols;
 import org.apache.qpid.server.protocol.v1_0.type.UnsignedInteger;
 import org.apache.qpid.server.protocol.v1_0.type.codec.AMQPDescribedTypeRegistry;
 import org.apache.qpid.server.protocol.v1_0.type.messaging.DeleteOnClose;
@@ -561,7 +562,7 @@ class Session_1_0Test extends UnitTestBase
     {
         final Source source = new Source();
         source.setDynamic(true);
-        source.setDynamicNodeProperties(Map.of(Session_1_0.LIFETIME_POLICY, lifetimePolicy));
+        source.setDynamicNodeProperties(Map.of(Symbols.LIFETIME_POLICY, lifetimePolicy));
         return source;
     }
 

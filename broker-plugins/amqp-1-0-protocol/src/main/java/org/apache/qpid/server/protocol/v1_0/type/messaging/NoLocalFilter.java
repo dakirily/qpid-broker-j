@@ -1,4 +1,3 @@
-
 /*
 *
 * Licensed to the Apache Software Foundation (ASF) under one
@@ -20,26 +19,19 @@
 *
 */
 
-
 package org.apache.qpid.server.protocol.v1_0.type.messaging;
-
 
 public final class NoLocalFilter implements Filter
 {
-
-
     public static final NoLocalFilter INSTANCE = new NoLocalFilter();
 
     private NoLocalFilter()
     {
     }
 
-
-      @Override
-      public String toString()
-      {
-          return "NoLocalFilter{}";
-      }
-
-
-  }
+    @Override
+    public String toString()
+    {
+        return "NoLocalFilter{}";
+    }
+}

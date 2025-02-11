@@ -40,5 +40,4 @@ class ZeroULongConstructor implements TypeConstructor<UnsignedLong>
     {
         return INSTANCE;
     }
-
 }

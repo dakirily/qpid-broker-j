@@ -22,12 +22,10 @@ package org.apache.qpid.server.protocol.v1_0.codec;
 
 import org.apache.qpid.server.bytebuffer.QpidByteBuffer;
 import org.apache.qpid.server.protocol.v1_0.type.AmqpErrorException;
-import org.apache.qpid.server.protocol.v1_0.type.transport.AmqpError;
 
 public class DoubleTypeConstructor implements TypeConstructor<Double>
 {
     private static final DoubleTypeConstructor INSTANCE = new DoubleTypeConstructor();
-
 
     public static DoubleTypeConstructor getInstance()
     {
@@ -47,7 +45,7 @@ public class DoubleTypeConstructor implements TypeConstructor<Double>
         }
         else
         {
-            throw new AmqpErrorException(AmqpError.DECODE_ERROR, "Cannot construct double: insufficient input data");
+            throw AmqpErrorException.decode().message("Cannot construct double: insufficient input data").build();
         }
     }
 }

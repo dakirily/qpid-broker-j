@@ -44,6 +44,7 @@ import org.apache.qpid.server.protocol.v1_0.messaging.SectionDecoderImpl;
 import org.apache.qpid.server.protocol.v1_0.type.AmqpErrorException;
 import org.apache.qpid.server.protocol.v1_0.type.Binary;
 import org.apache.qpid.server.protocol.v1_0.type.Symbol;
+import org.apache.qpid.server.protocol.v1_0.type.Symbols;
 import org.apache.qpid.server.protocol.v1_0.type.UnsignedByte;
 import org.apache.qpid.server.protocol.v1_0.type.UnsignedInteger;
 import org.apache.qpid.server.protocol.v1_0.type.UnsignedLong;
@@ -322,9 +323,9 @@ public class MessageConverter_from_1_0
         {
             Map<Symbol, Object> annotations = section.getValue();
             section.dispose();
-            if (annotations != null && annotations.containsKey(JmsMessageTypeAnnotation.ANNOTATION_KEY))
+            if (annotations != null && annotations.containsKey(Symbols.ANNOTATION_KEY))
             {
-                Object object = annotations.get(JmsMessageTypeAnnotation.ANNOTATION_KEY);
+                Object object = annotations.get(Symbols.ANNOTATION_KEY);
                 if (object instanceof Byte)
                 {
                     try

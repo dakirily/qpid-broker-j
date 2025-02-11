@@ -35,12 +35,12 @@ public abstract class AbstractListWriter<V> extends CompoundWriter<V>
     @Override
     protected byte getFourOctetEncodingCode()
     {
-        return (byte)0xd0;
+        return (byte) 0xd0;
     }
 
     @Override
     protected byte getSingleOctetEncodingCode()
     {
-        return (byte)0xc0;
+        return (byte) 0xc0;
     }
 }

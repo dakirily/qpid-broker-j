@@ -21,22 +21,25 @@
 
 package org.apache.qpid.server.protocol.v1_0.type;
 
+import java.io.Serial;
+
 public final class UnsignedByte extends Number implements Comparable<UnsignedByte>
 {
+    @Serial
     private static final long serialVersionUID = 1L;
+    private static final UnsignedByte[] cachedValues = new UnsignedByte[256];
 
     private final byte _underlying;
-    private static final UnsignedByte[] cachedValues = new UnsignedByte[256];
 
     static
     {
-        for(int i = 0; i<256; i++)
+        for (int i = 0; i<256; i++)
         {
-            cachedValues[i] = new UnsignedByte((byte)i);
+            cachedValues[i] = new UnsignedByte((byte) i);
         }
     }
 
-    public UnsignedByte(byte underlying)
+    public UnsignedByte(final byte underlying)
     {
         _underlying = underlying;
     }
@@ -56,7 +59,7 @@ public final class UnsignedByte extends Number implements Comparable<UnsignedByt
     @Override
     public int intValue()
     {
-        return ((int)_underlying) & 0xFF;
+        return ((int) _underlying) & 0xFF;
     }
 
     @Override
@@ -78,7 +81,7 @@ public final class UnsignedByte extends Number implements Comparable<UnsignedByt
     }
 
     @Override
-    public boolean equals(Object o)
+    public boolean equals(final Object o)
     {
         if (this == o)
         {
@@ -95,7 +98,7 @@ public final class UnsignedByte extends Number implements Comparable<UnsignedByt
     }
 
     @Override
-    public int compareTo(UnsignedByte o)
+    public int compareTo(final UnsignedByte o)
     {
         return Integer.signum(intValue() - o.intValue());
     }
@@ -112,21 +115,20 @@ public final class UnsignedByte extends Number implements Comparable<UnsignedByt
         return String.valueOf(intValue());
     }
 
-    public static UnsignedByte valueOf(byte underlying)
+    public static UnsignedByte valueOf(final byte underlying)
     {
         final int index = ((int) underlying) & 0xFF;
         return cachedValues[index];
     }
 
-    public static UnsignedByte valueOf(final String value)
-            throws NumberFormatException
+    public static UnsignedByte valueOf(final String value) throws NumberFormatException
     {
-        int intVal = Integer.parseInt(value);
-        if(intVal < 0 || intVal >= (1<<8))
+        final int intVal = Integer.parseInt(value);
+        if (intVal < 0 || intVal >= (1 << 8))
         {
-            throw new NumberFormatException("Value \""+value+"\" lies outside the range [" + 0 + "-" + (1<<8) +").");
+            throw new NumberFormatException("Value \"" + value + "\" lies outside the range [" + 0 + "-" + (1 << 8) + ").");
         }
-        return valueOf((byte)intVal);
+        return valueOf((byte) intVal);
     }
 
 }

@@ -38,7 +38,7 @@ public class DeleteOnCloseWriter extends AbstractDescribedTypeWriter<DeleteOnClo
         super(DESCRIPTOR_WRITER, ListWriter.EMPTY_LIST_WRITER);
     }
 
-    public static void register(ValueWriter.Registry registry)
+    public static void register(final ValueWriter.Registry registry)
     {
         registry.register(DeleteOnClose.class, FACTORY);
     }

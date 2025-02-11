@@ -37,7 +37,6 @@ public class SaslMechanismsWriter extends AbstractDescribedTypeWriter<SaslMechan
     private SaslMechanismsWriter(final Registry registry, final SaslMechanisms object)
     {
         super(DESCRIPTOR_WRITER, new Writer(registry, object));
-
     }
 
     private static class Writer extends AbstractListWriter<SaslMechanisms>
@@ -46,7 +45,7 @@ public class SaslMechanismsWriter extends AbstractDescribedTypeWriter<SaslMechan
         private final int _count;
         private int _field;
 
-        public Writer(final Registry registry, SaslMechanisms object)
+        public Writer(final Registry registry, final SaslMechanisms object)
         {
             super(registry);
             _value = object;
@@ -55,7 +54,7 @@ public class SaslMechanismsWriter extends AbstractDescribedTypeWriter<SaslMechan
 
         private int calculateCount()
         {
-            if( _value.getSaslServerMechanisms() != null)
+            if ( _value.getSaslServerMechanisms() != null)
             {
                 return 1;
             }
@@ -77,15 +76,11 @@ public class SaslMechanismsWriter extends AbstractDescribedTypeWriter<SaslMechan
         @Override
         protected Object next()
         {
-            switch(_field++)
+            if (_field++ == 0)
             {
-
-                case 0:
-                    return _value.getSaslServerMechanisms();
-
-                default:
-                    return null;
+                return _value.getSaslServerMechanisms();
             }
+            return null;
         }
 
         @Override
@@ -95,7 +90,7 @@ public class SaslMechanismsWriter extends AbstractDescribedTypeWriter<SaslMechan
         }
     }
 
-    public static void register(ValueWriter.Registry registry)
+    public static void register(final ValueWriter.Registry registry)
     {
         registry.register(SaslMechanisms.class, FACTORY);
     }

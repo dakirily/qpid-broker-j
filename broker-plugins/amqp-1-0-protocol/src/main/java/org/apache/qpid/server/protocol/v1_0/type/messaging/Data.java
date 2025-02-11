@@ -25,10 +25,9 @@ import org.apache.qpid.server.protocol.v1_0.type.Binary;
 
 public class Data implements NonEncodingRetainingSection<Binary>
 {
-
     private final Binary _value;
 
-    public Data(Binary value)
+    public Data(final Binary value)
     {
         _value = value;
     }
@@ -38,7 +37,6 @@ public class Data implements NonEncodingRetainingSection<Binary>
     {
         return _value;
     }
-
 
     @Override
     public String toString()

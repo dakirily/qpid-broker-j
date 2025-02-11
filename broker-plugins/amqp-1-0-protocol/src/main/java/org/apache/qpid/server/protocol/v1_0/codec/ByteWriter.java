@@ -29,10 +29,6 @@ public class ByteWriter implements ValueWriter<Byte>
 
     private byte _value;
 
-    public ByteWriter()
-    {
-    }
-
     public ByteWriter(final Byte object)
     {
         setValue(object);
@@ -45,19 +41,18 @@ public class ByteWriter implements ValueWriter<Byte>
     }
 
     @Override
-    public void writeToBuffer(QpidByteBuffer buffer)
+    public void writeToBuffer(final QpidByteBuffer buffer)
     {
-
-        buffer.put((byte)0x51);
+        buffer.put((byte) 0x51);
         buffer.put(_value);
     }
 
-    public void setValue(Byte value)
+    public void setValue(final Byte value)
     {
-        _value = value.byteValue();
+        _value = value;
     }
 
-    public static void register(ValueWriter.Registry registry)
+    public static void register(final ValueWriter.Registry registry)
     {
         registry.register(Byte.class, FACTORY);
     }

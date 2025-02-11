@@ -1,4 +1,3 @@
-
 /*
 *
 * Licensed to the Apache Software Foundation (ASF) under one
@@ -20,9 +19,7 @@
 *
 */
 
-
 package org.apache.qpid.server.protocol.v1_0.type.security;
-
 
 import org.apache.qpid.server.protocol.v1_0.type.RestrictedType;
 import org.apache.qpid.server.protocol.v1_0.type.UnsignedByte;
@@ -41,7 +38,7 @@ public class SaslCode implements RestrictedType<UnsignedByte>
 
     public static final SaslCode SYS_TEMP = new SaslCode(UnsignedByte.valueOf((byte) 4));
 
-    private SaslCode(UnsignedByte val)
+    private SaslCode(final UnsignedByte val)
     {
         _val = val;
     }
@@ -86,7 +83,7 @@ public class SaslCode implements RestrictedType<UnsignedByte>
         }
     }
 
-    public static SaslCode valueOf(Object obj)
+    public static SaslCode valueOf(final Object obj)
     {
         if (obj instanceof final UnsignedByte val)
         {

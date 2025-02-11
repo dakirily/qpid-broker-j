@@ -45,7 +45,7 @@ public class HeaderWriter extends AbstractDescribedTypeWriter<Header>
         private final Header _value;
         private int _field;
 
-        public Writer(final Registry registry, Header value)
+        public Writer(final Registry registry, final Header value)
         {
             super(registry);
             _value = value;
@@ -54,29 +54,27 @@ public class HeaderWriter extends AbstractDescribedTypeWriter<Header>
 
         private int calculateCount()
         {
-
-
-            if( _value.getDeliveryCount() != null)
+            if ( _value.getDeliveryCount() != null)
             {
                 return 5;
             }
 
-            if( _value.getFirstAcquirer() != null)
+            if ( _value.getFirstAcquirer() != null)
             {
                 return 4;
             }
 
-            if( _value.getTtl() != null)
+            if ( _value.getTtl() != null)
             {
                 return 3;
             }
 
-            if( _value.getPriority() != null)
+            if ( _value.getPriority() != null)
             {
                 return 2;
             }
 
-            if( _value.getDurable() != null)
+            if ( _value.getDurable() != null)
             {
                 return 1;
             }
@@ -99,27 +97,15 @@ public class HeaderWriter extends AbstractDescribedTypeWriter<Header>
         @Override
         protected Object next()
         {
-            switch(_field++)
+            return switch (_field++)
             {
-
-                case 0:
-                    return _value.getDurable();
-
-                case 1:
-                    return _value.getPriority();
-
-                case 2:
-                    return _value.getTtl();
-
-                case 3:
-                    return _value.getFirstAcquirer();
-
-                case 4:
-                    return _value.getDeliveryCount();
-
-                default:
-                    return null;
-            }
+                case 0 -> _value.getDurable();
+                case 1 -> _value.getPriority();
+                case 2 -> _value.getTtl();
+                case 3 -> _value.getFirstAcquirer();
+                case 4 -> _value.getDeliveryCount();
+                default -> null;
+            };
         }
 
         @Override
@@ -129,7 +115,7 @@ public class HeaderWriter extends AbstractDescribedTypeWriter<Header>
         }
     }
 
-    public static void register(ValueWriter.Registry registry)
+    public static void register(final ValueWriter.Registry registry)
     {
         registry.register(Header.class, FACTORY);
     }

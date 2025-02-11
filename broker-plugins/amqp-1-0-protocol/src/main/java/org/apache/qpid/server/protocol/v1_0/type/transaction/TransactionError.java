@@ -18,27 +18,25 @@
 * under the License.
 *
 */
-package org.apache.qpid.server.protocol.v1_0.type.transaction;
 
+package org.apache.qpid.server.protocol.v1_0.type.transaction;
 
 import org.apache.qpid.server.protocol.v1_0.type.ErrorCondition;
 import org.apache.qpid.server.protocol.v1_0.type.RestrictedType;
 import org.apache.qpid.server.protocol.v1_0.type.Symbol;
+import org.apache.qpid.server.protocol.v1_0.type.Symbols;
 
 public class TransactionError implements ErrorCondition, RestrictedType<Symbol>
 {
     private final Symbol _val;
 
-    public static final TransactionError UNKNOWN_ID =
-            new TransactionError(Symbol.valueOf("amqp:transaction:unknown-id"));
+    public static final TransactionError UNKNOWN_ID = new TransactionError(Symbols.AMQP_TXN_UNKNOWN_ID);
 
-    public static final TransactionError TRANSACTION_ROLLBACK =
-            new TransactionError(Symbol.valueOf("amqp:transaction:rollback"));
+    public static final TransactionError TRANSACTION_ROLLBACK = new TransactionError(Symbols.AMQP_TXN_ROLLBACK);
 
-    public static final TransactionError TRANSACTION_TIMEOUT =
-            new TransactionError(Symbol.valueOf("amqp:transaction:timeout"));
+    public static final TransactionError TRANSACTION_TIMEOUT = new TransactionError(Symbols.AMQP_TXN_TIMEOUT);
 
-    private TransactionError(Symbol val)
+    private TransactionError(final Symbol val)
     {
         _val = val;
     }
@@ -73,11 +71,10 @@ public class TransactionError implements ErrorCondition, RestrictedType<Symbol>
         }
     }
 
-    public static TransactionError valueOf(Object obj)
+    public static TransactionError valueOf(final Object obj)
     {
         if (obj instanceof final Symbol val)
         {
-
             if (UNKNOWN_ID._val.equals(val))
             {
                 return UNKNOWN_ID;

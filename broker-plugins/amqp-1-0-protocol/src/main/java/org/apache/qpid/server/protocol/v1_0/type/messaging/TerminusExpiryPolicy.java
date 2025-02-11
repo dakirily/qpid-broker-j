@@ -1,4 +1,3 @@
-
 /*
 *
 * Licensed to the Apache Software Foundation (ASF) under one
@@ -20,27 +19,25 @@
 *
 */
 
-
 package org.apache.qpid.server.protocol.v1_0.type.messaging;
-
 
 import org.apache.qpid.server.protocol.v1_0.type.RestrictedType;
 import org.apache.qpid.server.protocol.v1_0.type.Symbol;
+import org.apache.qpid.server.protocol.v1_0.type.Symbols;
 
 public class TerminusExpiryPolicy implements RestrictedType<Symbol>
 {
     private final Symbol _val;
 
-    public static final TerminusExpiryPolicy LINK_DETACH = new TerminusExpiryPolicy(Symbol.valueOf("link-detach"));
+    public static final TerminusExpiryPolicy LINK_DETACH = new TerminusExpiryPolicy(Symbols.LINK_DETACH);
 
-    public static final TerminusExpiryPolicy SESSION_END = new TerminusExpiryPolicy(Symbol.valueOf("session-end"));
+    public static final TerminusExpiryPolicy SESSION_END = new TerminusExpiryPolicy(Symbols.SESSION_END);
 
-    public static final TerminusExpiryPolicy CONNECTION_CLOSE =
-            new TerminusExpiryPolicy(Symbol.valueOf("connection-close"));
+    public static final TerminusExpiryPolicy CONNECTION_CLOSE = new TerminusExpiryPolicy(Symbols.CONNECTION_CLOSE);
 
-    public static final TerminusExpiryPolicy NEVER = new TerminusExpiryPolicy(Symbol.valueOf("never"));
+    public static final TerminusExpiryPolicy NEVER = new TerminusExpiryPolicy(Symbols.NEVER);
 
-    private TerminusExpiryPolicy(Symbol val)
+    private TerminusExpiryPolicy(final Symbol val)
     {
         _val = val;
     }
@@ -74,18 +71,16 @@ public class TerminusExpiryPolicy implements RestrictedType<Symbol>
         {
             return "never";
         }
-
         else
         {
             return String.valueOf(_val);
         }
     }
 
-    public static TerminusExpiryPolicy valueOf(Object obj)
+    public static TerminusExpiryPolicy valueOf(final Object obj)
     {
         if (obj instanceof final Symbol val)
         {
-
             if (LINK_DETACH._val.equals(val))
             {
                 return LINK_DETACH;

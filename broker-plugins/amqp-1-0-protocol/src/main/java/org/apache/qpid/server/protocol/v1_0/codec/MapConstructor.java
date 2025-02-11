@@ -25,7 +25,6 @@ import java.util.Map;
 
 import org.apache.qpid.server.bytebuffer.QpidByteBuffer;
 import org.apache.qpid.server.protocol.v1_0.type.AmqpErrorException;
-import org.apache.qpid.server.protocol.v1_0.type.transport.AmqpError;
 
 public class MapConstructor extends VariableWidthTypeConstructor<Map<Object,Object>>
 {
@@ -42,20 +41,18 @@ public class MapConstructor extends VariableWidthTypeConstructor<Map<Object,Obje
 
     public <T, S> Map<T, S> construct(final QpidByteBuffer in,
                                       final ValueHandler handler,
-                                      Class<T> keyType,
-                                      Class<S> valueType) throws AmqpErrorException
+                                      final Class<T> keyType,
+                                      final Class<S> valueType) throws AmqpErrorException
     {
         int size;
         int count;
 
-        long remaining = (long) in.remaining();
-        if (remaining < getSize() * 2)
+        long remaining = in.remaining();
+        if (remaining < getSize() * 2L)
         {
-            throw new AmqpErrorException(AmqpError.DECODE_ERROR,
-                                         String.format("Not sufficient data for deserialization of 'map'."
-                                                       + " Expected at least %d bytes. Got %d bytes.",
-                                                       getSize(),
-                                                       remaining));
+            throw AmqpErrorException.decode()
+                    .message("Not sufficient data for deserialization of 'map'. Expected at least %d bytes. Got %d bytes.")
+                    .args(getSize(), remaining);
         }
 
         if (getSize() == 1)
@@ -68,80 +65,73 @@ public class MapConstructor extends VariableWidthTypeConstructor<Map<Object,Obje
             size = in.getInt();
             count = in.getInt();
         }
+
         remaining -= getSize();
+
         if (remaining < size)
         {
-            throw new AmqpErrorException(AmqpError.DECODE_ERROR,
-                                         String.format("Not sufficient data for deserialization of 'map'."
-                                                       + " Expected at least %d bytes. Got %d bytes.",
-                                                       size,
-                                                       remaining));
+            throw AmqpErrorException.decode()
+                    .message("Not sufficient data for deserialization of 'map'. Expected at least %d bytes. Got %d bytes.")
+                    .args(getSize(), remaining);
         }
 
-        return construct(in, handler, size, count, keyType, valueType);
+        return construct(in, handler, count, keyType, valueType);
     }
 
 
     private <T, S> Map<T, S> construct(final QpidByteBuffer in,
                                        final ValueHandler handler,
-                                       final int size,
                                        final int count,
-                                       Class<T> keyType,
-                                       Class<S> valueType)
+                                       final Class<T> keyType,
+                                       final Class<S> valueType)
             throws AmqpErrorException
     {
 
         // Can't have an odd number of elements in a map
         if ((count & 0x1) == 1)
         {
-            String message = String.format("Map cannot have odd number of elements: %d", count);
-            throw new AmqpErrorException(AmqpError.DECODE_ERROR, message);
+            throw AmqpErrorException.decode().message("Map cannot have odd number of elements: %d").args(count);
         }
 
-        Map<T, S> map = new LinkedHashMap<>(count);
+        final Map<T, S> map = new LinkedHashMap<>(count);
 
         final int mapSize = count / 2;
         for (int i = 0; i < mapSize; i++)
         {
-            Object key = handler.parse(in);
+            final Object key = handler.parse(in);
             if (key != null && !keyType.isAssignableFrom(key.getClass()))
             {
-                String message = String.format("Expected key type is '%s' but got '%s'",
-                                               keyType.getSimpleName(),
-                                               key.getClass().getSimpleName());
-                throw new AmqpErrorException(AmqpError.DECODE_ERROR, message);
+                throw AmqpErrorException.decode()
+                        .message("Expected key type is '%s' but got '%s'")
+                        .args(keyType.getSimpleName(), key.getClass().getSimpleName());
             }
 
             Object value = handler.parse(in);
             if (value instanceof DescribedType
                 && SpecializedDescribedType.class.isAssignableFrom(valueType)
-                && SpecializedDescribedType.hasInvalidValue((Class<SpecializedDescribedType>)valueType))
+                && SpecializedDescribedType.hasInvalidValue((Class<SpecializedDescribedType>) valueType))
             {
-                value = SpecializedDescribedType.getInvalidValue((Class<SpecializedDescribedType>)valueType, (DescribedType) value);
+                value = SpecializedDescribedType.getInvalidValue((Class<SpecializedDescribedType>) valueType, (DescribedType) value);
             }
             else if (value != null && !valueType.isAssignableFrom(value.getClass()))
             {
-                String message = String.format("Expected value type is '%s' but got '%s'",
-                                               valueType.getSimpleName(),
-                                               value.getClass().getSimpleName());
-                throw new AmqpErrorException(AmqpError.DECODE_ERROR, message);
+                throw AmqpErrorException.decode()
+                        .message("Expected value type is '%s' but got '%s'")
+                        .args(valueType.getSimpleName(), value.getClass().getSimpleName());
             }
 
-            Object oldValue;
-            if ((oldValue = map.put((T) key, (S) value)) != null)
+            final Object oldValue;
+            if ((oldValue = map.put(keyType.cast(key), valueType.cast(value))) != null)
             {
-                String message = String.format("Map cannot have duplicate keys: %s has values (%s, %s)",
-                                               key,
-                                               oldValue,
-                                               value);
-                throw new AmqpErrorException(AmqpError.DECODE_ERROR, message);
+                throw AmqpErrorException.decode()
+                        .message("Map cannot have duplicate keys: %s has values (%s, %s)")
+                        .args(key, oldValue, value);
             }
         }
         return map;
     }
 
-
-    public static MapConstructor getInstance(int size)
+    public static MapConstructor getInstance(final int size)
     {
         return new MapConstructor(size);
     }

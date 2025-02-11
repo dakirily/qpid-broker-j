@@ -21,11 +21,11 @@
 
 package org.apache.qpid.server.protocol.v1_0;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
@@ -88,7 +88,6 @@ public abstract class AbstractLinkEndpoint<S extends BaseSource, T extends BaseT
         DETACH_SENT,
         DETACH_RECVD
     }
-
 
     AbstractLinkEndpoint(final Session_1_0 session, final Link_1_0<S, T> link)
     {
@@ -176,7 +175,7 @@ public abstract class AbstractLinkEndpoint<S extends BaseSource, T extends BaseT
     @Override
     public void setStopped(final boolean stopped)
     {
-        if(_stopped != stopped)
+        if (_stopped != stopped)
         {
             _stopped = stopped;
             _stoppedUpdated = true;
@@ -357,73 +356,81 @@ public abstract class AbstractLinkEndpoint<S extends BaseSource, T extends BaseT
         }
 
         getSession().sendAttach(attachToSend);
-
     }
 
     private Attach handleOversizedUnsettledMapIfNecessary(final Attach attachToSend)
     {
-        final AMQPDescribedTypeRegistry describedTypeRegistry = getSession().getConnection().getDescribedTypeRegistry();
+        final Session_1_0 session = getSession();
+        final AMQPConnection_1_0<?> connection = session.getConnection();
+        final AMQPDescribedTypeRegistry describedTypeRegistry = connection.getDescribedTypeRegistry();
         final ValueWriter<Attach> valueWriter = describedTypeRegistry.getValueWriter(attachToSend);
-        if (valueWriter.getEncodedSize() + 8 > getSession().getConnection().getMaxFrameSize())
-        {
-            _localIncompleteUnsettled = true;
-            attachToSend.setIncompleteUnsettled(true);
-            final int targetSize = getSession().getConnection().getMaxFrameSize();
-            int lowIndex = 0;
-            Map<Binary, DeliveryState> localUnsettledMap = attachToSend.getUnsettled();
-            if (localUnsettledMap == null)
-            {
-                localUnsettledMap = Collections.emptyMap();
-            }
-            int highIndex = localUnsettledMap.size();
-            int currentIndex = (highIndex - lowIndex) / 2;
-            int oldIndex;
-            HashMap<Binary, DeliveryState> unsettledMap = null;
-            int totalSize;
-            do
-            {
-                HashMap<Binary, DeliveryState> partialUnsettledMap = new HashMap<>(currentIndex);
-                final Iterator<Map.Entry<Binary, DeliveryState>> iterator = localUnsettledMap.entrySet().iterator();
-                for (int i = 0; i < currentIndex; ++i)
-                {
-                    final Map.Entry<Binary, DeliveryState> entry = iterator.next();
-                    partialUnsettledMap.put(entry.getKey(), entry.getValue());
-                }
-                attachToSend.setUnsettled(partialUnsettledMap);
-                totalSize = describedTypeRegistry.getValueWriter(attachToSend).getEncodedSize() + FRAME_HEADER_SIZE;
-                if (totalSize > targetSize)
-                {
-                    highIndex = currentIndex;
-                }
-                else if (totalSize < targetSize)
-                {
-                    lowIndex = currentIndex;
-                    unsettledMap = partialUnsettledMap;
-                }
-                else
-                {
-                    lowIndex = highIndex = currentIndex;
-                    unsettledMap = partialUnsettledMap;
-                }
+        final int maxFrameSize = connection.getMaxFrameSize();
 
-                oldIndex = currentIndex;
-                currentIndex = lowIndex + (highIndex - lowIndex) / 2;
-            }
-            while (oldIndex != currentIndex);
-
-            if (unsettledMap == null || unsettledMap.isEmpty())
-            {
-                final End endWithError = new End();
-                endWithError.setError(new Error(AmqpError.FRAME_SIZE_TOO_SMALL, "Cannot fit a single unsettled delivery into Attach frame."));
-                getSession().end(endWithError);
-            }
-
-            attachToSend.setUnsettled(unsettledMap);
-        }
-        else
+        if (valueWriter.getEncodedSize() + FRAME_HEADER_SIZE <= maxFrameSize)
         {
             _localIncompleteUnsettled = false;
+            return attachToSend;
         }
+
+        _localIncompleteUnsettled = true;
+        attachToSend.setIncompleteUnsettled(true);
+
+        Map<Binary, DeliveryState> localUnsettledMap = attachToSend.getUnsettled();
+        if (localUnsettledMap == null)
+        {
+            localUnsettledMap = Collections.emptyMap();
+        }
+
+        final List<Map.Entry<Binary, DeliveryState>> entries = new ArrayList<>(localUnsettledMap.entrySet());
+        int lowIndex = 0;
+        int highIndex = entries.size();
+        int currentIndex = (highIndex - lowIndex) / 2;
+        int oldIndex;
+        HashMap<Binary, DeliveryState> unsettledMap = null;
+        int totalSize;
+
+        final HashMap<Binary, DeliveryState> partialUnsettledMap = new HashMap<>(highIndex);
+        do
+        {
+            partialUnsettledMap.clear();
+            for (int i = 0; i < currentIndex; ++i)
+            {
+                final Map.Entry<Binary, DeliveryState> entry = entries.get(i);
+                partialUnsettledMap.put(entry.getKey(), entry.getValue());
+            }
+            attachToSend.setUnsettled(partialUnsettledMap);
+
+            totalSize = valueWriter.getEncodedSize() + FRAME_HEADER_SIZE;
+
+            if (totalSize > maxFrameSize)
+            {
+                highIndex = currentIndex;
+            }
+            else if (totalSize < maxFrameSize)
+            {
+                lowIndex = currentIndex;
+                unsettledMap = partialUnsettledMap;
+            }
+            else
+            {
+                unsettledMap = new HashMap<>(partialUnsettledMap);
+                break;
+            }
+
+            oldIndex = currentIndex;
+            currentIndex = lowIndex + (highIndex - lowIndex) / 2;
+        }
+        while (oldIndex != currentIndex);
+
+        if (unsettledMap == null || unsettledMap.isEmpty())
+        {
+            final End endWithError = new End();
+            endWithError.setError(new Error(AmqpError.FRAME_SIZE_TOO_SMALL, "Cannot fit a single unsettled delivery into Attach frame."));
+            session.end(endWithError);
+        }
+
+        attachToSend.setUnsettled(unsettledMap);
+
         return attachToSend;
     }
 
@@ -437,20 +444,21 @@ public abstract class AbstractLinkEndpoint<S extends BaseSource, T extends BaseT
         detach(null, true);
     }
 
-    public void detach(Error error)
+    public void detach(final Error error)
     {
         detach(error, false);
     }
 
     @Override
-    public void close(Error error)
+    public void close(final Error error)
     {
         detach(error, true);
     }
 
-    protected void detach(Error error, boolean close)
+    protected void detach(final Error error, final boolean close)
     {
-        if (error != null && !getSession().isSyntheticError(error))
+        final Session_1_0 session = getSession();
+        if (error != null && !session.isSyntheticError(error))
         {
             _errored = true;
         }
@@ -471,16 +479,16 @@ public abstract class AbstractLinkEndpoint<S extends BaseSource, T extends BaseT
                 //  disassociate the link from the session so that the new connection can use it.
                 if (close)
                 {
-                    getSession().dissociateEndpoint(this);
+                    session.dissociateEndpoint(this);
                     destroy();
                     _link.linkClosed();
                 }
                 return;
         }
 
-        if (getSession().getSessionState() != SessionState.END_RECVD && !getSession().isEnded())
+        if (session.getSessionState() != SessionState.END_RECVD && !session.isEnded())
         {
-            Detach detach = new Detach();
+            final Detach detach = new Detach();
             detach.setHandle(getLocalHandle());
             if (close)
             {
@@ -488,7 +496,7 @@ public abstract class AbstractLinkEndpoint<S extends BaseSource, T extends BaseT
             }
             detach.setError(error);
 
-            getSession().sendDetach(detach);
+            session.sendDetach(detach);
         }
 
         if (close)
@@ -501,19 +509,19 @@ public abstract class AbstractLinkEndpoint<S extends BaseSource, T extends BaseT
 
     public void sendFlowConditional()
     {
-        if(_lastSentCreditLimit != null)
+        if (_lastSentCreditLimit != null)
         {
-            if(_stoppedUpdated)
+            if (_stoppedUpdated)
             {
                 sendFlow(false);
                 _stoppedUpdated = false;
             }
             else
             {
-                UnsignedInteger clientsCredit = _lastSentCreditLimit.subtract(_deliveryCount.unsignedIntegerValue());
+                final UnsignedInteger clientsCredit = _lastSentCreditLimit.subtract(_deliveryCount.unsignedIntegerValue());
 
                 // client has used up over half their credit allowance ?
-                boolean sendFlow = _linkCredit.subtract(clientsCredit).compareTo(clientsCredit) >= 0;
+                final boolean sendFlow = _linkCredit.subtract(clientsCredit).compareTo(clientsCredit) >= 0;
                 if (sendFlow)
                 {
                     sendFlow(false);
@@ -530,30 +538,30 @@ public abstract class AbstractLinkEndpoint<S extends BaseSource, T extends BaseT
         }
     }
 
-
     @Override
     public void sendFlow()
     {
         sendFlow(false);
     }
 
-    private void sendFlow(boolean echo)
+    private void sendFlow(final boolean echo)
     {
-        if(_state == State.ATTACHED || _state == State.ATTACH_SENT)
+        if (_state == State.ATTACHED || _state == State.ATTACH_SENT)
         {
-            Flow flow = new Flow();
-            flow.setDeliveryCount(_deliveryCount.unsignedIntegerValue());
+            final Flow flow = new Flow();
+            final UnsignedInteger deliveryCount = _deliveryCount.unsignedIntegerValue();
+            flow.setDeliveryCount(deliveryCount);
             flow.setEcho(echo);
-            if(_stopped)
+            if (_stopped)
             {
                 flow.setLinkCredit(UnsignedInteger.ZERO);
                 flow.setDrain(true);
-                _lastSentCreditLimit = _deliveryCount.unsignedIntegerValue();
+                _lastSentCreditLimit = deliveryCount;
             }
             else
             {
                 flow.setLinkCredit(_linkCredit);
-                _lastSentCreditLimit = _linkCredit.add(_deliveryCount.unsignedIntegerValue());
+                _lastSentCreditLimit = _linkCredit.add(deliveryCount);
                 flow.setDrain(_drain);
             }
             flow.setAvailable(_available);

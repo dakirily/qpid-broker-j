@@ -1,4 +1,3 @@
-
 /*
 *
 * Licensed to the Apache Software Foundation (ASF) under one
@@ -20,9 +19,7 @@
 *
 */
 
-
 package org.apache.qpid.server.protocol.v1_0.type.security;
-
 
 import java.util.Arrays;
 
@@ -32,7 +29,7 @@ import org.apache.qpid.server.protocol.v1_0.CompositeTypeField;
 import org.apache.qpid.server.protocol.v1_0.type.SaslFrameBody;
 import org.apache.qpid.server.protocol.v1_0.type.Symbol;
 
-@CompositeType( symbolicDescriptor = "amqp:sasl-mechanisms:list", numericDescriptor = 0x0000000000000040L)
+@CompositeType(symbolicDescriptor = "amqp:sasl-mechanisms:list", numericDescriptor = 0x0000000000000040L)
 public class SaslMechanisms implements SaslFrameBody
 {
     @CompositeTypeField(index = 0, mandatory = true)
@@ -43,7 +40,7 @@ public class SaslMechanisms implements SaslFrameBody
         return _saslServerMechanisms;
     }
 
-    public void setSaslServerMechanisms(Symbol[] saslServerMechanisms)
+    public void setSaslServerMechanisms(final Symbol[] saslServerMechanisms)
     {
         _saslServerMechanisms = saslServerMechanisms;
     }
@@ -51,15 +48,10 @@ public class SaslMechanisms implements SaslFrameBody
     @Override
     public String toString()
     {
-        StringBuilder builder = new StringBuilder("SaslMechanisms{");
-        final int origLength = builder.length();
+        final StringBuilder builder = new StringBuilder("SaslMechanisms{");
 
         if (_saslServerMechanisms != null)
         {
-            if (builder.length() != origLength)
-            {
-                builder.append(',');
-            }
             builder.append("saslServerMechanisms=").append(Arrays.asList(_saslServerMechanisms));
         }
 
@@ -68,7 +60,7 @@ public class SaslMechanisms implements SaslFrameBody
     }
 
     @Override
-    public void invoke(final int channel, SASLEndpoint conn)
+    public void invoke(final int channel, final SASLEndpoint conn)
     {
         conn.receiveSaslMechanisms(this);
     }

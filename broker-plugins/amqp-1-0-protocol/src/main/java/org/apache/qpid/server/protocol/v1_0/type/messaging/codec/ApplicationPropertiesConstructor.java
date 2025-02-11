@@ -1,4 +1,3 @@
-
 /*
 *
 * Licensed to the Apache Software Foundation (ASF) under one
@@ -20,7 +19,6 @@
 *
 */
 
-
 package org.apache.qpid.server.protocol.v1_0.type.messaging.codec;
 
 import java.util.Map;
@@ -28,44 +26,39 @@ import java.util.Map;
 import org.apache.qpid.server.protocol.v1_0.codec.AbstractDescribedTypeConstructor;
 import org.apache.qpid.server.protocol.v1_0.codec.DescribedTypeConstructorRegistry;
 import org.apache.qpid.server.protocol.v1_0.type.AmqpErrorException;
-import org.apache.qpid.server.protocol.v1_0.type.Symbol;
+import org.apache.qpid.server.protocol.v1_0.type.Symbols;
 import org.apache.qpid.server.protocol.v1_0.type.UnsignedLong;
 import org.apache.qpid.server.protocol.v1_0.type.messaging.ApplicationProperties;
-import org.apache.qpid.server.protocol.v1_0.type.transport.AmqpError;
 
 public class ApplicationPropertiesConstructor extends AbstractDescribedTypeConstructor<ApplicationProperties>
 {
     private static final Object[] DESCRIPTORS =
     {
-            Symbol.valueOf("amqp:application-properties:map"),UnsignedLong.valueOf(0x0000000000000074L),
+            Symbols.AMQP_APPLICATION_PROPERTIES, UnsignedLong.valueOf(0x0000000000000074L),
     };
 
     private static final ApplicationPropertiesConstructor INSTANCE = new ApplicationPropertiesConstructor();
 
-    public static void register(DescribedTypeConstructorRegistry registry)
+    public static void register(final DescribedTypeConstructorRegistry registry)
     {
-        for(Object descriptor : DESCRIPTORS)
+        for (final Object descriptor : DESCRIPTORS)
         {
             registry.register(descriptor, INSTANCE);
         }
     }
 
-
     @Override
-    public ApplicationProperties construct(Object underlying) throws AmqpErrorException
+    public ApplicationProperties construct(final Object underlying) throws AmqpErrorException
     {
-
-        if(underlying instanceof Map)
+        if (underlying instanceof Map)
         {
-            return new ApplicationProperties((Map)underlying);
+            return new ApplicationProperties((Map) underlying);
         }
         else
         {
-            final String msg = String.format("Cannot decode 'application-properties' from '%s'",
-                                             underlying == null ? null : underlying.getClass().getSimpleName());
-            throw new AmqpErrorException(AmqpError.DECODE_ERROR, msg);
+            throw AmqpErrorException.decode()
+                    .message("Cannot decode 'application-properties' from '%s'")
+                    .args(underlying == null ? null : underlying.getClass().getSimpleName());
         }
     }
-
-
 }

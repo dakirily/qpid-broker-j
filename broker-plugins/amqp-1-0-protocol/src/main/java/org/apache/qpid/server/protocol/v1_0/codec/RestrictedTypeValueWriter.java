@@ -39,7 +39,7 @@ public class RestrictedTypeValueWriter<V> extends DelegatingValueWriter<Restrict
         return restrictedType.getValue();
     }
 
-    public static void register(ValueWriter.Registry registry, Class clazz)
+    public static void register(final ValueWriter.Registry registry, final Class clazz)
     {
         registry.register(clazz, FACTORY);
     }

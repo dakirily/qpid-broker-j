@@ -53,5 +53,4 @@ public class PropertiesSection extends AbstractSection<Properties, Properties>
     {
         return new PropertiesConstructor();
     }
-
 }

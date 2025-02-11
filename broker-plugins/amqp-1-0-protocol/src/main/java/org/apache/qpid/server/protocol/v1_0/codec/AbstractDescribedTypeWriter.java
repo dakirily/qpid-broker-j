@@ -25,19 +25,19 @@ import org.apache.qpid.server.bytebuffer.QpidByteBuffer;
 
 public abstract class AbstractDescribedTypeWriter<V> implements ValueWriter<V>
 {
-    private static final byte DESCRIBED_TYPE = (byte)0;
+    private static final byte DESCRIBED_TYPE = (byte) 0;
     private final ValueWriter _descriptorWriter;
     private final ValueWriter _describedWriter;
 
-    public AbstractDescribedTypeWriter(ValueWriter descriptorWriter,
-                                       ValueWriter describedWriter)
+    public AbstractDescribedTypeWriter(final ValueWriter descriptorWriter,
+                                       final ValueWriter describedWriter)
     {
         _descriptorWriter = descriptorWriter;
         _describedWriter = describedWriter;
     }
 
     @Override
-    public final void writeToBuffer(QpidByteBuffer buffer)
+    public final void writeToBuffer(final QpidByteBuffer buffer)
     {
         buffer.put(DESCRIBED_TYPE);
         _descriptorWriter.writeToBuffer(buffer);

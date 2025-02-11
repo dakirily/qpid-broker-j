@@ -30,7 +30,6 @@ public class FrameWriter
 {
     private final ByteBufferSender _sender;
     private final ValueWriter.Registry _registry;
-    private static final byte[] EMPTY_BYTE_ARRAY = new byte[] {};
 
     public FrameWriter(final ValueWriter.Registry registry, final ByteBufferSender sender)
     {
@@ -38,26 +37,16 @@ public class FrameWriter
         _sender = sender;
     }
 
-    public <T> int send(AMQFrame<T> frame)
+    public <T> int send(final AMQFrame<T> frame)
     {
         final QpidByteBuffer payload = frame.getPayload();
-
         final int payloadLength = payload == null ? 0 : payload.remaining();
         final T frameBody = frame.getFrameBody();
-
         final ValueWriter<T> typeWriter = frameBody == null ? null : _registry.getValueWriter(frameBody);
-        int bodySize;
-        if (typeWriter == null)
-        {
-            bodySize = 8;
-        }
-        else
-        {
-            bodySize = 8 + typeWriter.getEncodedSize();
-        }
+        final int bodySize = typeWriter == null ? 8 : 8 + typeWriter.getEncodedSize();
 
         final int totalSize;
-        try (QpidByteBuffer body = QpidByteBuffer.allocate(_sender.isDirectBufferPreferred(), bodySize))
+        try (final QpidByteBuffer body = QpidByteBuffer.allocate(_sender.isDirectBufferPreferred(), bodySize))
         {
             totalSize = bodySize + payloadLength;
             body.putInt(totalSize);
@@ -72,11 +61,10 @@ public class FrameWriter
 
             _sender.send(body);
         }
-        if(payload != null)
+        if (payload != null)
         {
             _sender.send(payload);
         }
         return totalSize;
     }
-
 }

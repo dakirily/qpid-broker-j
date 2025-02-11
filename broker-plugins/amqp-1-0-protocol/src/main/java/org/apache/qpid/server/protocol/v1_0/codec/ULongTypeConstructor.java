@@ -23,12 +23,10 @@ package org.apache.qpid.server.protocol.v1_0.codec;
 import org.apache.qpid.server.bytebuffer.QpidByteBuffer;
 import org.apache.qpid.server.protocol.v1_0.type.AmqpErrorException;
 import org.apache.qpid.server.protocol.v1_0.type.UnsignedLong;
-import org.apache.qpid.server.protocol.v1_0.type.transport.AmqpError;
 
 public class ULongTypeConstructor implements TypeConstructor<UnsignedLong>
 {
     private static final ULongTypeConstructor INSTANCE = new ULongTypeConstructor();
-
 
     public static ULongTypeConstructor getInstance()
     {
@@ -44,14 +42,12 @@ public class ULongTypeConstructor implements TypeConstructor<UnsignedLong>
     {
         if (in.hasRemaining(8))
         {
-            long l = in.getLong();
-
+            final long l = in.getLong();
             return UnsignedLong.valueOf(l);
-
         }
         else
         {
-            throw new AmqpErrorException(AmqpError.DECODE_ERROR, "Cannot construct ulong: insufficient input data");
+            throw AmqpErrorException.decode().message("Cannot construct ulong: insufficient input data").build();
         }
     }
 }

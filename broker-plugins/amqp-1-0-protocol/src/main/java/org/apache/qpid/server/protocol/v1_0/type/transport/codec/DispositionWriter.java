@@ -49,40 +49,38 @@ public class DispositionWriter extends AbstractDescribedTypeWriter<Disposition>
         public Writer(final Registry registry, final Disposition object)
         {
             super(registry);
-
             _value = object;
             _count = calculateCount();
         }
 
         private int calculateCount()
         {
-
-            if( _value.getBatchable() != null)
+            if ( _value.getBatchable() != null)
             {
                 return 6;
             }
 
-            if( _value.getState() != null)
+            if ( _value.getState() != null)
             {
                 return 5;
             }
 
-            if( _value.getSettled() != null)
+            if ( _value.getSettled() != null)
             {
                 return 4;
             }
 
-            if( _value.getLast() != null)
+            if ( _value.getLast() != null)
             {
                 return 3;
             }
 
-            if( _value.getFirst() != null)
+            if ( _value.getFirst() != null)
             {
                 return 2;
             }
 
-            if( _value.getRole() != null)
+            if ( _value.getRole() != null)
             {
                 return 1;
             }
@@ -105,30 +103,16 @@ public class DispositionWriter extends AbstractDescribedTypeWriter<Disposition>
         @Override
         protected Object next()
         {
-            switch(_field++)
+            return switch (_field++)
             {
-
-                case 0:
-                    return _value.getRole();
-
-                case 1:
-                    return _value.getFirst();
-
-                case 2:
-                    return _value.getLast();
-
-                case 3:
-                    return _value.getSettled();
-
-                case 4:
-                    return _value.getState();
-
-                case 5:
-                    return _value.getBatchable();
-
-                default:
-                    return null;
-            }
+                case 0 -> _value.getRole();
+                case 1 -> _value.getFirst();
+                case 2 -> _value.getLast();
+                case 3 -> _value.getSettled();
+                case 4 -> _value.getState();
+                case 5 -> _value.getBatchable();
+                default -> null;
+            };
         }
 
         @Override
@@ -138,7 +122,7 @@ public class DispositionWriter extends AbstractDescribedTypeWriter<Disposition>
         }
     }
 
-    public static void register(ValueWriter.Registry registry)
+    public static void register(final ValueWriter.Registry registry)
     {
         registry.register(Disposition.class, FACTORY);
     }

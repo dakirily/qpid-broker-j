@@ -1,4 +1,3 @@
-
 /*
 *
 * Licensed to the Apache Software Foundation (ASF) under one
@@ -19,7 +18,6 @@
 * under the License.
 *
 */
-
 
 package org.apache.qpid.server.protocol.v1_0.type.transport.codec;
 
@@ -50,24 +48,23 @@ public class ErrorWriter extends AbstractDescribedTypeWriter<Error>
         public Writer(final Registry registry, final Error object)
         {
             super(registry);
-
             _value = object;
             _count = calculateCount();
         }
 
         private int calculateCount()
         {
-            if( _value.getInfo() != null)
+            if ( _value.getInfo() != null)
             {
                 return 3;
             }
 
-            if( _value.getDescription() != null)
+            if ( _value.getDescription() != null)
             {
                 return 2;
             }
 
-            if( _value.getCondition() != null)
+            if ( _value.getCondition() != null)
             {
                 return 1;
             }
@@ -89,21 +86,13 @@ public class ErrorWriter extends AbstractDescribedTypeWriter<Error>
         @Override
         protected Object next()
         {
-            switch(_field++)
+            return switch (_field++)
             {
-
-                case 0:
-                    return _value.getCondition();
-
-                case 1:
-                    return _value.getDescription();
-
-                case 2:
-                    return _value.getInfo();
-
-                default:
-                    return null;
-            }
+                case 0 -> _value.getCondition();
+                case 1 -> _value.getDescription();
+                case 2 -> _value.getInfo();
+                default -> null;
+            };
         }
 
         @Override
@@ -113,9 +102,8 @@ public class ErrorWriter extends AbstractDescribedTypeWriter<Error>
         }
     }
 
-    public static void register(ValueWriter.Registry registry)
+    public static void register(final ValueWriter.Registry registry)
     {
         registry.register(Error.class, FACTORY);
     }
-
 }

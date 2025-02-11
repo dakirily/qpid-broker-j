@@ -25,7 +25,7 @@ package org.apache.qpid.server.protocol.v1_0.type.messaging.codec;
 
 import org.apache.qpid.server.protocol.v1_0.codec.AbstractDescribedTypeConstructor;
 import org.apache.qpid.server.protocol.v1_0.codec.DescribedTypeConstructorRegistry;
-import org.apache.qpid.server.protocol.v1_0.type.Symbol;
+import org.apache.qpid.server.protocol.v1_0.type.Symbols;
 import org.apache.qpid.server.protocol.v1_0.type.UnsignedLong;
 import org.apache.qpid.server.protocol.v1_0.type.messaging.AmqpValue;
 
@@ -33,25 +33,22 @@ public class AmqpValueConstructor extends AbstractDescribedTypeConstructor<AmqpV
 {
     private static final Object[] DESCRIPTORS =
     {
-            Symbol.valueOf("amqp:amqp-value:*"),UnsignedLong.valueOf(0x0000000000000077L),
+            Symbols.AMQP_VALUE, UnsignedLong.valueOf(0x0000000000000077L),
     };
 
     private static final AmqpValueConstructor INSTANCE = new AmqpValueConstructor();
 
-    public static void register(DescribedTypeConstructorRegistry registry)
+    public static void register(final DescribedTypeConstructorRegistry registry)
     {
-        for(Object descriptor : DESCRIPTORS)
+        for (final Object descriptor : DESCRIPTORS)
         {
             registry.register(descriptor, INSTANCE);
         }
     }
 
-
     @Override
-    public AmqpValue construct(Object underlying)
+    public AmqpValue construct(final Object underlying)
     {
         return new AmqpValue(underlying);
     }
-
-
 }

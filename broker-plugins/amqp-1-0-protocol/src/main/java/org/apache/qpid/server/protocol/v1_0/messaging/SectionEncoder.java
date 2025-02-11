@@ -25,8 +25,7 @@ import org.apache.qpid.server.protocol.v1_0.codec.DescribedTypeConstructorRegist
 
 public interface SectionEncoder
 {
-
-    QpidByteBuffer encodeObject(Object obj);
+    QpidByteBuffer encodeObject(final Object obj);
 
     DescribedTypeConstructorRegistry getRegistry();
 }

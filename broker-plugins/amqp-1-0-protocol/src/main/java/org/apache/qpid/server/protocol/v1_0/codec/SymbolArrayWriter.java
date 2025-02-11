@@ -47,18 +47,12 @@ public class SymbolArrayWriter extends SimpleVariableWidthWriter<Symbol[]>
     private static byte[] getEncodedValue(final Symbol[] value)
     {
         byte[] encodedVal;
-        int length;
-        boolean useSmallConstructor = useSmallConstructor(value);
-        boolean isSmall = useSmallConstructor && canFitInSmall(value);
-        if(isSmall)
-        {
-            length = 2;
-        }
-        else
-        {
-            length = 5;
-        }
-        for(Symbol symbol : value)
+
+        final boolean useSmallConstructor = useSmallConstructor(value);
+        final boolean isSmall = useSmallConstructor && canFitInSmall(value);
+        int length = isSmall ? 2 : 5;
+
+        for (final Symbol symbol : value)
         {
             length += symbol.length() ;
         }
@@ -66,10 +60,10 @@ public class SymbolArrayWriter extends SimpleVariableWidthWriter<Symbol[]>
 
         encodedVal = new byte[length];
 
-        ByteBuffer buf = ByteBuffer.wrap(encodedVal);
-        if(isSmall)
+        final ByteBuffer buf = ByteBuffer.wrap(encodedVal);
+        if (isSmall)
         {
-            buf.put((byte)value.length);
+            buf.put((byte) value.length);
             buf.put(SymbolWriter.SMALL_ENCODING_CODE);
         }
         else
@@ -78,21 +72,20 @@ public class SymbolArrayWriter extends SimpleVariableWidthWriter<Symbol[]>
             buf.put(SymbolWriter.LARGE_ENCODING_CODE);
         }
 
-        for(Symbol symbol : value)
+        for (final Symbol symbol : value)
         {
-                if(isSmall)
-                {
-                    buf.put((byte)symbol.length());
-                }
-                else
-                {
-                    buf.putInt(symbol.length());
-                }
-
-
-            for(int i = 0; i < symbol.length(); i++)
+            if (isSmall)
             {
-                buf.put((byte)symbol.charAt(i));
+                buf.put((byte) symbol.length());
+            }
+            else
+            {
+                buf.putInt(symbol.length());
+            }
+
+            for (int i = 0; i < symbol.length(); i++)
+            {
+                buf.put((byte) symbol.charAt(i));
             }
         }
         return encodedVal;
@@ -100,9 +93,9 @@ public class SymbolArrayWriter extends SimpleVariableWidthWriter<Symbol[]>
 
     private static boolean useSmallConstructor(final Symbol[] value)
     {
-        for(Symbol sym : value)
+        for (final Symbol sym : value)
         {
-            if(sym.length()>255)
+            if (sym.length() > 255)
             {
                 return false;
             }
@@ -112,25 +105,23 @@ public class SymbolArrayWriter extends SimpleVariableWidthWriter<Symbol[]>
 
     private static boolean canFitInSmall(final Symbol[] value)
     {
-        if(value.length>=127)
+        if (value.length >= 127)
         {
             return false;
         }
 
         int remaining = 253 - value.length;
-        for(Symbol symbol : value)
+        for (final Symbol symbol : value)
         {
-
-            if((remaining -= symbol.length()) < 0)
+            if ((remaining -= symbol.length()) < 0)
             {
                 return false;
             }
         }
-
         return true;
     }
 
-    public static void register(ValueWriter.Registry registry)
+    public static void register(final ValueWriter.Registry registry)
     {
         registry.register(Symbol[].class, FACTORY);
     }

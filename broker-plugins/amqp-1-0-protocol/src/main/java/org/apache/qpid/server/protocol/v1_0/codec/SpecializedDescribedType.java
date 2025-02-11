@@ -20,48 +20,66 @@
  */
 package org.apache.qpid.server.protocol.v1_0.codec;
 
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodType;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public interface SpecializedDescribedType
 {
-    static <X extends SpecializedDescribedType> X getInvalidValue(Class<X> clazz, DescribedType value) {
-        for(Method method : clazz.getMethods())
+    MethodHandles.Lookup LOOKUP = MethodHandles.lookup();
+    Map<Class<?>, MethodHandle> METHOD_HANDLE_CACHE = new ConcurrentHashMap<>();
+    String METHOD_NAME = "getInvalidValue";
+
+    static <X extends SpecializedDescribedType> X getInvalidValue(final Class<X> clazz, final DescribedType value)
+    {
+        if (METHOD_HANDLE_CACHE.containsKey(clazz))
         {
-            if(method.getName().equals("getInvalidValue")
-               && method.getParameterCount() == 1
-               && method.getParameterTypes()[0] == DescribedType.class
-               && method.getReturnType() == clazz
-               && (method.getModifiers() & (Modifier.STATIC | Modifier.PUBLIC)) == (Modifier.STATIC | Modifier.PUBLIC))
+            try
             {
-                try
-                {
-                    return (X) method.invoke(null, value);
-                }
-                catch (IllegalAccessException | InvocationTargetException e)
-                {
-                    return null;
-                }
+                return clazz.cast(METHOD_HANDLE_CACHE.get(clazz).invoke(value));
+            }
+            catch (Throwable e)
+            {
+                return null;
             }
         }
 
-        return null;
+        try
+        {
+            return clazz.cast(getMethodHandle(clazz).invoke(value));
+        }
+        catch (Throwable e)
+        {
+            return null;
+        }
     }
 
-    static <X extends SpecializedDescribedType> boolean hasInvalidValue(Class<X> clazz)
+    static <X extends SpecializedDescribedType> boolean hasInvalidValue(final Class<X> clazz)
     {
-        for(Method method : clazz.getMethods())
+        if (METHOD_HANDLE_CACHE.containsKey(clazz))
         {
-            if(method.getName().equals("getInvalidValue")
-               && method.getParameterCount() == 1
-               && method.getParameterTypes()[0] == DescribedType.class
-               && method.getReturnType() == clazz
-               && (method.getModifiers() & (Modifier.STATIC | Modifier.PUBLIC)) == (Modifier.STATIC | Modifier.PUBLIC))
-            {
-                return true;
-            }
+            return true;
         }
-        return false;
+
+        try
+        {
+            getMethodHandle(clazz);
+            return true;
+        }
+        catch (NoSuchMethodException | IllegalAccessException e)
+        {
+            return false;
+        }
+    }
+
+    static <X extends SpecializedDescribedType> MethodHandle getMethodHandle(final Class<X> clazz)
+            throws NoSuchMethodException, IllegalAccessException
+    {
+        final MethodType methodType = MethodType.methodType(clazz, DescribedType.class);
+        final MethodHandle methodHandle = LOOKUP.findStatic(clazz, METHOD_NAME, methodType);
+        METHOD_HANDLE_CACHE.put(clazz, methodHandle);
+        return methodHandle;
     }
 }

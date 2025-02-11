@@ -38,7 +38,7 @@ public class ExactSubjectFilterWriter extends AbstractDescribedTypeWriter<ExactS
         super(DESCRIPTOR_WRITER, registry.getValueWriter(object.getValue()));
     }
 
-    public static void register(Registry registry)
+    public static void register(final Registry registry)
     {
         registry.register(ExactSubjectFilter.class, FACTORY);
     }

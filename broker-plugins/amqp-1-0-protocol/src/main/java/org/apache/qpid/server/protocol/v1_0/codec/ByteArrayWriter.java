@@ -33,16 +33,16 @@ public class ByteArrayWriter extends SimpleVariableWidthWriter<byte[]>
     @Override
     protected byte getFourOctetEncodingCode()
     {
-        return (byte)0xb0;
+        return (byte) 0xb0;
     }
 
     @Override
     protected byte getSingleOctetEncodingCode()
     {
-        return (byte)0xa0;
+        return (byte) 0xa0;
     }
 
-    public static void register(ValueWriter.Registry registry)
+    public static void register(final ValueWriter.Registry registry)
     {
         registry.register(byte[].class, FACTORY);
     }

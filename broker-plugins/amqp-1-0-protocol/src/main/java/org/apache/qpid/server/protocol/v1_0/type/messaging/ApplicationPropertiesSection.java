@@ -29,7 +29,6 @@ import org.apache.qpid.server.protocol.v1_0.type.messaging.codec.ApplicationProp
 
 public class ApplicationPropertiesSection extends AbstractSection<Map<String,Object>, ApplicationProperties>
 {
-
     public ApplicationPropertiesSection(final QpidByteBuffer encodedForm)
     {
         super(encodedForm);

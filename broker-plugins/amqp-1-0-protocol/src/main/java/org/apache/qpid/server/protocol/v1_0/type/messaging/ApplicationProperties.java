@@ -1,4 +1,3 @@
-
 /*
 *
 * Licensed to the Apache Software Foundation (ASF) under one
@@ -20,7 +19,6 @@
 *
 */
 
-
 package org.apache.qpid.server.protocol.v1_0.type.messaging;
 
 import java.util.Date;
@@ -32,16 +30,15 @@ import org.apache.qpid.server.protocol.v1_0.type.Symbol;
 
 public class ApplicationProperties implements NonEncodingRetainingSection<Map<String,Object>>
 {
+    private final Map<String, Object> _value;
 
-    private final Map<String,Object> _value;
-
-    public ApplicationProperties(Map<String,Object> value)
+    public ApplicationProperties(final Map<String, Object> value)
     {
         if (value == null)
         {
             throw new IllegalArgumentException("Value must not be null");
         }
-        for(Map.Entry<String,Object> entry: value.entrySet())
+        for (final Map.Entry<String,Object> entry: value.entrySet())
         {
             if (entry.getKey() == null)
             {
@@ -80,5 +77,4 @@ public class ApplicationProperties implements NonEncodingRetainingSection<Map<St
                || value instanceof Binary
                || value instanceof byte[];
     }
-
 }

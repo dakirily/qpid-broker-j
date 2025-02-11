@@ -19,9 +19,7 @@
 *
 */
 
-
 package org.apache.qpid.server.protocol.v1_0.type.transport;
-
 
 import java.util.Map;
 
@@ -30,7 +28,7 @@ import org.apache.qpid.server.protocol.v1_0.CompositeTypeField;
 import org.apache.qpid.server.protocol.v1_0.type.ErrorCondition;
 import org.apache.qpid.server.protocol.v1_0.type.Symbol;
 
-@CompositeType( symbolicDescriptor = "amqp:error:list", numericDescriptor = 0x000000000000001DL)
+@CompositeType(symbolicDescriptor = "amqp:error:list", numericDescriptor = 0x000000000000001DL)
 public class Error
 {
     @CompositeTypeField(index = 0, mandatory = true,
@@ -58,7 +56,7 @@ public class Error
         return _condition;
     }
 
-    public void setCondition(ErrorCondition condition)
+    public void setCondition(final ErrorCondition condition)
     {
         _condition = condition;
     }
@@ -68,7 +66,7 @@ public class Error
         return _description;
     }
 
-    public void setDescription(String description)
+    public void setDescription(final String description)
     {
         _description = description;
     }
@@ -78,7 +76,7 @@ public class Error
         return _info;
     }
 
-    public void setInfo(Map<Symbol, Object> info)
+    public void setInfo(final Map<Symbol, Object> info)
     {
         _info = info;
     }
@@ -86,15 +84,11 @@ public class Error
     @Override
     public String toString()
     {
-        StringBuilder builder = new StringBuilder("Error{");
+        final StringBuilder builder = new StringBuilder("Error{");
         final int origLength = builder.length();
 
         if (_condition != null)
         {
-            if (builder.length() != origLength)
-            {
-                builder.append(',');
-            }
             builder.append("condition=").append(_condition);
         }
 

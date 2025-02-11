@@ -55,7 +55,7 @@ public class SaslResponseWriter extends AbstractDescribedTypeWriter<SaslResponse
 
         private int calculateCount()
         {
-            if( _value.getResponse() != null)
+            if ( _value.getResponse() != null)
             {
                 return 1;
             }
@@ -78,15 +78,11 @@ public class SaslResponseWriter extends AbstractDescribedTypeWriter<SaslResponse
         @Override
         protected Object next()
         {
-            switch(_field++)
+            if (_field++ == 0)
             {
-
-                case 0:
-                    return _value.getResponse();
-
-                default:
-                    return null;
+                return _value.getResponse();
             }
+            return null;
         }
 
         @Override
@@ -96,7 +92,7 @@ public class SaslResponseWriter extends AbstractDescribedTypeWriter<SaslResponse
         }
     }
 
-    public static void register(ValueWriter.Registry registry)
+    public static void register(final ValueWriter.Registry registry)
     {
         registry.register(SaslResponse.class, FACTORY);
     }

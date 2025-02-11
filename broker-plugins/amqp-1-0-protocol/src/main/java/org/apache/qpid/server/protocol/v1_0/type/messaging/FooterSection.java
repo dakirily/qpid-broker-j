@@ -28,7 +28,7 @@ import org.apache.qpid.server.protocol.v1_0.codec.DescribedTypeConstructor;
 import org.apache.qpid.server.protocol.v1_0.type.Symbol;
 import org.apache.qpid.server.protocol.v1_0.type.messaging.codec.FooterConstructor;
 
-public class FooterSection extends AbstractSection<Map<Symbol,Object>, Footer>
+public class FooterSection extends AbstractSection<Map<Symbol, Object>, Footer>
 {
     public FooterSection(final QpidByteBuffer encodedForm)
     {

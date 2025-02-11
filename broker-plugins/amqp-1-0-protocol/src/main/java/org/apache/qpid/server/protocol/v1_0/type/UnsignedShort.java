@@ -21,16 +21,20 @@
 
 package org.apache.qpid.server.protocol.v1_0.type;
 
+import java.io.Serial;
+
 public final class UnsignedShort extends Number implements Comparable<UnsignedShort>
 {
+    @Serial
     private static final long serialVersionUID = 1L;
-
-    private final short _underlying;
     private static final UnsignedShort[] cachedValues = new UnsignedShort[256];
     public static final UnsignedShort MAX_VALUE = new UnsignedShort((short) 0xffff);
+
+    private final short _underlying;
+
     static
     {
-        for(short i = 0; i < 256; i++)
+        for (short i = 0; i < 256; i++)
         {
             cachedValues[i] = new UnsignedShort(i);
         }
@@ -38,7 +42,7 @@ public final class UnsignedShort extends Number implements Comparable<UnsignedSh
 
     public static final UnsignedShort ZERO = UnsignedShort.valueOf((short) 0);
 
-    private UnsignedShort(short underlying)
+    private UnsignedShort(final short underlying)
     {
         _underlying = underlying;
     }
@@ -70,28 +74,28 @@ public final class UnsignedShort extends Number implements Comparable<UnsignedSh
     @Override
     public double doubleValue()
     {
-        return (double) intValue();
+        return intValue();
     }
 
     @Override
-    public boolean equals(Object o)
+    public boolean equals(final Object o)
     {
         if (this == o)
         {
             return true;
         }
+
         if (o == null || getClass() != o.getClass())
         {
             return false;
         }
 
-        UnsignedShort that = (UnsignedShort) o;
-
+        final UnsignedShort that = (UnsignedShort) o;
         return _underlying == that._underlying;
     }
 
     @Override
-    public int compareTo(UnsignedShort o)
+    public int compareTo(final UnsignedShort o)
     {
         return Integer.signum(intValue() - o.intValue());
     }
@@ -108,9 +112,9 @@ public final class UnsignedShort extends Number implements Comparable<UnsignedSh
         return String.valueOf(longValue());
     }
 
-    public static UnsignedShort valueOf(short underlying)
+    public static UnsignedShort valueOf(final short underlying)
     {
-        if((underlying & 0xFF00) == 0)
+        if ((underlying & 0xFF00) == 0)
         {
             return cachedValues[underlying];
         }
@@ -120,16 +124,13 @@ public final class UnsignedShort extends Number implements Comparable<UnsignedSh
         }
     }
 
-    public static UnsignedShort valueOf(int intValue)
+    public static UnsignedShort valueOf(final int intValue)
     {
         if (intValue < 0 || intValue >= (1 << 16))
         {
-            throw new NumberFormatException(String.format("Value \"%d\" lies outside the range [%d-%d).",
-                                                          intValue,
-                                                          0,
-                                                          (1 << 16)));
+            final String msg = "Value \"%d\" lies outside the range [%d-%d).".formatted(intValue, 0, (1 << 16));
+            throw new NumberFormatException(msg);
         }
-
         return valueOf((short) intValue);
     }
 

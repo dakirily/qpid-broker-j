@@ -39,7 +39,7 @@ public class TimestampWriter extends FixedEightWriter<Date>
         return FORMAT_CODE;
     }
 
-    public static void register(ValueWriter.Registry registry)
+    public static void register(final ValueWriter.Registry registry)
     {
         registry.register(Date.class, FACTORY);
     }

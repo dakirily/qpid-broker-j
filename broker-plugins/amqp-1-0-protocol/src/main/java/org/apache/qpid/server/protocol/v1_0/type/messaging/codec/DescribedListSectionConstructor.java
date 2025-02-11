@@ -1,4 +1,3 @@
-
 /*
 *
 * Licensed to the Apache Software Foundation (ASF) under one
@@ -20,7 +19,6 @@
 *
 */
 
-
 package org.apache.qpid.server.protocol.v1_0.type.messaging.codec;
 
 import org.apache.qpid.server.bytebuffer.QpidByteBuffer;
@@ -29,11 +27,9 @@ import org.apache.qpid.server.protocol.v1_0.codec.TypeConstructor;
 import org.apache.qpid.server.protocol.v1_0.codec.ValueHandler;
 import org.apache.qpid.server.protocol.v1_0.type.AmqpErrorException;
 import org.apache.qpid.server.protocol.v1_0.type.messaging.AbstractSection;
-import org.apache.qpid.server.protocol.v1_0.type.transport.AmqpError;
 
 public abstract class DescribedListSectionConstructor<S extends AbstractSection> implements DescribedTypeConstructor<S>
 {
-
     @Override
     public TypeConstructor<S> construct(final Object descriptor,
                                         final QpidByteBuffer in,
@@ -43,25 +39,16 @@ public abstract class DescribedListSectionConstructor<S extends AbstractSection>
     {
         if (!in.hasRemaining())
         {
-            throw new AmqpErrorException(AmqpError.DECODE_ERROR, "Insufficient data to decode section.");
+            throw AmqpErrorException.decode().message("Insufficient data to decode section.").build();
         }
         int constructorByte = in.getUnsignedByte();
-        int sizeBytes;
-        switch(constructorByte)
+        int sizeBytes = switch (constructorByte)
         {
-            case 0x45:
-                sizeBytes = 0;
-                break;
-            case 0xc0:
-                sizeBytes = 1;
-                break;
-            case 0xd0:
-                sizeBytes = 4;
-                break;
-            default:
-                throw new AmqpErrorException(AmqpError.DECODE_ERROR,
-                                             "The described section must always be a list");
-        }
+            case 0x45 -> 0;
+            case 0xc0 -> 1;
+            case 0xd0 -> 4;
+            default -> throw AmqpErrorException.decode().message("The described section must always be a list").build();
+        };
 
         return new LazyConstructor(sizeBytes, originalPosition);
     }
@@ -88,26 +75,18 @@ public abstract class DescribedListSectionConstructor<S extends AbstractSection>
         {
             if (!in.hasRemaining(_sizeBytes))
             {
-                throw new AmqpErrorException(AmqpError.DECODE_ERROR, "Insufficient data to decode section.");
+                throw AmqpErrorException.decode().message("Insufficient data to decode section.").build();
             }
-            int size;
-            switch(_sizeBytes)
+            int size = switch (_sizeBytes)
             {
-                case 0:
-                    size = 0;
-                    break;
-                case 1:
-                    size = in.getUnsignedByte();
-                    break;
-                case 4:
-                    size = in.getInt();
-                    break;
-                default:
-                    throw new AmqpErrorException(AmqpError.DECODE_ERROR, "Unexpected constructor type, can only be 0,1 or 4");
-            }
+                case 0 -> 0;
+                case 1 -> in.getUnsignedByte();
+                case 4 -> in.getInt();
+                default -> throw AmqpErrorException.decode().message("Unexpected constructor type, can only be 0,1 or 4").build();
+            };
             if (!in.hasRemaining(size))
             {
-                throw new AmqpErrorException(AmqpError.DECODE_ERROR, "Insufficient data to decode section.");
+                throw AmqpErrorException.decode().message("Insufficient data to decode section.").build();
             }
             in.position(in.position() + size);
         }

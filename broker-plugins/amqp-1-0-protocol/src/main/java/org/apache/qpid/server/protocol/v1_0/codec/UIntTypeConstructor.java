@@ -23,12 +23,10 @@ package org.apache.qpid.server.protocol.v1_0.codec;
 import org.apache.qpid.server.bytebuffer.QpidByteBuffer;
 import org.apache.qpid.server.protocol.v1_0.type.AmqpErrorException;
 import org.apache.qpid.server.protocol.v1_0.type.UnsignedInteger;
-import org.apache.qpid.server.protocol.v1_0.type.transport.AmqpError;
 
 public class UIntTypeConstructor implements TypeConstructor<UnsignedInteger>
 {
     private static final UIntTypeConstructor INSTANCE = new UIntTypeConstructor();
-
 
     public static UIntTypeConstructor getInstance()
     {
@@ -50,7 +48,7 @@ public class UIntTypeConstructor implements TypeConstructor<UnsignedInteger>
         }
         else
         {
-            throw new AmqpErrorException(AmqpError.DECODE_ERROR, "Cannot construct uint: insufficient input data");
+            throw AmqpErrorException.decode().message("Cannot construct uint: insufficient input data").build();
         }
     }
 }

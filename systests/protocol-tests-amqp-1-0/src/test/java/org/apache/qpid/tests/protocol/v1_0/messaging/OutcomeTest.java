@@ -31,6 +31,7 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import org.apache.qpid.server.protocol.v1_0.type.Symbols;
 import org.apache.qpid.server.protocol.v1_0.type.UnsignedInteger;
 import org.apache.qpid.server.protocol.v1_0.type.messaging.Accepted;
 import org.apache.qpid.server.protocol.v1_0.type.messaging.Modified;
@@ -129,7 +130,7 @@ public class OutcomeTest extends BrokerAdminUsingTestBase
                                                  .begin().consumeResponse(Begin.class)
                                                  .attachRole(Role.SENDER)
                                                  .attachTargetAddress(BrokerAdmin.TEST_QUEUE_NAME)
-                                                 .attachSourceOutcomes(Accepted.ACCEPTED_SYMBOL)
+                                                 .attachSourceOutcomes(Symbols.AMQP_ACCEPTED)
                                                  .attach().consumeResponse(Attach.class)
                                                  .consumeResponse(Flow.class)
                                                  .transferPayloadData(getTestName())
@@ -153,7 +154,7 @@ public class OutcomeTest extends BrokerAdminUsingTestBase
 
         if (!(source.getDefaultOutcome() instanceof Modified))
         {
-            assumeTrue(hasItemInArray(Modified.MODIFIED_SYMBOL).matches(source.getOutcomes()));
+            assumeTrue(hasItemInArray(Symbols.AMQP_MODIFIED).matches(source.getOutcomes()));
         }
     }
 }

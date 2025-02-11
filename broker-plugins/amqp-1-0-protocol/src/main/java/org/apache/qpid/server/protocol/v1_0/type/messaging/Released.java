@@ -1,4 +1,3 @@
-
 /*
 *
 * Licensed to the Apache Software Foundation (ASF) under one
@@ -20,32 +19,25 @@
 *
 */
 
-
 package org.apache.qpid.server.protocol.v1_0.type.messaging;
-
 
 import org.apache.qpid.server.protocol.v1_0.CompositeType;
 import org.apache.qpid.server.protocol.v1_0.type.Outcome;
 import org.apache.qpid.server.protocol.v1_0.type.Symbol;
+import org.apache.qpid.server.protocol.v1_0.type.Symbols;
 
-@CompositeType( symbolicDescriptor = "amqp:released:list", numericDescriptor = 0x0000000000000026L)
+@CompositeType(symbolicDescriptor = "amqp:released:list", numericDescriptor = 0x0000000000000026L)
 public class Released implements Outcome
 {
-    public static final Symbol RELEASED_SYMBOL = Symbol.valueOf("amqp:released:list");
-
     @Override
     public Symbol getSymbol()
     {
-        return RELEASED_SYMBOL;
+        return Symbols.AMQP_RELEASED;
     }
 
     @Override
     public String toString()
     {
-        StringBuilder builder = new StringBuilder("Released{");
-        final int origLength = builder.length();
-
-        builder.append('}');
-        return builder.toString();
+        return "Released{" + '}';
     }
 }

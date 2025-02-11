@@ -46,7 +46,7 @@ public class ReceivedWriter extends AbstractDescribedTypeWriter<Received>
 
         private int _field;
 
-        public Writer(final Registry registry, Received value)
+        public Writer(final Registry registry, final Received value)
         {
             super(registry);
             _value = value;
@@ -55,12 +55,12 @@ public class ReceivedWriter extends AbstractDescribedTypeWriter<Received>
 
         private int calculateCount()
         {
-            if( _value.getSectionOffset() != null)
+            if ( _value.getSectionOffset() != null)
             {
                 return 2;
             }
 
-            if( _value.getSectionNumber() != null)
+            if ( _value.getSectionNumber() != null)
             {
                 return 1;
             }
@@ -83,18 +83,12 @@ public class ReceivedWriter extends AbstractDescribedTypeWriter<Received>
         @Override
         protected Object next()
         {
-            switch(_field++)
+            return switch (_field++)
             {
-
-                case 0:
-                    return _value.getSectionNumber();
-
-                case 1:
-                    return _value.getSectionOffset();
-
-                default:
-                    return null;
-            }
+                case 0 -> _value.getSectionNumber();
+                case 1 -> _value.getSectionOffset();
+                default -> null;
+            };
         }
 
         @Override
@@ -104,7 +98,7 @@ public class ReceivedWriter extends AbstractDescribedTypeWriter<Received>
         }
     }
 
-    public static void register(ValueWriter.Registry registry)
+    public static void register(final ValueWriter.Registry registry)
     {
         registry.register(Received.class, FACTORY);
     }

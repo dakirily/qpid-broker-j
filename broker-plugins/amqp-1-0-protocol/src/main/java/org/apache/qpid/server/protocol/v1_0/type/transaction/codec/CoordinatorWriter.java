@@ -56,11 +56,10 @@ public class CoordinatorWriter extends AbstractDescribedTypeWriter<Coordinator>
 
         private int calculateCount()
         {
-            if( _value.getCapabilities() != null)
+            if ( _value.getCapabilities() != null)
             {
                 return 1;
             }
-
             return 0;
         }
         @Override
@@ -78,15 +77,11 @@ public class CoordinatorWriter extends AbstractDescribedTypeWriter<Coordinator>
         @Override
         protected Object next()
         {
-            switch(_field++)
+            if (_field++ == 0)
             {
-
-                case 0:
-                    return _value.getCapabilities();
-
-                default:
-                    return null;
+                return _value.getCapabilities();
             }
+            return null;
         }
 
         @Override
@@ -96,7 +91,7 @@ public class CoordinatorWriter extends AbstractDescribedTypeWriter<Coordinator>
         }
     }
 
-    public static void register(ValueWriter.Registry registry)
+    public static void register(final ValueWriter.Registry registry)
     {
         registry.register(Coordinator.class, FACTORY);
     }

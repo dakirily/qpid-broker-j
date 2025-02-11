@@ -1,4 +1,3 @@
-
 /*
 *
 * Licensed to the Apache Software Foundation (ASF) under one
@@ -20,9 +19,7 @@
 *
 */
 
-
 package org.apache.qpid.server.protocol.v1_0.type.messaging;
-
 
 import org.apache.qpid.server.protocol.v1_0.type.RestrictedType;
 import org.apache.qpid.server.protocol.v1_0.type.UnsignedInteger;
@@ -37,7 +34,7 @@ public class TerminusDurability implements RestrictedType<UnsignedInteger>
 
     public static final TerminusDurability UNSETTLED_STATE = new TerminusDurability(UnsignedInteger.valueOf(2));
 
-    private TerminusDurability(UnsignedInteger val)
+    private TerminusDurability(final UnsignedInteger val)
     {
         _val = val;
     }
@@ -65,18 +62,16 @@ public class TerminusDurability implements RestrictedType<UnsignedInteger>
         {
             return "unsettled-state";
         }
-
         else
         {
             return String.valueOf(_val);
         }
     }
 
-    public static TerminusDurability valueOf(Object obj)
+    public static TerminusDurability valueOf(final Object obj)
     {
         if (obj instanceof final UnsignedInteger val)
         {
-
             if (NONE._val.equals(val))
             {
                 return NONE;
@@ -96,10 +91,10 @@ public class TerminusDurability implements RestrictedType<UnsignedInteger>
         throw new IllegalArgumentException(message);
     }
 
-    public static TerminusDurability min(TerminusDurability durabilityA, TerminusDurability durabilityB)
+    public static TerminusDurability min(final TerminusDurability durabilityA, final TerminusDurability durabilityB)
     {
-        int durabilitAValue = durabilityA != null ? durabilityA._val.intValue() : 0;
+        int durabilityAValue = durabilityA != null ? durabilityA._val.intValue() : 0;
         int durabilityBValue = durabilityB != null ? durabilityB._val.intValue() : 0;
-        return TerminusDurability.valueOf(new UnsignedInteger(Math.min(durabilitAValue, durabilityBValue)));
+        return TerminusDurability.valueOf(new UnsignedInteger(Math.min(durabilityAValue, durabilityBValue)));
     }
 }

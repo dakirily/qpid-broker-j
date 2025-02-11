@@ -25,12 +25,8 @@ import org.apache.qpid.server.protocol.v1_0.type.UnsignedShort;
 
 public class UnsignedShortWriter extends FixedTwoWriter<UnsignedShort>
 {
-    private static final byte FORMAT_CODE = (byte)0x60;
+    private static final byte FORMAT_CODE = (byte) 0x60;
     private static final Factory<UnsignedShort> FACTORY = (registry, object) -> new UnsignedShortWriter(object);
-
-    public UnsignedShortWriter()
-    {
-    }
 
     public UnsignedShortWriter(final UnsignedShort object)
     {
@@ -38,7 +34,7 @@ public class UnsignedShortWriter extends FixedTwoWriter<UnsignedShort>
     }
 
     @Override
-    short convertValueToShort(UnsignedShort value)
+    short convertValueToShort(final UnsignedShort value)
     {
         return value.shortValue();
     }
@@ -49,7 +45,7 @@ public class UnsignedShortWriter extends FixedTwoWriter<UnsignedShort>
         return FORMAT_CODE;
     }
 
-    public static void register(ValueWriter.Registry registry)
+    public static void register(final ValueWriter.Registry registry)
     {
         registry.register(UnsignedShort.class, FACTORY);
     }

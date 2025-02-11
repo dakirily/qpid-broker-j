@@ -1,4 +1,3 @@
-
 /*
 *
 * Licensed to the Apache Software Foundation (ASF) under one
@@ -20,12 +19,11 @@
 *
 */
 
-
 package org.apache.qpid.server.protocol.v1_0.type.messaging;
-
 
 import java.util.Arrays;
 import java.util.Map;
+import java.util.Objects;
 
 import org.apache.qpid.server.protocol.v1_0.CompositeType;
 import org.apache.qpid.server.protocol.v1_0.CompositeTypeField;
@@ -33,7 +31,7 @@ import org.apache.qpid.server.protocol.v1_0.type.BaseTarget;
 import org.apache.qpid.server.protocol.v1_0.type.Symbol;
 import org.apache.qpid.server.protocol.v1_0.type.UnsignedInteger;
 
-@CompositeType( symbolicDescriptor = "amqp:target:list", numericDescriptor = 0x0000000000000029L)
+@CompositeType(symbolicDescriptor = "amqp:target:list", numericDescriptor = 0x0000000000000029L)
 public class Target implements BaseTarget, Terminus
 {
     @CompositeTypeField(index = 0)
@@ -62,7 +60,7 @@ public class Target implements BaseTarget, Terminus
         return _address;
     }
 
-    public void setAddress(String address)
+    public void setAddress(final String address)
     {
         _address = address;
     }
@@ -72,7 +70,7 @@ public class Target implements BaseTarget, Terminus
         return _durable;
     }
 
-    public void setDurable(TerminusDurability durable)
+    public void setDurable(final TerminusDurability durable)
     {
         _durable = durable;
     }
@@ -82,7 +80,7 @@ public class Target implements BaseTarget, Terminus
         return _expiryPolicy;
     }
 
-    public void setExpiryPolicy(TerminusExpiryPolicy expiryPolicy)
+    public void setExpiryPolicy(final TerminusExpiryPolicy expiryPolicy)
     {
         _expiryPolicy = expiryPolicy;
     }
@@ -92,7 +90,7 @@ public class Target implements BaseTarget, Terminus
         return _timeout;
     }
 
-    public void setTimeout(UnsignedInteger timeout)
+    public void setTimeout(final UnsignedInteger timeout)
     {
         _timeout = timeout;
     }
@@ -102,7 +100,7 @@ public class Target implements BaseTarget, Terminus
         return _dynamic;
     }
 
-    public void setDynamic(Boolean dynamic)
+    public void setDynamic(final Boolean dynamic)
     {
         _dynamic = dynamic;
     }
@@ -112,7 +110,7 @@ public class Target implements BaseTarget, Terminus
         return _dynamicNodeProperties;
     }
 
-    public void setDynamicNodeProperties(Map<Symbol, Object> dynamicNodeProperties)
+    public void setDynamicNodeProperties(final Map<Symbol, Object> dynamicNodeProperties)
     {
         _dynamicNodeProperties = dynamicNodeProperties;
     }
@@ -122,7 +120,7 @@ public class Target implements BaseTarget, Terminus
         return _capabilities;
     }
 
-    public void setCapabilities(Symbol[] capabilities)
+    public void setCapabilities(final Symbol[] capabilities)
     {
         _capabilities = capabilities;
     }
@@ -142,29 +140,27 @@ public class Target implements BaseTarget, Terminus
 
         final Target target = (Target) o;
 
-        if (_address != null ? !_address.equals(target._address) : target._address != null)
+        if (!Objects.equals(_address, target._address))
         {
             return false;
         }
-        if (_durable != null ? !_durable.equals(target._durable) : target._durable != null)
+        if (!Objects.equals(_durable, target._durable))
         {
             return false;
         }
-        if (_expiryPolicy != null ? !_expiryPolicy.equals(target._expiryPolicy) : target._expiryPolicy != null)
+        if (!Objects.equals(_expiryPolicy, target._expiryPolicy))
         {
             return false;
         }
-        if (_timeout != null ? !_timeout.equals(target._timeout) : target._timeout != null)
+        if (!Objects.equals(_timeout, target._timeout))
         {
             return false;
         }
-        if (_dynamic != null ? !_dynamic.equals(target._dynamic) : target._dynamic != null)
+        if (!Objects.equals(_dynamic, target._dynamic))
         {
             return false;
         }
-        if (_dynamicNodeProperties != null
-                ? !_dynamicNodeProperties.equals(target._dynamicNodeProperties)
-                : target._dynamicNodeProperties != null)
+        if (!Objects.equals(_dynamicNodeProperties, target._dynamicNodeProperties))
         {
             return false;
         }
@@ -188,15 +184,11 @@ public class Target implements BaseTarget, Terminus
     @Override
     public String toString()
     {
-        StringBuilder builder = new StringBuilder("Target{");
+        final StringBuilder builder = new StringBuilder("Target{");
         final int origLength = builder.length();
 
         if (_address != null)
         {
-            if (builder.length() != origLength)
-            {
-                builder.append(',');
-            }
             builder.append("address=").append(_address);
         }
 

@@ -39,11 +39,10 @@ public abstract class AbstractLazyConstructor<T> implements TypeConstructor<T>
     {
         skipValue(in);
 
-        try (QpidByteBuffer encoding = in.duplicate())
+        try (final QpidByteBuffer encoding = in.duplicate())
         {
             encoding.position(_originalPosition);
             encoding.limit(in.position());
-
             return createObject(encoding, handler);
         }
     }

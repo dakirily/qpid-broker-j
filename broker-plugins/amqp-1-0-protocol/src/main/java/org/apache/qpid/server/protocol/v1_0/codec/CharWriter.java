@@ -23,12 +23,12 @@ package org.apache.qpid.server.protocol.v1_0.codec;
 
 public class CharWriter extends FixedFourWriter<Character>
 {
-    private static final byte FORMAT_CODE = (byte)0x73;
+    private static final byte FORMAT_CODE = (byte) 0x73;
     private static final Factory<Character> FACTORY = (registry, object) -> new CharWriter(object);
 
     public CharWriter(final Character object)
     {
-        super((int)object.charValue());
+        super(object);
     }
 
     @Override
@@ -37,7 +37,7 @@ public class CharWriter extends FixedFourWriter<Character>
         return FORMAT_CODE;
     }
 
-    public static void register(ValueWriter.Registry registry)
+    public static void register(final ValueWriter.Registry registry)
     {
         registry.register(Character.class, FACTORY);
     }

@@ -40,5 +40,4 @@ class ZeroUIntConstructor implements TypeConstructor<UnsignedInteger>
     {
         return INSTANCE;
     }
-
 }

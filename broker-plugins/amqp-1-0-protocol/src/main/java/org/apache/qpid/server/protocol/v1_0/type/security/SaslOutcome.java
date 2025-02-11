@@ -1,4 +1,3 @@
-
 /*
 *
 * Licensed to the Apache Software Foundation (ASF) under one
@@ -20,9 +19,7 @@
 *
 */
 
-
 package org.apache.qpid.server.protocol.v1_0.type.security;
-
 
 import org.apache.qpid.server.protocol.v1_0.SASLEndpoint;
 import org.apache.qpid.server.protocol.v1_0.type.Binary;
@@ -30,7 +27,7 @@ import org.apache.qpid.server.protocol.v1_0.CompositeType;
 import org.apache.qpid.server.protocol.v1_0.CompositeTypeField;
 import org.apache.qpid.server.protocol.v1_0.type.SaslFrameBody;
 
-@CompositeType( symbolicDescriptor = "amqp:sasl-outcome:list", numericDescriptor = 0x0000000000000044L)
+@CompositeType(symbolicDescriptor = "amqp:sasl-outcome:list", numericDescriptor = 0x0000000000000044L)
 public class SaslOutcome implements SaslFrameBody
 {
     @CompositeTypeField(index = 0, mandatory = true)
@@ -39,12 +36,22 @@ public class SaslOutcome implements SaslFrameBody
     @CompositeTypeField(index = 1)
     private Binary _additionalData;
 
+    public SaslOutcome()
+    {
+
+    }
+
+    public SaslOutcome(SaslCode code)
+    {
+        _code = code;
+    }
+
     public SaslCode getCode()
     {
         return _code;
     }
 
-    public void setCode(SaslCode code)
+    public void setCode(final SaslCode code)
     {
         _code = code;
     }
@@ -54,7 +61,7 @@ public class SaslOutcome implements SaslFrameBody
         return _additionalData;
     }
 
-    public void setAdditionalData(Binary additionalData)
+    public void setAdditionalData(final Binary additionalData)
     {
         _additionalData = additionalData;
     }
@@ -62,15 +69,11 @@ public class SaslOutcome implements SaslFrameBody
     @Override
     public String toString()
     {
-        StringBuilder builder = new StringBuilder("SaslOutcome{");
+        final StringBuilder builder = new StringBuilder("SaslOutcome{");
         final int origLength = builder.length();
 
         if (_code != null)
         {
-            if (builder.length() != origLength)
-            {
-                builder.append(',');
-            }
             builder.append("code=").append(_code);
         }
 

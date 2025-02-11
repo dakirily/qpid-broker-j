@@ -19,37 +19,31 @@
 *
 */
 
-
 package org.apache.qpid.server.protocol.v1_0.type.transport;
-
 
 import org.apache.qpid.server.protocol.v1_0.type.ErrorCondition;
 import org.apache.qpid.server.protocol.v1_0.type.RestrictedType;
 import org.apache.qpid.server.protocol.v1_0.type.Symbol;
+import org.apache.qpid.server.protocol.v1_0.type.Symbols;
 
 public class ConnectionError implements ErrorCondition, RestrictedType<Symbol>
 {
-    public static final ConnectionError CONNECTION_FORCED =
-            new ConnectionError(Symbol.valueOf("amqp:connection:forced"));
-    public static final ConnectionError FRAMING_ERROR =
-            new ConnectionError(Symbol.valueOf("amqp:connection:framing-error"));
-    public static final ConnectionError REDIRECT = new ConnectionError(Symbol.valueOf("amqp:connection:redirect"));
-    public static final ConnectionError SOCKET_ERROR =
-            new ConnectionError(Symbol.valueOf("amqp:connection:socket-error"));
+    public static final ConnectionError CONNECTION_FORCED = new ConnectionError(Symbols.AMQP_CONN_FORCED);
+    public static final ConnectionError FRAMING_ERROR = new ConnectionError(Symbols.AMQP_CONN_FRAMING_ERROR);
+    public static final ConnectionError REDIRECT = new ConnectionError(Symbols.AMQP_CONN_REDIRECT);
+    public static final ConnectionError SOCKET_ERROR = new ConnectionError(Symbols.AMQP_CONN_SOCKET_ERROR);
 
     private final Symbol _val;
 
-
-    private ConnectionError(Symbol val)
+    private ConnectionError(final Symbol val)
     {
         _val = val;
     }
 
-    public static ConnectionError valueOf(Object obj)
+    public static ConnectionError valueOf(final Object obj)
     {
         if (obj instanceof final Symbol val)
         {
-
             if (CONNECTION_FORCED._val.equals(val))
             {
                 return CONNECTION_FORCED;
@@ -105,9 +99,6 @@ public class ConnectionError implements ErrorCondition, RestrictedType<Symbol>
             return "socket-error";
         }
 
-        else
-        {
-            return String.valueOf(_val);
-        }
+        return String.valueOf(_val);
     }
 }

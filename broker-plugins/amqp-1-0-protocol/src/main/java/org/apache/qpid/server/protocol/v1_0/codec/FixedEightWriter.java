@@ -27,13 +27,13 @@ public abstract class FixedEightWriter<T> implements ValueWriter<T>
 {
     private final long _value;
 
-    public FixedEightWriter(long value)
+    public FixedEightWriter(final long value)
     {
         _value = value;
     }
 
     @Override
-    public final void writeToBuffer(QpidByteBuffer buffer)
+    public final void writeToBuffer(final QpidByteBuffer buffer)
     {
         buffer.put(getFormatCode());
         buffer.putLong(_value);

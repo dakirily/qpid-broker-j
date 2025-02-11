@@ -28,7 +28,8 @@ public abstract class AbstractDescribedTypeConstructor<T> implements DescribedTy
     @Override
     public TypeConstructor<T> construct(final Object descriptor,
                                         final QpidByteBuffer in,
-                                        final int originalPosition, final ValueHandler valueHandler)
+                                        final int originalPosition,
+                                        final ValueHandler valueHandler)
             throws AmqpErrorException
     {
         return new TypeConstructorFromUnderlying<>(this, valueHandler.readConstructor(in));

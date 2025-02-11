@@ -19,9 +19,7 @@
 *
 */
 
-
 package org.apache.qpid.server.protocol.v1_0.type.transport;
-
 
 import org.apache.qpid.server.protocol.v1_0.ConnectionHandler;
 import org.apache.qpid.server.protocol.v1_0.CompositeType;
@@ -30,10 +28,9 @@ import org.apache.qpid.server.protocol.v1_0.type.DeliveryState;
 import org.apache.qpid.server.protocol.v1_0.type.FrameBody;
 import org.apache.qpid.server.protocol.v1_0.type.UnsignedInteger;
 
-@CompositeType( symbolicDescriptor = "amqp:disposition:list", numericDescriptor = 0x0000000000000015L)
+@CompositeType(symbolicDescriptor = "amqp:disposition:list", numericDescriptor = 0x0000000000000015L)
 public class Disposition implements FrameBody
 {
-
     @CompositeTypeField(index = 0, mandatory = true)
     private Role _role;
 
@@ -57,7 +54,7 @@ public class Disposition implements FrameBody
         return _role;
     }
 
-    public void setRole(Role role)
+    public void setRole(final Role role)
     {
         _role = role;
     }
@@ -67,7 +64,7 @@ public class Disposition implements FrameBody
         return _first;
     }
 
-    public void setFirst(UnsignedInteger first)
+    public void setFirst(final UnsignedInteger first)
     {
         _first = first;
     }
@@ -77,7 +74,7 @@ public class Disposition implements FrameBody
         return _last;
     }
 
-    public void setLast(UnsignedInteger last)
+    public void setLast(final UnsignedInteger last)
     {
         _last = last;
     }
@@ -87,7 +84,7 @@ public class Disposition implements FrameBody
         return _settled;
     }
 
-    public void setSettled(Boolean settled)
+    public void setSettled(final Boolean settled)
     {
         _settled = settled;
     }
@@ -97,7 +94,7 @@ public class Disposition implements FrameBody
         return _state;
     }
 
-    public void setState(DeliveryState state)
+    public void setState(final DeliveryState state)
     {
         _state = state;
     }
@@ -107,7 +104,7 @@ public class Disposition implements FrameBody
         return _batchable;
     }
 
-    public void setBatchable(Boolean batchable)
+    public void setBatchable(final Boolean batchable)
     {
         _batchable = batchable;
     }
@@ -115,15 +112,11 @@ public class Disposition implements FrameBody
     @Override
     public String toString()
     {
-        StringBuilder builder = new StringBuilder("Disposition{");
+        final StringBuilder builder = new StringBuilder("Disposition{");
         final int origLength = builder.length();
 
         if (_role != null)
         {
-            if (builder.length() != origLength)
-            {
-                builder.append(',');
-            }
             builder.append("role=").append(_role);
         }
 
@@ -177,7 +170,7 @@ public class Disposition implements FrameBody
     }
 
     @Override
-    public void invoke(int channel, ConnectionHandler conn)
+    public void invoke(final int channel, final ConnectionHandler conn)
     {
         conn.receiveDisposition(channel, this);
     }

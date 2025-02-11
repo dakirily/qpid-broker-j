@@ -35,16 +35,16 @@ public class BinaryWriter extends SimpleVariableWidthWriter<Binary>
     @Override
     protected byte getFourOctetEncodingCode()
     {
-        return (byte)0xb0;
+        return (byte) 0xb0;
     }
 
     @Override
     protected byte getSingleOctetEncodingCode()
     {
-        return (byte)0xa0;
+        return (byte) 0xa0;
     }
 
-    public static void register(Registry registry)
+    public static void register(final Registry registry)
     {
         registry.register(Binary.class, FACTORY);
     }

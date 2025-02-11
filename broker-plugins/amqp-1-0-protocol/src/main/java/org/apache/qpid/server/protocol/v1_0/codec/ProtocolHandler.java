@@ -24,8 +24,7 @@ import org.apache.qpid.server.bytebuffer.QpidByteBuffer;
 
 public interface ProtocolHandler
 {
-
-    ProtocolHandler parse(QpidByteBuffer in);
+    ProtocolHandler parse(final QpidByteBuffer in);
 
     boolean isDone();
 }

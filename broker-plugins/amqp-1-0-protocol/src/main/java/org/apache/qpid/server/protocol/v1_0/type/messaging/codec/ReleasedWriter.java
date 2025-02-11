@@ -38,7 +38,7 @@ public class ReleasedWriter extends AbstractDescribedTypeWriter<Released>
         super(DESCRIPTOR_WRITER, ListWriter.EMPTY_LIST_WRITER);
     }
 
-    public static void register(ValueWriter.Registry registry)
+    public static void register(final ValueWriter.Registry registry)
     {
         registry.register(Released.class, FACTORY);
     }

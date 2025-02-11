@@ -19,9 +19,7 @@
 *
 */
 
-
 package org.apache.qpid.server.protocol.v1_0.type.transport;
-
 
 import java.util.Arrays;
 import java.util.Map;
@@ -38,10 +36,9 @@ import org.apache.qpid.server.protocol.v1_0.type.Symbol;
 import org.apache.qpid.server.protocol.v1_0.type.UnsignedInteger;
 import org.apache.qpid.server.protocol.v1_0.type.UnsignedLong;
 
-@CompositeType( symbolicDescriptor = "amqp:attach:list", numericDescriptor = 0x0000000000000012L)
+@CompositeType(symbolicDescriptor = "amqp:attach:list", numericDescriptor = 0x0000000000000012L)
 public class Attach implements FrameBody
 {
-
     @CompositeTypeField(index = 0, mandatory = true)
     private String _name;
 
@@ -89,7 +86,7 @@ public class Attach implements FrameBody
         return _name;
     }
 
-    public void setName(String name)
+    public void setName(final String name)
     {
         _name = name;
     }
@@ -99,7 +96,7 @@ public class Attach implements FrameBody
         return _handle;
     }
 
-    public void setHandle(UnsignedInteger handle)
+    public void setHandle(final UnsignedInteger handle)
     {
         _handle = handle;
     }
@@ -109,7 +106,7 @@ public class Attach implements FrameBody
         return _role;
     }
 
-    public void setRole(Role role)
+    public void setRole(final Role role)
     {
         _role = role;
     }
@@ -119,7 +116,7 @@ public class Attach implements FrameBody
         return _sndSettleMode;
     }
 
-    public void setSndSettleMode(SenderSettleMode sndSettleMode)
+    public void setSndSettleMode(final SenderSettleMode sndSettleMode)
     {
         _sndSettleMode = sndSettleMode;
     }
@@ -129,7 +126,7 @@ public class Attach implements FrameBody
         return _rcvSettleMode;
     }
 
-    public void setRcvSettleMode(ReceiverSettleMode rcvSettleMode)
+    public void setRcvSettleMode(final ReceiverSettleMode rcvSettleMode)
     {
         _rcvSettleMode = rcvSettleMode;
     }
@@ -139,7 +136,7 @@ public class Attach implements FrameBody
         return _source;
     }
 
-    public void setSource(BaseSource source)
+    public void setSource(final BaseSource source)
     {
         _source = source;
     }
@@ -149,7 +146,7 @@ public class Attach implements FrameBody
         return _target;
     }
 
-    public void setTarget(BaseTarget target)
+    public void setTarget(final BaseTarget target)
     {
         _target = target;
     }
@@ -159,7 +156,7 @@ public class Attach implements FrameBody
         return _unsettled;
     }
 
-    public void setUnsettled(Map<Binary, DeliveryState> unsettled)
+    public void setUnsettled(final Map<Binary, DeliveryState> unsettled)
     {
         _unsettled = unsettled;
     }
@@ -169,7 +166,7 @@ public class Attach implements FrameBody
         return _incompleteUnsettled;
     }
 
-    public void setIncompleteUnsettled(Boolean incompleteUnsettled)
+    public void setIncompleteUnsettled(final Boolean incompleteUnsettled)
     {
         _incompleteUnsettled = incompleteUnsettled;
     }
@@ -179,7 +176,7 @@ public class Attach implements FrameBody
         return _initialDeliveryCount;
     }
 
-    public void setInitialDeliveryCount(UnsignedInteger initialDeliveryCount)
+    public void setInitialDeliveryCount(final UnsignedInteger initialDeliveryCount)
     {
         _initialDeliveryCount = initialDeliveryCount;
     }
@@ -189,7 +186,7 @@ public class Attach implements FrameBody
         return _maxMessageSize;
     }
 
-    public void setMaxMessageSize(UnsignedLong maxMessageSize)
+    public void setMaxMessageSize(final UnsignedLong maxMessageSize)
     {
         _maxMessageSize = maxMessageSize;
     }
@@ -199,7 +196,7 @@ public class Attach implements FrameBody
         return _offeredCapabilities;
     }
 
-    public void setOfferedCapabilities(Symbol[] offeredCapabilities)
+    public void setOfferedCapabilities(final Symbol[] offeredCapabilities)
     {
         _offeredCapabilities = offeredCapabilities;
     }
@@ -209,7 +206,7 @@ public class Attach implements FrameBody
         return _desiredCapabilities;
     }
 
-    public void setDesiredCapabilities(Symbol[] desiredCapabilities)
+    public void setDesiredCapabilities(final Symbol[] desiredCapabilities)
     {
         _desiredCapabilities = desiredCapabilities;
     }
@@ -219,7 +216,7 @@ public class Attach implements FrameBody
         return _properties;
     }
 
-    public void setProperties(Map<Symbol, Object> properties)
+    public void setProperties(final Map<Symbol, Object> properties)
     {
         _properties = properties;
     }
@@ -227,15 +224,11 @@ public class Attach implements FrameBody
     @Override
     public String toString()
     {
-        StringBuilder builder = new StringBuilder("Attach{");
+        final StringBuilder builder = new StringBuilder("Attach{");
         final int origLength = builder.length();
 
         if (_name != null)
         {
-            if (builder.length() != origLength)
-            {
-                builder.append(',');
-            }
             builder.append("name=").append(_name);
         }
 
@@ -361,7 +354,7 @@ public class Attach implements FrameBody
     }
 
     @Override
-    public void invoke(int channel, ConnectionHandler conn)
+    public void invoke(final int channel, final ConnectionHandler conn)
     {
         conn.receiveAttach(channel, this);
     }

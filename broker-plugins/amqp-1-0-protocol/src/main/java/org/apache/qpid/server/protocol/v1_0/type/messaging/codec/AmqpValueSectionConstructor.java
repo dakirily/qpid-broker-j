@@ -20,7 +20,6 @@
 *
 */
 
-
 package org.apache.qpid.server.protocol.v1_0.type.messaging.codec;
 
 import org.apache.qpid.server.bytebuffer.QpidByteBuffer;
@@ -29,40 +28,36 @@ import org.apache.qpid.server.protocol.v1_0.codec.DescribedTypeConstructorRegist
 import org.apache.qpid.server.protocol.v1_0.codec.TypeConstructor;
 import org.apache.qpid.server.protocol.v1_0.codec.ValueHandler;
 import org.apache.qpid.server.protocol.v1_0.type.AmqpErrorException;
-import org.apache.qpid.server.protocol.v1_0.type.Symbol;
+import org.apache.qpid.server.protocol.v1_0.type.Symbols;
 import org.apache.qpid.server.protocol.v1_0.type.UnsignedLong;
 import org.apache.qpid.server.protocol.v1_0.type.messaging.AmqpValueSection;
-import org.apache.qpid.server.protocol.v1_0.type.transport.AmqpError;
 
 public class AmqpValueSectionConstructor implements DescribedTypeConstructor<AmqpValueSection>
 {
-
     private static final Object[] DESCRIPTORS =
-            {
-                    Symbol.valueOf("amqp:amqp-value:*"),UnsignedLong.valueOf(0x0000000000000077L),
-            };
+    {
+            Symbols.AMQP_VALUE, UnsignedLong.valueOf(0x0000000000000077L),
+    };
 
     private static final AmqpValueSectionConstructor INSTANCE = new AmqpValueSectionConstructor();
 
-    public static void register(DescribedTypeConstructorRegistry registry)
+    public static void register(final DescribedTypeConstructorRegistry registry)
     {
-        for(Object descriptor : DESCRIPTORS)
+        for (final Object descriptor : DESCRIPTORS)
         {
             registry.register(descriptor, INSTANCE);
         }
     }
 
-
     @Override
     public TypeConstructor<AmqpValueSection> construct(final Object descriptor,
-                                                        final QpidByteBuffer in,
-                                                        final int originalPosition,
-                                                        final ValueHandler valueHandler)
+                                                       final QpidByteBuffer in,
+                                                       final int originalPosition,
+                                                       final ValueHandler valueHandler)
             throws AmqpErrorException
     {
         return new LazyConstructor(originalPosition);
     }
-
 
     private static class LazyConstructor extends AbstractLazyConstructor<AmqpValueSection>
     {
@@ -82,8 +77,9 @@ public class AmqpValueSectionConstructor implements DescribedTypeConstructor<Amq
         {
             if (!in.hasRemaining())
             {
-                throw new AmqpErrorException(AmqpError.DECODE_ERROR, "Insufficient data to decode AMQP value section.");
+                throw AmqpErrorException.decode().message("Insufficient data to decode AMQP value section.").build();
             }
+
             byte formatCode = in.get();
 
             if (formatCode == ValueHandler.DESCRIBED_TYPE)
@@ -96,58 +92,38 @@ public class AmqpValueSectionConstructor implements DescribedTypeConstructor<Amq
             {
                 final int skipLength;
                 int category = (formatCode >> 4) & 0x0F;
-                switch (category)
+                skipLength = switch (category)
                 {
-                    case 0x04:
-                        skipLength = 0;
-                        break;
-                    case 0x05:
-                        skipLength = 1;
-                        break;
-                    case 0x06:
-                        skipLength = 2;
-                        break;
-                    case 0x07:
-                        skipLength = 4;
-                        break;
-                    case 0x08:
-                        skipLength = 8;
-                        break;
-                    case 0x09:
-                        skipLength = 16;
-                        break;
-                    case 0x0a:
-                    case 0x0c:
-                    case 0x0e:
+                    case 0x04 -> 0;
+                    case 0x05 -> 1;
+                    case 0x06 -> 2;
+                    case 0x07 -> 4;
+                    case 0x08 -> 8;
+                    case 0x09 -> 16;
+                    case 0x0a, 0x0c, 0x0e ->
+                    {
                         if (!in.hasRemaining())
                         {
-                            throw new AmqpErrorException(AmqpError.DECODE_ERROR,
-                                                         "Insufficient data to decode AMQP value section.");
+                            throw AmqpErrorException.decode().message("Insufficient data to decode AMQP value section.").build();
                         }
-                        skipLength = in.getUnsignedByte();
-                        break;
-                    case 0x0b:
-                    case 0x0d:
-                    case 0x0f:
+                        yield in.getUnsignedByte();
+                    }
+                    case 0x0b, 0x0d, 0x0f ->
+                    {
                         if (!in.hasRemaining(4))
                         {
-                            throw new AmqpErrorException(AmqpError.DECODE_ERROR,
-                                                         "Insufficient data to decode AMQP value section.");
+                            throw AmqpErrorException.decode().message("Insufficient data to decode AMQP value section.").build();
                         }
-                        skipLength = in.getInt();
-                        break;
-                    default:
-                        throw new AmqpErrorException(AmqpError.DECODE_ERROR, "Unknown type");
-                }
+                        yield in.getInt();
+                    }
+                    default -> throw AmqpErrorException.decode().message("Unknown type").build();
+                };
                 if (!in.hasRemaining(skipLength))
                 {
-                    throw new AmqpErrorException(AmqpError.DECODE_ERROR,
-                                                 "Insufficient data to decode AMQP value section.");
+                    throw AmqpErrorException.decode().message("Insufficient data to decode AMQP value section.").build();
                 }
                 in.position(in.position() + skipLength);
             }
         }
-
     }
-
 }

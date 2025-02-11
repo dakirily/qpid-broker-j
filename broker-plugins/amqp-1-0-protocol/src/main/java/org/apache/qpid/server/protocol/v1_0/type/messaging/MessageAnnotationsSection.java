@@ -28,7 +28,7 @@ import org.apache.qpid.server.protocol.v1_0.codec.DescribedTypeConstructor;
 import org.apache.qpid.server.protocol.v1_0.type.Symbol;
 import org.apache.qpid.server.protocol.v1_0.type.messaging.codec.MessageAnnotationsConstructor;
 
-public class MessageAnnotationsSection extends AbstractSection<Map<Symbol,Object>, MessageAnnotations>
+public class MessageAnnotationsSection extends AbstractSection<Map<Symbol, Object>, MessageAnnotations>
 {
     public MessageAnnotationsSection(final QpidByteBuffer encodedForm)
     {
@@ -56,5 +56,4 @@ public class MessageAnnotationsSection extends AbstractSection<Map<Symbol,Object
     {
         return new MessageAnnotationsConstructor();
     }
-
 }

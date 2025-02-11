@@ -18,6 +18,7 @@
  * under the License.
  *
  */
+
 package org.apache.qpid.server.protocol.v1_0.type.messaging;
 
 import org.apache.qpid.server.protocol.v1_0.type.Section;

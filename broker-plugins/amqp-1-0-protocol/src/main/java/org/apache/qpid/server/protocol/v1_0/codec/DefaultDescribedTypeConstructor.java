@@ -34,5 +34,4 @@ public class DefaultDescribedTypeConstructor extends AbstractDescribedTypeConstr
     {
         return new DescribedType(_descriptor, underlying);
     }
-
 }

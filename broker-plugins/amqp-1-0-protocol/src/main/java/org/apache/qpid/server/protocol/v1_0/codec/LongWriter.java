@@ -24,8 +24,6 @@ package org.apache.qpid.server.protocol.v1_0.codec;
 public class LongWriter
 {
     private static final byte EIGHT_BYTE_FORMAT_CODE = (byte) 0x81;
-
-
     private static final byte ONE_BYTE_FORMAT_CODE = (byte) 0x55;
 
     private static final ValueWriter.Factory<Long> FACTORY = (registry, l) ->
@@ -40,7 +38,7 @@ public class LongWriter
         }
     };
 
-    public static void register(ValueWriter.Registry registry)
+    public static void register(final ValueWriter.Registry registry)
     {
         registry.register(Long.class, FACTORY);
     }

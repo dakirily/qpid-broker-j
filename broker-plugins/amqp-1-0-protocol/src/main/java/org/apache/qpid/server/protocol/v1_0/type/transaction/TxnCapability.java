@@ -1,4 +1,3 @@
-
 /*
 *
 * Licensed to the Apache Software Foundation (ASF) under one
@@ -20,30 +19,27 @@
 *
 */
 
-
 package org.apache.qpid.server.protocol.v1_0.type.transaction;
-
 
 import org.apache.qpid.server.protocol.v1_0.type.RestrictedType;
 import org.apache.qpid.server.protocol.v1_0.type.Symbol;
+import org.apache.qpid.server.protocol.v1_0.type.Symbols;
 
 public class TxnCapability implements org.apache.qpid.server.protocol.v1_0.type.TxnCapability, RestrictedType<Symbol>
 {
     private final Symbol _val;
 
-    public static final TxnCapability LOCAL_TXN = new TxnCapability(Symbol.valueOf("amqp:local-transactions"));
+    public static final TxnCapability LOCAL_TXN = new TxnCapability(Symbols.AMQP_LOCAL_TXN);
 
-    public static final TxnCapability DISTRIBUTED_TXN =
-            new TxnCapability(Symbol.valueOf("amqp:distributed-transactions"));
+    public static final TxnCapability DISTRIBUTED_TXN = new TxnCapability(Symbols.AMQP_DISTRIBUTED_TXN);
 
-    public static final TxnCapability PROMOTABLE_TXN =
-            new TxnCapability(Symbol.valueOf("amqp:promotable-transactions"));
+    public static final TxnCapability PROMOTABLE_TXN = new TxnCapability(Symbols.AMQP_PROMOTABLE_TXN);
 
-    public static final TxnCapability MULTI_TXNS_PER_SSN = new TxnCapability(Symbol.valueOf("amqp:multi-txns-per-ssn"));
+    public static final TxnCapability MULTI_TXNS_PER_SSN = new TxnCapability(Symbols.AMQP_MULTI_TXN_PER_SESSION);
 
-    public static final TxnCapability MULTI_SSNS_PER_TXN = new TxnCapability(Symbol.valueOf("amqp:multi-ssns-per-txn"));
+    public static final TxnCapability MULTI_SSNS_PER_TXN = new TxnCapability(Symbols.AMQP_MULTI_SESSIONS_PER_TXN);
 
-    private TxnCapability(Symbol val)
+    private TxnCapability(final Symbol val)
     {
         _val = val;
     }
@@ -57,7 +53,6 @@ public class TxnCapability implements org.apache.qpid.server.protocol.v1_0.type.
     @Override
     public String toString()
     {
-
         if (this == LOCAL_TXN)
         {
             return "local-txn";
@@ -83,17 +78,13 @@ public class TxnCapability implements org.apache.qpid.server.protocol.v1_0.type.
             return "multi-ssns-per-txn";
         }
 
-        else
-        {
-            return String.valueOf(_val);
-        }
+        return String.valueOf(_val);
     }
 
-    public static TxnCapability valueOf(Object obj)
+    public static TxnCapability valueOf(final Object obj)
     {
         if (obj instanceof final Symbol val)
         {
-
             if (LOCAL_TXN._val.equals(val))
             {
                 return LOCAL_TXN;
