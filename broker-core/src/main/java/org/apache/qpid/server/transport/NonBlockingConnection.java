@@ -58,6 +58,8 @@ public class NonBlockingConnection implements ServerNetworkConnection, ByteBuffe
     private final AtomicBoolean _closed = new AtomicBoolean(false);
     private final ProtocolEngine _protocolEngine;
     private final Runnable _onTransportEncryptionAction;
+    private final int _finalWriteThreshold;
+    private final long _finalWriteTimeout;
 
     private volatile boolean _fullyWritten = true;
 
@@ -110,7 +112,8 @@ public class NonBlockingConnection implements ServerNetworkConnection, ByteBuffe
         {
             _delegate = new NonBlockingConnectionUndecidedDelegate(this);
         }
-
+        _finalWriteThreshold = port.getContextValue(Integer.class, AmqpPort.FINAL_WRITE_THRESHOLD);
+        _finalWriteTimeout = port.getContextValue(Long.class, AmqpPort.FINAL_WRITE_TIMEOUT);
     }
 
     String getThreadName()
@@ -414,8 +417,17 @@ public class NonBlockingConnection implements ServerNetworkConnection, ByteBuffe
     {
         try
         {
-            while(!doWrite())
+            final long startTime = System.currentTimeMillis();
+            int cnt = 0;
+            while (!doWrite())
             {
+                if (0 == cnt % _finalWriteThreshold && System.currentTimeMillis() - startTime > _finalWriteTimeout)
+                {
+                    final String msg = "Failed to perform final write to connection after " + _finalWriteTimeout +
+                            " ms timeout";
+                    throw new IOException(msg);
+                }
+                cnt ++;
             }
         }
         catch (IOException e)
