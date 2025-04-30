@@ -30,8 +30,12 @@ import static org.mockito.Mockito.when;
 import java.util.Map;
 import java.util.UUID;
 
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 
 import org.apache.qpid.server.bytebuffer.QpidByteBuffer;
 import org.apache.qpid.server.model.NamedAddressSpace;
@@ -49,18 +53,13 @@ import org.apache.qpid.server.protocol.v0_8.transport.MessagePublishInfo;
 import org.apache.qpid.server.store.StoredMessage;
 import org.apache.qpid.test.utils.UnitTestBase;
 
-@SuppressWarnings("unchecked")
+@ExtendWith({MockitoExtension.class})
+@MockitoSettings(strictness = Strictness.LENIENT)
 class PropertyConverter_0_8_to_0_10Test extends UnitTestBase
 {
+    @Mock
     private NamedAddressSpace _namedAddressSpace;
-    private MessageConverter_0_8_to_0_10 _messageConverter;
-
-    @BeforeAll
-    void setUp()
-    {
-        _namedAddressSpace = mock(NamedAddressSpace.class);
-        _messageConverter = new MessageConverter_0_8_to_0_10();
-    }
+    private MessageConverter_0_8_to_0_10 _messageConverter = new MessageConverter_0_8_to_0_10();
 
     @Test
     void contentTypeConversion()

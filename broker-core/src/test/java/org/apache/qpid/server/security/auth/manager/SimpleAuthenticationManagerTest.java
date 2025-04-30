@@ -18,6 +18,7 @@
  * under the License.
  *
  */
+
 package org.apache.qpid.server.security.auth.manager;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -33,9 +34,12 @@ import java.util.Set;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 import org.apache.qpid.server.model.AuthenticationProvider;
-import org.apache.qpid.server.model.BrokerTestHelper;
+import org.apache.qpid.server.model.Broker;
+import org.apache.qpid.server.model.BrokerProviderExtension;
+import org.apache.qpid.server.model.ProvidedMock;
 import org.apache.qpid.server.security.auth.AuthenticationResult;
 import org.apache.qpid.server.security.auth.AuthenticationResult.AuthenticationStatus;
 import org.apache.qpid.server.security.auth.sasl.SaslNegotiator;
@@ -43,10 +47,14 @@ import org.apache.qpid.server.security.auth.sasl.SaslSettings;
 import org.apache.qpid.server.security.auth.sasl.SaslUtil;
 import org.apache.qpid.test.utils.UnitTestBase;
 
+@ExtendWith(BrokerProviderExtension.class)
 public class SimpleAuthenticationManagerTest extends UnitTestBase
 {
     private static final String TEST_USER = "testUser";
     private static final String TEST_PASSWORD = "testPassword";
+
+    @ProvidedMock
+    private Broker<?> _broker;
 
     private SimpleAuthenticationManager _authenticationManager;
 
@@ -55,8 +63,7 @@ public class SimpleAuthenticationManagerTest extends UnitTestBase
     {
         final Map<String,Object> authManagerAttrs = Map.of(AuthenticationProvider.NAME,"MANAGEMENT_MODE_AUTHENTICATION",
                 AuthenticationProvider.ID, randomUUID());
-        final SimpleAuthenticationManager authManager = new SimpleAuthenticationManager(authManagerAttrs,
-                BrokerTestHelper.createBrokerMock());
+        final SimpleAuthenticationManager authManager = new SimpleAuthenticationManager(authManagerAttrs, _broker);
         authManager.addUser(TEST_USER, TEST_PASSWORD);
         _authenticationManager = authManager;
     }

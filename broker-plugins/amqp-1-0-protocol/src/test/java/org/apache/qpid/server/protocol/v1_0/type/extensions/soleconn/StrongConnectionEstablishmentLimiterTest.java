@@ -35,7 +35,7 @@ import org.apache.qpid.server.security.limit.ConnectionSlot;
 import org.apache.qpid.server.transport.AMQPConnection;
 import org.apache.qpid.test.utils.UnitTestBase;
 
-import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import org.mockito.Mockito;
@@ -46,7 +46,7 @@ class StrongConnectionEstablishmentLimiterTest extends UnitTestBase
 
     private Registry _registry;
 
-    @BeforeAll
+    @BeforeEach
     void setUp()
     {
         _registry = new Registry();

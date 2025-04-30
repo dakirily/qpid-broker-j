@@ -27,7 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.doReturn;
 
 import java.io.File;
 import java.net.InetSocketAddress;
@@ -52,13 +52,17 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import org.apache.qpid.server.configuration.IllegalConfigurationException;
 import org.apache.qpid.server.model.AbstractConfigurationChangeListener;
+import org.apache.qpid.server.model.Broker;
+import org.apache.qpid.server.model.BrokerProviderExtension;
 import org.apache.qpid.server.model.ConfigurationChangeListener;
 import org.apache.qpid.server.model.ConfiguredObject;
+import org.apache.qpid.server.model.ProvidedMock;
 import org.apache.qpid.server.model.RemoteReplicationNode;
 import org.apache.qpid.server.model.State;
 import org.apache.qpid.server.model.VirtualHost;
@@ -74,46 +78,41 @@ import org.apache.qpid.server.virtualhostnode.berkeleydb.BDBHARemoteReplicationN
 import org.apache.qpid.server.virtualhostnode.berkeleydb.BDBHAVirtualHostNode;
 import org.apache.qpid.server.virtualhostnode.berkeleydb.BDBHAVirtualHostNodeTestHelper;
 import org.apache.qpid.server.virtualhostnode.berkeleydb.NodeRole;
-import org.apache.qpid.test.utils.PortHelper;
 import org.apache.qpid.test.utils.TestFileUtils;
 import org.apache.qpid.test.utils.UnitTestBase;
 import org.apache.qpid.test.utils.VirtualHostNodeStoreType;
 
+@ExtendWith(BrokerProviderExtension.class)
 public class BDBHAVirtualHostNodeTest extends UnitTestBase
 {
     private final static Logger LOGGER = LoggerFactory.getLogger(BDBHAVirtualHostNodeTest.class);
 
+    @ProvidedMock
+    private Broker<?> _broker;
+
     private BDBHAVirtualHostNodeTestHelper _helper;
-    private final PortHelper _portHelper = new PortHelper();
 
     @BeforeEach
     public void setUp() throws Exception
     {
         assumeTrue(VirtualHostNodeStoreType.BDB.equals(getVirtualHostNodeStoreType()),
                 "VirtualHostNodeStoreType should be BDB");
-        _helper = new BDBHAVirtualHostNodeTestHelper(getTestName());
+        _helper = new BDBHAVirtualHostNodeTestHelper(_broker, getTestName());
     }
 
     @AfterEach
     public void tearDown() throws Exception
     {
-        try
+        if (_helper != null)
         {
-            if (_helper != null)
-            {
-                _helper.tearDown();
-            }
-        }
-        finally
-        {
-            _portHelper.waitUntilAllocatedPortsAreFree();
+            _helper.tearDown();
         }
     }
 
     @Test
     public void testCreateAndActivateVirtualHostNode() throws Exception
     {
-        int node1PortNumber = _portHelper.getNextAvailable();
+        int node1PortNumber = findFreePort();
         String helperAddress = "localhost:" + node1PortNumber;
         String groupName = "group";
         String nodeName = "node1";
@@ -178,7 +177,7 @@ public class BDBHAVirtualHostNodeTest extends UnitTestBase
     @Test
     public void testMutableAttributes() throws Exception
     {
-        int node1PortNumber = _portHelper.getNextAvailable();
+        int node1PortNumber = findFreePort();
         String helperAddress = "localhost:" + node1PortNumber;
         String groupName = "group";
         String nodeName = "node1";
@@ -210,9 +209,9 @@ public class BDBHAVirtualHostNodeTest extends UnitTestBase
     @Test
     public void testMutableAttributesAfterMajorityLost() throws Exception
     {
-        int node1PortNumber = _portHelper.getNextAvailable();
-        int node2PortNumber = _portHelper.getNextAvailable();
-        int node3PortNumber = _portHelper.getNextAvailable();
+        int node1PortNumber = findFreePort();
+        int node2PortNumber = findFreePort();
+        int node3PortNumber = findFreePort();
 
         String helperAddress = "localhost:" + node1PortNumber;
         String groupName = "group";
@@ -254,9 +253,9 @@ public class BDBHAVirtualHostNodeTest extends UnitTestBase
     @Test
     public void testTransferMasterToSelf() throws Exception
     {
-        int node1PortNumber = _portHelper.getNextAvailable();
-        int node2PortNumber = _portHelper.getNextAvailable();
-        int node3PortNumber = _portHelper.getNextAvailable();
+        int node1PortNumber = findFreePort();
+        int node2PortNumber = findFreePort();
+        int node3PortNumber = findFreePort();
 
         String helperAddress = "localhost:" + node1PortNumber;
         String groupName = "group";
@@ -281,9 +280,9 @@ public class BDBHAVirtualHostNodeTest extends UnitTestBase
     @Test
     public void testTransferMasterToRemoteReplica() throws Exception
     {
-        int node1PortNumber = _portHelper.getNextAvailable();
-        int node2PortNumber = _portHelper.getNextAvailable();
-        int node3PortNumber = _portHelper.getNextAvailable();
+        int node1PortNumber = findFreePort();
+        int node2PortNumber = findFreePort();
+        int node3PortNumber = findFreePort();
 
         String helperAddress = "localhost:" + node1PortNumber;
         String groupName = "group";
@@ -329,7 +328,7 @@ public class BDBHAVirtualHostNodeTest extends UnitTestBase
     @Test
     public void testMutatingRoleWhenNotReplica_IsDisallowed() throws Exception
     {
-        int nodePortNumber = _portHelper.getNextAvailable();
+        int nodePortNumber = findFreePort();
         String helperAddress = "localhost:" + nodePortNumber;
         String groupName = "group";
         String nodeName = "node1";
@@ -353,25 +352,25 @@ public class BDBHAVirtualHostNodeTest extends UnitTestBase
     @Test
     public void testRemoveReplicaNode() throws Exception
     {
-        int node1PortNumber = _portHelper.getNextAvailable();
-        int node2PortNumber = _portHelper.getNextAvailable();
-        int node3PortNumber = _portHelper.getNextAvailable();
+        int node1PortNumber = findFreePort();
+        int node2PortNumber = findFreePort();
+        int node3PortNumber = findFreePort();
 
         String helperAddress = "localhost:" + node1PortNumber;
         String groupName = "group";
         String nodeName = "node1";
 
-        assertTrue(_portHelper.isPortAvailable(node1PortNumber));
+        assertTrue(isPortAvailable(node1PortNumber));
 
         Map<String, Object> node1Attributes = _helper.createNodeAttributes(nodeName, groupName, helperAddress, helperAddress, nodeName, node1PortNumber, node2PortNumber, node3PortNumber);
         _helper.createAndStartHaVHN(node1Attributes);
 
-        assertTrue(_portHelper.isPortAvailable(node2PortNumber));
+        assertTrue(isPortAvailable(node2PortNumber));
 
         Map<String, Object> node2Attributes = _helper.createNodeAttributes("node2", groupName, "localhost:" + node2PortNumber, helperAddress, nodeName);
         _helper.createAndStartHaVHN(node2Attributes);
 
-        assertTrue(_portHelper.isPortAvailable(node3PortNumber));
+        assertTrue(isPortAvailable(node3PortNumber));
 
         Map<String, Object> node3Attributes = _helper.createNodeAttributes("node3", groupName, "localhost:" + node3PortNumber, helperAddress, nodeName);
         _helper.createAndStartHaVHN(node3Attributes);
@@ -397,7 +396,7 @@ public class BDBHAVirtualHostNodeTest extends UnitTestBase
     @Test
     public void testSetSynchronizationPolicyAttributesOnVirtualHost() throws Exception
     {
-        int node1PortNumber = _portHelper.getNextAvailable();
+        int node1PortNumber = findFreePort();
         String helperAddress = "localhost:" + node1PortNumber;
         String groupName = "group";
         String nodeName = "node1";
@@ -459,9 +458,9 @@ public class BDBHAVirtualHostNodeTest extends UnitTestBase
     @Test
     public void testNotPermittedNodeIsNotAllowedToConnect() throws Exception
     {
-        int node1PortNumber = _portHelper.getNextAvailable();
-        int node2PortNumber = _portHelper.getNextAvailable();
-        int node3PortNumber = _portHelper.getNextAvailable();
+        int node1PortNumber = findFreePort();
+        int node2PortNumber = findFreePort();
+        int node3PortNumber = findFreePort();
 
         String helperAddress = "localhost:" + node1PortNumber;
         String groupName = "group";
@@ -490,9 +489,9 @@ public class BDBHAVirtualHostNodeTest extends UnitTestBase
     @Test
     public void testCurrentNodeCannotBeRemovedFromPermittedNodeList() throws Exception
     {
-        int node1PortNumber = _portHelper.getNextAvailable();
-        int node2PortNumber = _portHelper.getNextAvailable();
-        int node3PortNumber = _portHelper.getNextAvailable();
+        int node1PortNumber = findFreePort();
+        int node2PortNumber = findFreePort();
+        int node3PortNumber = findFreePort();
 
         String node1Address = "localhost:" + node1PortNumber;
         String node2Address = "localhost:" + node2PortNumber;
@@ -534,11 +533,11 @@ public class BDBHAVirtualHostNodeTest extends UnitTestBase
     @Test
     public void testPermittedNodesAttributeModificationConditions() throws Exception
     {
-        int node1PortNumber = _portHelper.getNextAvailable();
-        int node2PortNumber = _portHelper.getNextAvailable();
-        int node3PortNumber = _portHelper.getNextAvailable();
-        int node4PortNumber = _portHelper.getNextAvailable();
-        int node5PortNumber = _portHelper.getNextAvailable();
+        int node1PortNumber = findFreePort();
+        int node2PortNumber = findFreePort();
+        int node3PortNumber = findFreePort();
+        int node4PortNumber = findFreePort();
+        int node5PortNumber = findFreePort();
 
         String node1Address = "localhost:" + node1PortNumber;
         String node2Address = "localhost:" + node2PortNumber;
@@ -594,8 +593,8 @@ public class BDBHAVirtualHostNodeTest extends UnitTestBase
     @Test
     public void testNodeCannotStartWithIntruder() throws Exception
     {
-        int nodePortNumber = _portHelper.getNextAvailable();
-        int intruderPortNumber = _portHelper.getNextAvailable();
+        int nodePortNumber = findFreePort();
+        int intruderPortNumber = findFreePort();
 
         String helperAddress = "localhost:" + nodePortNumber;
         String groupName = "group";
@@ -671,8 +670,8 @@ public class BDBHAVirtualHostNodeTest extends UnitTestBase
     @Test
     public void testIntruderProtectionInManagementMode() throws Exception
     {
-        int nodePortNumber = _portHelper.getNextAvailable();
-        int intruderPortNumber = _portHelper.getNextAvailable();
+        int nodePortNumber = findFreePort();
+        int intruderPortNumber = findFreePort();
 
         String helperAddress = "localhost:" + nodePortNumber;
         String groupName = "group";
@@ -710,7 +709,7 @@ public class BDBHAVirtualHostNodeTest extends UnitTestBase
                 "Intruder protection was not triggered during expected timeout");
 
         LOGGER.debug("Master node transited into ERRORED state due to intruder protection");
-        when(_helper.getBroker().isManagementMode()).thenReturn(true);
+        doReturn(true).when(_helper.getBroker()).isManagementMode();
 
         LOGGER.debug("Starting node in management mode");
 
@@ -750,8 +749,8 @@ public class BDBHAVirtualHostNodeTest extends UnitTestBase
     @Test
     public void testPermittedNodesChangedOnReplicaNodeOnlyOnceAfterBeingChangedOnMaster() throws Exception
     {
-        int node1PortNumber = _portHelper.getNextAvailable();
-        int node2PortNumber = _portHelper.getNextAvailable();
+        int node1PortNumber = findFreePort();
+        int node2PortNumber = findFreePort();
 
         String helperAddress = "localhost:" + node1PortNumber;
         String groupName = "group";
@@ -819,8 +818,8 @@ public class BDBHAVirtualHostNodeTest extends UnitTestBase
     @Test
     public void testIntruderConnected() throws Exception
     {
-        int node1PortNumber = _portHelper.getNextAvailable();
-        int node2PortNumber = _portHelper.getNextAvailable();
+        int node1PortNumber = findFreePort();
+        int node2PortNumber = findFreePort();
 
         String helperAddress = "localhost:" + node1PortNumber;
         String groupName = "group";

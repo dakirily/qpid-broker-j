@@ -17,6 +17,7 @@
  * under the License.
  *
  */
+
 package org.apache.qpid.server.security.auth.manager;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -30,21 +31,27 @@ import java.util.Map;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 import org.apache.qpid.server.model.AuthenticationProvider;
 import org.apache.qpid.server.model.Broker;
-import org.apache.qpid.server.model.BrokerModel;
-import org.apache.qpid.server.model.BrokerTestHelper;
+import org.apache.qpid.server.model.BrokerProviderExtension;
 import org.apache.qpid.server.model.ConfiguredObjectFactory;
+import org.apache.qpid.server.model.ProvidedMock;
 import org.apache.qpid.server.security.auth.database.PlainPasswordFilePrincipalDatabase;
 import org.apache.qpid.test.utils.UnitTestBase;
 
+@ExtendWith(BrokerProviderExtension.class)
 public class PlainPasswordFileAuthenticationManagerFactoryTest extends UnitTestBase
 {
-    private final ConfiguredObjectFactory _factory = BrokerModel.getInstance().getObjectFactory();
     private final Map<String, Object> _configuration = new HashMap<>();
     private File _emptyPasswordFile;
-    private final Broker<?> _broker = BrokerTestHelper.createBrokerMock();
+
+    @ProvidedMock
+    private Broker<?> _broker;
+
+    @ProvidedMock
+    private ConfiguredObjectFactory _factory;
 
     @BeforeEach
     public void setUp() throws Exception

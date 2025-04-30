@@ -252,4 +252,9 @@ public class EmbeddedLDAPServer
         _ldapServer.stop();
         _directoryService.shutdown();
     }
+
+    public int getPort()
+    {
+        return _port;
+    }
 }

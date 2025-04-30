@@ -99,14 +99,12 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import org.junit.jupiter.api.io.TempDir;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import org.apache.qpid.server.store.berkeleydb.EnvironmentFacade;
 import org.apache.qpid.server.util.ConnectionScopedRuntimeException;
-import org.apache.qpid.server.util.FileUtils;
-import org.apache.qpid.test.utils.PortHelper;
-import org.apache.qpid.test.utils.TestFileUtils;
 import org.apache.qpid.test.utils.UnitTestBase;
 import org.apache.qpid.test.utils.VirtualHostNodeStoreType;
 
@@ -114,18 +112,18 @@ public class ReplicatedEnvironmentFacadeTest extends UnitTestBase
 {
     private static final Logger LOGGER = LoggerFactory.getLogger(ReplicatedEnvironmentFacadeTest.class);
 
-    private final PortHelper _portHelper = new PortHelper();
     private final String TEST_GROUP_NAME = "testGroupName";
     private final String TEST_NODE_NAME = "testNodeName";
-    private final int TEST_NODE_PORT = _portHelper.getNextAvailable();
-    private final String TEST_NODE_HOST_PORT = "localhost:" + TEST_NODE_PORT;
-    private final String TEST_NODE_HELPER_HOST_PORT = TEST_NODE_HOST_PORT;
     private final Durability TEST_DURABILITY = Durability.parse("SYNC,NO_SYNC,SIMPLE_MAJORITY");
     private final boolean TEST_DESIGNATED_PRIMARY = false;
     private final int TEST_PRIORITY = 1;
     private final int TEST_ELECTABLE_GROUP_OVERRIDE = 0;
 
+    private int TEST_NODE_PORT;
+    private String TEST_NODE_HOST_PORT;
+    private String TEST_NODE_HELPER_HOST_PORT;
     private int _timeout = 30;
+    @TempDir
     private File _storePath;
     private Map<String, ReplicatedEnvironmentFacade> _nodes;
     private Thread.UncaughtExceptionHandler _defaultUncaughtExceptionHandler;
@@ -138,16 +136,19 @@ public class ReplicatedEnvironmentFacadeTest extends UnitTestBase
                 "VirtualHostNodeStoreType should be BDB");
         _timeout = Integer.getInteger("ReplicatedEnvironmentFacadeTest.timeout", 30);
 
+        TEST_NODE_PORT = findFreePort();
+        TEST_NODE_HOST_PORT = "localhost:" + TEST_NODE_PORT;
+        TEST_NODE_HELPER_HOST_PORT = TEST_NODE_HOST_PORT;
+
         _nodes = new HashMap<>();
         _unhandledExceptions = new CopyOnWriteArrayList<>();
 
         _defaultUncaughtExceptionHandler = Thread.getDefaultUncaughtExceptionHandler();
         Thread.setDefaultUncaughtExceptionHandler((t, e) ->
-                                                  {
-                                                      LOGGER.error("Unhandled exception in thread " + t, e);
-                                                      _unhandledExceptions.add(e);
-                                                  });
-        _storePath = TestFileUtils.createTestDirectory("bdb", true);
+        {
+            LOGGER.error("Unhandled exception in thread " + t, e);
+            _unhandledExceptions.add(e);
+        });
 
         setTestSystemProperty(DB_PING_SOCKET_TIMEOUT_PROPERTY_NAME, "100");
     }
@@ -172,23 +173,11 @@ public class ReplicatedEnvironmentFacadeTest extends UnitTestBase
                 Thread.setDefaultUncaughtExceptionHandler(_defaultUncaughtExceptionHandler);
             }
 
-            try
+            if (_unhandledExceptions != null && !_unhandledExceptions.isEmpty())
             {
-                if (_storePath != null)
-                {
-                    FileUtils.delete(_storePath, true);
-                }
-            }
-            finally
-            {
-                if (_unhandledExceptions != null && !_unhandledExceptions.isEmpty())
-                {
-                    fail("Unhandled exception(s) detected:" + _unhandledExceptions);
-                }
+                fail("Unhandled exception(s) detected:" + _unhandledExceptions);
             }
         }
-
-        _portHelper.waitUntilAllocatedPortsAreFree();
     }
 
     @Test
@@ -197,7 +186,6 @@ public class ReplicatedEnvironmentFacadeTest extends UnitTestBase
         ReplicatedEnvironmentFacade ef = createMaster();
         ef.close();
         assertEquals(ReplicatedEnvironmentFacade.State.CLOSED, ef.getFacadeState(), "Unexpected state after close");
-
     }
 
     @Test
@@ -384,7 +372,7 @@ public class ReplicatedEnvironmentFacadeTest extends UnitTestBase
         ReplicatedEnvironmentFacade master = createMaster();
         String nodeName2 = TEST_NODE_NAME + "_2";
         String host = "localhost";
-        int port = _portHelper.getNextAvailable();
+        int port = findFreePort();
         String node2NodeHostPort = host + ":" + port;
 
         final AtomicInteger invocationCount = new AtomicInteger();
@@ -431,7 +419,7 @@ public class ReplicatedEnvironmentFacadeTest extends UnitTestBase
                 "Unexpected number of nodes at start of test");
 
         String node2Name = TEST_NODE_NAME + "_2";
-        String node2NodeHostPort = "localhost" + ":" + _portHelper.getNextAvailable();
+        String node2NodeHostPort = "localhost" + ":" + findFreePort();
         replicatedEnvironmentFacade.setPermittedNodes(Arrays.asList(replicatedEnvironmentFacade.getHostPort(), node2NodeHostPort));
         createReplica(node2Name, node2NodeHostPort, new NoopReplicationGroupListener());
 
@@ -478,7 +466,7 @@ public class ReplicatedEnvironmentFacadeTest extends UnitTestBase
                 "Master was not started");
 
         String node2Name = TEST_NODE_NAME + "_2";
-        String node2NodeHostPort = "localhost" + ":" + _portHelper.getNextAvailable();
+        String node2NodeHostPort = "localhost" + ":" + findFreePort();
         replicatedEnvironmentFacade.setPermittedNodes(Arrays.asList(replicatedEnvironmentFacade.getHostPort(), node2NodeHostPort));
         createReplica(node2Name, node2NodeHostPort, new NoopReplicationGroupListener());
 
@@ -532,7 +520,7 @@ public class ReplicatedEnvironmentFacadeTest extends UnitTestBase
         assertTrue(stateChangeListener.awaitForStateChange(State.MASTER, _timeout, TimeUnit.SECONDS),
                 "Master was not started");
 
-        String node2NodeHostPort = "localhost" + ":" + _portHelper.getNextAvailable();
+        String node2NodeHostPort = "localhost" + ":" + findFreePort();
         replicatedEnvironmentFacade.setPermittedNodes(Arrays.asList(replicatedEnvironmentFacade.getHostPort(), node2NodeHostPort));
         createReplica(node2Name, node2NodeHostPort, new NoopReplicationGroupListener());
 
@@ -558,7 +546,7 @@ public class ReplicatedEnvironmentFacadeTest extends UnitTestBase
                 "Environment was not created");
 
         String node2Name = TEST_NODE_NAME + "_2";
-        String node2NodeHostPort = "localhost:" + _portHelper.getNextAvailable();
+        String node2NodeHostPort = "localhost:" + findFreePort();
         ReplicatedEnvironmentFacade ref2 = createReplica(node2Name, node2NodeHostPort, new NoopReplicationGroupListener());
 
         assertEquals(2, environmentFacade.getNumberOfElectableGroupMembers(), "Unexpected group members count");
@@ -581,7 +569,7 @@ public class ReplicatedEnvironmentFacadeTest extends UnitTestBase
                 "Environment was not created");
 
         String node2Name = TEST_NODE_NAME + "_2";
-        String node2NodeHostPort = "localhost:" + _portHelper.getNextAvailable();
+        String node2NodeHostPort = "localhost:" + findFreePort();
         ReplicatedEnvironmentFacade ref2 =
                 createReplica(node2Name, node2NodeHostPort, new NoopReplicationGroupListener());
         ref2.close();
@@ -645,7 +633,7 @@ public class ReplicatedEnvironmentFacadeTest extends UnitTestBase
 
         masterEnvironment.reapplyDesignatedPrimary();
 
-        int replica1Port = _portHelper.getNextAvailable();
+        int replica1Port = findFreePort();
         String node1NodeHostPort = "localhost:" + replica1Port;
         masterEnvironment.setPermittedNodes(Arrays.asList(masterEnvironment.getHostPort(), node1NodeHostPort));
         ReplicatedEnvironmentFacade replica = createReplica(replicaName, node1NodeHostPort,
@@ -717,9 +705,9 @@ public class ReplicatedEnvironmentFacadeTest extends UnitTestBase
 
         assertTrue(masterLatch.await(_timeout, TimeUnit.SECONDS), "Master was not started");
 
-        int replica1Port = _portHelper.getNextAvailable();
+        int replica1Port = findFreePort();
         String node1NodeHostPort = "localhost:" + replica1Port;
-        int replica2Port = _portHelper.getNextAvailable();
+        int replica2Port = findFreePort();
         String node2NodeHostPort = "localhost:" + replica2Port;
 
         ReplicatedEnvironmentFacade replica1 = createReplica(TEST_NODE_NAME + "_1", node1NodeHostPort,
@@ -763,13 +751,13 @@ public class ReplicatedEnvironmentFacadeTest extends UnitTestBase
         ReplicatedEnvironmentFacade firstNode = addNode(stateChangeListener, new NoopReplicationGroupListener());
         assertTrue(firstNodeMasterStateLatch.await(_timeout, TimeUnit.SECONDS), "Environment did not become a master");
 
-        int replica1Port = _portHelper.getNextAvailable();
+        int replica1Port = findFreePort();
         String node1NodeHostPort = "localhost:" + replica1Port;
         ReplicatedEnvironmentFacade secondNode = createReplica(TEST_NODE_NAME + "_1", node1NodeHostPort,
                                                                new NoopReplicationGroupListener());
         assertEquals(State.REPLICA.name(), secondNode.getNodeState(), "Unexpected state");
 
-        int replica2Port = _portHelper.getNextAvailable();
+        int replica2Port = findFreePort();
         String node2NodeHostPort = "localhost:" + replica2Port;
         final CountDownLatch replicaStateLatch = new CountDownLatch(1);
         final CountDownLatch masterStateLatch = new CountDownLatch(1);
@@ -819,13 +807,13 @@ public class ReplicatedEnvironmentFacadeTest extends UnitTestBase
         assertTrue(firstNodeMasterStateLatch.await(_timeout, TimeUnit.SECONDS),
                 "Environment did not become a master");
 
-        int replica1Port = _portHelper.getNextAvailable();
+        int replica1Port = findFreePort();
         String node1NodeHostPort = "localhost:" + replica1Port;
         ReplicatedEnvironmentFacade secondNode = createReplica(TEST_NODE_NAME + "_1", node1NodeHostPort,
                                                                new NoopReplicationGroupListener());
         assertEquals(State.REPLICA.name(), secondNode.getNodeState(), "Unexpected state");
 
-        int replica2Port = _portHelper.getNextAvailable();
+        int replica2Port = findFreePort();
         String node2NodeHostPort = "localhost:" + replica2Port;
         final CountDownLatch replicaStateLatch = new CountDownLatch(1);
         final CountDownLatch masterStateLatch = new CountDownLatch(1);
@@ -884,7 +872,7 @@ public class ReplicatedEnvironmentFacadeTest extends UnitTestBase
 
         Set<String> permittedNodes = new HashSet<>();
         permittedNodes.add("localhost:" + TEST_NODE_PORT);
-        permittedNodes.add("localhost:" + _portHelper.getNextAvailable());
+        permittedNodes.add("localhost:" + findFreePort());
         firstNode.setPermittedNodes(permittedNodes);
 
         ReplicationNodeImpl
@@ -903,7 +891,7 @@ public class ReplicatedEnvironmentFacadeTest extends UnitTestBase
     {
         ReplicatedEnvironmentFacade firstNode = createMaster();
 
-        int replica1Port = _portHelper.getNextAvailable();
+        int replica1Port = findFreePort();
         String node1NodeHostPort = "localhost:" + replica1Port;
 
         Set<String> permittedNodes = new HashSet<>();
@@ -933,7 +921,7 @@ public class ReplicatedEnvironmentFacadeTest extends UnitTestBase
             }
         };
         ReplicatedEnvironmentFacade firstNode = createMaster(listener);
-        int replica1Port = _portHelper.getNextAvailable();
+        int replica1Port = findFreePort();
         String node1NodeHostPort = "localhost:" + replica1Port;
 
         Set<String> permittedNodes = new HashSet<>();
@@ -957,7 +945,7 @@ public class ReplicatedEnvironmentFacadeTest extends UnitTestBase
         assertTrue(masterListener.awaitForStateChange(State.MASTER, _timeout, TimeUnit.SECONDS),
                 "Environment was not created");
 
-        String replicaNodeHostPort = "localhost:" + _portHelper.getNextAvailable();
+        String replicaNodeHostPort = "localhost:" + findFreePort();
         String replicaName = TEST_NODE_NAME + 1;
         ReplicatedEnvironmentFacade node2 = createReplica(replicaName, replicaNodeHostPort,
                                                           new NoopReplicationGroupListener());
@@ -1024,7 +1012,7 @@ public class ReplicatedEnvironmentFacadeTest extends UnitTestBase
         ReplicatedEnvironmentFacade master = createMaster();
         String nodeName2 = TEST_NODE_NAME + "_2";
         String host = "localhost";
-        int port = _portHelper.getNextAvailable();
+        int port = findFreePort();
         String node2NodeHostPort = host + ":" + port;
 
         final ReplicatedEnvironmentFacade replica = createReplica(nodeName2, node2NodeHostPort,
@@ -1056,7 +1044,7 @@ public class ReplicatedEnvironmentFacadeTest extends UnitTestBase
         ReplicatedEnvironmentFacade master = createMaster();
         String nodeName2 = TEST_NODE_NAME + "_2";
         String host = "localhost";
-        int port = _portHelper.getNextAvailable();
+        int port = findFreePort();
         String node2NodeHostPort = host + ":" + port;
 
         final ReplicatedEnvironmentFacade replica = createReplica(nodeName2, node2NodeHostPort,
@@ -1098,9 +1086,9 @@ public class ReplicatedEnvironmentFacadeTest extends UnitTestBase
         assertTrue(masterListener.awaitForStateChange(State.MASTER, _timeout, TimeUnit.SECONDS),
                    "Master was not created");
 
-        int replica1Port = _portHelper.getNextAvailable();
+        int replica1Port = findFreePort();
         String node1NodeHostPort = "localhost:" + replica1Port;
-        int replica2Port = _portHelper.getNextAvailable();
+        int replica2Port = findFreePort();
         String node2NodeHostPort = "localhost:" + replica2Port;
 
         master.setPermittedNodes(Arrays.asList(master.getHostPort(), node1NodeHostPort, node2NodeHostPort));
@@ -1146,7 +1134,7 @@ public class ReplicatedEnvironmentFacadeTest extends UnitTestBase
         assertTrue(masterListener.awaitForStateChange(State.MASTER, _timeout, TimeUnit.SECONDS),
                 "Master was not created");
 
-        int replicaPort = _portHelper.getNextAvailable();
+        int replicaPort = findFreePort();
         String replicaNodeHostPort = "localhost:" + replicaPort;
 
         master.setPermittedNodes(Arrays.asList(master.getHostPort(), replicaNodeHostPort));
@@ -1179,7 +1167,7 @@ public class ReplicatedEnvironmentFacadeTest extends UnitTestBase
 
         final ReplicatedEnvironmentFacade node1 = createNode(node1Config, TEST_NODE_NAME, State.MASTER);
 
-        final String replicaNodeHostPort = "localhost:" + _portHelper.getNextAvailable();
+        final String replicaNodeHostPort = "localhost:" + findFreePort();
         final String replicaName = TEST_NODE_NAME + 1;
         final ReplicatedEnvironmentConfiguration node2Config =
                 createReplicatedEnvironmentConfiguration(replicaName, replicaNodeHostPort, false, false);
@@ -1220,7 +1208,7 @@ public class ReplicatedEnvironmentFacadeTest extends UnitTestBase
 
         final ReplicatedEnvironmentFacade node1 = createNode(node1Config, TEST_NODE_NAME, State.MASTER);
 
-        final String replicaNodeHostPort = "localhost:" + _portHelper.getNextAvailable();
+        final String replicaNodeHostPort = "localhost:" + findFreePort();
         final String replicaName = TEST_NODE_NAME + 1;
 
         final ReplicatedEnvironmentConfiguration node2Config =

@@ -18,6 +18,7 @@
  * under the License.
  *
  */
+
 package org.apache.qpid.server.model;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -52,17 +53,18 @@ import java.util.concurrent.CompletableFuture;
 
 import javax.security.auth.Subject;
 
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentMatcher;
 import org.mockito.invocation.InvocationOnMock;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 import org.mockito.stubbing.Answer;
 
 import org.apache.qpid.server.configuration.IllegalConfigurationException;
 import org.apache.qpid.server.configuration.store.StoreConfigurationChangeListener;
-import org.apache.qpid.server.configuration.updater.CurrentThreadTaskExecutor;
 import org.apache.qpid.server.configuration.updater.TaskExecutor;
 import org.apache.qpid.server.exchange.ExchangeDefaults;
 import org.apache.qpid.server.security.AccessControl;
@@ -83,11 +85,13 @@ import org.apache.qpid.server.virtualhost.TestMemoryVirtualHost;
 import org.apache.qpid.server.virtualhost.VirtualHostUnavailableException;
 import org.apache.qpid.test.utils.UnitTestBase;
 
-@SuppressWarnings({"rawtypes", "unchecked"})
+@ExtendWith(BrokerProviderExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 public class VirtualHostTest extends UnitTestBase
 {
+    @ProvidedMock
+    private Broker _broker;
     private final AccessControl<?> _mockAccessControl = BrokerTestHelper.createAccessControlMock();
-    private TaskExecutor _taskExecutor;
     private VirtualHostNode _virtualHostNode;
     private DurableConfigurationStore _configStore;
     private StoreConfigurationChangeListener _storeConfigurationChangeListener;
@@ -96,15 +100,9 @@ public class VirtualHostTest extends UnitTestBase
     @BeforeEach
     public void setUp() throws Exception
     {
-        final Broker broker = BrokerTestHelper.createBrokerMock();
-
-        _taskExecutor = CurrentThreadTaskExecutor.newStartedInstance();
-        when(broker.getTaskExecutor()).thenReturn(_taskExecutor);
-        when(broker.getChildExecutor()).thenReturn(_taskExecutor);
-
-        final Principal systemPrincipal = ((SystemPrincipalSource) broker).getSystemPrincipal();
+        final Principal systemPrincipal = ((SystemPrincipalSource) _broker).getSystemPrincipal();
         _virtualHostNode = BrokerTestHelper.mockWithSystemPrincipalAndAccessControl(VirtualHostNode.class, systemPrincipal, _mockAccessControl);
-        when(_virtualHostNode.getParent()).thenReturn(broker);
+        when(_virtualHostNode.getParent()).thenReturn(_broker);
         when(_virtualHostNode.getCategoryClass()).thenReturn(VirtualHostNode.class);
         when(_virtualHostNode.isDurable()).thenReturn(true);
 
@@ -114,20 +112,16 @@ public class VirtualHostTest extends UnitTestBase
         when(_virtualHostNode.getConfigurationStore()).thenReturn(_configStore);
 
         // Virtualhost needs the EventLogger from the SystemContext.
-        when(_virtualHostNode.getParent()).thenReturn(broker);
+        when(_virtualHostNode.getParent()).thenReturn(_broker);
 
-        final ConfiguredObjectFactory objectFactory = broker.getObjectFactory();
+        final TaskExecutor taskExecutor = _broker.getTaskExecutor();
+
+        final ConfiguredObjectFactory objectFactory = _broker.getObjectFactory();
         when(_virtualHostNode.getModel()).thenReturn(objectFactory.getModel());
-        when(_virtualHostNode.getTaskExecutor()).thenReturn(_taskExecutor);
-        when(_virtualHostNode.getChildExecutor()).thenReturn(_taskExecutor);
+        when(_virtualHostNode.getTaskExecutor()).thenReturn(taskExecutor);
+        when(_virtualHostNode.getChildExecutor()).thenReturn(taskExecutor);
         _preferenceStore = mock(PreferenceStore.class);
         when(_virtualHostNode.createPreferenceStore()).thenReturn(_preferenceStore);
-    }
-
-    @AfterEach
-    public void tearDown() throws Exception
-    {
-        _taskExecutor.stopImmediately();
     }
 
     @Test

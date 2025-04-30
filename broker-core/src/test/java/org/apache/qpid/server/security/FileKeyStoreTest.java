@@ -34,14 +34,15 @@ import java.util.Map;
 import javax.net.ssl.KeyManager;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import org.apache.qpid.server.configuration.IllegalConfigurationException;
 import org.apache.qpid.server.model.Broker;
-import org.apache.qpid.server.model.BrokerModel;
-import org.apache.qpid.server.model.BrokerTestHelper;
+import org.apache.qpid.server.model.BrokerProviderExtension;
 import org.apache.qpid.server.model.ConfiguredObjectFactory;
 import org.apache.qpid.server.model.KeyStore;
+import org.apache.qpid.server.model.ProvidedMock;
 import org.apache.qpid.test.utils.tls.CertificateEntry;
 import org.apache.qpid.test.utils.tls.KeyCertificatePair;
 import org.apache.qpid.test.utils.tls.PrivateKeyEntry;
@@ -52,17 +53,22 @@ import org.apache.qpid.test.utils.UnitTestBase;
 import org.apache.qpid.test.utils.tls.TlsResourceBuilder;
 import org.apache.qpid.test.utils.tls.TlsResourceHelper;
 
+@ExtendWith(BrokerProviderExtension.class)
 public class FileKeyStoreTest extends UnitTestBase
 {
     @RegisterExtension
     public static final TlsResource TLS_RESOURCE = new TlsResource();
 
-    private static final Broker<?> BROKER = BrokerTestHelper.createBrokerMock();
-    private static final ConfiguredObjectFactory FACTORY = BrokerModel.getInstance().getObjectFactory();
     private static final String DN_FOO = "CN=foo";
     private static final String DN_BAR = "CN=bar";
     private static final String NAME = "myFileKeyStore";
     private static final String SECRET_KEY_ALIAS = "secret-key-alias";
+
+    @ProvidedMock
+    private Broker<?> _broker;
+
+    @ProvidedMock
+    private ConfiguredObjectFactory _configuredObjectFactory;
 
     @Test
     void testCreateKeyStoreFromFile_Success() throws Exception
@@ -104,8 +110,8 @@ public class FileKeyStoreTest extends UnitTestBase
                 FileKeyStore.STORE_URL, keyStoreFile.toFile().getAbsolutePath(),
                 FileKeyStore.PASSWORD, TLS_RESOURCE.getSecret() + "_",
                 FileKeyStore.KEY_STORE_TYPE, TLS_RESOURCE.getKeyStoreType());
-        KeyStoreTestHelper.checkExceptionThrownDuringKeyStoreCreation(FACTORY, BROKER, KeyStore.class, attributes,
-                "Check key store password");
+        KeyStoreTestHelper.checkExceptionThrownDuringKeyStoreCreation(_configuredObjectFactory, _broker, KeyStore.class, attributes,
+                                                                      "Check key store password");
     }
 
     @Test
@@ -119,8 +125,8 @@ public class FileKeyStoreTest extends UnitTestBase
                 FileKeyStore.CERTIFICATE_ALIAS, unknownAlias,
                 FileKeyStore.KEY_STORE_TYPE, TLS_RESOURCE.getKeyStoreType());
 
-        KeyStoreTestHelper.checkExceptionThrownDuringKeyStoreCreation(FACTORY, BROKER, KeyStore.class, attributes,
-                String.format("Cannot find a certificate with alias '%s' in key store", unknownAlias));
+        KeyStoreTestHelper.checkExceptionThrownDuringKeyStoreCreation(_configuredObjectFactory, _broker, KeyStore.class, attributes,
+                                                                      String.format("Cannot find a certificate with alias '%s' in key store", unknownAlias));
     }
 
     @Test
@@ -133,8 +139,8 @@ public class FileKeyStoreTest extends UnitTestBase
                 FileKeyStore.CERTIFICATE_ALIAS, TLS_RESOURCE.getCertificateAlias(),
                 FileKeyStore.KEY_STORE_TYPE, TLS_RESOURCE.getKeyStoreType());
 
-        KeyStoreTestHelper.checkExceptionThrownDuringKeyStoreCreation(FACTORY, BROKER, KeyStore.class, attributes,
-                "does not identify a private key");
+        KeyStoreTestHelper.checkExceptionThrownDuringKeyStoreCreation(_configuredObjectFactory, _broker, KeyStore.class, attributes,
+                                                                      "does not identify a private key");
     }
 
     @Test
@@ -176,8 +182,8 @@ public class FileKeyStoreTest extends UnitTestBase
                 FileKeyStore.PASSWORD, TLS_RESOURCE.getSecret() + "_",
                 FileKeyStore.STORE_URL, keyStoreAsDataUrl);
 
-        KeyStoreTestHelper.checkExceptionThrownDuringKeyStoreCreation(FACTORY, BROKER, KeyStore.class, attributes,
-                "Check key store password");
+        KeyStoreTestHelper.checkExceptionThrownDuringKeyStoreCreation(_configuredObjectFactory, _broker, KeyStore.class, attributes,
+                                                                      "Check key store password");
     }
 
     @Test
@@ -188,8 +194,8 @@ public class FileKeyStoreTest extends UnitTestBase
                 FileKeyStore.PASSWORD, TLS_RESOURCE.getSecret(),
                 FileKeyStore.STORE_URL, keyStoreAsDataUrl);
 
-        KeyStoreTestHelper.checkExceptionThrownDuringKeyStoreCreation(FACTORY, BROKER, KeyStore.class, attributes,
-                "Cannot instantiate key store");
+        KeyStoreTestHelper.checkExceptionThrownDuringKeyStoreCreation(_configuredObjectFactory, _broker, KeyStore.class, attributes,
+                                                                      "Cannot instantiate key store");
     }
 
     @Test
@@ -203,8 +209,8 @@ public class FileKeyStoreTest extends UnitTestBase
                 FileKeyStore.CERTIFICATE_ALIAS, unknownAlias,
                 FileKeyStore.KEY_STORE_TYPE, TLS_RESOURCE.getKeyStoreType());
 
-        KeyStoreTestHelper.checkExceptionThrownDuringKeyStoreCreation(FACTORY, BROKER, KeyStore.class, attributes,
-                String.format("Cannot find a certificate with alias '%s' in key store", unknownAlias));
+        KeyStoreTestHelper.checkExceptionThrownDuringKeyStoreCreation(_configuredObjectFactory, _broker, KeyStore.class, attributes,
+                                                                      String.format("Cannot find a certificate with alias '%s' in key store", unknownAlias));
     }
 
     @Test
@@ -215,8 +221,8 @@ public class FileKeyStoreTest extends UnitTestBase
                 FileKeyStore.PASSWORD, TLS_RESOURCE.getSecret(),
                 FileKeyStore.STORE_URL, keyStoreFile.toFile().getAbsolutePath());
 
-        KeyStoreTestHelper.checkExceptionThrownDuringKeyStoreCreation(FACTORY, BROKER, KeyStore.class, attributes,
-                "must contain at least one private key");
+        KeyStoreTestHelper.checkExceptionThrownDuringKeyStoreCreation(_configuredObjectFactory, _broker, KeyStore.class, attributes,
+                                                                      "must contain at least one private key");
     }
 
     @Test
@@ -228,8 +234,8 @@ public class FileKeyStoreTest extends UnitTestBase
                 FileKeyStore.STORE_URL, keyStoreFile.toFile().getAbsolutePath(),
                 FileKeyStore.KEY_STORE_TYPE, TLS_RESOURCE.getKeyStoreType());
 
-        KeyStoreTestHelper.checkExceptionThrownDuringKeyStoreCreation(FACTORY, BROKER, KeyStore.class, attributes,
-                "must contain at least one private key");
+        KeyStoreTestHelper.checkExceptionThrownDuringKeyStoreCreation(_configuredObjectFactory, _broker, KeyStore.class, attributes,
+                                                                      "must contain at least one private key");
     }
 
     @Test
@@ -315,7 +321,7 @@ public class FileKeyStoreTest extends UnitTestBase
     @SuppressWarnings("unchecked")
     private FileKeyStore<?> createFileKeyStore(final Map<String, Object> attributes)
     {
-        return (FileKeyStore<?>) FACTORY.create(KeyStore.class, attributes, BROKER);
+        return (FileKeyStore<?>) _configuredObjectFactory.create(KeyStore.class, attributes, _broker);
     }
 
     private CertificateDetails getCertificate(final FileKeyStore<?> keyStore)

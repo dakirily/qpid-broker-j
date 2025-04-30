@@ -27,7 +27,7 @@ import static org.mockito.Mockito.mock;
 
 import java.util.Objects;
 
-import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import org.apache.qpid.server.protocol.v1_0.LinkEndpoint;
@@ -42,7 +42,7 @@ class UnsettledDeliveryTest extends UnitTestBase
     private LinkEndpoint<?, ?> _linkEndpoint;
     private UnsettledDelivery _unsettledDelivery;
 
-    @BeforeAll
+    @BeforeEach
     void setUp()
     {
         _deliveryTag = new Binary(DATA);

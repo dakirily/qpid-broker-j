@@ -35,10 +35,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 
 import org.apache.qpid.server.bytebuffer.QpidByteBuffer;
 import org.apache.qpid.server.message.AMQMessageHeader;
@@ -65,7 +70,8 @@ import org.apache.qpid.server.store.StoredMessage;
 import org.apache.qpid.server.typedmessage.TypedBytesContentWriter;
 import org.apache.qpid.test.utils.UnitTestBase;
 
-@SuppressWarnings({"unchecked"})
+@ExtendWith({MockitoExtension.class})
+@MockitoSettings(strictness = Strictness.LENIENT)
 class MessageConverter_0_10_to_1_0Test extends UnitTestBase
 {
     private final MessageConverter_0_10_to_1_0 _converter = new MessageConverter_0_10_to_1_0();
@@ -74,14 +80,18 @@ class MessageConverter_0_10_to_1_0Test extends UnitTestBase
             .registerMessagingLayer()
             .registerTransactionLayer()
             .registerSecurityLayer();
-    private final StoredMessage<MessageMetaData_0_10> _handle = mock(StoredMessage.class);
-    private final MessageMetaData_0_10 _metaData = mock(MessageMetaData_0_10.class);
-    private final AMQMessageHeader _amqpHeader = mock(AMQMessageHeader.class);
-    private final Header _header = mock(Header.class);
+    @Mock
+    private StoredMessage<MessageMetaData_0_10> _handle;
+    @Mock
+    private MessageMetaData_0_10 _metaData;
+    @Mock
+    private AMQMessageHeader _amqpHeader;
+    @Mock
+    private Header _header;
 
     private MessageProperties _messageProperties;
 
-    @BeforeAll
+    @BeforeEach
     void setUp()
     {
         _messageProperties = new MessageProperties();

@@ -111,6 +111,11 @@
                         <qpid.initialConfigurationLocation>classpath:config-jms-tests.json</qpid.initialConfigurationLocation>
                         <qpid.amqp.version>${profile.broker.version}</qpid.amqp.version>
                     </systemPropertyVariables>
+                    <properties>
+                        <configurationParameters>
+                            junit.jupiter.execution.parallel.enabled = false
+                        </configurationParameters>
+                    </properties>
                 </configuration>
             </plugin>
             <plugin>

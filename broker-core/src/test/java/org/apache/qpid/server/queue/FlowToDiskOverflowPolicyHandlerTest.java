@@ -34,15 +34,16 @@ import java.util.List;
 import java.util.Map;
 
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 import org.apache.qpid.server.bytebuffer.QpidByteBuffer;
 import org.apache.qpid.server.message.MessageReference;
 import org.apache.qpid.server.message.ServerMessage;
-import org.apache.qpid.server.model.BrokerTestHelper;
+import org.apache.qpid.server.model.BrokerProviderExtension;
 import org.apache.qpid.server.model.OverflowPolicy;
+import org.apache.qpid.server.model.ProvidedMock;
 import org.apache.qpid.server.model.Queue;
 import org.apache.qpid.server.model.VirtualHost;
 import org.apache.qpid.server.store.StoredMessage;
@@ -55,17 +56,13 @@ import org.apache.qpid.test.utils.UnitTestBase;
  * Here mockito verify() for flowToDisk() checks whether message was flowed to disk or not,
  * and mockito verify() for getContent() checks whether message was restored into memory or not
  */
+@ExtendWith(BrokerProviderExtension.class)
 public class FlowToDiskOverflowPolicyHandlerTest extends UnitTestBase
 {
+    @ProvidedMock
     private VirtualHost<?> _virtualHost;
     private Queue<?> _queue;
     private Map<StoredMessage<?>, Boolean> _state;
-
-    @BeforeAll
-    public void beforeAll() throws Exception
-    {
-        _virtualHost = BrokerTestHelper.createVirtualHost(getTestClassName(), this);
-    }
 
     @BeforeEach
     public void setUp() throws Exception

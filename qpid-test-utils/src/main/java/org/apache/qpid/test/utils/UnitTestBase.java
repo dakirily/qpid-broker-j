@@ -28,15 +28,13 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInfo;
-import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Base class for unit tests.
  */
 @ExtendWith(QpidUnitTestExtension.class)
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
-public class UnitTestBase
+public abstract class UnitTestBase
 {
     /** Temporary folder location */
     public static final String TMP_FOLDER = System.getProperty("java.io.tmpdir");
@@ -45,7 +43,7 @@ public class UnitTestBase
     private static final String PROFILE_VIRTUALHOSTNODE_TYPE = "virtualhostnode.type";
 
     /** Port helper */
-    private static final PortHelper PORT_HELPER = new PortHelper();
+    protected static final PortHelper PORT_HELPER = new PortHelper();
 
     /** Helper class for setting system properties during test execution */
     public final SystemPropertySetter _systemPropertySetter = new SystemPropertySetter();
@@ -53,11 +51,7 @@ public class UnitTestBase
     /** Set of callbacks executed after all tests */
     private final Set<Runnable> _afterAllTearDownRegistry = new LinkedHashSet<>();
 
-    /** Test class name */
-    private String _testClassName;
-
-    /** Test name */
-    private String _testName;
+    private static final ThreadLocal<TestInfo> _testInfo = ThreadLocal.withInitial(() -> null);
 
     /**
      * Resolves test class name from TestInfo
@@ -65,11 +59,9 @@ public class UnitTestBase
      * @param testInfo TestInfo
      */
     @BeforeAll
-    public void beforeAll(final TestInfo testInfo)
+    public static void beforeAll(final TestInfo testInfo)
     {
-        _testClassName = testInfo.getTestClass()
-                .orElseThrow(() -> new RuntimeException("Failed to resolve test method"))
-                .getSimpleName();
+        _testInfo.set(testInfo);
     }
 
     /**
@@ -80,9 +72,7 @@ public class UnitTestBase
     @BeforeEach
     public void beforeEach(final TestInfo testInfo)
     {
-        _testName = testInfo.getTestMethod()
-                .orElseThrow(() -> new RuntimeException("Failed to resolve test method"))
-                .getName();
+        _testInfo.set(testInfo);
     }
 
     /** Executes callbacks and cleans system variables */
@@ -92,12 +82,10 @@ public class UnitTestBase
         _systemPropertySetter.afterEach();
     }
 
-    /** Executes callbacks and cleans system variables */
     @AfterAll
-    public void cleanupAfterAll()
+    public static void afterAll()
     {
-        _afterAllTearDownRegistry.forEach(Runnable::run);
-        _afterAllTearDownRegistry.clear();
+        PORT_HELPER.waitUntilAllocatedPortsAreFree();
     }
 
     /**
@@ -107,7 +95,9 @@ public class UnitTestBase
      */
     public String getTestClassName()
     {
-        return _testClassName;
+        return _testInfo.get().getTestClass()
+                       .orElseThrow(() -> new RuntimeException("Failed to resolve test method"))
+                       .getSimpleName();
     }
 
     /**
@@ -117,7 +107,9 @@ public class UnitTestBase
      */
     public String getTestName()
     {
-        return _testName;
+        return _testInfo.get().getTestMethod()
+                       .orElseThrow(() -> new RuntimeException("Failed to resolve test method"))
+                       .getName();
     }
 
     /**
@@ -151,6 +143,11 @@ public class UnitTestBase
     public int getNextAvailable(int fromPort)
     {
         return PORT_HELPER.getNextAvailable(fromPort);
+    }
+
+    public boolean isPortAvailable(int port)
+    {
+        return PORT_HELPER.isPortAvailable(port);
     }
 
     /**

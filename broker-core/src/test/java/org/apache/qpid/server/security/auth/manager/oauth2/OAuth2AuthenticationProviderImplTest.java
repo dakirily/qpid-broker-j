@@ -18,6 +18,7 @@
  * under the License.
  *
  */
+
 package org.apache.qpid.server.security.auth.manager.oauth2;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -44,25 +45,32 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import org.apache.qpid.server.model.Broker;
-import org.apache.qpid.server.model.BrokerTestHelper;
+import org.apache.qpid.server.model.BrokerProviderExtension;
 import org.apache.qpid.server.model.ConfiguredObject;
 import org.apache.qpid.server.model.NamedAddressSpace;
+import org.apache.qpid.server.model.ProvidedMock;
 import org.apache.qpid.server.model.State;
 import org.apache.qpid.server.security.auth.AuthenticationResult;
 import org.apache.qpid.server.security.auth.manager.CachingAuthenticationProvider;
 import org.apache.qpid.server.security.auth.manager.oauth2.cloudfoundry.CloudFoundryOAuth2IdentityResolverService;
 import org.apache.qpid.server.security.auth.sasl.SaslNegotiator;
 import org.apache.qpid.server.security.auth.sasl.oauth2.OAuth2Negotiator;
+import org.apache.qpid.test.utils.SystemPropertySetter;
 import org.apache.qpid.test.utils.tls.TlsResource;
 import org.apache.qpid.test.utils.UnitTestBase;
 
+@ExtendWith(BrokerProviderExtension.class)
 public class OAuth2AuthenticationProviderImplTest extends UnitTestBase
 {
     @RegisterExtension
     public static final TlsResource TLS_RESOURCE = new TlsResource();
+
+    @RegisterExtension
+    private static final SystemPropertySetter systemPropertySetter = new SystemPropertySetter();
 
     private static final String TEST_ENDPOINT_HOST = "localhost";
     private static final String TEST_AUTHORIZATION_ENDPOINT_PATH = "/testauth";
@@ -87,11 +95,14 @@ public class OAuth2AuthenticationProviderImplTest extends UnitTestBase
     private static final String TEST_USER_NAME = "testUser";
     private static final String TEST_REDIRECT_URI = "localhost:23523";
 
-    private OAuth2AuthenticationProvider<?> _authProvider;
-    private OAuth2MockEndpointHolder _server;
+    private static OAuth2AuthenticationProvider<?> _authProvider;
+    private static OAuth2MockEndpointHolder _server;
+
+    @ProvidedMock
+    private static Broker<?> _broker;
 
     @BeforeAll
-    public void setUp() throws Exception
+    public static void setUp() throws Exception
     {
         final Path keyStore = TLS_RESOURCE.createSelfSignedKeyStore("CN=localhost");
         _server = new OAuth2MockEndpointHolder(keyStore.toFile().getAbsolutePath(),
@@ -99,7 +110,6 @@ public class OAuth2AuthenticationProviderImplTest extends UnitTestBase
                                                TLS_RESOURCE.getKeyStoreType());
         _server.start();
 
-        final Broker<?> broker = BrokerTestHelper.createBrokerMock();
         final Map<String, Object> authProviderAttributes = new HashMap<>();
         authProviderAttributes.put(ConfiguredObject.NAME, "testOAuthProvider");
         authProviderAttributes.put("clientId", TEST_CLIENT_ID);
@@ -129,8 +139,8 @@ public class OAuth2AuthenticationProviderImplTest extends UnitTestBase
         authProviderAttributes.put("scope", TEST_SCOPE);
         authProviderAttributes.put("trustStore", TEST_TRUST_STORE_NAME);
 
-        setTestSystemProperty(CachingAuthenticationProvider.AUTHENTICATION_CACHE_MAX_SIZE, "0");
-        _authProvider = new OAuth2AuthenticationProviderImpl(authProviderAttributes, broker);
+        systemPropertySetter.setSystemProperty(CachingAuthenticationProvider.AUTHENTICATION_CACHE_MAX_SIZE, "0");
+        _authProvider = new OAuth2AuthenticationProviderImpl(authProviderAttributes, _broker);
         _authProvider.open();
         assertEquals(State.ACTIVE, _authProvider.getState(), "Could not successfully open authProvider");
 
@@ -143,7 +153,7 @@ public class OAuth2AuthenticationProviderImplTest extends UnitTestBase
     }
 
     @AfterAll
-    public void tearDown() throws Exception
+    public static void tearDown() throws Exception
     {
         if (_server != null)
         {

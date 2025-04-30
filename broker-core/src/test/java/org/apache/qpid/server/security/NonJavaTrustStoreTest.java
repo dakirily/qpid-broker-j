@@ -38,32 +38,40 @@ import javax.net.ssl.X509TrustManager;
 
 import org.junit.jupiter.api.Test;
 
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import org.apache.qpid.server.configuration.IllegalConfigurationException;
 import org.apache.qpid.server.model.Broker;
 import org.apache.qpid.server.model.BrokerModel;
+import org.apache.qpid.server.model.BrokerProviderExtension;
 import org.apache.qpid.server.model.BrokerTestHelper;
 import org.apache.qpid.server.model.ConfiguredObjectFactory;
+import org.apache.qpid.server.model.ProvidedMock;
 import org.apache.qpid.server.model.TrustStore;
 import org.apache.qpid.test.utils.tls.KeyCertificatePair;
 import org.apache.qpid.test.utils.tls.TlsResource;
 import org.apache.qpid.test.utils.tls.TlsResourceBuilder;
 import org.apache.qpid.test.utils.UnitTestBase;
 
+@ExtendWith(BrokerProviderExtension.class)
 public class NonJavaTrustStoreTest extends UnitTestBase
 {
     @RegisterExtension
     public static final TlsResource TLS_RESOURCE = new TlsResource();
 
-    private static final Broker<?> BROKER = BrokerTestHelper.createBrokerMock();
-    private static final ConfiguredObjectFactory FACTORY = BrokerModel.getInstance().getObjectFactory();
     private static final String NAME = "myTestTrustStore";
     private static final String NON_JAVA_TRUST_STORE = "NonJavaTrustStore";
     private static final String DN_FOO = "CN=foo";
     private static final String DN_CA = "CN=CA";
     private static final String DN_BAR = "CN=bar";
     private static final String NOT_A_CRL = "/not/a/crl";
+
+    @ProvidedMock
+    private Broker<?> _broker;
+
+    @ProvidedMock
+    private ConfiguredObjectFactory _configuredObjectFactory;
 
     @Test
     public void testCreationOfTrustStoreWithoutCRL() throws Exception
@@ -162,7 +170,7 @@ public class NonJavaTrustStoreTest extends UnitTestBase
                 NonJavaTrustStore.CERTIFICATES_URL, data.getCrl().getAbsolutePath(),
                 NonJavaTrustStore.TYPE, NON_JAVA_TRUST_STORE);
 
-        KeyStoreTestHelper.checkExceptionThrownDuringKeyStoreCreation(FACTORY, BROKER, TrustStore.class, attributes,
+        KeyStoreTestHelper.checkExceptionThrownDuringKeyStoreCreation(_configuredObjectFactory, _broker, TrustStore.class, attributes,
                                                                       "Cannot load certificate(s)");
     }
 
@@ -177,8 +185,8 @@ public class NonJavaTrustStoreTest extends UnitTestBase
                 NonJavaTrustStore.CERTIFICATE_REVOCATION_CHECK_ENABLED, true,
                 NonJavaTrustStore.CERTIFICATE_REVOCATION_LIST_URL, NOT_A_CRL);
 
-        KeyStoreTestHelper.checkExceptionThrownDuringKeyStoreCreation(FACTORY, BROKER, TrustStore.class, attributes,
-                String.format("Unable to load certificate revocation list '%s' for truststore '%s'", NOT_A_CRL, NAME));
+        KeyStoreTestHelper.checkExceptionThrownDuringKeyStoreCreation(_configuredObjectFactory, _broker, TrustStore.class, attributes,
+                                                                      String.format("Unable to load certificate revocation list '%s' for truststore '%s'", NOT_A_CRL, NAME));
     }
 
     private KeyCertificatePair createExpiredCertificate() throws Exception
@@ -191,7 +199,7 @@ public class NonJavaTrustStoreTest extends UnitTestBase
     @SuppressWarnings("unchecked")
     private NonJavaTrustStore<?> createTestTrustStore(final Map<String, Object> attributes)
     {
-        return (NonJavaTrustStore<?>) FACTORY.create(TrustStore.class, attributes, BROKER);
+        return (NonJavaTrustStore<?>) _configuredObjectFactory.create(TrustStore.class, attributes, _broker);
     }
 
     private CertificateAndCrl<File> generateCertificateAndCrl() throws Exception

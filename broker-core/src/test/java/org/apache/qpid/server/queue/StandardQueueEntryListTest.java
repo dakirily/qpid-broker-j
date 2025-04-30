@@ -18,6 +18,7 @@
 * under the License.
 *
 */
+
 package org.apache.qpid.server.queue;
 
 import static org.apache.qpid.server.model.Queue.QUEUE_SCAVANGE_COUNT;
@@ -34,28 +35,25 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 import org.apache.qpid.server.message.MessageReference;
 import org.apache.qpid.server.message.ServerMessage;
-import org.apache.qpid.server.model.BrokerTestHelper;
+import org.apache.qpid.server.model.BrokerProviderExtension;
+import org.apache.qpid.server.model.ProvidedMock;
 import org.apache.qpid.server.model.Queue;
 import org.apache.qpid.server.store.TransactionLogResource;
 import org.apache.qpid.server.virtualhost.QueueManagingVirtualHost;
 
+@ExtendWith(BrokerProviderExtension.class)
 public class StandardQueueEntryListTest extends QueueEntryListTestBase
 {
+    @ProvidedMock
     private QueueManagingVirtualHost<?> _virtualHost;
     private StandardQueueImpl _testQueue;
     private StandardQueueEntryList _sqel;
-
-    @BeforeAll
-    public void beforeAll() throws Exception
-    {
-        _virtualHost = BrokerTestHelper.createVirtualHost(getTestClassName(), this);
-    }
 
     @BeforeEach
     public void setUp() throws Exception

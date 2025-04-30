@@ -38,7 +38,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import org.mockito.ArgumentCaptor;
@@ -77,7 +77,7 @@ class MessageConverter_v1_0_to_InternalTest extends UnitTestBase
             new MessageAnnotations(Map.of(Symbol.valueOf("x-opt-jms-msg-type"), (byte) 5));
     private MessageConverter_v1_0_to_Internal _converter;
 
-    @BeforeAll
+    @BeforeEach
     void setUp()
     {
         _converter = new MessageConverter_v1_0_to_Internal();

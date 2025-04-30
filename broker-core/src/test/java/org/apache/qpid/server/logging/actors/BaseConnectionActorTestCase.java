@@ -33,8 +33,8 @@ public abstract class BaseConnectionActorTestCase extends BaseActorTestCase
     private AMQPConnection<?> _connection;
     private VirtualHost<?> _vhost;
 
-    @BeforeAll
-    public void beforeAll() throws Exception
+    @BeforeEach
+    public void beforeEach() throws Exception
     {
         _vhost = BrokerTestHelper.createVirtualHost(getTestClassName(), this);
     }

@@ -18,6 +18,7 @@
  * under the License.
  *
  */
+
 package org.apache.qpid.server.security;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -47,13 +48,14 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import org.apache.qpid.server.configuration.IllegalConfigurationException;
 import org.apache.qpid.server.model.Broker;
-import org.apache.qpid.server.model.BrokerModel;
-import org.apache.qpid.server.model.BrokerTestHelper;
+import org.apache.qpid.server.model.BrokerProviderExtension;
 import org.apache.qpid.server.model.ConfiguredObjectFactory;
+import org.apache.qpid.server.model.ProvidedMock;
 import org.apache.qpid.server.model.TrustStore;
 import org.apache.qpid.server.transport.network.security.ssl.SSLUtil;
 import org.apache.qpid.test.utils.UnitTestBase;
@@ -63,13 +65,12 @@ import org.apache.qpid.test.utils.tls.TlsResource;
 import org.apache.qpid.test.utils.tls.TlsResourceBuilder;
 import org.apache.qpid.test.utils.tls.TlsResourceHelper;
 
+@ExtendWith(BrokerProviderExtension.class)
 public class SiteSpecificTrustStoreTest extends UnitTestBase
 {
     @RegisterExtension
     public static final TlsResource TLS_RESOURCE = new TlsResource();
 
-    private static final Broker<?> BROKER = BrokerTestHelper.createBrokerMock();
-    private static final ConfiguredObjectFactory FACTORY = BrokerModel.getInstance().getObjectFactory();
     private static final String EXPECTED_SUBJECT = "CN=localhost";
     private static final String EXPECTED_ISSUER = "CN=MyRootCA";
     private static final String DN_BAR = "CN=bar";
@@ -78,6 +79,12 @@ public class SiteSpecificTrustStoreTest extends UnitTestBase
     private static final String NOT_SUPPORTED_URL = "file:/not/a/host";
     private static final String INVALID_URL = "notaurl:541";
     private static final String NOT_A_CRL = "/not/a/crl";
+
+    @ProvidedMock
+    private Broker<?> _broker;
+
+    @ProvidedMock
+    private ConfiguredObjectFactory _configuredObjectFactory;
 
     private TestPeer _testPeer;
     private String _clrUrl;
@@ -116,8 +123,8 @@ public class SiteSpecificTrustStoreTest extends UnitTestBase
                 SiteSpecificTrustStore.TYPE, SITE_SPECIFIC_TRUST_STORE,
                 "siteUrl", INVALID_URL);
 
-        KeyStoreTestHelper.checkExceptionThrownDuringKeyStoreCreation(FACTORY, BROKER, TrustStore.class, attributes,
-                String.format("'%s' is not a valid URL", INVALID_URL));
+        KeyStoreTestHelper.checkExceptionThrownDuringKeyStoreCreation(_configuredObjectFactory, _broker, TrustStore.class, attributes,
+                                                                      String.format("'%s' is not a valid URL", INVALID_URL));
     }
 
     @Test
@@ -127,8 +134,8 @@ public class SiteSpecificTrustStoreTest extends UnitTestBase
                 SiteSpecificTrustStore.TYPE, SITE_SPECIFIC_TRUST_STORE,
                 "siteUrl", NOT_SUPPORTED_URL);
 
-        KeyStoreTestHelper.checkExceptionThrownDuringKeyStoreCreation(FACTORY, BROKER, TrustStore.class, attributes,
-                String.format("URL '%s' does not provide a hostname and port number", NOT_SUPPORTED_URL));
+        KeyStoreTestHelper.checkExceptionThrownDuringKeyStoreCreation(_configuredObjectFactory, _broker, TrustStore.class, attributes,
+                                                                      String.format("URL '%s' does not provide a hostname and port number", NOT_SUPPORTED_URL));
     }
 
     @Test
@@ -139,8 +146,8 @@ public class SiteSpecificTrustStoreTest extends UnitTestBase
         final int listeningPort = _testPeer.start();
         final Map<String, Object> attributes = getTrustStoreAttributes(listeningPort);
 
-        KeyStoreTestHelper.checkExceptionThrownDuringKeyStoreCreation(FACTORY, BROKER, TrustStore.class, attributes,
-                String.format("Unable to get certificate for '%s' from", NAME));
+        KeyStoreTestHelper.checkExceptionThrownDuringKeyStoreCreation(_configuredObjectFactory, _broker, TrustStore.class, attributes,
+                                                                      String.format("Unable to get certificate for '%s' from", NAME));
     }
 
     @Test
@@ -199,8 +206,8 @@ public class SiteSpecificTrustStoreTest extends UnitTestBase
         attributes.put(SiteSpecificTrustStore.CERTIFICATE_REVOCATION_CHECK_ENABLED, true);
         attributes.put(SiteSpecificTrustStore.CERTIFICATE_REVOCATION_LIST_URL, NOT_A_CRL);
 
-        KeyStoreTestHelper.checkExceptionThrownDuringKeyStoreCreation(FACTORY, BROKER, TrustStore.class, attributes,
-                String.format("Unable to load certificate revocation list '%s' for truststore '%s'", NOT_A_CRL, NAME));
+        KeyStoreTestHelper.checkExceptionThrownDuringKeyStoreCreation(_configuredObjectFactory, _broker, TrustStore.class, attributes,
+                                                                      String.format("Unable to load certificate revocation list '%s' for truststore '%s'", NOT_A_CRL, NAME));
     }
 
     @Test
@@ -231,7 +238,7 @@ public class SiteSpecificTrustStoreTest extends UnitTestBase
     @SuppressWarnings({"rawtypes", "unchecked"})
     private SiteSpecificTrustStore createTestTrustStore(final Map<String, Object> attributes)
     {
-        return (SiteSpecificTrustStore) FACTORY.create(TrustStore.class, attributes, BROKER);
+        return (SiteSpecificTrustStore) _configuredObjectFactory.create(TrustStore.class, attributes, _broker);
     }
 
     private Map<String, Object> getTrustStoreAttributes(final int listeningPort)

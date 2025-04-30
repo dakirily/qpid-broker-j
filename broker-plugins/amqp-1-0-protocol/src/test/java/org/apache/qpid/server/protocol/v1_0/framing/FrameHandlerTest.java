@@ -26,7 +26,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import org.mockito.ArgumentCaptor;
@@ -46,7 +46,7 @@ class FrameHandlerTest extends UnitTestBase
 
     private ValueHandler _valueHandler;
 
-    @BeforeAll
+    @BeforeEach
     void setUp()
     {
         _valueHandler = new ValueHandler(AMQPDescribedTypeRegistry.newInstance());

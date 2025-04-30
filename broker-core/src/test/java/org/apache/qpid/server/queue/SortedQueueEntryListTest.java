@@ -17,6 +17,7 @@
  * under the License.
  *
  */
+
 package org.apache.qpid.server.queue;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -30,19 +31,21 @@ import java.util.Arrays;
 import java.util.Map;
 import java.util.Set;
 
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 import org.apache.qpid.server.message.AMQMessageHeader;
 import org.apache.qpid.server.message.MessageReference;
 import org.apache.qpid.server.message.ServerMessage;
-import org.apache.qpid.server.model.BrokerTestHelper;
+import org.apache.qpid.server.model.BrokerProviderExtension;
 import org.apache.qpid.server.model.LifetimePolicy;
+import org.apache.qpid.server.model.ProvidedMock;
 import org.apache.qpid.server.model.Queue;
 import org.apache.qpid.server.store.TransactionLogResource;
 import org.apache.qpid.server.virtualhost.QueueManagingVirtualHost;
 
+@ExtendWith(BrokerProviderExtension.class)
 public class SortedQueueEntryListTest extends QueueEntryListTestBase
 {
     private static SelfValidatingSortedQueueEntryList _sqel;
@@ -74,14 +77,9 @@ public class SortedQueueEntryListTest extends QueueEntryListTestBase
 
     private final static String[] KEYS_SORTED = KEYS.clone();
 
+    @ProvidedMock
     private QueueManagingVirtualHost<?> _virtualHost;
     private SortedQueueImpl _testQueue;
-
-    @BeforeAll
-    public void beforeAll() throws Exception
-    {
-        _virtualHost = BrokerTestHelper.createVirtualHost(getTestClassName(), this);
-    }
 
     @BeforeEach
     public void setUp() throws Exception

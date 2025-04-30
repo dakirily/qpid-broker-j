@@ -23,7 +23,7 @@ package org.apache.qpid.server.protocol.v1_0.codec;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import org.apache.qpid.server.bytebuffer.QpidByteBuffer;
@@ -58,7 +58,7 @@ class ValueHandlerTest extends UnitTestBase
     private ValueHandler _valueHandle;
     private ValueHandler _sectionValueHandler;
 
-    @BeforeAll
+    @BeforeEach
     void setUp()
     {
         _valueHandle = new ValueHandler(TYPE_REGISTRY);

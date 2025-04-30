@@ -27,8 +27,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import java.util.List;
 import java.util.Map;
 
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -60,7 +59,7 @@ class Message_1_0_MutatorTest extends UnitTestBase
     private MessageStore _messageStore;
     private Message_1_0_Mutator _messageMutator;
 
-    @BeforeAll
+    @BeforeEach
     void beforeAll()
     {
         _messageStore = new TestMemoryMessageStore();
@@ -73,7 +72,7 @@ class Message_1_0_MutatorTest extends UnitTestBase
         _messageMutator = new Message_1_0_Mutator(message, _messageStore);
     }
 
-    @AfterAll
+    @AfterEach
     void tearDown()
     {
         _messageStore.closeMessageStore();

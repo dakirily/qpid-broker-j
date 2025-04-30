@@ -23,7 +23,6 @@ package org.apache.qpid.server.virtualhostnode.berkeleydb;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
-import static org.mockito.Mockito.when;
 
 import java.io.File;
 import java.util.HashMap;
@@ -31,23 +30,24 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.io.TempDir;
 
 import org.apache.qpid.server.configuration.IllegalConfigurationException;
-import org.apache.qpid.server.configuration.updater.CurrentThreadTaskExecutor;
-import org.apache.qpid.server.configuration.updater.TaskExecutor;
 import org.apache.qpid.server.model.Broker;
-import org.apache.qpid.server.model.BrokerTestHelper;
-import org.apache.qpid.server.util.FileUtils;
-import org.apache.qpid.test.utils.TestFileUtils;
+import org.apache.qpid.server.model.BrokerProviderExtension;
+import org.apache.qpid.server.model.ProvidedMock;
 import org.apache.qpid.test.utils.UnitTestBase;
 import org.apache.qpid.test.utils.VirtualHostNodeStoreType;
 
+@ExtendWith(BrokerProviderExtension.class)
 public class BDBVirtualHostNodeTest extends UnitTestBase
 {
+    @ProvidedMock
     private Broker<?> _broker;
+    @TempDir
     private File _storePath;
 
     @BeforeEach
@@ -55,22 +55,6 @@ public class BDBVirtualHostNodeTest extends UnitTestBase
     {
         assumeTrue(Objects.equals(getVirtualHostNodeStoreType(), VirtualHostNodeStoreType.BDB),
                 "VirtualHostNodeStoreType should be BDB");
-
-        _broker = BrokerTestHelper.createBrokerMock();
-        TaskExecutor taskExecutor = CurrentThreadTaskExecutor.newStartedInstance();
-        when(_broker.getTaskExecutor()).thenReturn(taskExecutor);
-        when(_broker.getChildExecutor()).thenReturn(taskExecutor);
-
-        _storePath = TestFileUtils.createTestDirectory();
-    }
-
-    @AfterEach
-    public void tearDown() throws Exception
-    {
-        if (_storePath != null)
-        {
-            FileUtils.delete(_storePath, true);
-        }
     }
 
     @Test

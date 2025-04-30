@@ -16,6 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+
 package org.apache.qpid.server.security.auth.manager;
 
 import static org.apache.qpid.server.security.auth.AuthenticatedPrincipalTestHelper.assertOnlyContainsWrapped;
@@ -32,20 +33,27 @@ import javax.security.auth.x500.X500Principal;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 import org.apache.qpid.server.model.AuthenticationProvider;
-import org.apache.qpid.server.model.BrokerTestHelper;
+import org.apache.qpid.server.model.Broker;
+import org.apache.qpid.server.model.BrokerProviderExtension;
+import org.apache.qpid.server.model.ProvidedMock;
 import org.apache.qpid.server.security.auth.AuthenticationResult;
 import org.apache.qpid.server.security.auth.UsernamePrincipal;
 import org.apache.qpid.server.security.auth.sasl.SaslNegotiator;
 import org.apache.qpid.server.security.auth.sasl.SaslSettings;
 import org.apache.qpid.test.utils.UnitTestBase;
 
+@ExtendWith(BrokerProviderExtension.class)
 public class ExternalAuthenticationManagerTest extends UnitTestBase
 {
     private ExternalAuthenticationManager<?> _manager;
     private ExternalAuthenticationManager<?> _managerUsingFullDN;
     private SaslSettings _saslSettings;
+
+    @ProvidedMock
+    private Broker<?> _broker;
 
     @BeforeEach
     public void setUp() throws Exception
@@ -53,13 +61,13 @@ public class ExternalAuthenticationManagerTest extends UnitTestBase
         final Map<String,Object> attrs = Map.of(AuthenticationProvider.ID, randomUUID(),
                 AuthenticationProvider.NAME, getTestName(),
                 "useFullDN",false);
-        _manager = new ExternalAuthenticationManagerImpl(attrs, BrokerTestHelper.createBrokerMock());
+        _manager = new ExternalAuthenticationManagerImpl(attrs, _broker);
         _manager.open();
         final Map<String, Object> attrsFullDN = Map.of(AuthenticationProvider.ID, randomUUID(),
                 AuthenticationProvider.NAME, getTestName() + "FullDN",
                 "useFullDN",true);
 
-        _managerUsingFullDN = new ExternalAuthenticationManagerImpl(attrsFullDN, BrokerTestHelper.createBrokerMock());
+        _managerUsingFullDN = new ExternalAuthenticationManagerImpl(attrsFullDN, _broker);
         _managerUsingFullDN.open();
 
         _saslSettings = mock(SaslSettings.class);

@@ -49,12 +49,6 @@ public class SortedQueueEntryTest extends QueueEntryImplTestBase
 
     private SelfValidatingSortedQueueEntryList _queueEntryList;
 
-    @BeforeAll
-    public void beforeAll() throws Exception
-    {
-        _virtualHost = BrokerTestHelper.createVirtualHost(getTestClassName(), this);
-    }
-
     @BeforeEach
     public void setUp() throws Exception
     {

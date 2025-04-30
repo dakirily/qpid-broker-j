@@ -38,7 +38,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import org.junit.jupiter.params.ParameterizedTest;
@@ -92,13 +91,7 @@ class MessageConverter_1_0_to_v0_8Test extends UnitTestBase
             new MessageAnnotations(Map.of(Symbol.valueOf("x-opt-jms-msg-type"), (byte) 5));
     private static final String OCTET_STREAM = "application/octet-stream";
     private static final String OBJECT_STREAM = "application/java-object-stream";
-    private MessageConverter_1_0_to_v0_8 _converter;
-
-    @BeforeAll
-    void setUp()
-    {
-        _converter = new MessageConverter_1_0_to_v0_8();
-    }
+    private MessageConverter_1_0_to_v0_8 _converter = new MessageConverter_1_0_to_v0_8();
 
     @Test
     void amqpValueWithNullWithTextMessageAnnotation()

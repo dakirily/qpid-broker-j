@@ -30,21 +30,29 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.io.TempDir;
 
 import org.apache.qpid.server.configuration.IllegalConfigurationException;
-import org.apache.qpid.server.model.BrokerTestHelper;
+import org.apache.qpid.server.model.Attribute;
+import org.apache.qpid.server.model.BrokerProviderExtension;
+import org.apache.qpid.server.model.ProvidedMock;
 import org.apache.qpid.server.model.VirtualHostNode;
-import org.apache.qpid.server.util.FileUtils;
-import org.apache.qpid.test.utils.TestFileUtils;
 import org.apache.qpid.test.utils.UnitTestBase;
 import org.apache.qpid.test.utils.VirtualHostNodeStoreType;
 
+@ExtendWith(BrokerProviderExtension.class)
 public class BDBVirtualHostImplTest extends UnitTestBase
 {
+    @TempDir
     private File _storePath;
+    @ProvidedMock(attributes =
+    {
+            @Attribute(name = VirtualHostNode.NAME, value = "testNode"),
+            @Attribute(name = VirtualHostNode.DEFAULT_VIRTUAL_HOST_NODE, value = "true")
+    })
     private VirtualHostNode<?> _node;
 
     @BeforeEach
@@ -52,22 +60,6 @@ public class BDBVirtualHostImplTest extends UnitTestBase
     {
         assumeTrue(Objects.equals(getVirtualHostNodeStoreType(), VirtualHostNodeStoreType.BDB),
                 "VirtualHostNodeStoreType should be BDB");
-
-        _storePath = TestFileUtils.createTestDirectory();
-
-        _node = BrokerTestHelper.createVirtualHostNodeMock("testNode",
-                                                           true,
-                                                           BrokerTestHelper.createAccessControlMock(),
-                                                           BrokerTestHelper.createBrokerMock());
-    }
-
-    @AfterEach
-    public void tearDown() throws Exception
-    {
-        if (_storePath != null)
-        {
-            FileUtils.delete(_storePath, true);
-        }
     }
 
     @Test

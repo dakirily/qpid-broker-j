@@ -18,6 +18,7 @@
  * under the License.
  *
  */
+
 package org.apache.qpid.server.queue;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -30,13 +31,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 import org.apache.qpid.server.message.MessageInstance;
 import org.apache.qpid.server.message.MessageReference;
 import org.apache.qpid.server.message.ServerMessage;
-import org.apache.qpid.server.model.BrokerTestHelper;
+import org.apache.qpid.server.model.BrokerProviderExtension;
+import org.apache.qpid.server.model.ProvidedMock;
 import org.apache.qpid.server.model.Queue;
 import org.apache.qpid.server.store.MessageEnqueueRecord;
 import org.apache.qpid.server.store.StoredMessage;
@@ -45,15 +47,11 @@ import org.apache.qpid.server.util.Action;
 import org.apache.qpid.server.virtualhost.QueueManagingVirtualHost;
 import org.apache.qpid.test.utils.UnitTestBase;
 
+@ExtendWith(BrokerProviderExtension.class)
 public class QueueMessageRecoveryTest extends UnitTestBase
 {
+    @ProvidedMock
     private QueueManagingVirtualHost<?> _vhost;
-
-    @BeforeAll
-    public void setUp() throws Exception
-    {
-        _vhost = BrokerTestHelper.createVirtualHost("host", this);
-    }
 
     @Test
     public void testSimpleRecovery()

@@ -50,16 +50,18 @@ import javax.security.auth.login.LoginContext;
 import javax.security.sasl.Sasl;
 import javax.security.sasl.SaslClient;
 
+import org.apache.qpid.server.model.BrokerProviderExtension;
+import org.apache.qpid.server.model.ProvidedMock;
 import org.apache.qpid.server.security.TokenCarryingPrincipal;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import org.apache.qpid.server.configuration.IllegalConfigurationException;
 import org.apache.qpid.server.model.AuthenticationProvider;
 import org.apache.qpid.server.model.Broker;
-import org.apache.qpid.server.model.BrokerTestHelper;
 import org.apache.qpid.server.security.auth.AuthenticationResult;
 import org.apache.qpid.server.security.auth.sasl.SaslNegotiator;
 import org.apache.qpid.server.security.auth.sasl.SaslSettings;
@@ -69,6 +71,7 @@ import org.apache.qpid.test.utils.EmbeddedKdcExtension;
 import org.apache.qpid.test.utils.SystemPropertySetter;
 import org.apache.qpid.test.utils.UnitTestBase;
 
+@ExtendWith(BrokerProviderExtension.class)
 public class KerberosAuthenticationManagerTest extends UnitTestBase
 {
     private static final String ANOTHER_SERVICE = "foo/" + HOST_NAME;
@@ -86,7 +89,10 @@ public class KerberosAuthenticationManagerTest extends UnitTestBase
     private static String _config;
 
     private KerberosAuthenticationManager _kerberosAuthenticationProvider;
+
+    @ProvidedMock
     private Broker<?> _broker;
+
     private SpnegoAuthenticator _spnegoAuthenticator;
 
     @BeforeAll
@@ -101,7 +107,6 @@ public class KerberosAuthenticationManagerTest extends UnitTestBase
     public void setUp() throws Exception
     {
         SYSTEM_PROPERTY_SETTER.setSystemProperty(LOGIN_CONFIG, _config);
-        _broker = BrokerTestHelper.createBrokerMock();
         _kerberosAuthenticationProvider = createKerberosAuthenticationProvider(ACCEPT_SCOPE);
         _spnegoAuthenticator = new SpnegoAuthenticator(_kerberosAuthenticationProvider);
     }

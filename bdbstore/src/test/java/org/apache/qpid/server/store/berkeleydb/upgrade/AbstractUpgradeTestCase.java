@@ -33,6 +33,7 @@ import static org.mockito.Mockito.when;
 
 import java.io.File;
 import java.io.InputStream;
+import java.nio.file.Path;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -41,6 +42,7 @@ import com.sleepycat.je.EnvironmentConfig;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.io.TempDir;
 
 import org.apache.qpid.server.logging.LogSubject;
 import org.apache.qpid.server.logging.subjects.TestBlankSubject;
@@ -77,8 +79,8 @@ public abstract class AbstractUpgradeTestCase extends UnitTestBase
     // myQueueWithDLQ_DLQ is not bound to the default exchange
     protected static final int TOTAL_BINDINGS = QUEUE_NAMES.length * 2 - 1;
     protected static final int TOTAL_EXCHANGES = 6;
-
-    private File _storeLocation;
+    @TempDir
+    private Path _storeLocation;
     protected Environment _environment;
 
     @BeforeEach
@@ -87,9 +89,9 @@ public abstract class AbstractUpgradeTestCase extends UnitTestBase
         assumeTrue(Objects.equals(getVirtualHostNodeStoreType(), VirtualHostNodeStoreType.BDB),
                    "VirtualHostNodeStoreType should be BDB");
 
-        _storeLocation = copyStore(getStoreDirectoryName());
+        File storeLocation = copyStore(getStoreDirectoryName());
 
-        _environment = createEnvironment(_storeLocation);
+        _environment = createEnvironment(storeLocation);
     }
 
     /** @return eg "bdbstore-v4" - used for copying store */
@@ -120,16 +122,12 @@ public abstract class AbstractUpgradeTestCase extends UnitTestBase
         finally
         {
             _environment = null;
-            if (_storeLocation != null)
-            {
-                deleteDirectoryIfExists(_storeLocation);
-            }
         }
     }
 
     private File copyStore(String storeDirectoryName) throws Exception
     {
-        File storeLocation = new File(new File(TMP_FOLDER), "test-store");
+        File storeLocation = _storeLocation.resolve(getTestName()).toFile();
         deleteDirectoryIfExists(storeLocation);
         storeLocation.mkdirs();
         int index = 0;

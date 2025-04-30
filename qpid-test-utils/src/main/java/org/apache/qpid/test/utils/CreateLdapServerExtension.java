@@ -53,12 +53,12 @@ public class CreateLdapServerExtension implements BeforeAllCallback, AfterAllCal
     /**
      * LDAP server
      */
-    private LdapServer _ldapServer;
+    private ThreadLocal<LdapServer> _ldapServer = new ThreadLocal<>();
 
     /**
      * Directory service
      */
-    private DirectoryService _directoryService;
+    private ThreadLocal<DirectoryService> _directoryService = new ThreadLocal<>();
 
     /**
      * Creates embedded directory service and LDAP server based on test class annotations, applies ldif files and starts
@@ -69,7 +69,7 @@ public class CreateLdapServerExtension implements BeforeAllCallback, AfterAllCal
     @Override
     public void beforeAll(ExtensionContext ctx)
     {
-        if (_ldapServer != null)
+        if (_ldapServer.get() != null)
         {
             return;
         }
@@ -78,7 +78,7 @@ public class CreateLdapServerExtension implements BeforeAllCallback, AfterAllCal
         final CreateDS createDS = testClass.getAnnotation(CreateDS.class);
 
         LOGGER.trace("Creating directory service");
-        _directoryService = createDirectoryService(createDS);
+        _directoryService.set(createDirectoryService(createDS));
 
         final ApplyLdifFiles applyLdifFiles = testClass.getAnnotation(ApplyLdifFiles.class);
 
@@ -86,7 +86,7 @@ public class CreateLdapServerExtension implements BeforeAllCallback, AfterAllCal
         {
             try
             {
-                DSAnnotationProcessor.injectLdifFiles(applyLdifFiles.clazz(), _directoryService,
+                DSAnnotationProcessor.injectLdifFiles(applyLdifFiles.clazz(), _directoryService.get(),
                         applyLdifFiles.value());
             }
             catch (Exception e)
@@ -96,11 +96,11 @@ public class CreateLdapServerExtension implements BeforeAllCallback, AfterAllCal
         }
 
         LOGGER.trace("Creating ldap server");
-        _ldapServer = createLdapServer(createLdapServer, _directoryService);
+        _ldapServer.set(createLdapServer(createLdapServer, _directoryService.get()));
 
         try
         {
-            _directoryService.startup();
+            _directoryService.get().startup();
         }
         catch (LdapException e)
         {
@@ -109,7 +109,7 @@ public class CreateLdapServerExtension implements BeforeAllCallback, AfterAllCal
 
         try
         {
-            _ldapServer.start();
+            _ldapServer.get().start();
         }
         catch (Exception e)
         {
@@ -124,22 +124,27 @@ public class CreateLdapServerExtension implements BeforeAllCallback, AfterAllCal
      */
     public void afterAll(ExtensionContext ctx)
     {
-        if (_ldapServer != null)
+        if (_ldapServer.get() != null)
         {
             LOGGER.trace("Stopping ldap server");
-            _ldapServer.stop();
+            _ldapServer.get().stop();
+            _ldapServer.remove();
         }
 
-        if (_directoryService != null)
+        if (_directoryService.get() != null)
         {
             try
             {
                 LOGGER.trace("Stopping directory service");
-                _directoryService.shutdown();
+                _directoryService.get().shutdown();
             }
             catch (LdapException e)
             {
                 throw new RuntimeException("Failed to stop directory service", e);
+            }
+            finally
+            {
+                _directoryService.remove();
             }
         }
     }
@@ -178,11 +183,11 @@ public class CreateLdapServerExtension implements BeforeAllCallback, AfterAllCal
 
     public LdapServer getLdapServer()
     {
-        return _ldapServer;
+        return _ldapServer.get();
     }
 
     public DirectoryService getDirectoryService()
     {
-        return _directoryService;
+        return _directoryService.get();
     }
 }

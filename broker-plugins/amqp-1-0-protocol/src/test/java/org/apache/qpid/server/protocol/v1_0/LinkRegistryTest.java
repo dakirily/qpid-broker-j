@@ -29,7 +29,6 @@ import java.util.regex.Pattern;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -44,7 +43,7 @@ class LinkRegistryTest extends UnitTestBase
     private QueueManagingVirtualHost<?> _virtualHost;
     private LinkRegistryImpl<?, ?> _linkRegistry;
 
-    @BeforeAll
+    @BeforeEach
     void beforeAll()
     {
         _virtualHost = mock(QueueManagingVirtualHost.class);

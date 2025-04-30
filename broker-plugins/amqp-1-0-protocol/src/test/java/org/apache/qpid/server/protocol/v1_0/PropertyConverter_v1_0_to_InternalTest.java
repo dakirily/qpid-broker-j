@@ -33,7 +33,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
-import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import org.apache.qpid.server.bytebuffer.QpidByteBuffer;
@@ -60,7 +60,7 @@ class PropertyConverter_v1_0_to_InternalTest extends UnitTestBase
     private MessageConverter_v1_0_to_Internal _messageConverter;
     private NamedAddressSpace _addressSpace;
 
-    @BeforeAll
+    @BeforeEach
     void setUp()
     {
         _messageConverter = new MessageConverter_v1_0_to_Internal();

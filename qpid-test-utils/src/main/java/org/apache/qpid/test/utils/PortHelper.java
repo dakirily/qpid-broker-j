@@ -1,4 +1,5 @@
 /*
+ *
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -15,130 +16,146 @@
  * KIND, either express or implied.  See the License for the
  * specific language governing permissions and limitations
  * under the License.
+ *
  */
+
 package org.apache.qpid.test.utils;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * Thread safe helper that hands out free TCP ports.
+ *
+ * <p>All ports that have ever been issued are remembered in a single
+ * process wide set (<em>no two threads can receive the same port</em>).
+ * In addition, each thread gets its own private record of the ports
+ * it has obtained, so that {@link #waitUntilAllocatedPortsAreFree()}
+ * blocks only for ports requested by <em>that</em> thread.</p>
+ */
 public class PortHelper
 {
     private static final Logger LOGGER = LoggerFactory.getLogger(PortHelper.class);
 
-    public static final int START_PORT_NUMBER = 10000;
+    public static final int START_PORT_NUMBER = 10_000;
+    public static final int MIN_PORT_NUMBER   = 1;
+    public static final int MAX_PORT_NUMBER   = 49_151;
 
-    private static final int DEFAULT_TIMEOUT_MILLIS = 5000;
+    private static final int DEFAULT_TIMEOUT_MILLIS = 30_000;
 
-    public static final int MIN_PORT_NUMBER = 1;
-    public static final int MAX_PORT_NUMBER = 49151;
+    /** All ports handed out by any thread (thread safe). */
+    private final Set<Integer> allocatedPorts = ConcurrentHashMap.newKeySet();
 
-    private int _timeout = DEFAULT_TIMEOUT_MILLIS;
+    /** Ports handed out to the <em>current</em> thread. */
+    private final ThreadLocal<Set<Integer>> threadAllocatedPorts = ThreadLocal.withInitial(HashSet::new);
 
-
-    private final Set<Integer> _allocatedPorts = new HashSet<>();
-    private int _highestIssuedPort = -1;
+    /** Highest port number issued so far (atomic for racy reads/writes). */
+    private final AtomicInteger highestIssuedPort = new AtomicInteger(-1);
 
     /**
-     * Gets the next available port starting from given point.
+     * Return the next free port {@code fromPort}.  Thread safe.
      *
-     * @param fromPort the port to scan for availability
-     * @throws java.util.NoSuchElementException if there are no ports available
+     * @throws IllegalArgumentException if {@code fromPort} is outside {@code [MIN_PORT_NUMBER, MAX_PORT_NUMBER]}.
+     * @throws NoSuchElementException   if no free port exists in the range.
      */
-    public int getNextAvailable(int fromPort)
+    public int getNextAvailable(final int fromPort)
     {
-        if ((fromPort < MIN_PORT_NUMBER) || (fromPort > MAX_PORT_NUMBER))
+        if (fromPort < MIN_PORT_NUMBER || fromPort > MAX_PORT_NUMBER)
         {
             throw new IllegalArgumentException("Invalid start port: " + fromPort);
         }
 
-        for (int i = fromPort; i <= MAX_PORT_NUMBER; i++)
+        for (int p = fromPort; p <= MAX_PORT_NUMBER; p++)
         {
-            if (isPortAvailable(i))
+            if (!isPortAvailable(p)) {
+                continue;                         // the OS is using it
+            }
+
+            /* -------- critical section -------- */
+            synchronized (allocatedPorts)
             {
-                _allocatedPorts.add(i);
-                _highestIssuedPort = Math.max(_highestIssuedPort, i);
-                return i;
+                if (allocatedPorts.contains(p))
+                {
+                    continue;                     // another thread grabbed it
+                }
+                allocatedPorts.add(p);
+                threadAllocatedPorts.get().add(p);
+                final int port = p;
+                highestIssuedPort.updateAndGet(v -> Math.max(v, port));
+                return p;
             }
         }
-
-        throw new NoSuchElementException("Could not find an available port above " + fromPort);
+        throw new NoSuchElementException("Could not find an available port ≥ " + fromPort);
     }
 
-    /**
-     * Gets the next available port that is higher than all other port numbers issued
-     * thus far.  If no port numbers have been issued, a default is used.
-     *
-     * @throws java.util.NoSuchElementException if there are no ports available
-     */
+    /** Convenience wrapper that starts the scan at the highest port handed out so far (or {@link #START_PORT_NUMBER}). */
     public int getNextAvailable()
     {
-
-        if (_highestIssuedPort < 0)
-        {
-            return getNextAvailable(START_PORT_NUMBER);
-        }
-        else
-        {
-            return getNextAvailable(_highestIssuedPort + 1);
-        }
+        final int start = highestIssuedPort.get() < 0 ? START_PORT_NUMBER : highestIssuedPort.get() + 1;
+        return getNextAvailable(start);
     }
 
-    /**
-     * Tests that all ports allocated by getNextAvailable are free.
-     */
+    /** Block until every port obtained by <em>this</em> thread is free again. */
     public void waitUntilAllocatedPortsAreFree()
     {
-        waitUntilPortsAreFree(_allocatedPorts);
+        waitUntilPortsAreFree(new ArrayList<>(threadAllocatedPorts.get()));
     }
 
-    public void waitUntilPortsAreFree(Set<Integer> ports)
+    /** Block until <strong>all</strong> ports in {@code ports} are free. */
+    private void waitUntilPortsAreFree(final List<Integer> ports)
     {
-        LOGGER.debug("Checking if ports " + ports + " are free...");
-
-        for (Integer port : ports)
+        LOGGER.debug("Checking if ports {} are free…", ports);
+        final ExecutorService executor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
+        try
         {
-            if (port > 0)
+            final CompletableFuture<Void>[] futures = new CompletableFuture[ports.size()];
+            for (int i = 0; i < ports.size(); i ++)
             {
-                waitUntilPortIsFree(port);
+                final int port = ports.get(i);
+                futures[i] = port > 0
+                        ? CompletableFuture.runAsync(() -> waitUntilPortIsFree(port), executor)
+                        : CompletableFuture.runAsync(() -> {}, executor);
             }
+            CompletableFuture.allOf(futures).join();
         }
-
-        LOGGER.debug("ports " + ports + " are free");
+        finally
+        {
+            executor.shutdown();
+        }
+        LOGGER.debug("Ports {} are free", ports);
     }
 
     private void waitUntilPortIsFree(int port)
     {
-        long startTime = System.currentTimeMillis();
-        long deadline = startTime + _timeout;
-        boolean alreadyFailed = false;
+        final int timeout = DEFAULT_TIMEOUT_MILLIS;
+        final long deadline = System.currentTimeMillis() + timeout;
+        boolean previouslyBusy = false;
 
-        while (true)
+        while (System.currentTimeMillis() < deadline)
         {
-            if (System.currentTimeMillis() > deadline)
-            {
-                throw new RuntimeException("Timed out after " + _timeout + " ms waiting for port " + port + " to become available");
-            }
-
             if (isPortAvailable(port))
             {
-                if(alreadyFailed)
+                if (previouslyBusy)
                 {
-                    LOGGER.debug("port " + port + " is now available");
+                    LOGGER.debug("Port {} is now available", port);
                 }
                 return;
             }
-            else
-            {
-                alreadyFailed = true;
-            }
-
+            previouslyBusy = true;
             try
             {
                 Thread.sleep(500);
@@ -148,44 +165,23 @@ public class PortHelper
                 Thread.currentThread().interrupt();
             }
         }
+
+        throw new RuntimeException("Timed out after " + timeout + " ms waiting for port " + port + " to become available");
     }
 
-    public boolean isPortAvailable(int port)
+    /** True iff the OS allows us to bind a {@link ServerSocket} to {@code port}. */
+    public boolean isPortAvailable(final int port)
     {
-        ServerSocket serverSocket = null;
-        try
+        try (final ServerSocket s = new ServerSocket())
         {
-            serverSocket = new ServerSocket();
-            serverSocket.setReuseAddress(true); // ensures that the port is subsequently usable
-            serverSocket.bind(new InetSocketAddress(port));
-
+            s.setReuseAddress(true);
+            s.bind(new InetSocketAddress(port));
             return true;
         }
-        catch (IOException e)
+        catch (final IOException e)
         {
-            LOGGER.debug("port " + port + " is not free");
+            LOGGER.debug("Port {} is not free", port);
             return false;
         }
-        finally
-        {
-            if (serverSocket != null)
-            {
-                try
-                {
-                    serverSocket.close();
-                }
-                catch (IOException e)
-                {
-                    throw new RuntimeException("Couldn't close port "
-                                               + port
-                                               + " that we created to check its availability", e);
-                }
-            }
-        }
-    }
-
-    public void setTimeout(int timeout)
-    {
-        this._timeout = timeout;
     }
 }

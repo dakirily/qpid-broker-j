@@ -36,7 +36,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
-import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import org.apache.qpid.server.bytebuffer.QpidByteBuffer;
@@ -75,7 +75,7 @@ class ConsumerTarget_1_0Test extends UnitTestBase
     private ConsumerTarget_1_0 _consumerTarget;
     private SendingLinkEndpoint _sendingLinkEndpoint;
 
-    @BeforeAll
+    @BeforeEach
     void setUp()
     {
         final AMQPConnection_1_0 connection = mock(AMQPConnection_1_0.class);

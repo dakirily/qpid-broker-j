@@ -39,7 +39,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import org.apache.qpid.server.message.AMQMessageHeader;
@@ -60,7 +60,7 @@ class PropertyConverter_Internal_to_v1_0Test extends UnitTestBase
     private MessageConverter_Internal_to_v1_0 _messageConverter;
     private NamedAddressSpace _addressSpace;
 
-    @BeforeAll
+    @BeforeEach
     void setUp()
     {
         _messageConverter = new MessageConverter_Internal_to_v1_0();

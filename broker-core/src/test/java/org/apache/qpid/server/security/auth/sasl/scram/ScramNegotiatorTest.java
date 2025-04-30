@@ -41,13 +41,15 @@ import javax.crypto.spec.SecretKeySpec;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 import org.apache.qpid.server.model.AuthenticationProvider;
 import org.apache.qpid.server.model.Broker;
-import org.apache.qpid.server.model.BrokerTestHelper;
+import org.apache.qpid.server.model.BrokerProviderExtension;
 import org.apache.qpid.server.model.ConfiguredObject;
 import org.apache.qpid.server.model.ConfiguredObjectFactory;
 import org.apache.qpid.server.model.PasswordCredentialManagingAuthenticationProvider;
+import org.apache.qpid.server.model.ProvidedMock;
 import org.apache.qpid.server.model.State;
 import org.apache.qpid.server.security.auth.AuthenticationResult;
 import org.apache.qpid.server.security.auth.manager.ScramSHA1AuthenticationManager;
@@ -56,6 +58,7 @@ import org.apache.qpid.server.security.auth.sasl.PasswordSource;
 import org.apache.qpid.server.util.Strings;
 import org.apache.qpid.test.utils.UnitTestBase;
 
+@ExtendWith(BrokerProviderExtension.class)
 public class ScramNegotiatorTest extends UnitTestBase
 {
     private static final String VALID_USER_NAME = "testUser";
@@ -71,6 +74,8 @@ public class ScramNegotiatorTest extends UnitTestBase
     private byte[] _serverSignature;
     private PasswordSource _passwordSource;
     private AuthenticationProvider<?> _authenticationProvider;
+
+    @ProvidedMock
     private Broker<?> _broker;
 
     @BeforeEach
@@ -80,7 +85,6 @@ public class ScramNegotiatorTest extends UnitTestBase
         _passwordSource = mock(PasswordSource.class);
         when(_passwordSource.getPassword(eq(VALID_USER_NAME))).thenReturn(VALID_USER_PASSWORD.toCharArray());
         _authenticationProvider = mock(AuthenticationProvider.class);
-        _broker = BrokerTestHelper.createBrokerMock();
     }
 
     @AfterEach

@@ -23,7 +23,6 @@ package org.apache.qpid.server.logging.subjects;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 
 import org.apache.qpid.server.model.BrokerTestHelper;
@@ -36,15 +35,10 @@ public class MessageStoreLogSubjectTest extends AbstractTestLogSubject
 {
     private VirtualHost<?> _testVhost;
 
-    @BeforeAll
-    public void beforeAll() throws Exception
+    @BeforeEach
+    public void beforeEach() throws Exception
     {
         _testVhost = BrokerTestHelper.createVirtualHost("test", this);
-    }
-
-    @BeforeEach
-    public void setUp() throws Exception
-    {
         _subject = new MessageStoreLogSubject(_testVhost.getName(), _testVhost.getMessageStore().getClass().getSimpleName());
     }
 

@@ -18,6 +18,7 @@
  * under the License.
  *
  */
+
 package org.apache.qpid.server.model.adapter;
 
 import static org.apache.qpid.server.model.adapter.FileBasedGroupProviderImpl.GROUP_FILE_PROVIDER_TYPE;
@@ -43,32 +44,30 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 import org.apache.qpid.server.configuration.IllegalConfigurationException;
 import org.apache.qpid.server.model.Broker;
-import org.apache.qpid.server.model.BrokerTestHelper;
+import org.apache.qpid.server.model.BrokerProviderExtension;
 import org.apache.qpid.server.model.ConfiguredObjectFactory;
 import org.apache.qpid.server.model.Group;
 import org.apache.qpid.server.model.GroupMember;
 import org.apache.qpid.server.model.GroupProvider;
+import org.apache.qpid.server.model.ProvidedMock;
 import org.apache.qpid.test.utils.TestFileUtils;
 import org.apache.qpid.test.utils.UnitTestBase;
 
-@SuppressWarnings({"rawtypes", "unchecked"})
+@ExtendWith(BrokerProviderExtension.class)
 public class FileBasedGroupProviderImplTest extends UnitTestBase
 {
-    private Broker<?> _broker;
     private File _groupFile;
-    private ConfiguredObjectFactory _objectFactory;
 
-    @BeforeEach
-    public void setUp() throws Exception
-    {
-        _broker = BrokerTestHelper.createBrokerMock();
-        _objectFactory = _broker.getObjectFactory();
-    }
+    @ProvidedMock
+    private Broker<?> _broker;
+
+    @ProvidedMock
+    private ConfiguredObjectFactory _configuredObjectFactory;
 
     @AfterEach
     public void tearDown() throws Exception
@@ -89,7 +88,7 @@ public class FileBasedGroupProviderImplTest extends UnitTestBase
                 FileBasedGroupProvider.PATH, groupsFile,
                 FileBasedGroupProvider.NAME, getTestName());
         final IllegalConfigurationException thrown = assertThrows(IllegalConfigurationException.class,
-                () -> _objectFactory.create(GroupProvider.class, attributes, _broker),
+                () -> _configuredObjectFactory.create(GroupProvider.class, attributes, _broker),
                 "Exception is expected on validation of groups provider with invalid path");
         assertEquals(String.format("Cannot create groups file at '%s'", groupsFile), thrown.getMessage(),
                 "Unexpected exception message:" + thrown.getMessage());
@@ -104,7 +103,7 @@ public class FileBasedGroupProviderImplTest extends UnitTestBase
                 FileBasedGroupProvider.PATH, groupsFile,
                 FileBasedGroupProvider.NAME, getTestName());
         final IllegalConfigurationException thrown = assertThrows(IllegalConfigurationException.class,
-                () -> _objectFactory.create(GroupProvider.class, attributes, _broker),
+                () -> _configuredObjectFactory.create(GroupProvider.class, attributes, _broker),
                 "Exception is expected on validation of groups provider with invalid group file");
         assertEquals(String.format("Cannot load groups from '%s'", groupsFile),thrown.getMessage(),
                 "Unexpected exception message:" + thrown.getMessage());
@@ -196,7 +195,7 @@ public class FileBasedGroupProviderImplTest extends UnitTestBase
                 FileBasedGroupProvider.NAME, getTestName());
 
         {
-            final GroupProvider<?> provider = _objectFactory.create(GroupProvider.class, providerAttrs, _broker);
+            final GroupProvider<?> provider = _configuredObjectFactory.create(GroupProvider.class, providerAttrs, _broker);
             assertThat(provider.getChildren(Group.class).size(), is(equalTo(0)));
 
             final Map<String, Object> groupAttrs = Map.of(Group.NAME, "group");
@@ -209,7 +208,7 @@ public class FileBasedGroupProviderImplTest extends UnitTestBase
         }
 
         {
-            final GroupProvider<?> provider = _objectFactory.create(GroupProvider.class, providerAttrs, _broker);
+            final GroupProvider<?> provider = _configuredObjectFactory.create(GroupProvider.class, providerAttrs, _broker);
             assertThat(provider.getChildren(Group.class).size(), is(equalTo(1)));
 
             final Group<?> group = provider.getChildByName(Group.class, "group");
@@ -221,7 +220,7 @@ public class FileBasedGroupProviderImplTest extends UnitTestBase
         }
 
         {
-            final GroupProvider<?> provider = _objectFactory.create(GroupProvider.class, providerAttrs, _broker);
+            final GroupProvider<?> provider = _configuredObjectFactory.create(GroupProvider.class, providerAttrs, _broker);
             final Group<?> group = provider.getChildByName(Group.class, "group");
             assertThat(group.getChildren(GroupMember.class).size(), is(equalTo(0)));
 
@@ -230,7 +229,7 @@ public class FileBasedGroupProviderImplTest extends UnitTestBase
         }
 
         {
-            final GroupProvider<?> provider = _objectFactory.create(GroupProvider.class, providerAttrs, _broker);
+            final GroupProvider<?> provider = _configuredObjectFactory.create(GroupProvider.class, providerAttrs, _broker);
             assertThat(provider.getChildren(Group.class).size(), is(equalTo(0)));
             provider.close();
         }
@@ -253,7 +252,7 @@ public class FileBasedGroupProviderImplTest extends UnitTestBase
         final Map<String, Object> providerAttrs1 = Map.of(FileBasedGroupProvider.TYPE, GROUP_FILE_PROVIDER_TYPE,
                 FileBasedGroupProvider.PATH, groupsFile,
                 FileBasedGroupProvider.NAME, getTestName() + "1");
-        final GroupProvider<?> provider = _objectFactory.create(GroupProvider.class, providerAttrs1, _broker);
+        final GroupProvider<?> provider = _configuredObjectFactory.create(GroupProvider.class, providerAttrs1, _broker);
 
         when(_broker.getChildren(GroupProvider.class)).thenReturn(Collections.singletonList(provider));
 
@@ -262,7 +261,7 @@ public class FileBasedGroupProviderImplTest extends UnitTestBase
                 FileBasedGroupProvider.NAME, getTestName() + "2");
 
         assertThrows(IllegalConfigurationException.class,
-                () -> _objectFactory.create(GroupProvider.class, providerAttrs2, _broker),
+                () -> _configuredObjectFactory.create(GroupProvider.class, providerAttrs2, _broker),
                 "Exception not thrown");
     }
 
@@ -369,6 +368,6 @@ public class FileBasedGroupProviderImplTest extends UnitTestBase
         final Map<String, Object> providerAttrs = Map.of(FileBasedGroupProvider.TYPE, GROUP_FILE_PROVIDER_TYPE,
                 FileBasedGroupProvider.PATH, groupsFile,
                 FileBasedGroupProvider.NAME, getTestName());
-        return _objectFactory.create(GroupProvider.class, providerAttrs, _broker);
+        return _configuredObjectFactory.create(GroupProvider.class, providerAttrs, _broker);
     }
 }

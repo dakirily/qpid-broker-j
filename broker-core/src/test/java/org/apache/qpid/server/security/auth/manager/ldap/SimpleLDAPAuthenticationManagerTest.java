@@ -16,6 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+
 package org.apache.qpid.server.security.auth.manager.ldap;
 
 import static org.apache.qpid.server.security.auth.manager.CachingAuthenticationProvider.AUTHENTICATION_CACHE_MAX_SIZE;
@@ -31,17 +32,18 @@ import java.util.UUID;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import org.apache.qpid.server.model.AuthenticationProvider;
 import org.apache.qpid.server.model.Broker;
-import org.apache.qpid.server.model.BrokerTestHelper;
+import org.apache.qpid.server.model.BrokerProviderExtension;
+import org.apache.qpid.server.model.ProvidedMock;
 import org.apache.qpid.server.model.TrustStore;
 import org.apache.qpid.server.security.FileTrustStore;
 import org.apache.qpid.server.security.auth.AuthenticationResult;
 import org.apache.qpid.server.security.auth.manager.SimpleLDAPAuthenticationManager;
 import org.apache.qpid.server.util.FileUtils;
-import org.apache.qpid.test.utils.PortHelper;
 import org.apache.qpid.test.utils.UnitTestBase;
 import org.apache.qpid.test.utils.tls.CertificateEntry;
 import org.apache.qpid.test.utils.tls.KeyCertificatePair;
@@ -52,6 +54,7 @@ import org.apache.qpid.test.utils.tls.TlsResourceBuilder;
 /**
  * Performs test of SimpleLDAPAuthenticationManager using SSL connection to LDAP server
  */
+@ExtendWith(BrokerProviderExtension.class)
 public class SimpleLDAPAuthenticationManagerTest extends UnitTestBase
 {
     @RegisterExtension
@@ -59,13 +62,11 @@ public class SimpleLDAPAuthenticationManagerTest extends UnitTestBase
 
     private static final String LDAP_FOLDER = TMP_FOLDER + File.separator + "test-ldap";
 
-    private static final PortHelper PORT_HELPER = new PortHelper();
-    private static final int PORT = PORT_HELPER.getNextAvailable();
-
     private static final String DN_LOCALHOST = "CN=localhost";
     private static final String LDAP_USERNAME = "test1";
     private static final String LDAP_PASSWORD = "password1";
 
+    @ProvidedMock
     private static Broker<?> _broker;
 
     private static EmbeddedLDAPServer _ldapServer;
@@ -75,8 +76,6 @@ public class SimpleLDAPAuthenticationManagerTest extends UnitTestBase
     @BeforeAll
     public static void setUp() throws Exception
     {
-        _broker = BrokerTestHelper.createBrokerMock();
-
         final KeyCertificatePair keyCertPair = TlsResourceBuilder.createSelfSigned(DN_LOCALHOST);
         final PrivateKeyEntry privateKeyEntry = new PrivateKeyEntry(TLS_RESOURCE.getPrivateKeyAlias(),
                                                                      keyCertPair.getPrivateKey(),
@@ -93,7 +92,7 @@ public class SimpleLDAPAuthenticationManagerTest extends UnitTestBase
         }
         Files.createDirectory(workDir.toPath());
 
-        _ldapServer = new EmbeddedLDAPServer(workDir, keyStoreFile.toString(), TLS_RESOURCE.getSecret(), PORT);
+        _ldapServer = new EmbeddedLDAPServer(workDir, keyStoreFile.toString(), TLS_RESOURCE.getSecret(), PORT_HELPER.getNextAvailable());
         _ldapServer.startServer();
 
         _authenticationManager = createSimpleLDAPAuthenticationManager(trustStoreFile);
@@ -143,7 +142,7 @@ public class SimpleLDAPAuthenticationManagerTest extends UnitTestBase
     {
         final TrustStore<?> trustStore = createTrustStore(trustStorePath);
 
-        final String LDAP_URL = "ldaps://localhost:" + PORT;
+        final String LDAP_URL = "ldaps://localhost:" + _ldapServer.getPort();
         final String ROOT = "dc=qpid,dc=org";
         final String SEARCH_CONTEXT_VALUE = "ou=users," + ROOT;
         final String SEARCH_FILTER_VALUE = "(uid={0})";

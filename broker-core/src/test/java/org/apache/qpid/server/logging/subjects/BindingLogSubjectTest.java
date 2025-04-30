@@ -23,7 +23,6 @@ package org.apache.qpid.server.logging.subjects;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 
 import org.apache.qpid.server.model.BrokerTestHelper;
@@ -42,16 +41,10 @@ public class BindingLogSubjectTest extends AbstractTestLogSubject
     @SuppressWarnings("rawtypes")
     private QueueManagingVirtualHost _vhost;
 
-    @BeforeAll
-    public void beforeAll() throws Exception
+    @BeforeEach
+    public void beforeEach() throws Exception
     {
         _vhost = BrokerTestHelper.createVirtualHost("test", this);
-    }
-
-    @BeforeEach
-    @SuppressWarnings("unchecked")
-    public void setUp() throws Exception
-    {
         _routingKey = "RoutingKey";
         _exchange = (Exchange<?>) _vhost.getChildByName(Exchange.class, "amq.direct");
         _queue = mock(Queue.class);

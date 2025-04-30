@@ -20,7 +20,6 @@
  */
 package org.apache.qpid.server.logging.subjects;
 
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 
 import org.apache.qpid.server.model.BrokerTestHelper;
@@ -35,15 +34,10 @@ public class ExchangeLogSubjectTest extends AbstractTestLogSubject
     private Exchange<?> _exchange;
     private VirtualHost<?> _testVhost;
 
-    @BeforeAll
-    public void beforeAll() throws Exception
+    @BeforeEach
+    public void beforeEach() throws Exception
     {
         _testVhost = BrokerTestHelper.createVirtualHost("test", this);
-    }
-
-    @BeforeEach
-    public void setUp() throws Exception
-    {
         _exchange = (Exchange<?>) _testVhost.getChildByName(Exchange.class, "amq.direct");
         _subject = new ExchangeLogSubject(_exchange,_testVhost);
     }

@@ -33,33 +33,33 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 import org.apache.qpid.server.message.AMQMessageHeader;
 import org.apache.qpid.server.message.MessageReference;
 import org.apache.qpid.server.message.ServerMessage;
 import org.apache.qpid.server.message.internal.InternalMessage;
+import org.apache.qpid.server.model.Attribute;
+import org.apache.qpid.server.model.BrokerProviderExtension;
 import org.apache.qpid.server.model.BrokerTestHelper;
+import org.apache.qpid.server.model.ProvidedMock;
 import org.apache.qpid.server.model.Queue;
 import org.apache.qpid.server.model.VirtualHost;
 import org.apache.qpid.server.store.StoredMessage;
 import org.apache.qpid.server.store.TransactionLogResource;
 import org.apache.qpid.test.utils.UnitTestBase;
 
+@ExtendWith(BrokerProviderExtension.class)
 public class FlowToDiskCheckingTaskTest extends UnitTestBase
 {
     private static final int FLOW_TO_DISK_CHECK_PERIOD = 0;
+    @ProvidedMock(attributes =
+    {
+            @Attribute(name = QueueManagingVirtualHost.FLOW_TO_DISK_CHECK_PERIOD, value = "0")
+    })
     private AbstractVirtualHost<?> _virtualHost;
     private Queue<?> _queue;
     private AbstractVirtualHost<?>.FlowToDiskCheckingTask _task;
-
-    @BeforeAll
-    public void beforeAll() throws Exception
-    {
-        final Map<String, Object> attributes = Map.of(VirtualHost.NAME, getTestClassName(),
-                VirtualHost.TYPE,  TestMemoryVirtualHost.VIRTUAL_HOST_TYPE,
-                VirtualHost.CONTEXT, Map.of(QueueManagingVirtualHost.FLOW_TO_DISK_CHECK_PERIOD, FLOW_TO_DISK_CHECK_PERIOD));
-        _virtualHost = (AbstractVirtualHost<?>) BrokerTestHelper.createVirtualHost(attributes, this);
-    }
 
     @BeforeEach
     public void setUp() throws Exception

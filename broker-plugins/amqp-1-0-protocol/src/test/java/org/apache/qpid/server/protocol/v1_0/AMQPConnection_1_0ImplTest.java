@@ -36,7 +36,7 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 
-import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import org.apache.qpid.server.configuration.updater.TaskExecutor;
@@ -62,7 +62,7 @@ class AMQPConnection_1_0ImplTest extends UnitTestBase
     private AggregateTicker _aggregateTicket;
     private QueueManagingVirtualHost<?> _virtualHost;
 
-    @BeforeAll
+    @BeforeEach
     void setUp() throws Exception
     {
         _broker = BrokerTestHelper.createBrokerMock();

@@ -18,6 +18,7 @@
  * under the License.
  *
  */
+
 package org.apache.qpid.server.virtualhostnode;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -43,19 +44,18 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 import org.apache.qpid.server.configuration.IllegalConfigurationException;
-import org.apache.qpid.server.configuration.updater.CurrentThreadTaskExecutor;
-import org.apache.qpid.server.configuration.updater.TaskExecutor;
 import org.apache.qpid.server.model.Broker;
 import org.apache.qpid.server.model.BrokerModel;
-import org.apache.qpid.server.model.BrokerTestHelper;
+import org.apache.qpid.server.model.BrokerProviderExtension;
 import org.apache.qpid.server.model.ConfiguredObject;
 import org.apache.qpid.server.model.ConfiguredObjectFactoryImpl;
 import org.apache.qpid.server.model.Model;
+import org.apache.qpid.server.model.ProvidedMock;
 import org.apache.qpid.server.model.RemoteReplicationNode;
 import org.apache.qpid.server.model.State;
 import org.apache.qpid.server.model.SystemConfig;
@@ -72,32 +72,22 @@ import org.apache.qpid.server.store.handler.ConfiguredObjectRecordHandler;
 import org.apache.qpid.server.virtualhost.TestMemoryVirtualHost;
 import org.apache.qpid.test.utils.UnitTestBase;
 
+@ExtendWith(BrokerProviderExtension.class)
 public class AbstractStandardVirtualHostNodeTest extends UnitTestBase
 {
     private static final String TEST_VIRTUAL_HOST_NODE_NAME = "testNode";
     private static final String TEST_VIRTUAL_HOST_NAME = "testVirtualHost";
 
     private final UUID _nodeId = randomUUID();
+
+    @ProvidedMock
     private Broker<?> _broker;
-    private TaskExecutor _taskExecutor;
 
     @BeforeEach
     public void setUp() throws Exception
     {
-        _taskExecutor = new CurrentThreadTaskExecutor();
-        _broker = BrokerTestHelper.createBrokerMock();
         final SystemConfig<?> systemConfig = (SystemConfig<?>) _broker.getParent();
         when(systemConfig.getObjectFactory()).thenReturn(new ConfiguredObjectFactoryImpl(mock(Model.class)));
-
-        _taskExecutor.start();
-        when(_broker.getTaskExecutor()).thenReturn(_taskExecutor);
-        when(_broker.getChildExecutor()).thenReturn(_taskExecutor);
-    }
-
-    @AfterEach
-    public void tearDown() throws Exception
-    {
-        _taskExecutor.stopImmediately();
     }
 
     /**

@@ -86,17 +86,17 @@ public class SNITest extends UnitTestBase
 
     private static final int SOCKET_TIMEOUT = 10000;
 
-    private File _keyStoreFile;
-    private KeyCertificatePair _fooValid;
-    private KeyCertificatePair _fooInvalid;
-    private KeyCertificatePair _barInvalid;
-    private SystemLauncher _systemLauncher;
-    private Broker<?> _broker;
-    private int _boundPort;
-    private File _brokerWork;
+    private static File _keyStoreFile;
+    private static KeyCertificatePair _fooValid;
+    private static KeyCertificatePair _fooInvalid;
+    private static KeyCertificatePair _barInvalid;
+    private static SystemLauncher _systemLauncher;
+    private static Broker<?> _broker;
+    private static int _boundPort;
+    private static File _brokerWork;
 
     @BeforeAll
-    public void setUp() throws Exception
+    public static void setUp() throws Exception
     {
         final Instant yesterday = Instant.now().minus(1, ChronoUnit.DAYS);
         final Instant inOneHour = Instant.now().plus(1, ChronoUnit.HOURS);
@@ -115,7 +115,7 @@ public class SNITest extends UnitTestBase
     }
 
     @AfterAll
-    public void tearDown() throws Exception
+    public static void tearDown() throws Exception
     {
         if (_systemLauncher != null)
         {

@@ -48,6 +48,7 @@ import javax.net.ssl.KeyManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.mockito.ArgumentMatcher;
 
@@ -57,10 +58,10 @@ import org.apache.qpid.server.logging.LogMessage;
 import org.apache.qpid.server.logging.MessageLogger;
 import org.apache.qpid.server.logging.messages.KeyStoreMessages;
 import org.apache.qpid.server.model.Broker;
-import org.apache.qpid.server.model.BrokerModel;
-import org.apache.qpid.server.model.BrokerTestHelper;
+import org.apache.qpid.server.model.BrokerProviderExtension;
 import org.apache.qpid.server.model.ConfiguredObjectFactory;
 import org.apache.qpid.server.model.KeyStore;
+import org.apache.qpid.server.model.ProvidedMock;
 import org.apache.qpid.test.utils.tls.KeyCertificatePair;
 import org.apache.qpid.test.utils.tls.TlsResource;
 import org.apache.qpid.test.utils.tls.TlsResourceBuilder;
@@ -68,6 +69,7 @@ import org.apache.qpid.server.util.DataUrlUtils;
 import org.apache.qpid.test.utils.UnitTestBase;
 import org.apache.qpid.test.utils.tls.TlsResourceHelper;
 
+@ExtendWith(BrokerProviderExtension.class)
 public class NonJavaKeyStoreTest extends UnitTestBase
 {
     @RegisterExtension
@@ -76,8 +78,12 @@ public class NonJavaKeyStoreTest extends UnitTestBase
     private static final String DN_FOO = "CN=foo";
     private static final String NAME = "myTestTrustStore";
     private static final String NON_JAVA_KEY_STORE = "NonJavaKeyStore";
-    private static final Broker<?> BROKER = BrokerTestHelper.createBrokerMock();
-    private static final ConfiguredObjectFactory FACTORY = BrokerModel.getInstance().getObjectFactory();
+
+    @ProvidedMock
+    private Broker<?> _broker;
+
+    @ProvidedMock
+    private ConfiguredObjectFactory _configuredObjectFactory;
 
     private MessageLogger _messageLogger;
     private KeyCertificatePair _keyCertPair;
@@ -86,7 +92,7 @@ public class NonJavaKeyStoreTest extends UnitTestBase
     public void setUp() throws Exception
     {
         _messageLogger = mock(MessageLogger.class);
-        when(BROKER.getEventLogger()).thenReturn(new EventLogger(_messageLogger));
+        when(_broker.getEventLogger()).thenReturn(new EventLogger(_messageLogger));
         _keyCertPair = generateSelfSignedCertificate();
     }
 
@@ -130,8 +136,8 @@ public class NonJavaKeyStoreTest extends UnitTestBase
                 "certificateUrl", certificateFile.toFile().getAbsolutePath(),
                 NonJavaKeyStore.TYPE, NON_JAVA_KEY_STORE);
 
-        KeyStoreTestHelper.checkExceptionThrownDuringKeyStoreCreation(FACTORY, BROKER, KeyStore.class, attributes,
-                "Cannot load private key or certificate(s)");
+        KeyStoreTestHelper.checkExceptionThrownDuringKeyStoreCreation(_configuredObjectFactory, _broker, KeyStore.class, attributes,
+                                                                      "Cannot load private key or certificate(s)");
     }
 
     @Test
@@ -144,7 +150,7 @@ public class NonJavaKeyStoreTest extends UnitTestBase
                 "certificateUrl", certificateFile.toFile().getAbsolutePath(),
                 NonJavaKeyStore.TYPE, NON_JAVA_KEY_STORE);
 
-        KeyStoreTestHelper.checkExceptionThrownDuringKeyStoreCreation(FACTORY, BROKER, KeyStore.class, attributes,
+        KeyStoreTestHelper.checkExceptionThrownDuringKeyStoreCreation(_configuredObjectFactory, _broker, KeyStore.class, attributes,
                 "Cannot load private key or certificate(s): java.security.spec.InvalidKeySpecException: " +
                         "Unable to parse key as PKCS#1 format");
     }
@@ -166,7 +172,7 @@ public class NonJavaKeyStoreTest extends UnitTestBase
     @SuppressWarnings("unchecked")
     private void doCertExpiryChecking(final int expiryOffset) throws Exception
     {
-        when(BROKER.scheduleHouseKeepingTask(anyLong(), any(TimeUnit.class), any(Runnable.class))).thenReturn(mock(ScheduledFuture.class));
+        when(_broker.scheduleHouseKeepingTask(anyLong(), any(TimeUnit.class), any(Runnable.class))).thenReturn(mock(ScheduledFuture.class));
 
         final Path privateKeyFile =  TLS_RESOURCE.savePrivateKeyAsDer(_keyCertPair.getPrivateKey());
         final Path certificateFile = TLS_RESOURCE.saveCertificateAsDer(_keyCertPair.getCertificate());
@@ -188,8 +194,8 @@ public class NonJavaKeyStoreTest extends UnitTestBase
                 NonJavaKeyStore.CERTIFICATE_URL, getCertificateAsDataUrl(keyCertPair2.getCertificate()),
                 NonJavaKeyStore.TYPE, NON_JAVA_KEY_STORE);
 
-        KeyStoreTestHelper.checkExceptionThrownDuringKeyStoreCreation(FACTORY, BROKER, KeyStore.class, attributes,
-                "Private key does not match certificate");
+        KeyStoreTestHelper.checkExceptionThrownDuringKeyStoreCreation(_configuredObjectFactory, _broker, KeyStore.class, attributes,
+                                                                      "Private key does not match certificate");
     }
 
     @Test
@@ -224,7 +230,7 @@ public class NonJavaKeyStoreTest extends UnitTestBase
     @SuppressWarnings("unchecked")
     private KeyStore<?> createTestKeyStore(final Map<String, Object> attributes)
     {
-        return (KeyStore<?>) FACTORY.create(KeyStore.class, attributes, BROKER);
+        return (KeyStore<?>) _configuredObjectFactory.create(KeyStore.class, attributes, _broker);
     }
 
     private String getCertificateAsDataUrl(final X509Certificate certificate) throws CertificateEncodingException

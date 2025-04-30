@@ -43,14 +43,16 @@ import java.util.Objects;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import org.apache.qpid.server.configuration.IllegalConfigurationException;
 import org.apache.qpid.server.model.Broker;
-import org.apache.qpid.server.model.BrokerModel;
-import org.apache.qpid.server.model.BrokerTestHelper;
+import org.apache.qpid.server.model.ProvidedMock;
+import org.apache.qpid.server.model.BrokerProviderExtension;
 import org.apache.qpid.server.model.ConfiguredObjectFactory;
 import org.apache.qpid.server.model.TrustStore;
 import org.apache.qpid.test.utils.tls.CertificateEntry;
@@ -64,13 +66,9 @@ import org.apache.qpid.server.util.DataUrlUtils;
 import org.apache.qpid.test.utils.UnitTestBase;
 import org.apache.qpid.test.utils.tls.TlsResourceHelper;
 
+@ExtendWith(BrokerProviderExtension.class)
 public class FileTrustStoreTest extends UnitTestBase
 {
-    @RegisterExtension
-    public static final TlsResource TLS_RESOURCE = new TlsResource();
-
-    private static final Broker<?> BROKER = BrokerTestHelper.createBrokerMock();
-    private static final ConfiguredObjectFactory FACTORY = BrokerModel.getInstance().getObjectFactory();
     private static final String DN_FOO = "CN=foo";
     private static final String DN_BAR = "CN=bar";
     private static final String DN_CA = "CN=CA";
@@ -80,6 +78,15 @@ public class FileTrustStoreTest extends UnitTestBase
     private static final String NAME = "myFileTrustStore";
     private static final String NOT_A_TRUSTSTORE = "/not/a/truststore";
     private static final String SECRET_KEY_ALIAS = "secret-key-alias";
+
+    @RegisterExtension
+    public static final TlsResource TLS_RESOURCE = new TlsResource();
+
+    @ProvidedMock
+    private Broker<?> _broker;
+
+    @ProvidedMock
+    private ConfiguredObjectFactory _configuredObjectFactory;
 
     @Test
     public void testCreateFileTrustStoreWithoutCRL() throws Exception
@@ -124,8 +131,8 @@ public class FileTrustStoreTest extends UnitTestBase
                 FileTrustStore.PASSWORD, TLS_RESOURCE.getSecret() + "_",
                 FileTrustStore.TRUST_STORE_TYPE, TLS_RESOURCE.getKeyStoreType());
 
-        KeyStoreTestHelper.checkExceptionThrownDuringKeyStoreCreation(FACTORY, BROKER, TrustStore.class, attributes,
-                "Check trust store password");
+        KeyStoreTestHelper.checkExceptionThrownDuringKeyStoreCreation(_configuredObjectFactory, _broker, TrustStore.class, attributes,
+                                                                      "Check trust store password");
     }
 
     @Test
@@ -138,8 +145,8 @@ public class FileTrustStoreTest extends UnitTestBase
                 FileTrustStore.TRUST_STORE_TYPE, TLS_RESOURCE.getKeyStoreType(),
                 FileTrustStore.CERTIFICATE_REVOCATION_LIST_URL, NOT_A_CRL);
 
-        KeyStoreTestHelper.checkExceptionThrownDuringKeyStoreCreation(FACTORY, BROKER, TrustStore.class, attributes,
-                String.format("Unable to load certificate revocation list '%s' for truststore 'myFileTrustStore'", NOT_A_CRL));
+        KeyStoreTestHelper.checkExceptionThrownDuringKeyStoreCreation(_configuredObjectFactory, _broker, TrustStore.class, attributes,
+                                                                      String.format("Unable to load certificate revocation list '%s' for truststore 'myFileTrustStore'", NOT_A_CRL));
     }
 
     @Test
@@ -249,8 +256,8 @@ public class FileTrustStoreTest extends UnitTestBase
                 FileTrustStore.STORE_URL, trustStoreAsDataUrl,
                 FileTrustStore.TRUST_STORE_TYPE, TLS_RESOURCE.getKeyStoreType());
 
-        KeyStoreTestHelper.checkExceptionThrownDuringKeyStoreCreation(FACTORY, BROKER, TrustStore.class, attributes,
-            "Check trust store password");
+        KeyStoreTestHelper.checkExceptionThrownDuringKeyStoreCreation(_configuredObjectFactory, _broker, TrustStore.class, attributes,
+                                                                      "Check trust store password");
     }
 
     @Test
@@ -262,8 +269,8 @@ public class FileTrustStoreTest extends UnitTestBase
                 FileTrustStore.STORE_URL, trustStoreAsDataUrl,
                 FileTrustStore.TRUST_STORE_TYPE, TLS_RESOURCE.getKeyStoreType());
 
-        KeyStoreTestHelper.checkExceptionThrownDuringKeyStoreCreation(FACTORY, BROKER, TrustStore.class, attributes,
-                "Cannot instantiate trust store");
+        KeyStoreTestHelper.checkExceptionThrownDuringKeyStoreCreation(_configuredObjectFactory, _broker, TrustStore.class, attributes,
+                                                                      "Cannot instantiate trust store");
     }
 
     @Test
@@ -326,8 +333,8 @@ public class FileTrustStoreTest extends UnitTestBase
                 FileKeyStore.STORE_URL, path.toFile().getAbsolutePath(),
                 FileTrustStore.TRUST_STORE_TYPE, TLS_RESOURCE.getKeyStoreType());
 
-        KeyStoreTestHelper.checkExceptionThrownDuringKeyStoreCreation(FACTORY, BROKER, TrustStore.class, attributes,
-                "must contain at least one certificate");
+        KeyStoreTestHelper.checkExceptionThrownDuringKeyStoreCreation(_configuredObjectFactory, _broker, TrustStore.class, attributes,
+                                                                      "must contain at least one certificate");
     }
 
     @Test
@@ -339,8 +346,8 @@ public class FileTrustStoreTest extends UnitTestBase
                 FileTrustStore.STORE_URL, path.toFile().getAbsolutePath(),
                 FileTrustStore.TRUST_STORE_TYPE, TLS_RESOURCE.getKeyStoreType());
 
-        KeyStoreTestHelper.checkExceptionThrownDuringKeyStoreCreation(FACTORY, BROKER, TrustStore.class, attributes,
-                "must contain at least one certificate");
+        KeyStoreTestHelper.checkExceptionThrownDuringKeyStoreCreation(_configuredObjectFactory, _broker, TrustStore.class, attributes,
+                                                                      "must contain at least one certificate");
     }
 
     @Test
@@ -398,7 +405,7 @@ public class FileTrustStoreTest extends UnitTestBase
     @SuppressWarnings("unchecked")
     private FileTrustStore<?> createFileTrustStore(final Map<String, Object> attributes)
     {
-        return (FileTrustStore<?>) FACTORY.create(TrustStore.class, attributes, BROKER);
+        return (FileTrustStore<?>) _configuredObjectFactory.create(TrustStore.class, attributes, _broker);
     }
 
     private X509Certificate getCertificate(final FileTrustStore<?> trustStore)

@@ -17,6 +17,7 @@
  * under the License.
  *
  */
+
 package org.apache.qpid.server.security.auth.manager;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -29,23 +30,30 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 import org.apache.qpid.server.model.AuthenticationProvider;
 import org.apache.qpid.server.model.Broker;
-import org.apache.qpid.server.model.BrokerModel;
-import org.apache.qpid.server.model.BrokerTestHelper;
+import org.apache.qpid.server.model.BrokerProviderExtension;
 import org.apache.qpid.server.model.ConfiguredObjectFactory;
+import org.apache.qpid.server.model.ProvidedMock;
 import org.apache.qpid.server.model.TrustStore;
 import org.apache.qpid.test.utils.UnitTestBase;
 
+@ExtendWith(BrokerProviderExtension.class)
 public class SimpleLDAPAuthenticationManagerFactoryTest extends UnitTestBase
 {
-    private final ConfiguredObjectFactory _factory = BrokerModel.getInstance().getObjectFactory();
     private final Map<String, Object> _configuration = new HashMap<>();
-    private final Broker<?> _broker = BrokerTestHelper.createBrokerMock();
+
+    @ProvidedMock
+    private Broker<?> _broker;
+
+    @ProvidedMock
+    private ConfiguredObjectFactory _factory;
+
     private final TrustStore<?> _trustStore = mock(TrustStore.class);
 
     @BeforeEach
@@ -58,7 +66,7 @@ public class SimpleLDAPAuthenticationManagerFactoryTest extends UnitTestBase
         _configuration.put(AuthenticationProvider.NAME, getClass().getName());
     }
 
-    @AfterAll
+    @AfterEach
     public void tearDown()
     {
         when(_broker.getChildren(eq(TrustStore.class))).thenReturn(List.of());

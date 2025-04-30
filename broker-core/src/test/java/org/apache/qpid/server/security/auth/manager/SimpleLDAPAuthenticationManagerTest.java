@@ -16,6 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+
 package org.apache.qpid.server.security.auth.manager;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -76,13 +77,15 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import org.apache.qpid.server.configuration.IllegalConfigurationException;
 import org.apache.qpid.server.model.Broker;
-import org.apache.qpid.server.model.BrokerTestHelper;
+import org.apache.qpid.server.model.BrokerProviderExtension;
+import org.apache.qpid.server.model.ProvidedMock;
 import org.apache.qpid.server.security.auth.AuthenticationResult;
 import org.apache.qpid.server.security.auth.SocketConnectionPrincipal;
 import org.apache.qpid.server.security.auth.sasl.SaslNegotiator;
@@ -90,12 +93,13 @@ import org.apache.qpid.server.security.auth.sasl.SaslSettings;
 import org.apache.qpid.test.utils.CreateLdapServerExtension;
 import org.apache.qpid.test.utils.JvmVendor;
 import org.apache.qpid.server.test.KerberosUtilities;
+import org.apache.qpid.test.utils.PortHelper;
 import org.apache.qpid.test.utils.SystemPropertySetter;
 import org.apache.qpid.test.utils.TestFileUtils;
 import org.apache.qpid.test.utils.UnitTestBase;
 
 @CreateDS(
-    name = "testDS",
+    name = "SimpleLDAPAuthenticationManagerTest",
     partitions =
     {
         @CreatePartition(name = "test", suffix = "dc=qpid,dc=org")
@@ -120,6 +124,7 @@ import org.apache.qpid.test.utils.UnitTestBase;
     }
 )
 @ApplyLdifFiles("users.ldif")
+@ExtendWith(BrokerProviderExtension.class)
 public class SimpleLDAPAuthenticationManagerTest extends UnitTestBase
 {
     private static final Logger LOGGER = LoggerFactory.getLogger(SimpleLDAPAuthenticationManagerTest.class);
@@ -150,8 +155,12 @@ public class SimpleLDAPAuthenticationManagerTest extends UnitTestBase
     @RegisterExtension
     public static final SystemPropertySetter SYSTEM_PROPERTY_SETTER = new SystemPropertySetter();
 
+    private static SimpleKdcServer kerbyServer;
+
+    @ProvidedMock
+    private Broker<?> _broker;
+
     private SimpleLDAPAuthenticationManager<?> _authenticationProvider;
-    private SimpleKdcServer kerbyServer;
 
     @BeforeEach
     public void setUp()
@@ -169,7 +178,7 @@ public class SimpleLDAPAuthenticationManagerTest extends UnitTestBase
     }
 
     @AfterAll
-    public void afterAll()
+    public static void afterAll()
     {
         final Path targetDir = FileSystems.getDefault().getPath("target");
         final File file = new File(targetDir.toFile(), "kerberos.keytab");
@@ -357,7 +366,6 @@ public class SimpleLDAPAuthenticationManagerTest extends UnitTestBase
 
     private SimpleLDAPAuthenticationManagerImpl createAuthenticationProvider(final Map<String, Object> settings)
     {
-        final Broker<?> broker = BrokerTestHelper.createBrokerMock();
         final Map<String, Object> attributes = new HashMap<>();
         attributes.put(SimpleLDAPAuthenticationManager.NAME, getTestName());
         attributes.put(SimpleLDAPAuthenticationManager.SEARCH_CONTEXT, SEARCH_CONTEXT_VALUE);
@@ -367,7 +375,7 @@ public class SimpleLDAPAuthenticationManagerTest extends UnitTestBase
         attributes.put(SimpleLDAPAuthenticationManager.CONTEXT, Map.of(AUTHENTICATION_CACHE_MAX_SIZE, "0"));
         attributes.putAll(settings);
         final SimpleLDAPAuthenticationManagerImpl authenticationProvider =
-                new SimpleLDAPAuthenticationManagerImpl(attributes, broker);
+                new SimpleLDAPAuthenticationManagerImpl(attributes, _broker);
         authenticationProvider.open();
         return authenticationProvider;
     }
@@ -385,7 +393,7 @@ public class SimpleLDAPAuthenticationManagerTest extends UnitTestBase
     private void setUpKerberos() throws Exception
     {
         final LdapServer ldapServer = LDAP.getLdapServer();
-        final int port = ldapServer.getPort() + 1;
+        final int port = new PortHelper().getNextAvailable();
 
         kerbyServer = new SimpleKdcServer();
         kerbyServer.setKdcHost("localhost");

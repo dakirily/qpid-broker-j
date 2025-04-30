@@ -37,12 +37,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.ArgumentCaptor;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import org.apache.qpid.server.bytebuffer.QpidByteBuffer;
 import org.apache.qpid.server.message.AMQMessageHeader;
@@ -70,7 +73,7 @@ import org.apache.qpid.server.store.StoredMessage;
 import org.apache.qpid.server.typedmessage.TypedBytesContentWriter;
 import org.apache.qpid.test.utils.UnitTestBase;
 
-@SuppressWarnings({"unchecked"})
+@ExtendWith({MockitoExtension.class})
 class MessageConverter_0_8_to_1_0Test extends UnitTestBase
 {
     private final MessageConverter_0_8_to_1_0 _converter = new MessageConverter_0_8_to_1_0();
@@ -80,14 +83,18 @@ class MessageConverter_0_8_to_1_0Test extends UnitTestBase
             .registerTransactionLayer()
             .registerSecurityLayer();
 
-    private final StoredMessage<MessageMetaData> _handle = mock(StoredMessage.class);
+    @Mock
+    private StoredMessage<MessageMetaData> _handle;
+    @Mock
+    private MessageMetaData _metaData;
+    @Mock
+    private AMQMessageHeader _header;
+    @Mock
+    private ContentHeaderBody _contentHeaderBody;
+    @Mock
+    private BasicContentHeaderProperties _basicContentHeaderProperties;
 
-    private final MessageMetaData _metaData = mock(MessageMetaData.class);
-    private final AMQMessageHeader _header = mock(AMQMessageHeader.class);
-    private final ContentHeaderBody _contentHeaderBody = mock(ContentHeaderBody.class);
-    private final BasicContentHeaderProperties _basicContentHeaderProperties = mock(BasicContentHeaderProperties.class);
-
-    @BeforeAll
+    @BeforeEach
     void setUp()
     {
         when(_handle.getMetaData()).thenReturn(_metaData);

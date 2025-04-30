@@ -39,7 +39,6 @@ import java.util.Map;
 import java.util.Set;
 
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -64,15 +63,10 @@ public class HeadersExchangeTest extends UnitTestBase
     private InstanceProperties _instanceProperties;
     private ServerMessage<?> _messageWithNoHeaders;
 
-    @BeforeAll
-    public void beforeAll() throws Exception
+    @BeforeEach
+    public void beforeEach() throws Exception
     {
         _vhost = BrokerTestHelper.createVirtualHost(getTestClassName(), this);
-    }
-
-    @BeforeEach
-    public void setUp() throws Exception
-    {
         final Map<String,Object> attributes = Map.of(Exchange.NAME, "test",
                 Exchange.DURABLE, false,
                 Exchange.TYPE, ExchangeDefaults.HEADERS_EXCHANGE_CLASS);

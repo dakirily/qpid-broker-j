@@ -17,6 +17,7 @@
  * under the License.
  *
  */
+
 package org.apache.qpid.server.queue;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -28,19 +29,21 @@ import static org.mockito.Mockito.when;
 
 import java.util.Map;
 
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 import org.apache.qpid.server.message.AMQMessageHeader;
 import org.apache.qpid.server.message.MessageReference;
 import org.apache.qpid.server.message.ServerMessage;
-import org.apache.qpid.server.model.BrokerTestHelper;
+import org.apache.qpid.server.model.BrokerProviderExtension;
+import org.apache.qpid.server.model.ProvidedMock;
 import org.apache.qpid.server.model.Queue;
 import org.apache.qpid.server.store.TransactionLogResource;
 import org.apache.qpid.server.virtualhost.QueueManagingVirtualHost;
 import org.apache.qpid.test.utils.UnitTestBase;
 
+@ExtendWith(BrokerProviderExtension.class)
 public class LastValueQueueListTest extends UnitTestBase
 {
     private static final String CONFLATION_KEY = "CONFLATION_KEY";
@@ -48,15 +51,10 @@ public class LastValueQueueListTest extends UnitTestBase
     private static final String TEST_KEY_VALUE1 = "testKeyValue1";
     private static final String TEST_KEY_VALUE2 = "testKeyValue2";
 
+    @ProvidedMock
     private QueueManagingVirtualHost<?> _virtualHost;
     private LastValueQueueList _list;
     private LastValueQueueImpl _queue;
-
-    @BeforeAll
-    public void beforeAll() throws Exception
-    {
-        _virtualHost = BrokerTestHelper.createVirtualHost(getTestClassName(), this);
-    }
 
     @BeforeEach
     public void setUp() throws Exception

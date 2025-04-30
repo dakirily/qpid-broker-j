@@ -61,8 +61,8 @@ public class DirectExchangeTest extends UnitTestBase
     private InstanceProperties _instanceProperties;
     private ServerMessage<?> _messageWithNoHeaders;
 
-    @BeforeAll
-    public void beforeAll() throws Exception
+    @BeforeEach
+    public void beforeEach() throws Exception
     {
         _vhost = BrokerTestHelper.createVirtualHost(getTestClassName(), this);
 

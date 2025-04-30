@@ -45,12 +45,15 @@ import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 import org.apache.qpid.server.configuration.updater.CurrentThreadTaskExecutor;
 import org.apache.qpid.server.configuration.updater.TaskExecutor;
 import org.apache.qpid.server.model.Broker;
+import org.apache.qpid.server.model.BrokerProviderExtension;
 import org.apache.qpid.server.model.BrokerTestHelper;
 import org.apache.qpid.server.model.ConfiguredObjectFactory;
+import org.apache.qpid.server.model.ProvidedMock;
 import org.apache.qpid.server.model.VirtualHost;
 import org.apache.qpid.server.model.VirtualHostNode;
 import org.apache.qpid.server.security.AccessControl;
@@ -64,10 +67,12 @@ import org.apache.qpid.server.util.ServerScopedRuntimeException;
 import org.apache.qpid.test.utils.UnitTestBase;
 import org.apache.qpid.test.utils.VirtualHostNodeStoreType;
 
+@ExtendWith(BrokerProviderExtension.class)
 public class BDBHARemoteReplicationNodeTest extends UnitTestBase
 {
     private final AccessControl _mockAccessControl = mock(AccessControl.class);
-
+    @ProvidedMock
+    private Broker _broker;
     private BDBHAVirtualHostNode<?> _virtualHostNode;
     private ReplicatedEnvironmentFacade _facade;
 
@@ -79,13 +84,6 @@ public class BDBHARemoteReplicationNodeTest extends UnitTestBase
 
         _facade = mock(ReplicatedEnvironmentFacade.class);
 
-        Broker broker = BrokerTestHelper.createBrokerMock();
-
-        TaskExecutor taskExecutor = new CurrentThreadTaskExecutor();
-        taskExecutor.start();
-        when(broker.getTaskExecutor()).thenReturn(taskExecutor);
-        when(broker.getChildExecutor()).thenReturn(taskExecutor);
-
         _virtualHostNode = BrokerTestHelper.mockWithSystemPrincipalAndAccessControl(BDBHAVirtualHostNode.class,
                                                                                     mock(Principal.class),
                                                                                     _mockAccessControl);
@@ -93,14 +91,15 @@ public class BDBHARemoteReplicationNodeTest extends UnitTestBase
         DurableConfigurationStore configStore = mock(DurableConfigurationStore.class);
         when(_virtualHostNode.getConfigurationStore()).thenReturn(configStore);
 
+        final TaskExecutor taskExecutor = CurrentThreadTaskExecutor.newStartedInstance();
+
         // Virtualhost needs the EventLogger from the SystemContext.
-        when(_virtualHostNode.getParent()).thenReturn(broker);
+        when(_virtualHostNode.getParent()).thenReturn(_broker);
         doReturn(VirtualHostNode.class).when(_virtualHostNode).getCategoryClass();
-        ConfiguredObjectFactory objectFactory = broker.getObjectFactory();
+        ConfiguredObjectFactory objectFactory = _broker.getObjectFactory();
         when(_virtualHostNode.getModel()).thenReturn(objectFactory.getModel());
         when(_virtualHostNode.getTaskExecutor()).thenReturn(taskExecutor);
         when(_virtualHostNode.getChildExecutor()).thenReturn(taskExecutor);
-
     }
 
     @Test

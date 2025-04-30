@@ -16,6 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+
 package org.apache.qpid.server.queue;
 
 import static org.apache.qpid.server.message.MessageInstance.NON_CONSUMER_ACQUIRED_STATE;
@@ -32,9 +33,9 @@ import static org.mockito.Mockito.when;
 
 import java.util.Map;
 
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 import org.apache.qpid.server.message.MessageInstance;
 import org.apache.qpid.server.message.MessageInstance.EntryState;
@@ -43,7 +44,9 @@ import org.apache.qpid.server.message.MessageInstance.UnstealableConsumerAcquire
 import org.apache.qpid.server.message.MessageReference;
 import org.apache.qpid.server.message.ServerMessage;
 import org.apache.qpid.server.model.AlternateBinding;
+import org.apache.qpid.server.model.BrokerProviderExtension;
 import org.apache.qpid.server.model.BrokerTestHelper;
+import org.apache.qpid.server.model.ProvidedMock;
 import org.apache.qpid.server.model.Queue;
 import org.apache.qpid.server.store.TransactionLogResource;
 import org.apache.qpid.server.util.Action;
@@ -54,20 +57,16 @@ import org.apache.qpid.test.utils.UnitTestBase;
 /**
  * Tests for {@link QueueEntryImpl}
  */
+@ExtendWith(BrokerProviderExtension.class)
 public abstract class QueueEntryImplTestBase extends UnitTestBase
 {
     // tested entry
     protected QueueEntryImpl _queueEntry;
     protected QueueEntryImpl _queueEntry2;
     protected QueueEntryImpl _queueEntry3;
+    @ProvidedMock
     protected QueueManagingVirtualHost<?> _virtualHost;
     private long _consumerId;
-
-    @BeforeAll
-    public void beforeAll() throws Exception
-    {
-        _virtualHost = BrokerTestHelper.createVirtualHost(getTestClassName(), this);
-    }
 
     public abstract QueueEntryImpl getQueueEntryImpl(int msgId);
 

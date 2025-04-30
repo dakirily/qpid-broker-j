@@ -164,6 +164,11 @@
                     <systemPropertyVariables>
                         <qpid.initialConfigurationLocation>classpath:config-http-management-tests.json</qpid.initialConfigurationLocation>
                     </systemPropertyVariables>
+                    <properties>
+                        <configurationParameters>
+                            junit.jupiter.execution.parallel.enabled = false
+                        </configurationParameters>
+                    </properties>
                 </configuration>
             </plugin>
         </plugins>

@@ -18,6 +18,7 @@
  * under the License.
  *
  */
+
 package org.apache.qpid.server.queue;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -27,35 +28,32 @@ import static org.mockito.Mockito.when;
 
 import java.util.Map;
 
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 import org.apache.qpid.server.message.AMQMessageHeader;
 import org.apache.qpid.server.message.MessageReference;
 import org.apache.qpid.server.message.ServerMessage;
-import org.apache.qpid.server.model.BrokerTestHelper;
+import org.apache.qpid.server.model.BrokerProviderExtension;
+import org.apache.qpid.server.model.ProvidedMock;
 import org.apache.qpid.server.model.Queue;
 import org.apache.qpid.server.store.TransactionLogResource;
 import org.apache.qpid.server.virtualhost.QueueManagingVirtualHost;
 import org.apache.qpid.test.utils.UnitTestBase;
 
+@ExtendWith(BrokerProviderExtension.class)
 public class PriorityQueueListTest extends UnitTestBase
 {
     private static final byte[] PRIORITIES = {4, 5, 5, 4};
 
     private PriorityQueueList _list;
+    @ProvidedMock
     private QueueManagingVirtualHost<?> _virtualHost;
     private QueueEntry _priority4message1;
     private QueueEntry _priority4message2;
     private QueueEntry _priority5message1;
     private QueueEntry _priority5message2;
-
-    @BeforeAll
-    public void beforeAll() throws Exception
-    {
-        _virtualHost = BrokerTestHelper.createVirtualHost(getTestClassName(), this);
-    }
 
     @BeforeEach
     public void setUp() throws Exception

@@ -23,7 +23,7 @@ package org.apache.qpid.server.virtualhostnode.berkeleydb;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.doReturn;
 
 import java.io.File;
 import java.io.StringWriter;
@@ -46,8 +46,6 @@ import org.slf4j.LoggerFactory;
 import org.apache.qpid.server.configuration.updater.TaskExecutor;
 import org.apache.qpid.server.configuration.updater.TaskExecutorImpl;
 import org.apache.qpid.server.model.Broker;
-import org.apache.qpid.server.model.BrokerModel;
-import org.apache.qpid.server.model.BrokerTestHelper;
 import org.apache.qpid.server.model.ConfiguredObject;
 import org.apache.qpid.server.model.ConfiguredObjectFactory;
 import org.apache.qpid.server.model.RemoteReplicationNode;
@@ -72,21 +70,21 @@ public class BDBHAVirtualHostNodeTestHelper
     private final Broker<?> _broker;
     private final File _bdbStorePath;
     private final TaskExecutor _taskExecutor;
-    private final ConfiguredObjectFactory _objectFactory = BrokerModel.getInstance().getObjectFactory();
+    private final ConfiguredObjectFactory _objectFactory;
     private final Set<BDBHAVirtualHostNode<?>> _nodes = new HashSet<>();
     private final int _numberOfSleeps;
     private final int _sleepInterval;
     private final int _waitForVirtualhostInterval;
 
-    public BDBHAVirtualHostNodeTestHelper(String testName)
+    public BDBHAVirtualHostNodeTestHelper(final Broker<?> broker, final String testName)
     {
-        _broker = BrokerTestHelper.createBrokerMock();
-
+        _broker = broker;
+        _objectFactory = _broker.getObjectFactory();
         _taskExecutor = new TaskExecutorImpl();
         _taskExecutor.start();
-        when(_broker.getTaskExecutor()).thenReturn(_taskExecutor);
-        when(_broker.getChildExecutor()).thenReturn(_taskExecutor);
-        when(_broker.getContextValue(Long.class, BDBVirtualHost.QPID_BROKER_BDB_TOTAL_CACHE_SIZE)).thenReturn(BDBVirtualHost.BDB_MIN_CACHE_SIZE);
+        doReturn(_taskExecutor).when(_broker).getTaskExecutor();
+        doReturn(_taskExecutor).when(_broker).getChildExecutor();
+        doReturn(BDBVirtualHost.BDB_MIN_CACHE_SIZE).when(_broker).getContextValue(Long.class, BDBVirtualHost.QPID_BROKER_BDB_TOTAL_CACHE_SIZE);
 
         _bdbStorePath = new File(UnitTestBase.TMP_FOLDER, testName + "." + System.currentTimeMillis());
         _bdbStorePath.deleteOnExit();

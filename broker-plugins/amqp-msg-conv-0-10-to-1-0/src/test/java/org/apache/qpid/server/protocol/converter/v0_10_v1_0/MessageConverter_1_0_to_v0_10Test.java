@@ -38,7 +38,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import org.mockito.ArgumentCaptor;
@@ -91,13 +90,7 @@ class MessageConverter_1_0_to_v0_10Test extends UnitTestBase
     private static final String OCTET_STREAM = "application/octet-stream";
     private static final String OBJECT_STREAM = "application/java-object-stream";
 
-    private MessageConverter_1_0_to_v0_10 _converter;
-
-    @BeforeAll
-    void setUp()
-    {
-        _converter = new MessageConverter_1_0_to_v0_10();
-    }
+    private MessageConverter_1_0_to_v0_10 _converter = new MessageConverter_1_0_to_v0_10();
 
     @Test
     void amqpValueWithNullWithTextMessageAnnotation()

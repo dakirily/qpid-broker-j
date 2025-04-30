@@ -24,10 +24,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import static org.mockito.Mockito.argThat;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 import java.util.Collections;
 import java.util.EnumSet;
@@ -40,6 +40,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentMatcher;
 
 import org.apache.qpid.server.logging.EventLogger;
@@ -48,20 +49,24 @@ import org.apache.qpid.server.logging.LogSubject;
 import org.apache.qpid.server.logging.Outcome;
 import org.apache.qpid.server.logging.messages.HighAvailabilityMessages;
 import org.apache.qpid.server.model.AbstractConfigurationChangeListener;
+import org.apache.qpid.server.model.Broker;
+import org.apache.qpid.server.model.BrokerProviderExtension;
 import org.apache.qpid.server.model.ConfiguredObject;
+import org.apache.qpid.server.model.ProvidedMock;
 import org.apache.qpid.server.model.SystemConfig;
-import org.apache.qpid.test.utils.PortHelper;
 import org.apache.qpid.test.utils.UnitTestBase;
 import org.apache.qpid.test.utils.VirtualHostNodeStoreType;
 
 /**
  * Class to test that specific VHN operations result in the expected Operational Log message(s) being performed.
  */
+@ExtendWith(BrokerProviderExtension.class)
 public class BDBHAVirtualHostNodeOperationalLoggingTest extends UnitTestBase
 {
     private BDBHAVirtualHostNodeTestHelper _helper;
     private EventLogger _eventLogger;
-    private final PortHelper _portHelper = new PortHelper();
+    @ProvidedMock
+    private Broker<?> _broker;
 
     @BeforeEach
     public void setUp() throws Exception
@@ -69,32 +74,25 @@ public class BDBHAVirtualHostNodeOperationalLoggingTest extends UnitTestBase
         assumeTrue(Objects.equals(getVirtualHostNodeStoreType(), VirtualHostNodeStoreType.BDB),
                 "VirtualHostNodeStoreType should be BDB");
 
-        _helper = new BDBHAVirtualHostNodeTestHelper(getTestName());
+        _helper = new BDBHAVirtualHostNodeTestHelper(_broker, getTestName());
         _eventLogger = mock(EventLogger.class);
         SystemConfig<?> context = (SystemConfig<?>) _helper.getBroker().getParent();
-        when(context.getEventLogger()).thenReturn(_eventLogger);
+        doReturn(_eventLogger).when(context).getEventLogger();
     }
 
     @AfterEach
     public void tearDown() throws Exception
     {
-        try
+        if (_helper != null)
         {
-            if (_helper != null)
-            {
-                _helper.tearDown();
-            }
-        }
-        finally
-        {
-            _portHelper.waitUntilAllocatedPortsAreFree();
+            _helper.tearDown();
         }
     }
 
     @Test
     public void testCreate() throws Exception
     {
-        int node1PortNumber = _portHelper.getNextAvailable();
+        int node1PortNumber = findFreePort();
         String helperAddress = "localhost:" + node1PortNumber;
         String groupName = "group";
         String nodeName = "node1";
@@ -117,7 +115,7 @@ public class BDBHAVirtualHostNodeOperationalLoggingTest extends UnitTestBase
                      "Unexpected group log subject");
 
         String attributes = String.format(
-                "{address=%s,context={je.rep.insufficientReplicasTimeout=2 s, je.rep.replicaAckTimeout=2 s},createdTime=%s,groupName=%s,helperAddress=%s,id=%s,lastUpdatedTime=%s,name=%s,permittedNodes=[%s],storePath=%s,type=%s,virtualHostInitialConfiguration={\n  \"type\" : \"BDB_HA\"\n}}",
+                "{address=%s,context={je.rep.insufficientReplicasTimeout=2 s, je.rep.replicaAckTimeout=2 s},createdTime=%s,groupName=%s,helperAddress=%s,id=%s,lastUpdatedTime=%s,name=%s,permittedNodes=[%s],storePath=%s,type=%s,virtualHostInitialConfiguration={%s  \"type\" : \"BDB_HA\"%s}}",
                 address,
                 createTime,
                 groupName,
@@ -127,7 +125,8 @@ public class BDBHAVirtualHostNodeOperationalLoggingTest extends UnitTestBase
                 nodeName,
                 address,
                 node1.getStorePath(),
-                node1.getType()
+                node1.getType(),
+                System.lineSeparator(), System.lineSeparator()
                 );
 
         String expectedMessage = HighAvailabilityMessages.CREATE(nodeName,
@@ -144,7 +143,7 @@ public class BDBHAVirtualHostNodeOperationalLoggingTest extends UnitTestBase
     @Test
     public void testDelete() throws Exception
     {
-        int node1PortNumber = _portHelper.getNextAvailable();
+        int node1PortNumber = findFreePort();
         String helperAddress = "localhost:" + node1PortNumber;
         String groupName = "group";
         String nodeName = "node1";
@@ -166,7 +165,7 @@ public class BDBHAVirtualHostNodeOperationalLoggingTest extends UnitTestBase
     @Test
     public void testSetPriority() throws Exception
     {
-        int node1PortNumber = _portHelper.getNextAvailable();
+        int node1PortNumber = findFreePort();
         String helperAddress = "localhost:" + node1PortNumber;
         String groupName = "group";
         String nodeName = "node1";
@@ -191,7 +190,7 @@ public class BDBHAVirtualHostNodeOperationalLoggingTest extends UnitTestBase
     @Test
     public void testSetQuorumOverride() throws Exception
     {
-        int node1PortNumber = _portHelper.getNextAvailable();
+        int node1PortNumber = findFreePort();
         String helperAddress = "localhost:" + node1PortNumber;
         String groupName = "group";
         String nodeName = "node1";
@@ -216,7 +215,7 @@ public class BDBHAVirtualHostNodeOperationalLoggingTest extends UnitTestBase
     @Test
     public void testSetDesignatedPrimary() throws Exception
     {
-        int node1PortNumber = _portHelper.getNextAvailable();
+        int node1PortNumber = findFreePort();
         String helperAddress = "localhost:" + node1PortNumber;
         String groupName = "group";
         String nodeName = "node1";
@@ -241,8 +240,8 @@ public class BDBHAVirtualHostNodeOperationalLoggingTest extends UnitTestBase
     @Test
     public void testRemoteNodeAdded() throws Exception
     {
-        int node1PortNumber = _portHelper.getNextAvailable();
-        int node2PortNumber = _portHelper.getNextAvailable();
+        int node1PortNumber = findFreePort();
+        int node2PortNumber = findFreePort();
         String helperAddress = "localhost:" + node1PortNumber;
         String groupName = "group";
         String nodeName = "node1";
@@ -269,8 +268,8 @@ public class BDBHAVirtualHostNodeOperationalLoggingTest extends UnitTestBase
     @Test
     public void testRemoteNodeRemoved() throws Exception
     {
-        int node1PortNumber = _portHelper.getNextAvailable();
-        int node2PortNumber = _portHelper.getNextAvailable();
+        int node1PortNumber = findFreePort();
+        int node2PortNumber = findFreePort();
         String helperAddress = "localhost:" + node1PortNumber;
         String groupName = "group";
         String nodeName = "node1";
@@ -302,8 +301,8 @@ public class BDBHAVirtualHostNodeOperationalLoggingTest extends UnitTestBase
     @Test
     public void testRemoteNodeDetached() throws Exception
     {
-        int node1PortNumber = _portHelper.getNextAvailable();
-        int node2PortNumber = _portHelper.getNextAvailable();
+        int node1PortNumber = findFreePort();
+        int node2PortNumber = findFreePort();
         String helperAddress = "localhost:" + node1PortNumber;
         String groupName = "group";
         String nodeName = "node1";
@@ -353,8 +352,8 @@ public class BDBHAVirtualHostNodeOperationalLoggingTest extends UnitTestBase
     @Test
     public void testRemoteNodeReAttached() throws Exception
     {
-        int node1PortNumber = _portHelper.getNextAvailable();
-        int node2PortNumber = _portHelper.getNextAvailable();
+        int node1PortNumber = findFreePort();
+        int node2PortNumber = findFreePort();
         String helperAddress = "localhost:" + node1PortNumber;
         String groupName = "group";
         String nodeName = "node1";
@@ -407,7 +406,7 @@ public class BDBHAVirtualHostNodeOperationalLoggingTest extends UnitTestBase
     {
         EventLogger eventLogger = mock(EventLogger.class);
         SystemConfig<?> context = (SystemConfig<?>) _helper.getBroker().getParent();
-        when(context.getEventLogger()).thenReturn(eventLogger);
+        doReturn(eventLogger).when(context).getEventLogger();
         return eventLogger;
     }
 

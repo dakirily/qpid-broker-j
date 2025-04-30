@@ -38,8 +38,13 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
-import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 
 import org.apache.qpid.server.bytebuffer.QpidByteBuffer;
 import org.apache.qpid.server.model.Exchange;
@@ -69,21 +74,21 @@ import org.apache.qpid.server.protocol.v1_0.type.messaging.Properties;
 import org.apache.qpid.server.store.StoredMessage;
 import org.apache.qpid.test.utils.UnitTestBase;
 
-@SuppressWarnings({"rawtypes", "unchecked"})
+@ExtendWith({MockitoExtension.class})
+@MockitoSettings(strictness = Strictness.LENIENT)
 class PropertyConverter_1_0_to_0_10Test extends UnitTestBase
 {
     private static final DeliveryAnnotations DELIVERY_ANNOTATIONS = new DeliveryAnnotations(Map.of());
     private static final MessageAnnotations MSG_ANNOTATIONS = new MessageAnnotations(Map.of());
 
+    @Mock
     private NamedAddressSpace _namedAddressSpace;
-    private MessageConverter_1_0_to_v0_10 _messageConverter;
+    private MessageConverter_1_0_to_v0_10 _messageConverter = new MessageConverter_1_0_to_v0_10();
 
-    @BeforeAll
+    @BeforeEach
     void setUp()
     {
-        _namedAddressSpace = mock(NamedAddressSpace.class);
         when(_namedAddressSpace.getLocalAddress(anyString())).then(returnsFirstArg());
-        _messageConverter = new MessageConverter_1_0_to_v0_10();
     }
 
     @Test

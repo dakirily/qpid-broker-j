@@ -18,6 +18,7 @@
  *
  *
  */
+
 package org.apache.qpid.server.security.auth.manager;
 
 import static org.apache.qpid.server.security.auth.AuthenticatedPrincipalTestHelper.assertOnlyContainsWrapped;
@@ -31,23 +32,30 @@ import java.util.Map;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 import org.apache.qpid.server.model.AuthenticationProvider;
-import org.apache.qpid.server.model.BrokerTestHelper;
+import org.apache.qpid.server.model.Broker;
+import org.apache.qpid.server.model.BrokerProviderExtension;
+import org.apache.qpid.server.model.ProvidedMock;
 import org.apache.qpid.server.security.auth.AuthenticationResult;
 import org.apache.qpid.server.security.auth.sasl.SaslNegotiator;
 import org.apache.qpid.test.utils.UnitTestBase;
 
+@ExtendWith(BrokerProviderExtension.class)
 public class AnonymousAuthenticationManagerTest extends UnitTestBase
 {
     private AnonymousAuthenticationManager _manager;
+
+    @ProvidedMock
+    private Broker<?> _broker;
 
     @BeforeEach
     public void setUp() throws Exception
     {
         final Map<String,Object> attrs = Map.of(AuthenticationProvider.ID, randomUUID(),
                 AuthenticationProvider.NAME, getTestName());
-        _manager = new AnonymousAuthenticationManager(attrs, BrokerTestHelper.createBrokerMock());
+        _manager = new AnonymousAuthenticationManager(attrs, _broker);
     }
 
     @AfterEach

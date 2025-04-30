@@ -16,6 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+
 package org.apache.qpid.server.security.auth.manager;
 
 import static java.nio.charset.StandardCharsets.US_ASCII;
@@ -58,15 +59,15 @@ import org.apache.directory.server.ldap.handlers.sasl.plain.PlainMechanismHandle
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import org.apache.qpid.server.configuration.IllegalConfigurationException;
-import org.apache.qpid.server.configuration.updater.CurrentThreadTaskExecutor;
-import org.apache.qpid.server.configuration.updater.TaskExecutor;
 import org.apache.qpid.server.model.AuthenticationProvider;
 import org.apache.qpid.server.model.Broker;
-import org.apache.qpid.server.model.BrokerTestHelper;
+import org.apache.qpid.server.model.BrokerProviderExtension;
 import org.apache.qpid.server.model.ConfiguredObject;
+import org.apache.qpid.server.model.ProvidedMock;
 import org.apache.qpid.server.security.auth.AuthenticationResult;
 import org.apache.qpid.server.security.auth.sasl.SaslNegotiator;
 import org.apache.qpid.server.security.auth.sasl.SaslSettings;
@@ -79,7 +80,7 @@ import org.apache.qpid.test.utils.CreateLdapServerExtension;
 import org.apache.qpid.test.utils.UnitTestBase;
 
 @CreateDS(
-    name = "testDS",
+    name = "CompositeUsernamePasswordAuthenticationManagerTest",
     partitions =
     {
         @CreatePartition(name = "test", suffix = "dc=qpid,dc=org")
@@ -104,6 +105,7 @@ import org.apache.qpid.test.utils.UnitTestBase;
     }
 )
 @ApplyLdifFiles("users.ldif")
+@ExtendWith(BrokerProviderExtension.class)
 public class CompositeUsernamePasswordAuthenticationManagerTest extends UnitTestBase
 {
     @RegisterExtension
@@ -114,16 +116,12 @@ public class CompositeUsernamePasswordAuthenticationManagerTest extends UnitTest
 
     private final List<AuthenticationProvider<?>> _authenticationProviders = new ArrayList<>();
 
+    @ProvidedMock
     private Broker<?> _broker;
-    private TaskExecutor _executor;
 
     @BeforeEach
     public void setUp() throws Exception
     {
-        _executor = CurrentThreadTaskExecutor.newStartedInstance();
-        _broker = BrokerTestHelper.createBrokerMock();
-        when(_broker.getTaskExecutor()).thenReturn(_executor);
-        when(_broker.getChildExecutor()).thenReturn(_executor);
         when(_broker.getAuthenticationProviders()).thenReturn(_authenticationProviders);
         SaslHelper._clientNonce = randomUUID().toString();
     }
@@ -131,7 +129,6 @@ public class CompositeUsernamePasswordAuthenticationManagerTest extends UnitTest
     @AfterEach
     public void tearDown() throws Exception
     {
-        _executor.stop();
         _authenticationProviders.clear();
     }
 

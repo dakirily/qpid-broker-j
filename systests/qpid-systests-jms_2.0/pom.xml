@@ -103,6 +103,11 @@
           <systemPropertyVariables>
             <qpid.initialConfigurationLocation>classpath:config-jms-tests.json</qpid.initialConfigurationLocation>
           </systemPropertyVariables>
+          <properties>
+            <configurationParameters>
+              junit.jupiter.execution.parallel.enabled = false
+            </configurationParameters>
+          </properties>
         </configuration>
       </plugin>
     </plugins>

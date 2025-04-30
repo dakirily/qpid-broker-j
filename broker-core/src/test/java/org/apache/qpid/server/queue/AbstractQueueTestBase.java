@@ -50,10 +50,10 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.stubbing.Answer;
 import org.slf4j.Logger;
@@ -76,10 +76,11 @@ import org.apache.qpid.server.message.ServerMessage;
 import org.apache.qpid.server.message.internal.InternalMessage;
 import org.apache.qpid.server.model.AlternateBinding;
 import org.apache.qpid.server.model.Binding;
-import org.apache.qpid.server.model.BrokerTestHelper;
+import org.apache.qpid.server.model.BrokerProviderExtension;
 import org.apache.qpid.server.model.Exchange;
 import org.apache.qpid.server.model.ExclusivityPolicy;
 import org.apache.qpid.server.model.OverflowPolicy;
+import org.apache.qpid.server.model.ProvidedMock;
 import org.apache.qpid.server.model.Queue;
 import org.apache.qpid.server.model.QueueNotificationListener;
 import org.apache.qpid.server.queue.AbstractQueue.QueueEntryFilter;
@@ -92,7 +93,7 @@ import org.apache.qpid.server.virtualhost.QueueManagingVirtualHost;
 import org.apache.qpid.server.virtualhost.UnknownAlternateBindingException;
 import org.apache.qpid.test.utils.UnitTestBase;
 
-@SuppressWarnings({"rawtypes", "unchecked"})
+@ExtendWith(BrokerProviderExtension.class)
 abstract class AbstractQueueTestBase extends UnitTestBase
 {
     private static final Logger LOGGER = LoggerFactory.getLogger(AbstractQueueTestBase.class);
@@ -102,17 +103,12 @@ abstract class AbstractQueueTestBase extends UnitTestBase
     private final String _routingKey = "routing key";
 
     private Queue<?> _queue;
+    @ProvidedMock
     private QueueManagingVirtualHost<?> _virtualHost;
     private DirectExchangeImpl _exchange;
     private TestConsumerTarget _consumerTarget;  // TODO replace with minimally configured mockito mock
     private QueueConsumer<?,?> _consumer;
     private Map<String,Object> _arguments = Map.of();
-
-    @BeforeAll
-    public void beforeAll() throws Exception
-    {
-        _virtualHost = BrokerTestHelper.createVirtualHost(getTestClassName(), this);
-    }
 
     @BeforeEach
     public void setUp() throws Exception

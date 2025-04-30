@@ -27,7 +27,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import org.apache.qpid.server.message.MessageSource;
@@ -51,7 +51,7 @@ class SendingLinkEndpointTest extends UnitTestBase
 
     private SendingLinkEndpoint _sendingLinkEndpoint;
 
-    @BeforeAll
+    @BeforeEach
     void setUp() throws Exception
     {
         final NamedAddressSpace addressSpace = mock(NamedAddressSpace.class);
