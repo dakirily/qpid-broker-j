@@ -19,6 +19,8 @@
 
 package org.apache.qpid.tests.protocol;
 
+import io.netty.channel.*;
+import io.netty.channel.nio.NioIoHandler;
 import io.netty.util.concurrent.Future;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.anyOf;
@@ -36,13 +38,6 @@ import java.util.concurrent.TimeUnit;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
-import io.netty.channel.Channel;
-import io.netty.channel.ChannelInitializer;
-import io.netty.channel.ChannelOption;
-import io.netty.channel.ChannelPipeline;
-import io.netty.channel.ChannelPromise;
-import io.netty.channel.EventLoopGroup;
-import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
 
@@ -68,7 +63,7 @@ public abstract class AbstractFrameTransport<I extends AbstractInteraction<I>> i
         _brokerAddress = brokerAddress;
         _inputHandler = new InputHandler(_queue, inputDecoder);
         _outputHandler = new OutputHandler(outputEncoder);
-        _workerGroup = new NioEventLoopGroup();
+        _workerGroup = new MultiThreadIoEventLoopGroup(NioIoHandler.newFactory());
     }
 
     public InetSocketAddress getBrokerAddress()

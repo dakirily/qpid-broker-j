@@ -53,9 +53,8 @@ import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpResponse;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
 import org.apache.hc.client5.http.protocol.HttpClientContext;
-import org.apache.hc.core5.http.ContentType;
-import org.apache.hc.core5.http.HttpHost;
-import org.apache.hc.core5.http.ProtocolVersion;
+import org.apache.hc.core5.http.*;
+import org.apache.hc.core5.http.io.HttpClientResponseHandler;
 import org.apache.hc.core5.http.io.entity.StringEntity;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -291,7 +290,7 @@ public class QpidRestAPIQueueCreator implements QueueCreator
         try (final CloseableHttpClient httpClient = HttpClients.custom()
                     .setDefaultCredentialsProvider(_credentialsProvider)
                     .build();
-             final CloseableHttpResponse response = httpClient.execute(_management, httpRequest, context))
+             final CloseableHttpResponse response = httpClient.execute(_management, httpRequest, context, reply -> (CloseableHttpResponse) reply))
         {
             final int status = response.getCode();
             final ProtocolVersion version = response.getVersion();
