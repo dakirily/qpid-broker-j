@@ -1,20 +1,18 @@
 # Apache Qpid Broker-J
 
----
-
-| CI Process              | Status                                                                                                                                                                                         |
-|-------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| GitHub Actions          | [![Build Status](https://github.com/apache/qpid-broker-j/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/apache/qpid-broker-j/actions/workflows/build.yml/?branch=main) |
-| Apache Jenkins CI Build | [![Build Status](https://ci-builds.apache.org/buildStatus/icon?job=Qpid%2FQpid-Broker-J-TestMatrix)](https://ci-builds.apache.org/job/Qpid/job/Qpid-Broker-J-TestMatrix/)                      |
-
----
-
-[Website](http://qpid.apache.org/) |
+[![License](https://img.shields.io/github/license/apache/qpid-broker-j)](https://github.com/apache/qpid-broker-j/blob/main/LICENSE)
+[![Maven Central](https://img.shields.io/maven-central/v/org.apache.qpid/qpid-broker.svg)](https://central.sonatype.com/artifact/org.apache.qpid/qpid-broker)
+[![Build Status](https://github.com/apache/qpid-broker-j/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/apache/qpid-broker-j/actions/workflows/build.yml/?branch=main)
+[![Build Status](https://ci-builds.apache.org/buildStatus/icon?job=Qpid%2FQpid-Broker-J-TestMatrix&subject=Apache%20Jenkins)](https://ci-builds.apache.org/job/Qpid/job/Qpid-Broker-J-TestMatrix/)
+[![Docker Image Size](https://img.shields.io/docker/image-size/apache/qpid-broker-j?logo=docker)](https://hub.docker.com/r/apache/qpid-broker-j)
+___
+[Website](https://qpid.apache.org/) |
 [Wiki](https://cwiki.apache.org/confluence/display/qpid) |
-[Documentation](http://qpid.apache.org/documentation.html) |
-[Developer Mailing List](mailto:dev@qpid.apache.org) |
-[User Mailing List](mailto:users@qpid.apache.org) |
+[Documentation](https://qpid.apache.org/documentation.html) |
+[Developer Mailing List](mailto:dev@qpid.apache.org) ([Archive](https://lists.apache.org/list.html?dev@qpid.apache.org)) |
+[User Mailing List](mailto:users@qpid.apache.org) ([Archive](https://lists.apache.org/list.html?users@qpid.apache.org)) |
 [Open Issues](https://issues.apache.org/jira/issues/?jql=project%20%3D%20QPID%20AND%20resolution%20%3D%20Unresolved%20AND%20component%20%3D%20Broker-J%20ORDER%20BY%20key%20DESC)
+___
 
 # Qpid Broker-J
 

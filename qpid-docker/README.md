@@ -1,3 +1,8 @@
+[![Docker Image Version](https://img.shields.io/docker/v/apache/qpid-broker-j?logo=docker)](https://hub.docker.com/r/apache/qpid-broker-j)
+[![Docker Image Size](https://img.shields.io/docker/image-size/apache/qpid-broker-j?logo=docker)](https://hub.docker.com/r/apache/qpid-broker-j)
+[![Docker Image Size](https://img.shields.io/docker/pulls/apache/qpid-broker-j?logo=docker)](https://hub.docker.com/r/apache/qpid-broker-j)
+___
+
 ## Docker Image Example
 
 This is an example on how a Docker Image For Apache Qpid Broker-J based on Eclipse Temurin JRE image can be created.
