@@ -118,6 +118,7 @@
 
     <geronimo-jms-1-1-version>1.1.1</geronimo-jms-1-1-version>
     <geronimo-jms-2-0-version>1.0-alpha-2</geronimo-jms-2-0-version>
+    <jakarta-jms-version>3.1.0</jakarta-jms-version>
     <asm-version>9.8</asm-version>
 
     <velocity-version>1.4</velocity-version>
@@ -136,7 +137,8 @@
     <maven-resolver-provider-version>3.8.6</maven-resolver-provider-version>
     <maven-resolver-version>1.9.22</maven-resolver-version>
     <httpclient-version>5.5</httpclient-version>
-    <qpid-jms-client-version>1.15.0</qpid-jms-client-version>
+    <qpid-jms-client-1-x-version>1.15.0</qpid-jms-client-1-x-version>
+    <qpid-jms-client-2-x-version>2.9.0</qpid-jms-client-2-x-version>
     <qpid-jms-client-amqp-0-x-version>6.4.0</qpid-jms-client-amqp-0-x-version>
     <nashorn-version>15.7</nashorn-version>
 
@@ -200,8 +202,10 @@
     <module>qpid-test-utils</module>
     <module>systests/systests-utils</module>
     <module>systests/qpid-systests-jms-core</module>
+    <module>systests/qpid-systests-jms-core-jakarta</module>
     <module>systests/qpid-systests-jms_1.1</module>
     <module>systests/qpid-systests-jms_2.0</module>
+    <module>systests/qpid-systests-jms_3.1</module>
     <module>systests/qpid-systests-http-management</module>
     <module>systests/protocol-tests-core</module>
     <module>systests/protocol-tests-amqp-0-8</module>
@@ -486,6 +490,12 @@
 
       <dependency>
         <groupId>org.apache.qpid</groupId>
+        <artifactId>qpid-systests-jms-core-jakarta</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>org.apache.qpid</groupId>
         <artifactId>qpid-systests-jms_1.1</artifactId>
         <version>${project.version}</version>
       </dependency>
@@ -519,21 +529,6 @@
         <groupId>org.apache.qpid</groupId>
         <artifactId>qpid-client</artifactId>
         <version>${qpid-jms-client-amqp-0-x-version}</version>
-      </dependency>
-      <dependency>
-        <groupId>org.apache.qpid</groupId>
-        <artifactId>qpid-jms-client</artifactId>
-        <version>${qpid-jms-client-version}</version>
-        <exclusions>
-          <exclusion>
-            <groupId>io.netty</groupId>
-            <artifactId>netty-transport-native-epoll</artifactId>
-          </exclusion>
-          <exclusion>
-            <groupId>io.netty</groupId>
-            <artifactId>netty-transport-native-kqueue</artifactId>
-          </exclusion>
-        </exclusions>
       </dependency>
       <dependency>
         <groupId>com.sleepycat</groupId>
@@ -626,6 +621,11 @@
         <groupId>org.apache.geronimo.specs</groupId>
         <artifactId>geronimo-jms_2.0_spec</artifactId>
         <version>${geronimo-jms-2-0-version}</version>
+      </dependency>
+      <dependency>
+        <groupId>jakarta.jms</groupId>
+        <artifactId>jakarta.jms-api</artifactId>
+        <version>${jakarta-jms-version}</version>
       </dependency>
       <dependency>
         <groupId>org.eclipse.jetty</groupId>
@@ -1558,6 +1558,42 @@
         <profile.virtualhostnode.type>DERBY</profile.virtualhostnode.type>
         <profile.virtualhostnode.context.blueprint>{"type":"ProvidedStore","globalAddressDomains":"${dollar.sign}{qpid.globalAddressDomains}"}</profile.virtualhostnode.context.blueprint>
       </properties>
+    </profile>
+
+    <!-- JMS profiles -->
+    <profile>
+      <id>javax-jms</id>
+      <activation>
+        <property>
+          <name>profile</name>
+          <value>javax-jms</value>
+        </property>
+      </activation>
+      <dependencyManagement>
+        <dependencies>
+          <dependency>
+            <groupId>org.apache.qpid</groupId>
+            <artifactId>qpid-jms-client</artifactId>
+            <version>${qpid-jms-client-1-x-version}</version>
+          </dependency>
+        </dependencies>
+      </dependencyManagement>
+    </profile>
+
+    <profile>
+      <id>jakarta-jms</id>
+      <activation>
+        <activeByDefault>true</activeByDefault>
+      </activation>
+      <dependencyManagement>
+        <dependencies>
+          <dependency>
+            <groupId>org.apache.qpid</groupId>
+            <artifactId>qpid-jms-client</artifactId>
+            <version>${qpid-jms-client-2-x-version}</version>
+          </dependency>
+        </dependencies>
+      </dependencyManagement>
     </profile>
 
     <!--
