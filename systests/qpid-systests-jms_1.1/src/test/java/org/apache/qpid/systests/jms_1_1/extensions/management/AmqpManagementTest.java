@@ -18,6 +18,7 @@
  * under the License.
  *
  */
+
 package org.apache.qpid.systests.jms_1_1.extensions.management;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -52,9 +53,10 @@ import javax.naming.NamingException;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import org.apache.qpid.test.utils.tls.TlsResourceExtension;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 import org.apache.qpid.server.exchange.ExchangeDefaults;
 import org.apache.qpid.server.model.Protocol;
@@ -64,14 +66,12 @@ import org.apache.qpid.systests.AmqpManagementFacade;
 import org.apache.qpid.systests.JmsTestBase;
 import org.apache.qpid.systests.jms_1_1.extensions.BrokerManagementHelper;
 import org.apache.qpid.systests.jms_1_1.extensions.TlsHelper;
-import org.apache.qpid.test.utils.tls.TlsResource;
+import org.apache.qpid.test.utils.tls.utils.TlsResource;
 import org.apache.qpid.tests.utils.BrokerAdmin;
 
+@ExtendWith({ TlsResourceExtension.class })
 public class AmqpManagementTest extends JmsTestBase
 {
-    @RegisterExtension
-    public static final TlsResource TLS_RESOURCE = new TlsResource();
-
     private static TlsHelper _tlsHelper;
 
     private Session _session;
@@ -80,9 +80,9 @@ public class AmqpManagementTest extends JmsTestBase
     private MessageProducer _producer;
 
     @BeforeAll
-    public static void setUp() throws Exception
+    public static void setUp(final TlsResource tls) throws Exception
     {
-        _tlsHelper = new TlsHelper(TLS_RESOURCE);
+        _tlsHelper = new TlsHelper(tls);
     }
 
     private void setUp(final Connection connection) throws Exception
@@ -626,7 +626,7 @@ public class AmqpManagementTest extends JmsTestBase
     }
 
     @Test
-    public void testInvokeSecureOperation() throws Exception
+    public void testInvokeSecureOperation(final TlsResource tls) throws Exception
     {
         assumeTrue(isSupportedClient());
 
@@ -671,10 +671,10 @@ public class AmqpManagementTest extends JmsTestBase
                     helper.getAuthenticationProviderNameForAmqpPort(getBrokerAdmin().getBrokerAddress(
                             BrokerAdmin.PortType.AMQP)
                                                                                     .getPort());
-            tlsPort = helper.createKeyStore(keyStoreName, _tlsHelper.getBrokerKeyStore(), TLS_RESOURCE.getSecret())
+            tlsPort = helper.createKeyStore(keyStoreName, _tlsHelper.getBrokerKeyStore(), tls.getSecret())
                             .createTrustStore(trustStoreName,
                                               _tlsHelper.getBrokerTrustStore(),
-                                              TLS_RESOURCE.getSecret())
+                                              tls.getSecret())
                             .createAmqpTlsPort(portName,
                                                authenticationManager,
                                                keyStoreName,
@@ -687,7 +687,7 @@ public class AmqpManagementTest extends JmsTestBase
         Connection connection = getConnectionBuilder().setTls(true)
                                                       .setPort(tlsPort)
                                                       .setTrustStoreLocation(_tlsHelper.getClientTrustStore())
-                                                      .setTrustStorePassword(TLS_RESOURCE.getSecret())
+                                                      .setTrustStorePassword(tls.getSecret())
                                                       .build();
         try
         {

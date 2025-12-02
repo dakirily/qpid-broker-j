@@ -19,17 +19,15 @@
  *
  */
 
-package org.apache.qpid.test.utils.tls;
+package org.apache.qpid.test.utils.tls.types;
 
-public enum AltNameType
+import java.util.Objects;
+
+public record AlternativeName(AltNameType type, String value)
 {
-    OTHER_NAME,
-    RFC822_NAME,
-    DNS_NAME,
-    X400_ADDRESS,
-    DIRECTORY_NAME,
-    EDI_PARTY_NAME,
-    UNIFORM_RESOURCE_IDENTIFIER,
-    IP_ADDRESS,
-    REGISTERED_ID
+    public AlternativeName
+    {
+        Objects.requireNonNull(type, "name must not be null");
+        Objects.requireNonNull(value, "value must not be null");
+    }
 }
