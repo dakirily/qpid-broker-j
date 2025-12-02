@@ -58,6 +58,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import org.apache.qpid.test.utils.tls.utils.PEMUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -65,9 +66,8 @@ import org.apache.qpid.server.model.Port;
 import org.apache.qpid.server.security.NonJavaKeyStore;
 import org.apache.qpid.server.transport.network.security.ssl.SSLUtil;
 import org.apache.qpid.server.util.DataUrlUtils;
-import org.apache.qpid.test.utils.tls.KeyCertificatePair;
-import org.apache.qpid.test.utils.tls.TlsResourceBuilder;
-import org.apache.qpid.test.utils.tls.TlsResourceHelper;
+import org.apache.qpid.test.utils.tls.types.KeyCertificatePair;
+import org.apache.qpid.test.utils.tls.utils.TlsResourceBuilder;
 import org.apache.qpid.tests.utils.BrokerAdmin;
 
 public class HttpTestHelper
@@ -399,9 +399,9 @@ public class HttpTestHelper
     public void createKeyStoreAndSetItOnPort(final String cn) throws Exception
     {
         final KeyCertificatePair keyCertPair = TlsResourceBuilder.createSelfSigned("CN=" + cn);
-        final String privateKey = DataUrlUtils.getDataUrlForBytes(TlsResourceHelper.toPEM(keyCertPair.getPrivateKey())
+        final String privateKey = DataUrlUtils.getDataUrlForBytes(PEMUtils.toPEM(keyCertPair.privateKey())
                 .getBytes(UTF_8));
-        final String certificate = DataUrlUtils.getDataUrlForBytes(TlsResourceHelper.toPEM(keyCertPair.getCertificate())
+        final String certificate = DataUrlUtils.getDataUrlForBytes(PEMUtils.toPEM(keyCertPair.certificate())
                 .getBytes(UTF_8));
         final Map<String, Object> attributes = Map.of(
                 NonJavaKeyStore.NAME, cn,

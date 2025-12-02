@@ -18,7 +18,8 @@
  * under the License.
  *
  */
-package org.apache.qpid.test.utils.tls;
+
+package org.apache.qpid.test.utils.tls.utils;
 
 import java.io.IOException;
 import java.math.BigInteger;
@@ -33,11 +34,16 @@ import java.security.cert.CRLException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509CRL;
 import java.security.cert.X509Certificate;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.Date;
 
+import org.apache.qpid.test.utils.exception.QpidTestException;
+import org.apache.qpid.test.utils.tls.types.AlternativeName;
+import org.apache.qpid.test.utils.tls.types.KeyCertificatePair;
+import org.apache.qpid.test.utils.tls.types.ValidityPeriod;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x500.style.RFC4519Style;
 import org.bouncycastle.asn1.x509.BasicConstraints;
@@ -62,7 +68,6 @@ import org.bouncycastle.cert.jcajce.JcaX509v3CertificateBuilder;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.operator.ContentSigner;
 import org.bouncycastle.operator.OperatorCreationException;
-import org.bouncycastle.operator.OperatorException;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 
 public class TlsResourceBuilder
@@ -70,10 +75,14 @@ public class TlsResourceBuilder
     private static final int RSA_KEY_SIZE = 2048;
     private static final int VALIDITY_DURATION = 365;
     private static final String SIGNATURE_ALGORITHM_SHA_512_WITH_RSA = "SHA512WithRSA";
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     static
     {
-        Security.addProvider(new BouncyCastleProvider());
+        if (Security.getProvider(BouncyCastleProvider.PROVIDER_NAME) == null)
+        {
+            Security.addProvider(new BouncyCastleProvider());
+        }
     }
 
     private TlsResourceBuilder()
@@ -93,11 +102,11 @@ public class TlsResourceBuilder
             throw new IllegalStateException("RSA generator is not found");
         }
 
-        keyPairGenerator.initialize(RSA_KEY_SIZE);
+        keyPairGenerator.initialize(RSA_KEY_SIZE, SECURE_RANDOM);
         return keyPairGenerator.genKeyPair();
     }
 
-    public static KeyCertificatePair createKeyPairAndRootCA(final String dn) throws CertificateException
+    public static KeyCertificatePair createKeyPairAndRootCA(final String dn)
     {
         return createKeyPairAndRootCA(dn, createValidityPeriod());
     }
@@ -105,7 +114,6 @@ public class TlsResourceBuilder
     public static KeyCertificatePair createKeyPairAndIntermediateCA(final String dn,
                                                                     final KeyCertificatePair rootCA,
                                                                     final String crlUri)
-            throws CertificateException
     {
         return createKeyPairAndIntermediateCA(dn, createValidityPeriod(), rootCA, crlUri);
     }
@@ -114,13 +122,11 @@ public class TlsResourceBuilder
                                                       final Instant validFrom,
                                                       final Instant validTo,
                                                       final AlternativeName... alternativeName)
-            throws CertificateException
     {
-        return createSelfSigned(dn, new ValidityPeriod(validFrom, validTo), alternativeName);
+        return createSelfSigned(dn, ValidityPeriod.of(validFrom, validTo), alternativeName);
     }
 
     public static KeyCertificatePair createSelfSigned(final String dn, final AlternativeName... alternativeName)
-            throws CertificateException
     {
         return createSelfSigned(dn, createValidityPeriod(), alternativeName);
     }
@@ -128,7 +134,6 @@ public class TlsResourceBuilder
     public static KeyCertificatePair createKeyPairAndCertificate(final String dn,
                                                                  final KeyCertificatePair ca,
                                                                  final AlternativeName... alternativeName)
-            throws CertificateException
     {
         return createKeyPairAndCertificate(dn, createValidityPeriod(), ca, alternativeName);
     }
@@ -139,9 +144,8 @@ public class TlsResourceBuilder
                                                     final Instant from,
                                                     final Instant to,
                                                     final AlternativeName... alternativeNames)
-            throws CertificateException
     {
-        return createCertificate(keyPair, ca, dn, new ValidityPeriod(from, to), alternativeNames, createKeyUsageExtension());
+        return createCertificate(keyPair, ca, dn, ValidityPeriod.of(from, to), alternativeNames, createKeyUsageExtension());
     }
 
 
@@ -149,11 +153,10 @@ public class TlsResourceBuilder
                                                                           final KeyCertificatePair ca,
                                                                           final String dn,
                                                                           final AlternativeName... alternativeNames)
-            throws CertificateException
     {
         return createCertificate(keyPair, ca, dn, createValidityPeriod(), alternativeNames,
                 createExtendedUsageExtension(new ExtendedKeyUsage(new KeyPurposeId[]{KeyPurposeId.id_kp_clientAuth})),
-                createAuthorityKeyExtension(ca.getCertificate().getPublicKey()),
+                createAuthorityKeyExtension(ca.certificate().getPublicKey()),
                 createSubjectKeyExtension(keyPair.getPublic()));
     }
 
@@ -161,11 +164,10 @@ public class TlsResourceBuilder
                                                                           final KeyCertificatePair ca,
                                                                           final String dn,
                                                                           final AlternativeName... alternativeNames)
-            throws CertificateException
     {
         return createCertificate(keyPair, ca, dn, createValidityPeriod(), alternativeNames,
                 createExtendedUsageExtension(new ExtendedKeyUsage(new KeyPurposeId[]{KeyPurposeId.id_kp_serverAuth})),
-                createAuthorityKeyExtension(ca.getCertificate().getPublicKey()),
+                createAuthorityKeyExtension(ca.certificate().getPublicKey()),
                 createSubjectKeyExtension(keyPair.getPublic()));
     }
 
@@ -173,15 +175,8 @@ public class TlsResourceBuilder
                                                                             final KeyCertificatePair caPair,
                                                                             final String dn,
                                                                             final String crlUri)
-            throws CertificateException
     {
-        return createCertificate(keyPair,
-                                 caPair,
-                                 dn,
-                                 createValidityPeriod(),
-                                 null,
-                                 createKeyUsageExtension(),
-                                 createDistributionPointExtension(crlUri));
+        return createCertificate(keyPair, caPair, dn, createValidityPeriod(), null, createKeyUsageExtension(), createDistributionPointExtension(crlUri));
     }
 
     private static X509Certificate createCertificate(final KeyPair keyPair,
@@ -190,15 +185,14 @@ public class TlsResourceBuilder
                                                      final ValidityPeriod validityPeriod,
                                                      final AlternativeName[] alternativeNames,
                                                      final Extension... extensions)
-            throws CertificateException
     {
         try
         {
             final X509v3CertificateBuilder builder = new JcaX509v3CertificateBuilder(
-                    ca.getCertificate(),
+                    ca.certificate(),
                     generateSerialNumber(),
-                    new Date(validityPeriod.getFrom().toEpochMilli()),
-                    new Date(validityPeriod.getTo().toEpochMilli()),
+                    new Date(validityPeriod.from().toEpochMilli()),
+                    new Date(validityPeriod.to().toEpochMilli()),
                     new X500Name(RFC4519Style.INSTANCE, dn),
                     keyPair.getPublic());
 
@@ -211,11 +205,11 @@ public class TlsResourceBuilder
             {
                 builder.addExtension(createAlternateNamesExtension(alternativeNames));
             }
-            return buildX509Certificate(builder, ca.getPrivateKey());
+            return buildX509Certificate(builder, ca.privateKey());
         }
-        catch (OperatorException | IOException e)
+        catch (IOException e)
         {
-            throw new CertificateException(e);
+            throw new QpidTestException(e);
         }
     }
 
@@ -223,15 +217,14 @@ public class TlsResourceBuilder
                                                                final String dn,
                                                                final ValidityPeriod period,
                                                                final AlternativeName... alternativeName)
-            throws CertificateException
     {
         try
         {
             final X509v3CertificateBuilder builder = new JcaX509v3CertificateBuilder(
                     new X500Name(RFC4519Style.INSTANCE, dn),
                     generateSerialNumber(),
-                    new Date(period.getFrom().toEpochMilli()),
-                    new Date(period.getTo().toEpochMilli()),
+                    new Date(period.from().toEpochMilli()),
+                    new Date(period.to().toEpochMilli()),
                     new X500Name(RFC4519Style.INSTANCE, dn),
                     keyPair.getPublic());
             builder.addExtension(Extension.basicConstraints, false, new BasicConstraints(false));
@@ -243,19 +236,18 @@ public class TlsResourceBuilder
             }
             return buildX509Certificate(builder, keyPair.getPrivate());
         }
-        catch (OperatorException | IOException e)
+        catch (IOException e)
         {
-            throw new CertificateException(e);
+            throw new QpidTestException(e);
         }
     }
 
     static X509CRL createCertificateRevocationList(final KeyCertificatePair ca, X509Certificate... certificate)
-            throws CRLException
     {
         try
         {
             final X500Name issuerName = X500Name.getInstance(RFC4519Style.INSTANCE,
-                                                             ca.getCertificate()
+                                                             ca.certificate()
                                                                .getSubjectX500Principal()
                                                                .getEncoded());
 
@@ -270,32 +262,31 @@ public class TlsResourceBuilder
                 crlBuilder.addCRLEntry(c.getSerialNumber(), now, CRLReason.privilegeWithdrawn);
             }
 
-            crlBuilder.addExtension(createAuthorityKeyExtension(ca.getCertificate().getPublicKey()));
+            crlBuilder.addExtension(createAuthorityKeyExtension(ca.certificate().getPublicKey()));
             crlBuilder.addExtension(Extension.cRLNumber, false, new CRLNumber(generateSerialNumber()));
 
-            final ContentSigner contentSigner = createContentSigner(ca.getPrivateKey());
+            final ContentSigner contentSigner = createContentSigner(ca.privateKey());
             final X509CRLHolder crl = crlBuilder.build(contentSigner);
 
             return new JcaX509CRLConverter().getCRL(crl);
         }
-        catch (OperatorException | IOException | CertificateException e)
+        catch (IOException | CRLException e)
         {
-            throw new CRLException(e);
+            throw new QpidTestException(e);
         }
     }
 
     private static X509Certificate createRootCACertificate(final KeyPair keyPair,
                                                            final String dn,
                                                            final ValidityPeriod validityPeriod)
-            throws CertificateException
     {
         try
         {
             final X509v3CertificateBuilder builder = new JcaX509v3CertificateBuilder(
                     new X500Name(RFC4519Style.INSTANCE, dn),
                     generateSerialNumber(),
-                    new Date(validityPeriod.getFrom().toEpochMilli()),
-                    new Date(validityPeriod.getTo().toEpochMilli()),
+                    new Date(validityPeriod.from().toEpochMilli()),
+                    new Date(validityPeriod.to().toEpochMilli()),
                     new X500Name(RFC4519Style.INSTANCE, dn),
                     keyPair.getPublic());
 
@@ -304,9 +295,9 @@ public class TlsResourceBuilder
             builder.addExtension(createAuthorityKeyExtension(keyPair.getPublic()));
             return buildX509Certificate(builder, keyPair.getPrivate());
         }
-        catch (OperatorException | IOException e)
+        catch (IOException e)
         {
-            throw new CertificateException(e);
+            throw new QpidTestException(e);
         }
     }
 
@@ -315,36 +306,34 @@ public class TlsResourceBuilder
                                                                    final String dn,
                                                                    final ValidityPeriod validityPeriod,
                                                                    final String crlUri)
-            throws CertificateException
     {
         try
         {
             final X509v3CertificateBuilder builder = new JcaX509v3CertificateBuilder(
-                    rootCA.getCertificate(),
+                    rootCA.certificate(),
                     generateSerialNumber(),
-                    new Date(validityPeriod.getFrom().toEpochMilli()),
-                    new Date(validityPeriod.getTo().toEpochMilli()),
+                    new Date(validityPeriod.from().toEpochMilli()),
+                    new Date(validityPeriod.to().toEpochMilli()),
                     new X500Name(RFC4519Style.INSTANCE, dn),
                     keyPair.getPublic());
             builder.addExtension(Extension.basicConstraints, false, new BasicConstraints(true));
             builder.addExtension(createSubjectKeyExtension(keyPair.getPublic()));
-            builder.addExtension(createAuthorityKeyExtension(rootCA.getCertificate().getPublicKey()));
+            builder.addExtension(createAuthorityKeyExtension(rootCA.certificate().getPublicKey()));
             if (crlUri != null)
             {
                 builder.addExtension(createDistributionPointExtension(crlUri));
             }
 
-            return buildX509Certificate(builder, rootCA.getPrivateKey());
+            return buildX509Certificate(builder, rootCA.privateKey());
         }
-        catch (OperatorException | IOException e)
+        catch (IOException e)
         {
-            throw new CertificateException(e);
+            throw new QpidTestException(e);
         }
     }
 
     private static KeyCertificatePair createKeyPairAndRootCA(final String dn,
                                                              final ValidityPeriod validityPeriod)
-            throws CertificateException
     {
         final KeyPair keyPair = createRSAKeyPair();
         final X509Certificate rootCA = createRootCACertificate(keyPair, dn, validityPeriod);
@@ -355,7 +344,6 @@ public class TlsResourceBuilder
                                                                      final ValidityPeriod validityPeriod,
                                                                      final KeyCertificatePair rootCA,
                                                                      final String crlUri)
-            throws CertificateException
     {
         final KeyPair keyPair = createRSAKeyPair();
         final X509Certificate intermediateCA = generateIntermediateCertificate(keyPair, rootCA, dn, validityPeriod, crlUri);
@@ -366,7 +354,6 @@ public class TlsResourceBuilder
                                                                   final ValidityPeriod validityPeriod,
                                                                   final KeyCertificatePair ca,
                                                                   final AlternativeName... alternativeName)
-            throws CertificateException
     {
         final KeyPair keyPair = createRSAKeyPair();
         final X509Certificate certificate = createCertificate(keyPair, ca, dn, validityPeriod, alternativeName);
@@ -378,7 +365,6 @@ public class TlsResourceBuilder
                                                      final String dn,
                                                      final ValidityPeriod validityPeriod,
                                                      final AlternativeName... alternativeNames)
-            throws CertificateException
     {
         return createCertificate(keyPair, ca, dn, validityPeriod, alternativeNames, createKeyUsageExtension());
     }
@@ -386,7 +372,6 @@ public class TlsResourceBuilder
     private static KeyCertificatePair createSelfSigned(final String dn,
                                                        final ValidityPeriod validityPeriod,
                                                        final AlternativeName... alternativeName)
-            throws CertificateException
     {
         final KeyPair keyPair = createRSAKeyPair();
         final X509Certificate certificate = createSelfSignedCertificate(keyPair, dn, validityPeriod, alternativeName);
@@ -395,13 +380,10 @@ public class TlsResourceBuilder
 
     private static ValidityPeriod createValidityPeriod()
     {
-        final Instant from = Instant.now().minus(1, ChronoUnit.DAYS);
-        final Instant to = from.plus(VALIDITY_DURATION, ChronoUnit.DAYS);
-        return new ValidityPeriod(from, to);
+        return ValidityPeriod.fromYesterday(Duration.ofDays(VALIDITY_DURATION));
     }
 
     private static Extension createAuthorityKeyExtension(final PublicKey publicKey)
-            throws CertificateException
     {
         try
         {
@@ -411,12 +393,11 @@ public class TlsResourceBuilder
         }
         catch (IOException | NoSuchAlgorithmException e)
         {
-            throw new CertificateException(e);
+            throw new QpidTestException(e);
         }
     }
 
     private static Extension createSubjectKeyExtension(final PublicKey publicKey)
-            throws CertificateException
     {
         try
         {
@@ -426,12 +407,11 @@ public class TlsResourceBuilder
         }
         catch (IOException | NoSuchAlgorithmException e)
         {
-            throw new CertificateException(e);
+            throw new QpidTestException(e);
         }
     }
 
     private static Extension createExtendedUsageExtension(final ExtendedKeyUsage extendedKeyUsage)
-            throws CertificateException
     {
         try
         {
@@ -439,20 +419,18 @@ public class TlsResourceBuilder
         }
         catch (IOException e)
         {
-            throw new CertificateException(e);
+            throw new QpidTestException(e);
         }
     }
 
     private static Extension createKeyUsageExtension()
     {
-        return new Extension(Extension.keyUsage,
-                             false,
-                             new KeyUsage(KeyUsage.digitalSignature
-                                          | KeyUsage.nonRepudiation
-                                          | KeyUsage.keyEncipherment).getBytes());
+        final int flags = KeyUsage.digitalSignature | KeyUsage.nonRepudiation | KeyUsage.keyEncipherment;
+        final KeyUsage keyUsage = new KeyUsage(flags);
+        return new Extension(Extension.keyUsage, false, keyUsage.getBytes());
     }
 
-    private static Extension createDistributionPointExtension(final String crlUri) throws CertificateException
+    private static Extension createDistributionPointExtension(final String crlUri)
     {
         try
         {
@@ -463,44 +441,52 @@ public class TlsResourceBuilder
         }
         catch (IOException e)
         {
-            throw new CertificateException(e);
+            throw new QpidTestException(e);
         }
     }
 
     private static Extension createAlternateNamesExtension(final AlternativeName[] alternativeName)
-            throws CertificateException
     {
         try
         {
             final GeneralName[] generalNames = Arrays.stream(alternativeName)
-                                                     .map(an -> new GeneralName(an.getType().ordinal(),
-                                                                                an.getName()))
-                                                     .toArray(GeneralName[]::new);
-            return new Extension(Extension.subjectAlternativeName,
-                                 false,
-                                 new GeneralNames(generalNames).getEncoded());
+                    .map(an -> new GeneralName(an.type().ordinal(), an.value()))
+                    .toArray(GeneralName[]::new);
+            return new Extension(Extension.subjectAlternativeName, false, new GeneralNames(generalNames).getEncoded());
         }
         catch (IOException e)
         {
-            throw new CertificateException(e);
+            throw new QpidTestException(e);
         }
     }
 
     private static BigInteger generateSerialNumber()
     {
-        return new BigInteger(64, new SecureRandom());
+        return new BigInteger(64, SECURE_RANDOM);
     }
 
     private static X509Certificate buildX509Certificate(final X509v3CertificateBuilder builder, final PrivateKey pk)
-            throws OperatorCreationException, CertificateException
     {
-        ContentSigner contentSigner = createContentSigner(pk);
-        return new JcaX509CertificateConverter().getCertificate(builder.build(contentSigner));
+        try
+        {
+            final ContentSigner contentSigner = createContentSigner(pk);
+            return new JcaX509CertificateConverter().getCertificate(builder.build(contentSigner));
+        }
+        catch (CertificateException e)
+        {
+            throw new QpidTestException(e);
+        }
     }
 
     private static ContentSigner createContentSigner(final PrivateKey privateKey)
-            throws OperatorCreationException
     {
-        return new JcaContentSignerBuilder(SIGNATURE_ALGORITHM_SHA_512_WITH_RSA).setProvider("BC").build(privateKey);
+        try
+        {
+            return new JcaContentSignerBuilder(SIGNATURE_ALGORITHM_SHA_512_WITH_RSA).setProvider("BC").build(privateKey);
+        }
+        catch (OperatorCreationException e)
+        {
+            throw new QpidTestException(e);
+        }
     }
 }
