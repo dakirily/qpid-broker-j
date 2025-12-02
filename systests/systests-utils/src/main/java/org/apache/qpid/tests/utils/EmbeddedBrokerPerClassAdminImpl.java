@@ -75,8 +75,6 @@ import org.apache.qpid.server.virtualhost.QueueManagingVirtualHost;
 import org.apache.qpid.server.virtualhostnode.JsonVirtualHostNode;
 import org.apache.qpid.test.utils.tls.TlsResource;
 
-@SuppressWarnings({"java:S116", "unchecked", "unused"})
-// sonar complains about variable names
 @PluggableService
 public class EmbeddedBrokerPerClassAdminImpl implements BrokerAdmin
 {
@@ -481,12 +479,11 @@ public class EmbeddedBrokerPerClassAdminImpl implements BrokerAdmin
         final String TEST_POST_LOGOUT_PATH = "/testpostlogout";
 
         OAuth2MockEndpointHolder server;
-        try
+        try (final TlsResource tlsResource = new TlsResource())
         {
-            final TlsResource tlsResource = new TlsResource();
-            tlsResource.beforeAll(null);
             final Path keyStore = tlsResource.createSelfSignedKeyStore("CN=127.0.0.1");
             server = new OAuth2MockEndpointHolder(keyStore.toFile().getAbsolutePath(), tlsResource.getSecret(), tlsResource.getKeyStoreType());
+
             final OAuth2MockEndpoint identityResolverEndpoint = new OAuth2MockEndpoint();
             identityResolverEndpoint.putExpectedParameter("token", "A".repeat(10_0000));
             identityResolverEndpoint.setExpectedMethod("POST");

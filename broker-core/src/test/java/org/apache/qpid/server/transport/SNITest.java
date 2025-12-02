@@ -46,7 +46,7 @@ import javax.net.ssl.X509TrustManager;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
@@ -67,18 +67,17 @@ import org.apache.qpid.server.security.auth.manager.AnonymousAuthenticationManag
 import org.apache.qpid.server.transport.network.security.ssl.SSLUtil;
 import org.apache.qpid.test.utils.TestFileUtils;
 import org.apache.qpid.test.utils.UnitTestBase;
-import org.apache.qpid.test.utils.tls.AltNameType;
-import org.apache.qpid.test.utils.tls.AlternativeName;
-import org.apache.qpid.test.utils.tls.KeyCertificatePair;
-import org.apache.qpid.test.utils.tls.PrivateKeyEntry;
+import org.apache.qpid.test.utils.TlsResourceExtension;
+import org.apache.qpid.test.utils.tls.types.AltNameType;
+import org.apache.qpid.test.utils.tls.types.AlternativeName;
+import org.apache.qpid.test.utils.tls.types.KeyCertificatePair;
+import org.apache.qpid.test.utils.tls.types.PrivateKeyEntry;
 import org.apache.qpid.test.utils.tls.TlsResource;
 import org.apache.qpid.test.utils.tls.TlsResourceBuilder;
 
+@ExtendWith({ TlsResourceExtension.class })
 public class SNITest extends UnitTestBase
 {
-    @RegisterExtension
-    public static final TlsResource TLS_RESOURCE = new TlsResource();
-
     private static final int SOCKET_TIMEOUT = 10000;
 
     private File _keyStoreFile;
@@ -91,7 +90,7 @@ public class SNITest extends UnitTestBase
     private File _brokerWork;
 
     @BeforeAll
-    public void setUp() throws Exception
+    public void setUp(final TlsResource tls) throws Exception
     {
         final Instant yesterday = Instant.now().minus(1, ChronoUnit.DAYS);
         final Instant inOneHour = Instant.now().plus(1, ChronoUnit.HOURS);
@@ -103,10 +102,10 @@ public class SNITest extends UnitTestBase
         _barInvalid = TlsResourceBuilder.createSelfSigned("CN=Qpid", inOneHour,
                 inOneHour.plus(365, ChronoUnit.DAYS), new AlternativeName(AltNameType.DNS_NAME, "bar"));
 
-        _keyStoreFile = TLS_RESOURCE.createKeyStore(new PrivateKeyEntry("foovalid", _fooValid.getPrivateKey(),
-                _fooValid.getCertificate()),
-                new PrivateKeyEntry("fooinvalid", _fooInvalid.getPrivateKey(), _fooInvalid.getCertificate()),
-                new PrivateKeyEntry("barinvalid", _barInvalid.getPrivateKey(), _barInvalid.getCertificate())).toFile();
+        _keyStoreFile = tls.createKeyStore(new PrivateKeyEntry("foovalid", _fooValid.privateKey(),
+                        _fooValid.certificate()),
+                new PrivateKeyEntry("fooinvalid", _fooInvalid.privateKey(), _fooInvalid.certificate()),
+                new PrivateKeyEntry("barinvalid", _barInvalid.privateKey(), _barInvalid.certificate())).toFile();
     }
 
     @AfterAll
@@ -124,51 +123,52 @@ public class SNITest extends UnitTestBase
     }
 
     @Test
-    public void testValidCertChosen() throws Exception
+    public void testValidCertChosen(final TlsResource tls) throws Exception
     {
-        performTest(true, "fooinvalid", "foo", _fooValid);
+        performTest(tls, true, "fooinvalid", "foo", _fooValid);
     }
 
     @Test
-    public void testMatchCertChosenEvenIfInvalid() throws Exception
+    public void testMatchCertChosenEvenIfInvalid(final TlsResource tls) throws Exception
     {
-        performTest(true, "fooinvalid", "bar", _barInvalid);
+        performTest(tls, true, "fooinvalid", "bar", _barInvalid);
     }
 
     @Test
-    public void testDefaultCertChose() throws Exception
+    public void testDefaultCertChose(final TlsResource tls) throws Exception
     {
-        performTest(true, "fooinvalid", null, _fooInvalid);
+        performTest(tls, true, "fooinvalid", null, _fooInvalid);
     }
 
     @Test
-    public void testMatchingCanBeDisabled() throws Exception
+    public void testMatchingCanBeDisabled(final TlsResource tls) throws Exception
     {
-        performTest(false, "fooinvalid", "foo", _fooInvalid);
+        performTest(tls, false, "fooinvalid", "foo", _fooInvalid);
     }
 
     @Test
-    public void testInvalidHostname()
+    public void testInvalidHostname(final TlsResource tls)
     {
         assertThrows(SSLPeerUnverifiedException.class,
-                () -> performTest(false, "fooinvalid", "_foo", _fooInvalid),
+                () -> performTest(tls, false, "fooinvalid", "_foo", _fooInvalid),
                 "Expected exception not thrown");
     }
 
     @Test
-    public void testBypassInvalidSniHostnameWithJava17()
+    public void testBypassInvalidSniHostnameWithJava17(final TlsResource tls)
     {
         assertThrows(SSLPeerUnverifiedException.class,
-                () -> performTest(false, "foovalid", "_foo", _fooValid),
+                () -> performTest(tls, false, "foovalid", "_foo", _fooValid),
                 "Expected exception not thrown");
     }
 
-    private void performTest(final boolean useMatching,
+    private void performTest(final TlsResource tls,
+                             final boolean useMatching,
                              final String defaultAlias,
                              final String sniHostName,
                              final KeyCertificatePair expectedCert) throws Exception
     {
-        doBrokerStartup(useMatching, defaultAlias);
+        doBrokerStartup(tls, useMatching, defaultAlias);
         final SSLContext context = SSLUtil.tryGetSSLContext();
         context.init(null, new TrustManager[]
         {
@@ -206,11 +206,12 @@ public class SNITest extends UnitTestBase
 
             final Certificate[] certs = socket.getSession().getPeerCertificates();
             assertEquals(1, (long) certs.length);
-            assertEquals(expectedCert.getCertificate(), certs[0]);
+            assertEquals(expectedCert.certificate(), certs[0]);
         }
     }
 
-    private void doBrokerStartup(final boolean useMatching,
+    private void doBrokerStartup(final TlsResource tls,
+                                 final boolean useMatching,
                                  final String defaultAlias) throws Exception
     {
         final File initialConfiguration = createInitialContext();
@@ -237,7 +238,7 @@ public class SNITest extends UnitTestBase
         final AuthenticationProvider<?> authProvider = _broker.createChild(AuthenticationProvider.class, authProviderAttr);
         final Map<String, Object> keyStoreAttr = Map.of(FileKeyStore.NAME, "myKeyStore",
                 FileKeyStore.STORE_URL, _keyStoreFile.toURI().toURL().toString(),
-                FileKeyStore.PASSWORD, TLS_RESOURCE.getSecret(),
+                FileKeyStore.PASSWORD, tls.getSecret(),
                 FileKeyStore.USE_HOST_NAME_MATCHING, useMatching,
                 FileKeyStore.CERTIFICATE_ALIAS, defaultAlias);
         final KeyStore<?> keyStore = _broker.createChild(KeyStore.class, keyStoreAttr);

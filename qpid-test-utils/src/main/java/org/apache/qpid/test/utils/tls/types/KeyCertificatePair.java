@@ -18,38 +18,18 @@
  * under the License.
  *
  */
-package org.apache.qpid.test.utils.tls;
 
-import java.security.KeyStore;
-import java.security.KeyStoreException;
+package org.apache.qpid.test.utils.tls.types;
 
-import javax.crypto.SecretKey;
+import java.security.PrivateKey;
+import java.security.cert.X509Certificate;
+import java.util.Objects;
 
-public class SecretKeyEntry implements KeyStoreEntry
+public record KeyCertificatePair(PrivateKey privateKey, X509Certificate certificate)
 {
-    private final String _alias;
-    private final SecretKey _secretKey;
-
-    public SecretKeyEntry(final String alias, final SecretKey secretKey)
+    public KeyCertificatePair
     {
-        _alias = alias;
-        _secretKey = secretKey;
+        Objects.requireNonNull(privateKey, "privateKey must not be null");
+        Objects.requireNonNull(certificate, "certificate must not be null");
     }
-
-    @Override
-    public void addEntryToKeyStore(final KeyStore keyStore, char[] secret) throws KeyStoreException
-    {
-        keyStore.setKeyEntry(getAlias(), getSecretKey(), secret, null);
-    }
-
-    public String getAlias()
-    {
-        return _alias;
-    }
-
-    public SecretKey getSecretKey()
-    {
-        return _secretKey;
-    }
-
 }

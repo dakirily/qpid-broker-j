@@ -18,35 +18,18 @@
  * under the License.
  *
  */
-package org.apache.qpid.test.utils.tls;
 
-public class AlternativeName
+package org.apache.qpid.test.utils.tls.types;
+
+public enum AltNameType
 {
-    private final AltNameType _type;
-    private final String _name;
-
-    public AlternativeName(final AltNameType type, final String name)
-    {
-        _type = type;
-        _name = name;
-    }
-
-    public AltNameType getType()
-    {
-        return _type;
-    }
-
-    public String getName()
-    {
-        return _name;
-    }
-
-    @Override
-    public String toString()
-    {
-        return "AlternativeName{" +
-               "_type=" + _type +
-               ", _name='" + _name + '\'' +
-               '}';
-    }
+    OTHER_NAME,
+    RFC822_NAME,
+    DNS_NAME,
+    X400_ADDRESS,
+    DIRECTORY_NAME,
+    EDI_PARTY_NAME,
+    UNIFORM_RESOURCE_IDENTIFIER,
+    IP_ADDRESS,
+    REGISTERED_ID
 }

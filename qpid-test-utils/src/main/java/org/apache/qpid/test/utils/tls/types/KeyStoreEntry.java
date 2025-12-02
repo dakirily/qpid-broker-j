@@ -18,29 +18,13 @@
  * under the License.
  *
  */
-package org.apache.qpid.test.utils.tls;
 
-import java.security.PrivateKey;
-import java.security.cert.X509Certificate;
+package org.apache.qpid.test.utils.tls.types;
 
-public class KeyCertificatePair
+import java.security.KeyStore;
+import java.security.KeyStoreException;
+
+public sealed interface KeyStoreEntry permits PrivateKeyEntry, SecretKeyEntry, CertificateEntry
 {
-    private final PrivateKey _privateKey;
-    private final X509Certificate _certificate;
-
-    public KeyCertificatePair(final PrivateKey privateKey, final X509Certificate certificate)
-    {
-        _privateKey = privateKey;
-        _certificate = certificate;
-    }
-
-    public PrivateKey getPrivateKey()
-    {
-        return _privateKey;
-    }
-
-    public X509Certificate getCertificate()
-    {
-        return _certificate;
-    }
+    void addToKeyStore(final KeyStore keyStore, final char[] secret);
 }

@@ -18,44 +18,40 @@
  * under the License.
  *
  */
+
 package org.apache.qpid.test.utils.tls;
 
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.KeyStore;
-import java.security.KeyStoreException;
-import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.cert.CRLException;
 import java.security.cert.CertificateEncodingException;
-import java.security.cert.CertificateException;
 import java.security.cert.X509CRL;
 import java.security.cert.X509Certificate;
 import java.time.Instant;
 import java.util.Comparator;
+import java.util.List;
 import java.util.stream.Stream;
 
-import org.junit.jupiter.api.extension.AfterEachCallback;
-import org.junit.jupiter.api.extension.BeforeAllCallback;
-import org.junit.jupiter.api.extension.BeforeEachCallback;
-import org.junit.jupiter.api.extension.ExtensionContext;
-
+import org.apache.qpid.test.utils.exception.QpidTestException;
+import org.apache.qpid.test.utils.tls.types.CertificateEntry;
+import org.apache.qpid.test.utils.tls.types.KeyCertificatePair;
+import org.apache.qpid.test.utils.tls.types.KeyStoreEntry;
+import org.apache.qpid.test.utils.tls.types.PrivateKeyEntry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class TlsResource implements AfterEachCallback, BeforeEachCallback, BeforeAllCallback, AutoCloseable
+public class TlsResource implements AutoCloseable
 {
+    private static final Logger LOGGER = LoggerFactory.getLogger(TlsResource.class);
+
     private static final String PRIVATE_KEY_ALIAS = "private-key-alias";
     private static final String CERTIFICATE_ALIAS = "certificate-alias";
     private static final String SECRET = "secret";
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(TlsResource.class);
-
-    private Path _keystoreDirectory;
-
+    private final Path _keystoreDirectory;
     private final String _privateKeyAlias;
     private final String _certificateAlias;
     private final String _secret;
@@ -75,36 +71,21 @@ public class TlsResource implements AfterEachCallback, BeforeEachCallback, Befor
         _certificateAlias = certificateAlias;
         _secret = secret;
         _keyStoreType = defaultType;
-    }
 
-    @Override
-    public void beforeAll(ExtensionContext context) throws IOException
-    {
-        if (_keystoreDirectory != null)
+        try
         {
-            return;
+            final Path targetDir = Path.of("target");
+            _keystoreDirectory = Files.createTempDirectory(targetDir, "test-tls-resources-");
+            LOGGER.debug("Test keystore directory is created : '{}'", _keystoreDirectory);
         }
-        final Path targetDir = FileSystems.getDefault().getPath("target");
-        _keystoreDirectory = Files.createTempDirectory(targetDir, "test-tls-resources-");
-        LOGGER.debug("Test keystore directory is created : '{}'", _keystoreDirectory);
+        catch (IOException e)
+        {
+            throw new QpidTestException(e);
+        }
     }
 
     @Override
     public void close()
-    {
-        deleteFiles();
-    }
-
-    @Override
-    public void beforeEach(final ExtensionContext extensionContext) throws IOException
-    {
-        final Path targetDir = FileSystems.getDefault().getPath("target");
-        _keystoreDirectory = Files.createTempDirectory(targetDir, "test-tls-resources-");
-        LOGGER.debug("Test keystore directory is created : '{}'", _keystoreDirectory);
-    }
-
-    @Override
-    public void afterEach(final ExtensionContext extensionContext)
     {
         deleteFiles();
     }
@@ -134,173 +115,191 @@ public class TlsResource implements AfterEachCallback, BeforeEachCallback, Befor
         return _keyStoreType;
     }
 
-    public Path createKeyStore(KeyStoreEntry... entries) throws Exception
+    public Path createKeyStore(final KeyStoreEntry... entries)
     {
         return createKeyStore(getKeyStoreType(), entries);
     }
 
     public Path createKeyStore(final String keyStoreType, final KeyStoreEntry... entries)
-            throws KeyStoreException, CertificateException, NoSuchAlgorithmException, IOException
     {
-        final KeyStore ks = TlsResourceHelper.createKeyStore(keyStoreType, getSecretAsCharacters(), entries);
-        return saveKeyStore(keyStoreType, ks);
+        final KeyStore keyStore = TlsResourceHelper.createKeyStore(keyStoreType, getSecretAsCharacters(), entries);
+        return saveKeyStore(keyStoreType, keyStore);
     }
 
-    public String createKeyStoreAsDataUrl(KeyStoreEntry... entries) throws Exception
+    public String createKeyStoreAsDataUrl(final KeyStoreEntry... entries)
     {
         return TlsResourceHelper.createKeyStoreAsDataUrl(getKeyStoreType(), getSecretAsCharacters(), entries);
     }
 
-    public Path createSelfSignedKeyStore(String dn) throws Exception
+    public Path createSelfSignedKeyStore(final String dn)
     {
         final KeyCertificatePair keyCertPair = TlsResourceBuilder.createSelfSigned(dn);
-        return createKeyStore(new PrivateKeyEntry(_privateKeyAlias,
-                                                  keyCertPair.getPrivateKey(),
-                                                  keyCertPair.getCertificate()));
+        return createKeyStore(new PrivateKeyEntry(_privateKeyAlias, keyCertPair));
     }
 
-    public String createSelfSignedKeyStoreAsDataUrl(String dn) throws Exception
+    public String createSelfSignedKeyStoreAsDataUrl(final String dn)
     {
         final KeyCertificatePair keyCertPair = TlsResourceBuilder.createSelfSigned(dn);
-        return createKeyStoreAsDataUrl(new PrivateKeyEntry(_privateKeyAlias,
-                                                           keyCertPair.getPrivateKey(),
-                                                           keyCertPair.getCertificate()));
+        return createKeyStoreAsDataUrl(new PrivateKeyEntry(_privateKeyAlias, keyCertPair));
     }
 
-    public Path createSelfSignedTrustStore(final String dn) throws Exception
+    public Path createSelfSignedTrustStore(final String dn)
     {
         final KeyCertificatePair keyCertPair = TlsResourceBuilder.createSelfSigned(dn);
-        return createKeyStore(new CertificateEntry(_certificateAlias, keyCertPair.getCertificate()));
+        return createKeyStore(new CertificateEntry(_certificateAlias, keyCertPair.certificate()));
     }
 
-    public Path createSelfSignedTrustStore(final String dn, Instant from, Instant to) throws Exception
+    public Path createSelfSignedTrustStore(final String dn, final Instant from, final Instant to)
     {
         final KeyCertificatePair keyCertPair = TlsResourceBuilder.createSelfSigned(dn, from, to);
-        return createKeyStore(new CertificateEntry(_certificateAlias, keyCertPair.getCertificate()));
+        return createKeyStore(new CertificateEntry(_certificateAlias, keyCertPair.certificate()));
     }
 
-    public String createSelfSignedTrustStoreAsDataUrl(String dn) throws Exception
+    public String createSelfSignedTrustStoreAsDataUrl(final String dn)
     {
         final KeyCertificatePair keyCertPair = TlsResourceBuilder.createSelfSigned(dn);
-        return createKeyStoreAsDataUrl(new CertificateEntry(_certificateAlias, keyCertPair.getCertificate()));
+        return createKeyStoreAsDataUrl(new CertificateEntry(_certificateAlias, keyCertPair.certificate()));
     }
 
-    public Path createTrustStore(final String dn, KeyCertificatePair ca) throws Exception
+    public Path createTrustStore(final String dn, final KeyCertificatePair ca)
     {
         final KeyCertificatePair keyCertPair = TlsResourceBuilder.createKeyPairAndCertificate(dn, ca);
-        final String keyStoreType = getKeyStoreType();
-        return createKeyStore(keyStoreType, new CertificateEntry(_certificateAlias, keyCertPair.getCertificate()));
+        return createKeyStore(new CertificateEntry(_certificateAlias, keyCertPair.certificate()));
     }
 
-    public Path createSelfSignedKeyStoreWithCertificate(final String dn) throws Exception
+    public Path createSelfSignedKeyStoreWithCertificate(final String dn)
     {
         final KeyCertificatePair keyCertPair = TlsResourceBuilder.createSelfSigned(dn);
-        return createKeyStore(new PrivateKeyEntry(_privateKeyAlias,
-                                                  keyCertPair.getPrivateKey(),
-                                                  keyCertPair.getCertificate()),
-                              new CertificateEntry(_certificateAlias, keyCertPair.getCertificate()));
+        final PrivateKeyEntry privateKeyEntry = new PrivateKeyEntry(_privateKeyAlias, keyCertPair);
+        final CertificateEntry certificateEntry = new CertificateEntry(_certificateAlias, keyCertPair.certificate());
+        return createKeyStore(privateKeyEntry, certificateEntry);
     }
 
-    public Path createCrl(final KeyCertificatePair caPair, final X509Certificate... certificate) throws CRLException
+    public Path createCrl(final KeyCertificatePair caPair, final X509Certificate... certificate)
     {
         final X509CRL crl = TlsResourceBuilder.createCertificateRevocationList(caPair, certificate);
-
-        try
-        {
-            final Path pkFile = createFile(".crl");
-            try (FileOutputStream out = new FileOutputStream(pkFile.toFile()))
-            {
-                TlsResourceHelper.saveCrlAsPem(out, crl);
-            }
-            return pkFile;
-        }
-        catch (IOException e)
-        {
-            throw new CRLException(e);
-        }
-    }
-
-    public Path createCrlAsDer(final KeyCertificatePair caPair, final X509Certificate... certificate)
-            throws CRLException, IOException
-    {
-        final X509CRL crl = TlsResourceBuilder.createCertificateRevocationList(caPair, certificate);
-        return saveBytes(crl.getEncoded(), ".crl");
-    }
-
-    public String createCrlAsDataUrl(final KeyCertificatePair caPair, final X509Certificate... certificate)
-            throws CRLException
-    {
-        final X509CRL crl = TlsResourceBuilder.createCertificateRevocationList(caPair, certificate);
-        return TlsResourceHelper.getDataUrlForBytes(crl.getEncoded());
-    }
-
-    public Path savePrivateKeyAsPem(final PrivateKey privateKey) throws IOException
-    {
-        final Path pkFile = createFile(".pk.pem");
-        try (FileOutputStream out = new FileOutputStream(pkFile.toFile()))
-        {
-            TlsResourceHelper.savePrivateKeyAsPem(out, privateKey);
-        }
+        final Path pkFile = createFile(".crl");
+        PemUtils.saveCrlAsPem(pkFile, crl);
         return pkFile;
     }
 
-    public Path saveCertificateAsPem(final X509Certificate... certificate)
-            throws IOException, CertificateEncodingException
+    public Path createCrlAsDer(final KeyCertificatePair caPair, final X509Certificate... certificate)
+    {
+        final X509CRL crl = TlsResourceBuilder.createCertificateRevocationList(caPair, certificate);
+        try
+        {
+            return saveBytes(crl.getEncoded(), ".crl");
+        }
+        catch (final CRLException e)
+        {
+            throw new QpidTestException(e);
+        }
+    }
+
+    public String createCrlAsDataUrl(final KeyCertificatePair caPair, final X509Certificate... certificate)
+    {
+        final X509CRL crl = TlsResourceBuilder.createCertificateRevocationList(caPair, certificate);
+        try
+        {
+            return TlsResourceHelper.getDataUrlForBytes(crl.getEncoded());
+        }
+        catch (final CRLException e)
+        {
+            throw new QpidTestException(e);
+        }
+    }
+
+    public Path savePrivateKeyAsPem(final PrivateKey privateKey)
+    {
+        final Path pkFile = createFile(".pk.pem");
+        PemUtils.savePrivateKeyAsPem(pkFile, privateKey);
+        return pkFile;
+    }
+
+    public Path saveCertificateAsPem(final X509Certificate certificate)
     {
         final Path certificateFile = createFile(".cer.pem");
-        try (FileOutputStream out = new FileOutputStream(certificateFile.toFile()))
-        {
-            TlsResourceHelper.saveCertificateAsPem(out, certificate);
-        }
+        PemUtils.saveCertificateAsPem(certificateFile, List.of(certificate));
         return certificateFile;
     }
 
-    public Path savePrivateKeyAsDer(final PrivateKey privateKey) throws IOException
+    public Path saveCertificateAsPem(final List<X509Certificate> certificates)
+    {
+        final Path certificateFile = createFile(".cer.pem");
+        PemUtils.saveCertificateAsPem(certificateFile, certificates);
+        return certificateFile;
+    }
+
+    public Path savePrivateKeyAsDer(final PrivateKey privateKey)
     {
         return saveBytes(privateKey.getEncoded(), ".pk.der");
     }
 
-    public Path saveCertificateAsDer(final X509Certificate certificate) throws CertificateEncodingException, IOException
+    public Path saveCertificateAsDer(final X509Certificate certificate)
     {
-        return saveBytes(certificate.getEncoded(), ".cer.der");
-    }
-
-    public Path createFile(String suffix) throws IOException
-    {
-        return Files.createTempFile(_keystoreDirectory, "tls", suffix);
-    }
-
-    private Path saveBytes(final byte[] bytes, final String extension) throws IOException
-    {
-        final Path pkFile = createFile(extension);
-        try (FileOutputStream out = new FileOutputStream(pkFile.toFile()))
+        try
         {
-            out.write(bytes);
+            return saveBytes(certificate.getEncoded(), ".cer.der");
         }
-        return pkFile;
+        catch (CertificateEncodingException e)
+        {
+            throw new QpidTestException(e);
+        }
+    }
+
+    public Path createFile(final String suffix)
+    {
+        try
+        {
+            return Files.createTempFile(_keystoreDirectory, "tls", suffix);
+        }
+        catch (IOException e)
+        {
+            throw new QpidTestException(e);
+        }
+    }
+
+    private Path saveBytes(final byte[] bytes, final String extension)
+    {
+        final Path path = createFile(extension);
+        try
+        {
+            Files.write(path, bytes);
+        }
+        catch (IOException e)
+        {
+            throw new QpidTestException(e);
+        }
+        return path;
     }
 
     private Path saveKeyStore(final String keyStoreType, final KeyStore ks)
-            throws IOException, KeyStoreException, NoSuchAlgorithmException, CertificateException
     {
-        final Path storeFile = createFile("." + keyStoreType);
-        TlsResourceHelper.saveKeyStoreIntoFile(ks, getSecretAsCharacters(), storeFile.toFile());
-        return storeFile;
+        final Path storePath = createFile("." + keyStoreType);
+        TlsResourceHelper.saveKeyStoreIntoFile(ks, getSecretAsCharacters(), storePath);
+        return storePath;
     }
 
     private void deleteFiles()
     {
+        if (!Files.exists(_keystoreDirectory))
+        {
+            return;
+        }
         try (final Stream<Path> stream = Files.walk(_keystoreDirectory))
         {
-            stream.sorted(Comparator.reverseOrder())
-                 .map(Path::toFile)
-                 .forEach(file ->
-                 {
-                     if (!file.delete())
-                     {
-                         LOGGER.warn("Could not delete file at {}", file.getAbsolutePath());
-                     }
-                 });
+            stream.sorted(Comparator.reverseOrder()).forEach(path ->
+            {
+                try
+                {
+                    Files.deleteIfExists(path);
+                }
+                catch (IOException e)
+                {
+                    final var message = "Could not delete path at %s".formatted(path);
+                    LOGGER.warn(message, e);
+                }
+            });
         }
         catch (Exception e)
         {

@@ -19,48 +19,33 @@
  *
  */
 
-package org.apache.qpid.test.utils.tls;
+package org.apache.qpid.test.utils.tls.types;
+
+import org.apache.qpid.test.utils.exception.QpidTestException;
 
 import java.security.KeyStore;
 import java.security.KeyStoreException;
-import java.security.PrivateKey;
 import java.security.cert.Certificate;
+import java.util.Objects;
 
-public final class PrivateKeyEntry implements KeyStoreEntry
+public record CertificateEntry(String alias, Certificate certificate) implements KeyStoreEntry
 {
-    private final String _alias;
-    private final PrivateKey _privateKey;
-    private final Certificate[] _certificates;
-
-    public PrivateKeyEntry(final String alias, final PrivateKey privateKey, Certificate... certificate)
+    public CertificateEntry
     {
-        _alias = alias;
-        _privateKey = privateKey;
-        _certificates = certificate;
-    }
-
-    String getAlias()
-    {
-        return _alias;
+        Objects.requireNonNull(alias, "alias must not be null");
+        Objects.requireNonNull(certificate, "certificate must not be null");
     }
 
     @Override
-    public void addEntryToKeyStore(final KeyStore keyStore, final char[] secret) throws KeyStoreException
+    public void addToKeyStore(final KeyStore keyStore, final char[] secret)
     {
-        keyStore.setKeyEntry(getAlias(),
-                       getPrivateKey(),
-                             secret,
-                       getCertificates());
+        try
+        {
+            keyStore.setCertificateEntry(alias(), certificate());
+        }
+        catch (final KeyStoreException e)
+        {
+            throw new QpidTestException(e);
+        }
     }
-
-    PrivateKey getPrivateKey()
-    {
-        return _privateKey;
-    }
-
-    Certificate[] getCertificates()
-    {
-        return _certificates;
-    }
-
 }
