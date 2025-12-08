@@ -24,15 +24,15 @@ import java.lang.reflect.Method;
 import java.net.InetSocketAddress;
 import java.util.concurrent.CompletableFuture;
 
-import ch.qos.logback.classic.LoggerContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import org.apache.qpid.test.utils.LogbackPropertyValueDiscriminator;
+import org.slf4j.MDC;
 
 public class LoggingBrokerAdminDecorator implements BrokerAdmin
 {
     private static final Logger LOGGER = LoggerFactory.getLogger(LoggingBrokerAdminDecorator.class);
+    public static final String CLASS_QUALIFIED_TEST_NAME = "classQualifiedTestName";
     private final BrokerAdmin _delegate;
 
     public LoggingBrokerAdminDecorator(final BrokerAdmin delegate)
@@ -43,7 +43,7 @@ public class LoggingBrokerAdminDecorator implements BrokerAdmin
     @Override
     public void beforeTestClass(final Class testClass)
     {
-        setClassQualifiedTestName(testClass.getName());
+        MDC.put(CLASS_QUALIFIED_TEST_NAME, testClass.getName());
         LOGGER.info("========================= starting broker for test class : " + testClass.getSimpleName());
         _delegate.beforeTestClass(testClass);
     }
@@ -56,7 +56,7 @@ public class LoggingBrokerAdminDecorator implements BrokerAdmin
         _delegate.beforeTestMethod(testClass, method);
 
         LOGGER.info("========================= executing test : " + testClass.getSimpleName() + "#" + method.getName());
-        setClassQualifiedTestName(testClass.getName() + "." + method.getName());
+        MDC.put(CLASS_QUALIFIED_TEST_NAME, testClass.getName() + "." + method.getName());
         LOGGER.info("========================= start executing test : " + testClass.getSimpleName() + "#" + method.getName());
     }
 
@@ -64,12 +64,12 @@ public class LoggingBrokerAdminDecorator implements BrokerAdmin
     public void afterTestMethod(final Class testClass, final Method method)
     {
         LOGGER.info("========================= stop executing test : " + testClass.getSimpleName() + "#" + method.getName());
-        setClassQualifiedTestName(testClass.getName());
+        MDC.put(CLASS_QUALIFIED_TEST_NAME, testClass.getName());
         LOGGER.info("========================= cleaning up test environment for test : " + testClass.getSimpleName() + "#" + method.getName());
 
         _delegate.afterTestMethod(testClass, method);
 
-        setClassQualifiedTestName(testClass.getName());
+        MDC.put(CLASS_QUALIFIED_TEST_NAME, testClass.getName());
         LOGGER.info("========================= cleaning done for test : " + testClass.getSimpleName() + "#" + method.getName());
     }
 
@@ -81,7 +81,7 @@ public class LoggingBrokerAdminDecorator implements BrokerAdmin
         _delegate.afterTestClass(testClass);
 
         LOGGER.info("========================= stopping broker done for test class : " + testClass.getSimpleName());
-        setClassQualifiedTestName(null);
+        MDC.remove(CLASS_QUALIFIED_TEST_NAME);
     }
 
     @Override
@@ -196,11 +196,5 @@ public class LoggingBrokerAdminDecorator implements BrokerAdmin
     public String getType()
     {
         return _delegate.getType();
-    }
-
-    private void setClassQualifiedTestName(final String name)
-    {
-        final LoggerContext loggerContext = ((ch.qos.logback.classic.Logger) LOGGER).getLoggerContext();
-        loggerContext.putProperty(LogbackPropertyValueDiscriminator.CLASS_QUALIFIED_TEST_NAME, name);
     }
 }

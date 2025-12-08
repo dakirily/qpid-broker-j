@@ -27,7 +27,7 @@
          found in qpid-test-utils (which is used for other, non-systests, modules).  -->
 
     <appender name="RootSiftAppender" class="ch.qos.logback.classic.sift.SiftingAppender">
-        <discriminator class="org.apache.qpid.test.utils.LogbackPropertyValueDiscriminator">
+        <discriminator class="ch.qos.logback.classic.sift.MDCBasedDiscriminator">
             <Key>classQualifiedTestName</Key>
             <DefaultValue>testrun</DefaultValue>
         </discriminator>

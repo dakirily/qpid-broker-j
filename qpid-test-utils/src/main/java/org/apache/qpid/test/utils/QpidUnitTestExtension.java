@@ -17,37 +17,33 @@
  * under the License.
  *
  */
+
 package org.apache.qpid.test.utils;
 
 import java.lang.reflect.Method;
+import java.util.List;
 
-import ch.qos.logback.classic.LoggerContext;
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
+import org.junit.jupiter.api.RepeatedTest;
+import org.junit.jupiter.api.extension.*;
 
-import org.junit.jupiter.api.extension.AfterAllCallback;
-import org.junit.jupiter.api.extension.AfterEachCallback;
-import org.junit.jupiter.api.extension.BeforeAllCallback;
-import org.junit.jupiter.api.extension.BeforeEachCallback;
-import org.junit.jupiter.api.extension.ExtensionContext;
-
+import org.junit.jupiter.params.ParameterizedTest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 
 /**
  * JUnit's extension. Logs test method execution start and end
  */
-public class QpidUnitTestExtension implements AfterAllCallback, AfterEachCallback, BeforeAllCallback, BeforeEachCallback
+public class QpidUnitTestExtension implements AfterAllCallback, BeforeAllCallback,
+        InvocationInterceptor
 {
     /** Logger */
     private static final Logger LOGGER = LoggerFactory.getLogger(QpidUnitTestExtension.class);
 
-    /** Logger context */
-    private static final LoggerContext LOGGER_CONTEXT = ((ch.qos.logback.classic.Logger) LOGGER).getLoggerContext();
-
-    /** Test class */
-    private Class<?> _testClass;
-
-    /** Test method */
-    private Method _testMethod;
+    /** Class qualified test name */
+    public static final String CLASS_QUALIFIED_TEST_NAME = "classQualifiedTestName";
 
     /**
      * Callback executed before all testing methods
@@ -57,8 +53,8 @@ public class QpidUnitTestExtension implements AfterAllCallback, AfterEachCallbac
     @Override
     public void beforeAll(final ExtensionContext extensionContext)
     {
-        _testClass = TestUtils.getTestClass(extensionContext);
-        setClassQualifiedTestName(_testClass.getName());
+        final Class<?> testClass = extensionContext.getRequiredTestClass();
+        MDC.put(CLASS_QUALIFIED_TEST_NAME, testClass.getName());
     }
 
     /**
@@ -67,47 +63,89 @@ public class QpidUnitTestExtension implements AfterAllCallback, AfterEachCallbac
      * @param extensionContext ExtensionContext
      */
     @Override
-    public void afterAll(final ExtensionContext extensionContext)
+    public void afterAll(@NonNull final ExtensionContext extensionContext)
     {
-        _testClass = null;
-        setClassQualifiedTestName(null);
+        MDC.remove(CLASS_QUALIFIED_TEST_NAME);
     }
 
     /**
-     * Callback executed before single testing method
-     *
-     * @param extensionContext ExtensionContext
+     * Callback wraps single testing method
+     * @param invocation the invocation that is being intercepted; never {@code null}
+     * @param invocationContext the context of the invocation that is being intercepted; never {@code null}
+     * @param extensionContext the current extension context; never {@code null}
+     * @throws Throwable Exception thrown
      */
     @Override
-    public void beforeEach(final ExtensionContext extensionContext)
+    public void interceptTestTemplateMethod(@NonNull Invocation<@Nullable Void> invocation,
+                                            @NonNull ReflectiveInvocationContext<Method> invocationContext,
+                                            @NonNull ExtensionContext extensionContext) throws Throwable
+
     {
-        _testMethod = TestUtils.getTestMethod(extensionContext);
-        LOGGER.info("========================= executing test : {}", _testClass.getSimpleName() + "#" + _testMethod.getName());
-        setClassQualifiedTestName(_testClass.getName() + "." + _testMethod.getName());
-        LOGGER.info("========================= start executing test : {}", _testClass.getSimpleName() + "#" + _testMethod.getName());
+        interceptTestMethod(invocation, invocationContext, extensionContext);
     }
 
     /**
-     * Callback executed after single testing method
-     *
-     * @param extensionContext ExtensionContext
+     * Callback wraps single testing method
+     * @param invocation the invocation that is being intercepted; never {@code null}
+     * @param invocationContext the context of the invocation that is being intercepted; never {@code null}
+     * @param extensionContext the current extension context; never {@code null}
+     * @throws Throwable Exception thrown
      */
     @Override
-    public void afterEach(final ExtensionContext extensionContext)
+    public void interceptTestMethod(@NonNull Invocation<@Nullable Void> invocation,
+                                    @NonNull ReflectiveInvocationContext<Method> invocationContext,
+                                    @NonNull ExtensionContext extensionContext) throws Throwable
     {
-        LOGGER.info("========================= stop executing test : {} ", _testClass.getSimpleName() + "#" + _testMethod.getName());
-        setClassQualifiedTestName(_testClass.getName());
-        LOGGER.info("========================= cleaning up test environment for test : {}", _testClass.getSimpleName() + "#" + _testMethod.getName());
-        _testMethod = null;
-    }
+        final Class<?> testClass = extensionContext.getRequiredTestClass();
+        final List<Class<?>> enclosingClasses = extensionContext.getEnclosingTestClasses();
+        final StringBuilder stringBuilder = new StringBuilder();
 
-    /**
-     * Sets test name into the logger context
-     *
-     * @param name Test name
-     */
-    private void setClassQualifiedTestName(final String name)
-    {
-        LOGGER_CONTEXT.putProperty(LogbackPropertyValueDiscriminator.CLASS_QUALIFIED_TEST_NAME, name);
+        if (enclosingClasses.isEmpty())
+        {
+            stringBuilder.append(testClass.getCanonicalName());
+        }
+        else
+        {
+            stringBuilder.append(enclosingClasses.get(0).getCanonicalName());
+            for (int i = 1; i < enclosingClasses.size(); i ++)
+            {
+                stringBuilder.append('#').append(enclosingClasses.get(i).getSimpleName());
+            }
+            stringBuilder.append('#').append(testClass.getSimpleName());
+        }
+
+        final String testClassName = stringBuilder.toString();
+
+        final Method testMethod = extensionContext.getRequiredTestMethod();
+        stringBuilder.append('#').append(testMethod.getName());
+
+        final ParameterizedTest parameterizedTest = testMethod.getAnnotation(ParameterizedTest.class);
+        final RepeatedTest repeatedTest = testMethod.getAnnotation(RepeatedTest.class);
+
+        if (parameterizedTest != null || repeatedTest != null)
+        {
+            final List<Object> args = invocationContext.getArguments();
+            for (final Object arg : args)
+            {
+                stringBuilder.append('_').append(arg);
+            }
+        }
+
+        final String fullTestName =  stringBuilder.toString();
+
+        try
+        {
+            LOGGER.info("========================= executing test : {}", fullTestName);
+            MDC.put(CLASS_QUALIFIED_TEST_NAME, fullTestName);
+            LOGGER.info("========================= start executing test : {}", fullTestName);
+
+            invocation.proceed();
+        }
+        finally
+        {
+            LOGGER.info("========================= stop executing test : {} ", fullTestName);
+            MDC.put(CLASS_QUALIFIED_TEST_NAME, testClassName);
+            LOGGER.info("========================= cleaning up test environment for test : {}", fullTestName);
+        }
     }
 }
