@@ -47,7 +47,7 @@ public class BrokerMetricsTest extends HttpTestBase
     public void testBrokerMetrics() throws Exception
     {
         final String[] unexpectedMetricNames =
-                {"qpid_broker_live_threads_total", "qpid_broker_direct_memory_capacity_bytes_total"};
+                {"qpid_broker_live_threads", "qpid_broker_direct_memory_capacity_bytes"};
 
         final byte[] metricsBytes = getHelper().getBytes("/metrics");
         final String metricsString = new String(metricsBytes, UTF_8);
@@ -67,8 +67,8 @@ public class BrokerMetricsTest extends HttpTestBase
         final byte[] metricsBytes = getHelper().getBytes("/metrics");
         final String metricsString = new String(metricsBytes, UTF_8);
 
-        final Pattern[] expectedMetricPattens = {createQueueMetricPattern("qpid_queue_consumers_total"),
-                createQueueMetricPattern("qpid_queue_depth_messages_total")};
+        final Pattern[] expectedMetricPattens = {createQueueMetricPattern("qpid_queue_consumers"),
+                createQueueMetricPattern("qpid_queue_depth_messages")};
 
         assertMetricsInclusion(metricsString, expectedMetricPattens, true);
     }
@@ -77,13 +77,13 @@ public class BrokerMetricsTest extends HttpTestBase
     public void testQueueMetricsIncludeOnlyMessageDepth() throws Exception
     {
         getBrokerAdmin().createQueue(QUEUE_NAME);
-        final byte[] metricsBytes = getHelper().getBytes("/metrics?name[]=qpid_queue_depth_messages_total&name[]=qpid_queue_depth_bytes_total");
+        final byte[] metricsBytes = getHelper().getBytes("/metrics?name[]=qpid_queue_depth_messages&name[]=qpid_queue_depth_bytes");
         Collection<String> metricLines = TestMetricsHelper.getMetricLines(metricsBytes);
         assertThat(metricLines.size(), is(equalTo(2)));
 
         final String metricsString = new String(metricsBytes, UTF_8);
-        final Pattern[] expectedMetricPattens = {createQueueMetricPattern("qpid_queue_depth_bytes_total"),
-                createQueueMetricPattern("qpid_queue_depth_messages_total")};
+        final Pattern[] expectedMetricPattens = {createQueueMetricPattern("qpid_queue_depth_bytes"),
+                createQueueMetricPattern("qpid_queue_depth_messages")};
 
         assertMetricsInclusion(metricsString, expectedMetricPattens, true);
     }
