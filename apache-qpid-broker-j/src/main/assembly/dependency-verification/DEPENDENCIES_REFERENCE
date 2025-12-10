@@ -29,19 +29,16 @@ From: 'an unknown organization'
   - Caffeine cache (https://github.com/ben-manes/caffeine) com.github.ben-manes.caffeine:caffeine:jar:3.2.3
     License: Apache License, Version 2.0  (https://www.apache.org/licenses/LICENSE-2.0.txt)
 
-  - Prometheus Java Simpleclient (http://github.com/prometheus/client_java/simpleclient) io.prometheus:simpleclient:bundle:0.16.0
+  - Prometheus Metrics Config (http://github.com/prometheus/client_java/client_java/prometheus-metrics-config) io.prometheus:prometheus-metrics-config:bundle:1.4.3
     License: The Apache Software License, Version 2.0  (http://www.apache.org/licenses/LICENSE-2.0.txt)
 
-  - Prometheus Java Simpleclient Common (http://github.com/prometheus/client_java/simpleclient_common) io.prometheus:simpleclient_common:bundle:0.16.0
+  - Prometheus Metrics Core (http://github.com/prometheus/client_java/client_java/prometheus-metrics-core) io.prometheus:prometheus-metrics-core:bundle:1.4.3
     License: The Apache Software License, Version 2.0  (http://www.apache.org/licenses/LICENSE-2.0.txt)
 
-  - Prometheus Java Span Context Supplier - Common (http://github.com/prometheus/client_java/simpleclient_tracer/simpleclient_tracer_common) io.prometheus:simpleclient_tracer_common:bundle:0.16.0
+  - Prometheus Metrics Exposition Text Formats (http://github.com/prometheus/client_java/client_java/prometheus-metrics-exposition-textformats) io.prometheus:prometheus-metrics-exposition-textformats:bundle:1.4.3
     License: The Apache Software License, Version 2.0  (http://www.apache.org/licenses/LICENSE-2.0.txt)
 
-  - Prometheus Java Span Context Supplier - OpenTelemetry (http://github.com/prometheus/client_java/simpleclient_tracer/simpleclient_tracer_otel) io.prometheus:simpleclient_tracer_otel:bundle:0.16.0
-    License: The Apache Software License, Version 2.0  (http://www.apache.org/licenses/LICENSE-2.0.txt)
-
-  - Prometheus Java Span Context Supplier - OpenTelemetry Agent (http://github.com/prometheus/client_java/simpleclient_tracer/simpleclient_tracer_otel_agent) io.prometheus:simpleclient_tracer_otel_agent:bundle:0.16.0
+  - Prometheus Metrics Model (http://github.com/prometheus/client_java/client_java/prometheus-metrics-model) io.prometheus:prometheus-metrics-model:bundle:1.4.3
     License: The Apache Software License, Version 2.0  (http://www.apache.org/licenses/LICENSE-2.0.txt)
 
   - Bouncy Castle PKIX, CMS, EAC, TSP, PKCS, OCSP, CMP, and CRMF APIs (https://www.bouncycastle.org/download/bouncy-castle-java/) org.bouncycastle:bcpkix-jdk18on:jar:1.83

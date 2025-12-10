@@ -162,7 +162,7 @@
     <bcprov-version>1.83</bcprov-version>
     <bcpkix-version>1.83</bcpkix-version>
     <logback-gelf-version>6.1.1</logback-gelf-version>
-    <prometheus-client-version>0.16.0</prometheus-client-version>
+    <prometheus-client-version>1.4.3</prometheus-client-version>
     <resilience4j-version>2.3.0</resilience4j-version>
 
     <bdb-repo-enabled>false</bdb-repo-enabled>
@@ -952,7 +952,12 @@
       <!-- prometheus client dependency -->
       <dependency>
         <groupId>io.prometheus</groupId>
-        <artifactId>simpleclient_common</artifactId>
+        <artifactId>prometheus-metrics-core</artifactId>
+        <version>${prometheus-client-version}</version>
+      </dependency>
+      <dependency>
+        <groupId>io.prometheus</groupId>
+        <artifactId>prometheus-metrics-exposition-textformats</artifactId>
         <version>${prometheus-client-version}</version>
       </dependency>
 
