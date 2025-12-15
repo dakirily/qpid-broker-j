@@ -21,9 +21,14 @@
 package org.apache.qpid.server.query.engine.parsing.query;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
+import java.util.stream.Stream;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import org.apache.qpid.server.query.engine.TestBroker;
 import org.apache.qpid.server.query.engine.evaluator.QueryEvaluator;
@@ -41,143 +46,75 @@ public class QueryValidatorTest
     public void selectWithoutFields()
     {
         String query = "select";
-        try
-        {
-            _queryEvaluator.execute(query);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryParsingException.class, e.getClass());
-            assertEquals("Missing expression", e.getMessage());
-        }
+        QueryParsingException exception = assertThrows(QueryParsingException.class, () -> _queryEvaluator.execute(query));
+        assertEquals("Missing expression", exception.getMessage());
     }
 
-    @Test()
-    public void selectUnknownProperty()
+    @ParameterizedTest
+    @MethodSource("unknownPropertyQueries")
+    public void selectUnknownProperty(final String query)
     {
-        String query = "select unknownProperty";
-        try
-        {
-            _queryEvaluator.execute(query);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryValidationException.class, e.getClass());
-            assertEquals("Keyword 'FROM' not found where expected", e.getMessage());
-        }
-
-        query = "select 1+1, current_timestamp(), unknownProperty";
-        try
-        {
-            _queryEvaluator.execute(query);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryValidationException.class, e.getClass());
-            assertEquals("Keyword 'FROM' not found where expected", e.getMessage());
-        }
+        QueryValidationException exception = assertThrows(QueryValidationException.class, () -> _queryEvaluator.execute(query));
+        assertEquals("Keyword 'FROM' not found where expected", exception.getMessage());
     }
 
     @Test()
     public void emptyFrom()
     {
         String query = "select 1 from ";
-        try
-        {
-            _queryEvaluator.execute(query);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryParsingException.class, e.getClass());
-            assertEquals("Missing domain name", e.getMessage());
-        }
+        QueryParsingException exception = assertThrows(QueryParsingException.class, () -> _queryEvaluator.execute(query));
+        assertEquals("Missing domain name", exception.getMessage());
     }
 
     @Test()
     public void multipleDomains()
     {
         String query = "select 1 from queue,exchange";
-        try
-        {
-            _queryEvaluator.execute(query);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryValidationException.class, e.getClass());
-            assertEquals("Querying from multiple domains not supported", e.getMessage());
-        }
+        QueryValidationException exception = assertThrows(QueryValidationException.class, () -> _queryEvaluator.execute(query));
+        assertEquals("Querying from multiple domains not supported", exception.getMessage());
     }
 
-    @Test()
-    public void join()
+    @ParameterizedTest
+    @MethodSource("joinQueries")
+    public void join(final String query)
     {
-        try
-        {
-            String query = "select 1 from queue q join exchange";
-            _queryEvaluator.execute(query);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryValidationException.class, e.getClass());
-            assertEquals("Joins are not supported", e.getMessage());
-        }
-
-        try
-        {
-            String query = "select 1 from queue q join exchange e on (q.name = e.name)";
-            _queryEvaluator.execute(query);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryValidationException.class, e.getClass());
-            assertEquals("Joins are not supported", e.getMessage());
-        }
+        QueryValidationException exception = assertThrows(QueryValidationException.class, () -> _queryEvaluator.execute(query));
+        assertEquals("Joins are not supported", exception.getMessage());
     }
 
-    @Test()
-    public void missingGroupByItems()
+    @ParameterizedTest
+    @MethodSource("missingGroupByQueries")
+    public void missingGroupByItems(final String query, final String expectedMessage)
     {
-        try
-        {
-            String query = "select count(*), overflowPolicy from queue";
-            _queryEvaluator.execute(query);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryValidationException.class, e.getClass());
-            assertEquals("Not a single-group group function: projections [overflowPolicy] should be included in GROUP BY clause", e.getMessage());
-        }
+        QueryValidationException exception = assertThrows(QueryValidationException.class, () -> _queryEvaluator.execute(query));
+        assertEquals(expectedMessage, exception.getMessage());
+    }
 
-        try
-        {
-            String query = "select count(*), overflowPolicy, expiryPolicy from queue";
-            _queryEvaluator.execute(query);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryValidationException.class, e.getClass());
-            assertEquals("Not a single-group group function: projections [overflowPolicy, expiryPolicy] should be included in GROUP BY clause", e.getMessage());
-        }
+    private static Stream<Arguments> missingGroupByQueries()
+    {
+        return Stream.of(
+                Arguments.of("select count(*), overflowPolicy from queue",
+                        "Not a single-group group function: projections [overflowPolicy] should be included in GROUP BY clause"),
+                Arguments.of("select count(*), overflowPolicy, expiryPolicy from queue",
+                        "Not a single-group group function: projections [overflowPolicy, expiryPolicy] should be included in GROUP BY clause"),
+                Arguments.of("select count(*), overflowPolicy, expiryPolicy from queue group by overflowPolicy",
+                        "Not a single-group group function: projections [expiryPolicy] should be included in GROUP BY clause")
+        );
+    }
 
-        try
-        {
-            String query = "select count(*), overflowPolicy, expiryPolicy from queue group by overflowPolicy";
-            _queryEvaluator.execute(query);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryValidationException.class, e.getClass());
-            assertEquals("Not a single-group group function: projections [expiryPolicy] should be included in GROUP BY clause", e.getMessage());
-        }
+    private static Stream<Arguments> joinQueries()
+    {
+        return Stream.of(
+                Arguments.of("select 1 from queue q join exchange"),
+                Arguments.of("select 1 from queue q join exchange e on (q.name = e.name)")
+        );
+    }
+
+    private static Stream<Arguments> unknownPropertyQueries()
+    {
+        return Stream.of(
+                Arguments.of("select unknownProperty"),
+                Arguments.of("select 1+1, current_timestamp(), unknownProperty")
+        );
     }
 }

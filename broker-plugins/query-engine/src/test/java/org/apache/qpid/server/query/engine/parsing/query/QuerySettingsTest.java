@@ -21,8 +21,8 @@
 package org.apache.qpid.server.query.engine.parsing.query;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -35,8 +35,13 @@ import java.time.format.ResolverStyle;
 import java.time.temporal.ChronoField;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import org.apache.qpid.server.model.Broker;
 import org.apache.qpid.server.query.engine.QueryEngine;
@@ -55,24 +60,18 @@ public class QuerySettingsTest
 {
     private final Broker<?> _broker = TestBroker.createBroker();
 
-    @Test()
-    public void customizeDateFormat()
+    @ParameterizedTest
+    @MethodSource("dateFormatQueries")
+    public void customizeDateFormat(final DateFormat format, final Class<?> expectedType)
     {
         QueryEvaluator queryEvaluator = new QueryEvaluator(_broker);
 
-        QuerySettings querySettings = new QuerySettingsBuilder().dateTimeFormat(DateFormat.LONG).build();
+        QuerySettings querySettings = new QuerySettingsBuilder().dateTimeFormat(format).build();
 
         String query = "select current_timestamp() as result";
         List<Map<String, Object>> result = queryEvaluator.execute(query, querySettings).getResults();
         assertEquals(1, result.size());
-        assertTrue(result.get(0).get("result") instanceof Long);
-
-        querySettings = new QuerySettingsBuilder().dateTimeFormat(DateFormat.STRING).build();
-
-        query = "select current_timestamp() as result";
-        result = queryEvaluator.execute(query, querySettings).getResults();
-        assertEquals(1, result.size());
-        assertTrue(result.get(0).get("result") instanceof String);
+        assertTrue(expectedType.isInstance(result.get(0).get("result")));
     }
 
     @Test()
@@ -102,230 +101,131 @@ public class QuerySettingsTest
         List<Map<String, Object>> result = queryEvaluator.execute(query).getResults();
         assertEquals(3, result.size());
 
-        try
-        {
-            query = "select 1, 2, 3, 4, 5, 6, 7, 8, 9, 0";
-            queryEvaluator.execute(query);
-            fail("Expected exception with message \"Max query depth reached: 10\"");
-        }
-        catch (QueryParsingException e)
-        {
-            assertEquals(QueryParsingException.class, e.getClass());
-            assertEquals("Max query depth reached: 10", e.getMessage());
-        }
-
-        try
-        {
-            query = "select (1 + 2) * (2 - 3)";
-            queryEvaluator.execute(query);
-            fail("Expected exception with message \"Max query depth reached: 10\"");
-        }
-        catch (QueryParsingException e)
-        {
-            assertEquals(QueryParsingException.class, e.getClass());
-            assertEquals("Max query depth reached: 10", e.getMessage());
-        }
+        Stream.of(
+                "select 1, 2, 3, 4, 5, 6, 7, 8, 9, 0",
+                "select (1 + 2) * (2 - 3)"
+        ).forEach(q -> {
+            QueryParsingException exception =
+                    assertThrows(QueryParsingException.class, () -> queryEvaluator.execute(q));
+            assertEquals("Max query depth reached: 10", exception.getMessage());
+        });
     }
 
-    @Test()
-    public void customizeMaxBigDecimalValue()
+    @ParameterizedTest
+    @MethodSource("maxBigDecimalQueries")
+    public void customizeMaxBigDecimalValue(final String queryToValidate, final String expectedMessage)
     {
         QueryEngine queryEngine = new QueryEngine(_broker);
         queryEngine.setMaxBigDecimalValue(BigDecimal.valueOf(100L));
         queryEngine.setMaxQueryDepth(DefaultQuerySettings.MAX_QUERY_DEPTH);
         QueryEvaluator queryEvaluator = queryEngine.createEvaluator();
 
-        String query = "select 2 * 2 as result";
-        List<Map<String, Object>> result = queryEvaluator.execute(query).getResults();
+        String baselineQuery = "select 2 * 2 as result";
+        List<Map<String, Object>> result = queryEvaluator.execute(baselineQuery).getResults();
         assertEquals(1, result.size());
         assertEquals(4, result.get(0).get("result"));
 
-        try
-        {
-            query = "select 10 * 10 as result";
-            queryEvaluator.execute(query);
-            fail("Expected exception with message \"Reached maximal allowed big decimal value: 100\"");
-        }
-        catch (QueryParsingException e)
-        {
-            assertEquals(QueryParsingException.class, e.getClass());
-            assertEquals("Reached maximal allowed big decimal value: 100", e.getMessage());
-        }
-
-        try
-        {
-            query = "select -10 * 10 as result";
-            queryEvaluator.execute(query);
-            fail("Expected exception with message \"Reached maximal allowed big decimal value: -100\"");
-        }
-        catch (QueryParsingException e)
-        {
-            assertEquals(QueryParsingException.class, e.getClass());
-            assertEquals("Reached maximal allowed big decimal value: -100", e.getMessage());
-        }
+        QueryParsingException exception = assertThrows(QueryParsingException.class,
+                () -> queryEvaluator.execute(queryToValidate));
+        assertEquals(expectedMessage, exception.getMessage());
     }
 
-    @Test()
-    public void customizeDecimalDigits()
+    private static Stream<Arguments> maxBigDecimalQueries()
+    {
+        return Stream.of(
+                Arguments.of("select 10 * 10 as result", "Reached maximal allowed big decimal value: 100"),
+                Arguments.of("select -10 * 10 as result", "Reached maximal allowed big decimal value: -100")
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("decimalDigitQueries")
+    public void customizeDecimalDigits(final int decimalDigits, final RoundingMode roundingMode, final String query, final double expected)
     {
         QueryEvaluator queryEvaluator = new QueryEvaluator(_broker);
 
         QuerySettings querySettings = new QuerySettingsBuilder()
-            .decimalDigits(2)
-            .roundingMode(RoundingMode.DOWN)
+            .decimalDigits(decimalDigits)
+            .roundingMode(roundingMode)
             .build();
 
-        String query = "select 1.999 as result";
         List<Map<String, Object>> result = queryEvaluator.execute(query, querySettings).getResults();
         assertEquals(1, result.size());
-        assertEquals(1.99, result.get(0).get("result"));
-
-        query = "select 1/3 as result";
-        result = queryEvaluator.execute(query, querySettings).getResults();
-        assertEquals(1, result.size());
-        assertEquals(0.33, result.get(0).get("result"));
-
-        querySettings = new QuerySettingsBuilder()
-            .decimalDigits(4)
-            .roundingMode(RoundingMode.DOWN)
-            .build();
-
-        query = "select 1.9999 as result";
-        result = queryEvaluator.execute(query, querySettings).getResults();
-        assertEquals(1, result.size());
-        assertEquals(1.9999, result.get(0).get("result"));
-
-        query = "select 1/3 as result";
-        result = queryEvaluator.execute(query, querySettings).getResults();
-        assertEquals(1, result.size());
-        assertEquals(0.3333, result.get(0).get("result"));
+        assertEquals(expected, result.get(0).get("result"));
     }
 
-    @Test()
-    public void customizeRoundingMode()
+    @ParameterizedTest
+    @MethodSource("roundingModeQueries")
+    public void customizeRoundingMode(final RoundingMode roundingMode, final String query, final double expected)
     {
         QueryEvaluator queryEvaluator = new QueryEvaluator(_broker);
-        QuerySettings querySettings = new QuerySettingsBuilder().decimalDigits(2).roundingMode(RoundingMode.HALF_UP).build();
+        QuerySettings querySettings = new QuerySettingsBuilder().decimalDigits(2).roundingMode(roundingMode).build();
 
-        String query = "select 1.977 as result";
         List<Map<String, Object>> result = queryEvaluator.execute(query, querySettings).getResults();
         assertEquals(1, result.size());
-        assertEquals(1.98, result.get(0).get("result"));
-
-        query = "select 1/3 as result";
-        result = queryEvaluator.execute(query, querySettings).getResults();
-        assertEquals(1, result.size());
-        assertEquals(0.33, result.get(0).get("result"));
-
-        query = "select 2/3 as result";
-        result = queryEvaluator.execute(query, querySettings).getResults();
-        assertEquals(1, result.size());
-        assertEquals(0.67, result.get(0).get("result"));
-
-        querySettings = new QuerySettingsBuilder().decimalDigits(2).roundingMode(RoundingMode.DOWN).build();
-
-        query = "select 1.977 as result";
-        result = queryEvaluator.execute(query, querySettings).getResults();
-        assertEquals(1, result.size());
-        assertEquals(1.97, result.get(0).get("result"));
-
-        query = "select 1/3 as result";
-        result = queryEvaluator.execute(query, querySettings).getResults();
-        assertEquals(1, result.size());
-        assertEquals(0.33, result.get(0).get("result"));
-
-        query = "select 2/3 as result";
-        result = queryEvaluator.execute(query, querySettings).getResults();
-        assertEquals(1, result.size());
-        assertEquals(0.66, result.get(0).get("result"));
+        assertEquals(expected, result.get(0).get("result"));
     }
 
-    @Test()
-    public void customizeZoneIdViaQuerySettings()
+    @ParameterizedTest
+    @ValueSource(strings = {"UTC", "GMT+1", "GMT+2", "GMT+3", "GMT+4", "GMT+5", "GMT+6", "GMT+7", "GMT+8", "GMT+9", "GMT+10", "GMT+11", "GMT+12"})
+    public void customizeZoneIdViaQuerySettings(final String zoneIdString)
     {
-        final List<ZoneId> zoneIds = List.of(ZoneId.of("UTC"), ZoneId.of("GMT+1"), ZoneId.of("GMT+2"),  ZoneId.of("GMT+3"),
-                ZoneId.of("GMT+4"), ZoneId.of("GMT+5"), ZoneId.of("GMT+6"), ZoneId.of("GMT+7"), ZoneId.of("GMT+8"),
-                ZoneId.of("GMT+9"), ZoneId.of("GMT+10"), ZoneId.of("GMT+11"), ZoneId.of("GMT+12"));
+        ZoneId zoneId = ZoneId.of(zoneIdString);
+        DateTimeFormatter formatter =
+                new DateTimeFormatterBuilder().appendPattern(DefaultQuerySettings.DATE_TIME_PATTERN)
+                        .appendFraction(ChronoField.NANO_OF_SECOND, 0, 6, true)
+                        .toFormatter().withZone(zoneId);
 
-        zoneIds.forEach(zoneId ->
-        {
-            DateTimeFormatter formatter =
-                    new DateTimeFormatterBuilder().appendPattern(DefaultQuerySettings.DATE_TIME_PATTERN)
-                            .appendFraction(ChronoField.NANO_OF_SECOND, 0, 6, true)
-                            .toFormatter().withZone(zoneId);
+        QueryEvaluator queryEvaluator = new QueryEvaluator(_broker);
+        QuerySettings querySettings = new QuerySettingsBuilder().zoneId(zoneId).build();
 
-            QueryEvaluator queryEvaluator = new QueryEvaluator(_broker);
-            QuerySettings querySettings = new QuerySettingsBuilder().zoneId(zoneId).build();
+        String query = "select current_timestamp() as result";
+        List<Map<String, Object>> result = queryEvaluator.execute(query, querySettings).getResults();
 
-            String query = "select current_timestamp() as result";
-            List<Map<String, Object>> result = queryEvaluator.execute(query, querySettings).getResults();
+        Instant expected = Instant.now();
+        Instant actual = LocalDateTime.parse((String) result.get(0).get("result"), formatter)
+                .atZone(zoneId)
+                .toInstant();
 
-            Instant expected = Instant.now();
-            Instant actual = LocalDateTime.parse((String) result.get(0).get("result"), formatter)
-                    .atZone(zoneId)
-                    .toInstant();
-
-            assertEquals(1, result.size());
-            assertTrue(expected.toEpochMilli() - actual.toEpochMilli() < 1000);
-        });
+        assertEquals(1, result.size());
+        assertTrue(expected.toEpochMilli() - actual.toEpochMilli() < 1000);
     }
 
-    @Test()
-    public void customizeZoneIdViaQueryEngine()
+    @ParameterizedTest
+    @ValueSource(strings = {"UTC", "GMT+1", "GMT+2", "GMT+3", "GMT+4", "GMT+5", "GMT+6", "GMT+7", "GMT+8", "GMT+9", "GMT+10", "GMT+11", "GMT+12"})
+    public void customizeZoneIdViaQueryEngine(final String zoneIdString)
     {
-        final List<ZoneId> zoneIds = List.of(ZoneId.of("UTC"), ZoneId.of("GMT+1"), ZoneId.of("GMT+2"),  ZoneId.of("GMT+3"),
-                ZoneId.of("GMT+4"), ZoneId.of("GMT+5"), ZoneId.of("GMT+6"), ZoneId.of("GMT+7"), ZoneId.of("GMT+8"),
-                ZoneId.of("GMT+9"), ZoneId.of("GMT+10"), ZoneId.of("GMT+11"), ZoneId.of("GMT+12"));
+        ZoneId zoneId = ZoneId.of(zoneIdString);
+        QueryEngine queryEngine = new QueryEngine(_broker);
+        queryEngine.setZoneId(zoneId);
+        queryEngine.setMaxQueryDepth(DefaultQuerySettings.MAX_QUERY_DEPTH);
+        QueryEvaluator queryEvaluator = queryEngine.createEvaluator();
 
-        zoneIds.forEach(zoneId ->
-        {
-            QueryEngine queryEngine = new QueryEngine(_broker);
-            queryEngine.setZoneId(zoneId);
-            queryEngine.setMaxQueryDepth(DefaultQuerySettings.MAX_QUERY_DEPTH);
-            QueryEvaluator queryEvaluator = queryEngine.createEvaluator();
+        Instant expected = Instant.now();
+        DateTimeFormatter formatter =
+                new DateTimeFormatterBuilder().appendPattern(DefaultQuerySettings.DATE_TIME_PATTERN)
+                        .appendFraction(ChronoField.NANO_OF_SECOND, 0, 6, true)
+                        .toFormatter()
+                        .withResolverStyle(ResolverStyle.STRICT);
 
-            Instant expected = Instant.now();
-            DateTimeFormatter formatter =
-                    new DateTimeFormatterBuilder().appendPattern(DefaultQuerySettings.DATE_TIME_PATTERN)
-                            .appendFraction(ChronoField.NANO_OF_SECOND, 0, 6, true)
-                            .toFormatter()
-                            .withResolverStyle(ResolverStyle.STRICT);
+        String query = "select current_timestamp() as result";
+        List<Map<String, Object>> result = queryEvaluator.execute(query).getResults();
+        Instant actual = LocalDateTime.parse((String) result.get(0).get("result"), formatter)
+                .atZone(zoneId)
+                .toInstant();
 
-            String query = "select current_timestamp() as result";
-            List<Map<String, Object>> result = queryEvaluator.execute(query).getResults();
-            Instant actual = LocalDateTime.parse((String) result.get(0).get("result"), formatter)
-                    .atZone(zoneId)
-                    .toInstant();
-
-            assertEquals(1, result.size());
-            assertTrue(expected.toEpochMilli() - actual.toEpochMilli() < 1000);
-        });
+        assertEquals(1, result.size());
+        assertTrue(expected.toEpochMilli() - actual.toEpochMilli() < 1000);
     }
 
     @Test()
     public void customizeBroker()
     {
-        try
-        {
-            new QueryEngine(null);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(NullPointerException.class, e.getClass());
-            assertEquals("Broker instance not provided for querying", e.getMessage());
-        }
+        NullPointerException exception = assertThrows(NullPointerException.class, () -> new QueryEngine(null));
+        assertEquals("Broker instance not provided for querying", exception.getMessage());
 
-        try
-        {
-            new QueryEvaluator(null);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(NullPointerException.class, e.getClass());
-            assertEquals("Broker instance not provided for querying", e.getMessage());
-        }
+        exception = assertThrows(NullPointerException.class, () -> new QueryEvaluator(null));
+        assertEquals("Broker instance not provided for querying", exception.getMessage());
     }
 
     @Test()
@@ -353,5 +253,35 @@ public class QuerySettingsTest
             queryEvaluator.execute(query, querySettings);
         }
         assertEquals(10, queryEngine.getCacheSize());
+    }
+
+    private static Stream<Arguments> dateFormatQueries()
+    {
+        return Stream.of(
+                Arguments.of(DateFormat.LONG, Long.class),
+                Arguments.of(DateFormat.STRING, String.class)
+        );
+    }
+
+    private static Stream<Arguments> decimalDigitQueries()
+    {
+        return Stream.of(
+                Arguments.of(2, RoundingMode.DOWN, "select 1.999 as result", 1.99),
+                Arguments.of(2, RoundingMode.DOWN, "select 1/3 as result", 0.33),
+                Arguments.of(4, RoundingMode.DOWN, "select 1.9999 as result", 1.9999),
+                Arguments.of(4, RoundingMode.DOWN, "select 1/3 as result", 0.3333)
+        );
+    }
+
+    private static Stream<Arguments> roundingModeQueries()
+    {
+        return Stream.of(
+                Arguments.of(RoundingMode.HALF_UP, "select 1.977 as result", 1.98),
+                Arguments.of(RoundingMode.HALF_UP, "select 1/3 as result", 0.33),
+                Arguments.of(RoundingMode.HALF_UP, "select 2/3 as result", 0.67),
+                Arguments.of(RoundingMode.DOWN, "select 1.977 as result", 1.97),
+                Arguments.of(RoundingMode.DOWN, "select 1/3 as result", 0.33),
+                Arguments.of(RoundingMode.DOWN, "select 2/3 as result", 0.66)
+        );
     }
 }

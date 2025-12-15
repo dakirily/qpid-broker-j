@@ -21,13 +21,17 @@
 package org.apache.qpid.server.query.engine.parsing.expression.function.numeric;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import org.apache.qpid.server.query.engine.TestBroker;
 import org.apache.qpid.server.query.engine.exception.QueryEvaluationException;
@@ -41,69 +45,29 @@ public class TruncExpressionTest
 {
     private final QueryEvaluator _queryEvaluator = new QueryEvaluator(TestBroker.createBroker());
 
-    @Test()
-    public void oneArgument()
+    @ParameterizedTest
+    @MethodSource("validQueries")
+    public void truncValues(final String query, final Object expected)
     {
-        String query = "select trunc(2/3) as result";
         List<Map<String, Object>> result = _queryEvaluator.execute(query).getResults();
         assertEquals(1, result.size());
-        assertEquals(0.66, result.get(0).get("result"));
-    }
-
-    @Test()
-    public void twoArguments()
-    {
-        String query = "select trunc(2/3, 1) as result";
-        List<Map<String, Object>> result = _queryEvaluator.execute(query).getResults();
-        assertEquals(1, result.size());
-        assertEquals(0.6, result.get(0).get("result"));
-
-        query = "select trunc(2/3, 2) as result";
-        result = _queryEvaluator.execute(query).getResults();
-        assertEquals(1, result.size());
-        assertEquals(0.66, result.get(0).get("result"));
-
-        query = "select trunc(2/3, 3) as result";
-        result = _queryEvaluator.execute(query).getResults();
-        assertEquals(1, result.size());
-        assertEquals(0.666, result.get(0).get("result"));
-
-        query = "select trunc(2/3, 4) as result";
-        result = _queryEvaluator.execute(query).getResults();
-        assertEquals(1, result.size());
-        assertEquals(0.6666, result.get(0).get("result"));
+        assertEquals(expected, result.get(0).get("result"));
     }
 
     @Test()
     public void noArguments()
     {
         String query = "select trunc() as result";
-        try
-        {
-            _queryEvaluator.execute(query);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryParsingException.class, e.getClass());
-            assertEquals("Function 'TRUNC' requires at least 1 parameter", e.getMessage());
-        }
+        QueryParsingException exception = assertThrows(QueryParsingException.class, () -> _queryEvaluator.execute(query));
+        assertEquals("Function 'TRUNC' requires at least 1 parameter", exception.getMessage());
     }
 
     @Test()
     public void nullArgument()
     {
         String query = "select trunc(null) as result";
-        try
-        {
-            _queryEvaluator.execute(query);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryEvaluationException.class, e.getClass());
-            assertEquals("Parameter of function 'TRUNC' invalid (parameter type: null)", e.getMessage());
-        }
+        QueryEvaluationException exception = assertThrows(QueryEvaluationException.class, () -> _queryEvaluator.execute(query));
+        assertEquals("Parameter of function 'TRUNC' invalid (parameter type: null)", exception.getMessage());
     }
 
     @Test()
@@ -146,47 +110,45 @@ public class TruncExpressionTest
     public void dateArgument()
     {
         String query = "select trunc(lastUpdatedTime) as result from queue where name='QUEUE_0'";
-        try
-        {
-            _queryEvaluator.execute(query);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryEvaluationException.class, e.getClass());
-            assertEquals("Parameter of function 'TRUNC' invalid (parameter type: Date)", e.getMessage());
-        }
+        QueryEvaluationException exception = assertThrows(QueryEvaluationException.class, () -> _queryEvaluator.execute(query));
+        assertEquals("Parameter of function 'TRUNC' invalid (parameter type: Date)", exception.getMessage());
     }
 
     @Test()
     public void booleanArgument()
     {
         String query = "select trunc(true) as result";
-        try
-        {
-            _queryEvaluator.execute(query);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryEvaluationException.class, e.getClass());
-            assertEquals("Parameter of function 'TRUNC' invalid (parameter type: Boolean)", e.getMessage());
-        }
+        QueryEvaluationException exception = assertThrows(QueryEvaluationException.class, () -> _queryEvaluator.execute(query));
+        assertEquals("Parameter of function 'TRUNC' invalid (parameter type: Boolean)", exception.getMessage());
     }
 
-    @Test()
-    public void invalidArgumentType()
+    @ParameterizedTest
+    @MethodSource("invalidTypeQueries")
+    public void invalidArgumentType(final String query, final String expectedMessage)
     {
-        String query = "select trunc(statistics) from queue";
-        try
-        {
-            _queryEvaluator.execute(query);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryEvaluationException.class, e.getClass());
-            assertEquals("Parameter of function 'TRUNC' invalid (parameter type: HashMap)", e.getMessage());
-        }
+        QueryEvaluationException exception = assertThrows(QueryEvaluationException.class, () -> _queryEvaluator.execute(query));
+        assertEquals(expectedMessage, exception.getMessage());
+    }
+
+    private static Stream<Arguments> validQueries()
+    {
+        return Stream.of(
+                Arguments.of("select trunc(2/3) as result", 0.66),
+                Arguments.of("select trunc(2/3, 1) as result", 0.6),
+                Arguments.of("select trunc(2/3, 2) as result", 0.66),
+                Arguments.of("select trunc(2/3, 3) as result", 0.666),
+                Arguments.of("select trunc(2/3, 4) as result", 0.6666),
+                Arguments.of("select trunc(1) as result", 1),
+                Arguments.of("select trunc(1L) as result", 1),
+                Arguments.of("select trunc(" + BigDecimal.valueOf(Long.MAX_VALUE).add(BigDecimal.ONE) + ", 0) as result",
+                        BigDecimal.valueOf(Long.MAX_VALUE).add(BigDecimal.ONE))
+        );
+    }
+
+    private static Stream<Arguments> invalidTypeQueries()
+    {
+        return Stream.of(
+                Arguments.of("select trunc(statistics) from queue", "Parameter of function 'TRUNC' invalid (parameter type: HashMap)")
+        );
     }
 }

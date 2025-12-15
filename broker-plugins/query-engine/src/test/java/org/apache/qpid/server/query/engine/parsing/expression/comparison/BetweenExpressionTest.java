@@ -21,13 +21,17 @@
 package org.apache.qpid.server.query.engine.parsing.expression.comparison;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import org.apache.qpid.server.query.engine.TestBroker;
 import org.apache.qpid.server.query.engine.exception.QueryEvaluationException;
@@ -145,62 +149,33 @@ public class BetweenExpressionTest
     @Test()
     public void comparingInvalidTypes()
     {
-        String query = "select statistics between statistics and statistics as result from queue";
-        try
-        {
-            _queryEvaluator.execute(query);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryEvaluationException.class, e.getClass());
-            assertEquals("Objects of types 'HashMap' and 'HashMap' can not be compared", e.getMessage());
-        }
+        QueryEvaluationException exception = assertThrows(QueryEvaluationException.class, () ->
+                _queryEvaluator.execute("select statistics between statistics and statistics as result from queue"));
+        assertEquals("Objects of types 'HashMap' and 'HashMap' can not be compared", exception.getMessage());
 
-        query = "select bindings between statistics and bindings as result from exchange";
-        try
-        {
-            _queryEvaluator.execute(query);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryEvaluationException.class, e.getClass());
-            assertEquals("Objects of types 'List12' and 'HashMap' can not be compared", e.getMessage());
-        }
+        exception = assertThrows(QueryEvaluationException.class, () ->
+                _queryEvaluator.execute("select bindings between statistics and bindings as result from exchange"));
+        assertEquals("Objects of types 'List12' and 'HashMap' can not be compared", exception.getMessage());
     }
 
-    @Test()
-    public void optionalBrackets()
+    @ParameterizedTest
+    @MethodSource("optionalBracketQueries")
+    public void optionalBrackets(final String query, final boolean expected)
     {
-        String query = "select 1 between (0 and 2) as result";
         List<Map<String, Object>> result = _queryEvaluator.execute(query).getResults();
         assertEquals(1, result.size());
-        assertEquals(true, result.get(0).get("result"));
+        assertEquals(expected, result.get(0).get("result"));
+    }
 
-        query = "select 1 not between (0 and 2) as result";
-        result = _queryEvaluator.execute(query).getResults();
-        assertEquals(1, result.size());
-        assertEquals(false, result.get(0).get("result"));
-
-        query = "select 1 between (0, 2) as result";
-        result = _queryEvaluator.execute(query).getResults();
-        assertEquals(1, result.size());
-        assertEquals(true, result.get(0).get("result"));
-
-        query = "select 1 not between (0, 2) as result";
-        result = _queryEvaluator.execute(query).getResults();
-        assertEquals(1, result.size());
-        assertEquals(false, result.get(0).get("result"));
-
-        query = "select 1 between(0, 2) as result";
-        result = _queryEvaluator.execute(query).getResults();
-        assertEquals(1, result.size());
-        assertEquals(true, result.get(0).get("result"));
-
-        query = "select 1 not between(0, 2) as result";
-        result = _queryEvaluator.execute(query).getResults();
-        assertEquals(1, result.size());
-        assertEquals(false, result.get(0).get("result"));
+    private static Stream<Arguments> optionalBracketQueries()
+    {
+        return Stream.of(
+                Arguments.of("select 1 between (0 and 2) as result", true),
+                Arguments.of("select 1 not between (0 and 2) as result", false),
+                Arguments.of("select 1 between (0, 2) as result", true),
+                Arguments.of("select 1 not between (0, 2) as result", false),
+                Arguments.of("select 1 between(0, 2) as result", true),
+                Arguments.of("select 1 not between(0, 2) as result", false)
+        );
     }
 }

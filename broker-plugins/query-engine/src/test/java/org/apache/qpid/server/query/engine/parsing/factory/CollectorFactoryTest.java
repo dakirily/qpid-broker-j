@@ -21,7 +21,7 @@
 package org.apache.qpid.server.query.engine.parsing.factory;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.Arrays;
 import java.util.List;
@@ -131,15 +131,8 @@ public class CollectorFactoryTest
     @Test()
     public void collectorTypeNull()
     {
-        try
-        {
-            CollectorFactory.collector(null);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(NullPointerException.class, e.getClass());
-            assertEquals(Errors.VALIDATION.COLLECTOR_TYPE_NULL, e.getMessage());
-        }
+        NullPointerException exception = assertThrows(NullPointerException.class, () -> CollectorFactory.collector(null));
+        assertEquals(Errors.VALIDATION.COLLECTOR_TYPE_NULL, exception.getMessage());
     }
 }
+

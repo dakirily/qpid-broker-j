@@ -21,12 +21,14 @@
 package org.apache.qpid.server.query.engine.parsing.query;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.List;
 import java.util.Map;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import org.apache.qpid.server.query.engine.TestBroker;
 import org.apache.qpid.server.query.engine.evaluator.QueryEvaluator;
@@ -58,61 +60,36 @@ public class SubqueryTest
     @Test()
     public void singeRowSubqueryReturnedMoreThanOneRow()
     {
-        try
-        {
+        QueryParsingException exception = assertThrows(QueryParsingException.class, () -> {
             String query = "select * from queue where name = (select destination from binding)";
             _queryEvaluator.execute(query);
-            fail("Expected exception not thrown");
-        }
-        catch(Exception e)
-        {
-            assertEquals(QueryParsingException.class, e.getClass());
-            assertEquals("Single-row subquery 'select destination from binding' returns more than one row: 10", e.getMessage());
-        }
+        });
+        assertEquals("Single-row subquery 'select destination from binding' returns more than one row: 10", exception.getMessage());
     }
 
-    @Test()
-    public void subqueryReturnsEmptySet()
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "select * from queue where name = (select destination from binding where exchange = 'not-existing')",
+            "select * from queue where name > (select destination from binding where exchange = 'not-existing')",
+            "select * from queue where name >= (select destination from binding where exchange = 'not-existing')",
+            "select * from queue where name < (select destination from binding where exchange = 'not-existing')",
+            "select * from queue where name <= (select destination from binding where exchange = 'not-existing')",
+            "select * from queue where name in (select destination from binding where exchange = 'not-existing')"
+    })
+    public void subqueryReturnsEmptySet(final String query)
     {
-        String query = "select * from queue where name = (select destination from binding where exchange = 'not-existing')";
         List<Map<String, Object>> result = _queryEvaluator.execute(query).getResults();
-        assertEquals(0, result.size());
-
-        query = "select * from queue where name > (select destination from binding where exchange = 'not-existing')";
-        result = _queryEvaluator.execute(query).getResults();
-        assertEquals(0, result.size());
-
-        query = "select * from queue where name >= (select destination from binding where exchange = 'not-existing')";
-        result = _queryEvaluator.execute(query).getResults();
-        assertEquals(0, result.size());
-
-        query = "select * from queue where name < (select destination from binding where exchange = 'not-existing')";
-        result = _queryEvaluator.execute(query).getResults();
-        assertEquals(0, result.size());
-
-        query = "select * from queue where name <= (select destination from binding where exchange = 'not-existing')";
-        result = _queryEvaluator.execute(query).getResults();
-        assertEquals(0, result.size());
-
-        query = "select * from queue where name in (select destination from binding where exchange = 'not-existing')";
-        result = _queryEvaluator.execute(query).getResults();
         assertEquals(0, result.size());
     }
 
     @Test()
     public void subqueryReturnsMoreThanOneValue()
     {
-        try
-        {
+        QueryParsingException exception = assertThrows(QueryParsingException.class, () -> {
             String query = "select * from queue where name = (select destination, exchange from binding where destination = 'QUEUE_1' and exchange = 'EXCHANGE_0')";
             _queryEvaluator.execute(query);
-            fail("Expected exception not thrown");
-        }
-        catch(Exception e)
-        {
-            assertEquals(QueryParsingException.class, e.getClass());
-            assertEquals("Subquery 'select destination, exchange from binding where destination='QUEUE_1' and exchange='EXCHANGE_0'' returns more than one value: [destination, exchange]", e.getMessage());
-        }
+        });
+        assertEquals("Subquery 'select destination, exchange from binding where destination='QUEUE_1' and exchange='EXCHANGE_0'' returns more than one value: [destination, exchange]", exception.getMessage());
     }
 
     @Test()
@@ -130,16 +107,10 @@ public class SubqueryTest
     @Test()
     public void fieldNotFoundInSubquery()
     {
-        try
-        {
+        QueryEvaluationException exception = assertThrows(QueryEvaluationException.class, () -> {
             String query = "SELECT * FROM certificate where UPPER(alias) in (select UPPER(NAME) FROM queue)";
             _queryEvaluator.execute(query);
-            fail("Expected exception not thrown");
-        }
-        catch(Exception e)
-        {
-            assertEquals(QueryEvaluationException.class, e.getClass());
-            assertEquals("Domains [certificate, queue] do not contain field 'NAME'", e.getMessage());
-        }
+        });
+        assertEquals("Domains [certificate, queue] do not contain field 'NAME'", exception.getMessage());
     }
 }

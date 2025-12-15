@@ -24,8 +24,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import org.apache.qpid.server.query.engine.TestBroker;
 import org.apache.qpid.server.query.engine.evaluator.QueryEvaluator;
@@ -37,27 +40,22 @@ public class NotExpressionTest
 {
     private final QueryEvaluator _queryEvaluator = new QueryEvaluator(TestBroker.createBroker());
 
-    @Test()
-    public void not()
+    @ParameterizedTest
+    @MethodSource("notQueries")
+    public void not(final String query, final String expectedKey, final boolean expectedValue)
     {
-        String query = "select not (true)";
         List<Map<String, Object>> result = _queryEvaluator.execute(query).getResults();
         assertEquals(1, result.size());
-        assertEquals(false, result.get(0).get("not(true)"));
+        assertEquals(expectedValue, result.get(0).get(expectedKey));
+    }
 
-        query = "select not (false)";
-        result = _queryEvaluator.execute(query).getResults();
-        assertEquals(1, result.size());
-        assertEquals(true, result.get(0).get("not(false)"));
-
-        query = "select not (2 > 1)";
-        result = _queryEvaluator.execute(query).getResults();
-        assertEquals(1, result.size());
-        assertEquals(false, result.get(0).get("not(2>1)"));
-
-        query = "select not (2 < 1)";
-        result = _queryEvaluator.execute(query).getResults();
-        assertEquals(1, result.size());
-        assertEquals(true, result.get(0).get("not(2<1)"));
+    private static Stream<Arguments> notQueries()
+    {
+        return Stream.of(
+                Arguments.of("select not (true)", "not(true)", false),
+                Arguments.of("select not (false)", "not(false)", true),
+                Arguments.of("select not (2 > 1)", "not(2>1)", false),
+                Arguments.of("select not (2 < 1)", "not(2<1)", true)
+        );
     }
 }

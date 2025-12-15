@@ -21,7 +21,7 @@
 package org.apache.qpid.server.query.engine.parsing.query;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.List;
 import java.util.Map;
@@ -152,16 +152,10 @@ public class HavingTest
     @Test()
     public void havingWithoutAggregation()
     {
-        try
-        {
+        QueryValidationException exception = assertThrows(QueryValidationException.class, () -> {
             String query = "select id, name from queue having queueDepthMessages > 100";
             _queryEvaluator.execute(query);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryValidationException.class, e.getClass());
-            assertEquals("HAVING clause is allowed when using aggregation", e.getMessage());
-        }
+        });
+        assertEquals("HAVING clause is allowed when using aggregation", exception.getMessage());
     }
 }

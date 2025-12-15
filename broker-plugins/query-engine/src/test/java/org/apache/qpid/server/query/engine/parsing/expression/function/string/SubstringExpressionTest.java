@@ -21,8 +21,8 @@
 package org.apache.qpid.server.query.engine.parsing.expression.function.string;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.fail;
 
 import java.math.BigDecimal;
 import java.time.ZoneId;
@@ -50,17 +50,11 @@ public class SubstringExpressionTest
     @Test()
     public void oneArgument()
     {
-        try
-        {
+        QueryParsingException exception = assertThrows(QueryParsingException.class, () -> {
             String query = "select substring('TEST') as result";
             _queryEvaluator.execute(query);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryParsingException.class, e.getClass());
-            assertEquals("Function 'SUBSTRING' requires at least 2 parameters", e.getMessage());
-        }
+        });
+        assertEquals("Function 'SUBSTRING' requires at least 2 parameters", exception.getMessage());
     }
 
     @Test()
@@ -173,32 +167,16 @@ public class SubstringExpressionTest
     public void fourArguments()
     {
         String query = "select substring('test', 1, 1, 1) as result";
-        try
-        {
-            _queryEvaluator.execute(query);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryParsingException.class, e.getClass());
-            assertEquals("Function 'SUBSTRING' requires maximum 3 parameters", e.getMessage());
-        }
+        QueryParsingException exception = assertThrows(QueryParsingException.class, () -> _queryEvaluator.execute(query));
+        assertEquals("Function 'SUBSTRING' requires maximum 3 parameters", exception.getMessage());
     }
 
     @Test()
     public void noArguments()
     {
         String query = "select substring() as result";
-        try
-        {
-            _queryEvaluator.execute(query);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryParsingException.class, e.getClass());
-            assertEquals("Function 'SUBSTRING' requires at least 2 parameters", e.getMessage());
-        }
+        QueryParsingException exception = assertThrows(QueryParsingException.class, () -> _queryEvaluator.execute(query));
+        assertEquals("Function 'SUBSTRING' requires at least 2 parameters", exception.getMessage());
     }
 
     @Test()
@@ -213,87 +191,33 @@ public class SubstringExpressionTest
     @Test()
     public void secondArgumentInvalid()
     {
-        String query = "select substring('test', null) as result";
+        QueryEvaluationException exception = assertThrows(QueryEvaluationException.class, () ->
+                _queryEvaluator.execute("select substring('test', null) as result"));
+        assertEquals("Function 'SUBSTRING' requires argument 2 to be an integer", exception.getMessage());
 
-        try
-        {
-            _queryEvaluator.execute(query);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryEvaluationException.class, e.getClass());
-            assertEquals("Function 'SUBSTRING' requires argument 2 to be an integer", e.getMessage());
-        }
+        exception = assertThrows(QueryEvaluationException.class, () ->
+                _queryEvaluator.execute("select substring('test', true) as result"));
+        assertEquals("Function 'SUBSTRING' requires argument 2 to be an integer", exception.getMessage());
 
-        query = "select substring('test', true) as result";
-
-        try
-        {
-            _queryEvaluator.execute(query);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryEvaluationException.class, e.getClass());
-            assertEquals("Function 'SUBSTRING' requires argument 2 to be an integer", e.getMessage());
-        }
-
-        query = "select substring('test', '1') as result";
-
-        try
-        {
-            _queryEvaluator.execute(query);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryEvaluationException.class, e.getClass());
-            assertEquals("Function 'SUBSTRING' requires argument 2 to be an integer", e.getMessage());
-        }
+        exception = assertThrows(QueryEvaluationException.class, () ->
+                _queryEvaluator.execute("select substring('test', '1') as result"));
+        assertEquals("Function 'SUBSTRING' requires argument 2 to be an integer", exception.getMessage());
     }
 
     @Test()
     public void thirdArgumentInvalid()
     {
-        String query = "select substring('test', 1, null) as result";
+        QueryEvaluationException exception = assertThrows(QueryEvaluationException.class, () ->
+                _queryEvaluator.execute("select substring('test', 1, null) as result"));
+        assertEquals("Function 'SUBSTRING' requires argument 3 to be an integer", exception.getMessage());
 
-        try
-        {
-            _queryEvaluator.execute(query);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryEvaluationException.class, e.getClass());
-            assertEquals("Function 'SUBSTRING' requires argument 3 to be an integer", e.getMessage());
-        }
+        exception = assertThrows(QueryEvaluationException.class, () ->
+                _queryEvaluator.execute("select substring('test', 1, true) as result"));
+        assertEquals("Function 'SUBSTRING' requires argument 3 to be an integer", exception.getMessage());
 
-        query = "select substring('test', 1, true) as result";
-
-        try
-        {
-            _queryEvaluator.execute(query);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryEvaluationException.class, e.getClass());
-            assertEquals("Function 'SUBSTRING' requires argument 3 to be an integer", e.getMessage());
-        }
-
-        query = "select substring('test', 1, '1') as result";
-
-        try
-        {
-            _queryEvaluator.execute(query);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryEvaluationException.class, e.getClass());
-            assertEquals("Function 'SUBSTRING' requires argument 3 to be an integer", e.getMessage());
-        }
+        exception = assertThrows(QueryEvaluationException.class, () ->
+                _queryEvaluator.execute("select substring('test', 1, '1') as result"));
+        assertEquals("Function 'SUBSTRING' requires argument 3 to be an integer", exception.getMessage());
     }
 
     @Test()
@@ -382,15 +306,8 @@ public class SubstringExpressionTest
     public void invalidArgumentType()
     {
         String query = "select substring(statistics, 1) from queue";
-        try
-        {
-            _queryEvaluator.execute(query);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryEvaluationException.class, e.getClass());
-            assertEquals("Parameter of function 'SUBSTRING' invalid (parameter type: HashMap)", e.getMessage());
-        }
+        QueryEvaluationException exception = assertThrows(QueryEvaluationException.class, () -> _queryEvaluator.execute(query));
+        assertEquals("Parameter of function 'SUBSTRING' invalid (parameter type: HashMap)", exception.getMessage());
     }
 }
+

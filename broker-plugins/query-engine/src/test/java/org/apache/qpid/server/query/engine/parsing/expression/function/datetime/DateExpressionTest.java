@@ -26,8 +26,12 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import org.apache.qpid.server.query.engine.TestBroker;
 import org.apache.qpid.server.query.engine.evaluator.QueryEvaluator;
@@ -61,114 +65,34 @@ public class DateExpressionTest
         assertEquals(date, result.get(0).get("result"));
     }
 
-    @Test()
-    public void comparingDatesUsingEquals()
+    @ParameterizedTest
+    @MethodSource("comparisonQueries")
+    public void compareDates(final String query, final int expectedSize, final List<String> expectedAliases)
     {
-        String query = "SELECT * FROM certificate WHERE DATE(validFrom) = '2020-01-01'";
         List<Map<String, Object>> result = _queryEvaluator.execute(query, _querySettings).getResults();
-        assertEquals(1, result.size());
-        assertEquals("aaa_mock", result.get(0).get("alias"));
+        assertEquals(expectedSize, result.size());
+        if (expectedAliases != null)
+        {
+            for (int i = 0; i < expectedAliases.size(); i++)
+            {
+                assertEquals(expectedAliases.get(i), result.get(i).get("alias"));
+            }
+        }
     }
 
-    @Test()
-    public void comparingDatesUsingNotEquals()
+    private static Stream<Arguments> comparisonQueries()
     {
-        String query = "SELECT * FROM certificate WHERE DATE(validFrom) <> ('2020-01-01')";
-        List<Map<String, Object>> result = _queryEvaluator.execute(query, _querySettings).getResults();
-        assertEquals(9, result.size());
-        assertEquals("bbb_mock", result.get(0).get("alias"));
-        assertEquals("ccc_mock", result.get(1).get("alias"));
-        assertEquals("ddd_mock", result.get(2).get("alias"));
-        assertEquals("eee_mock", result.get(3).get("alias"));
-        assertEquals("fff_mock", result.get(4).get("alias"));
-        assertEquals("ggg_mock", result.get(5).get("alias"));
-        assertEquals("hhh_mock", result.get(6).get("alias"));
-        assertEquals("iii_mock", result.get(7).get("alias"));
-        assertEquals("jjj_mock", result.get(8).get("alias"));
-    }
-
-    @Test()
-    public void comparingDatesUsingGreaterThan()
-    {
-        String query = "SELECT * FROM certificate WHERE DATE(validFrom) > '2020-01-09'";
-        List<Map<String, Object>> result = _queryEvaluator.execute(query, _querySettings).getResults();
-        assertEquals(1, result.size());
-        assertEquals("jjj_mock", result.get(0).get("alias"));
-    }
-
-    @Test()
-    public void comparingDatesUsingGreaterThanOrEqual()
-    {
-        String query = "SELECT * FROM certificate WHERE DATE(validFrom) >= '2020-01-09'";
-        List<Map<String, Object>> result = _queryEvaluator.execute(query, _querySettings).getResults();
-        assertEquals(2, result.size());
-        assertEquals("iii_mock", result.get(0).get("alias"));
-        assertEquals("jjj_mock", result.get(1).get("alias"));
-    }
-
-    @Test()
-    public void comparingDatesUsingLessThan()
-    {
-        String query = "SELECT * FROM certificate WHERE DATE(validFrom) < '2020-01-02'";
-        List<Map<String, Object>> result = _queryEvaluator.execute(query, _querySettings).getResults();
-        assertEquals(1, result.size());
-        assertEquals("aaa_mock", result.get(0).get("alias"));
-    }
-
-    @Test()
-    public void comparingDatesUsingLessThanOrEqual()
-    {
-        String query = "SELECT * FROM certificate WHERE DATE(validFrom) <= '2020-01-02'";
-        List<Map<String, Object>> result = _queryEvaluator.execute(query, _querySettings).getResults();
-        assertEquals(2, result.size());
-        assertEquals("aaa_mock", result.get(0).get("alias"));
-        assertEquals("bbb_mock", result.get(1).get("alias"));
-    }
-
-    @Test()
-    public void comparingDatesUsingBetween()
-    {
-        String query = "SELECT * FROM certificate WHERE DATE(validFrom) BETWEEN ('2020-01-01', '2020-01-03')";
-        List<Map<String, Object>> result = _queryEvaluator.execute(query, _querySettings).getResults();
-        assertEquals(3, result.size());
-        assertEquals("aaa_mock", result.get(0).get("alias"));
-        assertEquals("bbb_mock", result.get(1).get("alias"));
-        assertEquals("ccc_mock", result.get(2).get("alias"));
-    }
-
-    @Test()
-    public void comparingDatesUsingNotBetween()
-    {
-        String query = "SELECT * FROM certificate WHERE DATE(validFrom) NOT BETWEEN ('2020-01-02', '2020-01-09')";
-        List<Map<String, Object>> result = _queryEvaluator.execute(query, _querySettings).getResults();
-        assertEquals(2, result.size());
-        assertEquals("aaa_mock", result.get(0).get("alias"));
-        assertEquals("jjj_mock", result.get(1).get("alias"));
-    }
-
-    @Test()
-    public void comparingDatesUsingIn()
-    {
-        String query = "SELECT * FROM certificate WHERE DATE(validFrom) IN ('2020-01-01', '2020-01-03', '2020-01-05', '2020-01-07', '2020-01-09')";
-        List<Map<String, Object>> result = _queryEvaluator.execute(query, _querySettings).getResults();
-        assertEquals(5, result.size());
-        assertEquals("aaa_mock", result.get(0).get("alias"));
-        assertEquals("ccc_mock", result.get(1).get("alias"));
-        assertEquals("eee_mock", result.get(2).get("alias"));
-        assertEquals("ggg_mock", result.get(3).get("alias"));
-        assertEquals("iii_mock", result.get(4).get("alias"));
-    }
-
-    @Test()
-    public void comparingDatesUsingNotIn()
-    {
-        String query = "SELECT * FROM certificate WHERE DATE(validFrom) NOT IN ('2020-01-01', '2020-01-03', '2020-01-05', '2020-01-07', '2020-01-09')";
-        List<Map<String, Object>> result = _queryEvaluator.execute(query, _querySettings).getResults();
-        assertEquals(5, result.size());
-        assertEquals("bbb_mock", result.get(0).get("alias"));
-        assertEquals("ddd_mock", result.get(1).get("alias"));
-        assertEquals("fff_mock", result.get(2).get("alias"));
-        assertEquals("hhh_mock", result.get(3).get("alias"));
-        assertEquals("jjj_mock", result.get(4).get("alias"));
+        return Stream.of(
+                Arguments.of("SELECT * FROM certificate WHERE DATE(validFrom) = '2020-01-01'", 1, List.of("aaa_mock")),
+                Arguments.of("SELECT * FROM certificate WHERE DATE(validFrom) <> ('2020-01-01')", 9, List.of("bbb_mock", "ccc_mock", "ddd_mock", "eee_mock", "fff_mock", "ggg_mock", "hhh_mock", "iii_mock", "jjj_mock")),
+                Arguments.of("SELECT * FROM certificate WHERE DATE(validFrom) > '2020-01-09'", 1, List.of("jjj_mock")),
+                Arguments.of("SELECT * FROM certificate WHERE DATE(validFrom) >= '2020-01-09'", 2, List.of("iii_mock", "jjj_mock")),
+                Arguments.of("SELECT * FROM certificate WHERE DATE(validFrom) < '2020-01-02'", 1, List.of("aaa_mock")),
+                Arguments.of("SELECT * FROM certificate WHERE DATE(validFrom) <= '2020-01-02'", 2, List.of("aaa_mock", "bbb_mock")),
+                Arguments.of("SELECT * FROM certificate WHERE DATE(validFrom) BETWEEN ('2020-01-01', '2020-01-03')", 3, List.of("aaa_mock", "bbb_mock", "ccc_mock")),
+                Arguments.of("SELECT * FROM certificate WHERE DATE(validFrom) NOT BETWEEN ('2020-01-02', '2020-01-09')", 2, List.of("aaa_mock", "jjj_mock")),
+                Arguments.of("SELECT * FROM certificate WHERE DATE(validFrom) IN ('2020-01-01', '2020-01-03', '2020-01-05', '2020-01-07', '2020-01-09')", 5, List.of("aaa_mock", "ccc_mock", "eee_mock", "ggg_mock", "iii_mock")),
+                Arguments.of("SELECT * FROM certificate WHERE DATE(validFrom) NOT IN ('2020-01-01', '2020-01-03', '2020-01-05', '2020-01-07', '2020-01-09')", 5, List.of("bbb_mock", "ddd_mock", "fff_mock", "hhh_mock", "jjj_mock"))
+        );
     }
 }

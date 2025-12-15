@@ -21,7 +21,7 @@
 package org.apache.qpid.server.query.engine.parsing.expression.set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.List;
 import java.util.Map;
@@ -89,16 +89,8 @@ public class IntersectExpressionTest
         String query = "select id, name from queue where name = 'QUEUE_0' "
                        + "intersect "
                        + "select name from queue where name = 'QUEUE_10'";
-        try
-        {
-            _queryEvaluator.execute(query).getResults();
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryParsingException.class, e.getClass());
-            assertEquals("Products of 'intersect' operation have different length", e.getMessage());
-        }
+        QueryParsingException exception = assertThrows(QueryParsingException.class, () -> _queryEvaluator.execute(query).getResults());
+        assertEquals("Products of 'intersect' operation have different length", exception.getMessage());
     }
 
     @Test()
@@ -113,3 +105,4 @@ public class IntersectExpressionTest
     }
 
 }
+

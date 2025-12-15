@@ -21,8 +21,8 @@
 package org.apache.qpid.server.query.engine.parsing.expression.function.string;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.fail;
 
 import java.math.BigDecimal;
 import java.time.format.DateTimeFormatter;
@@ -74,32 +74,16 @@ public class LeftTrimExpressionTest
     public void threeArguments()
     {
         String query = "select ltrim('hello', '_', '') as result";
-        try
-        {
-            _queryEvaluator.execute(query);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryParsingException.class, e.getClass());
-            assertEquals("Function 'LTRIM' requires maximum 2 parameters", e.getMessage());
-        }
+        QueryParsingException exception = assertThrows(QueryParsingException.class, () -> _queryEvaluator.execute(query));
+        assertEquals("Function 'LTRIM' requires maximum 2 parameters", exception.getMessage());
     }
 
     @Test()
     public void noArguments()
     {
         String query = "select ltrim() as result";
-        try
-        {
-            _queryEvaluator.execute(query);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryParsingException.class, e.getClass());
-            assertEquals("Function 'LTRIM' requires at least 1 parameter", e.getMessage());
-        }
+        QueryParsingException exception = assertThrows(QueryParsingException.class, () -> _queryEvaluator.execute(query));
+        assertEquals("Function 'LTRIM' requires at least 1 parameter", exception.getMessage());
     }
 
     @Test()
@@ -172,15 +156,8 @@ public class LeftTrimExpressionTest
     public void invalidArgumentType()
     {
         String query = "select ltrim(statistics) from queue";
-        try
-        {
-            _queryEvaluator.execute(query);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryEvaluationException.class, e.getClass());
-            assertEquals("Parameter of function 'LTRIM' invalid (parameter type: HashMap)", e.getMessage());
-        }
+        QueryEvaluationException exception = assertThrows(QueryEvaluationException.class, () -> _queryEvaluator.execute(query));
+        assertEquals("Parameter of function 'LTRIM' invalid (parameter type: HashMap)", exception.getMessage());
     }
 }
+

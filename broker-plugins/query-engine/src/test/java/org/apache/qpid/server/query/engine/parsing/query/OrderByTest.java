@@ -21,7 +21,7 @@
 package org.apache.qpid.server.query.engine.parsing.query;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -286,81 +286,51 @@ public class OrderByTest
     @Test()
     public void orderByIndexOutOfBoundsOrdinal()
     {
-        try
-        {
+        QueryParsingException exception = assertThrows(QueryParsingException.class, () -> {
             String query = "select id, name from queue order by 3";
             _queryEvaluator.execute(query);
-            fail("Expected exception not thrown");
-        }
-        catch(Exception e)
-        {
-            assertEquals(QueryParsingException.class, e.getClass());
-            assertEquals("Order by item must be the number of a select list expression", e.getMessage());
-        }
+        });
+        assertEquals("Order by item must be the number of a select list expression", exception.getMessage());
     }
 
     @Test()
     public void orderByZeroOrdinal()
     {
-        try
-        {
+        QueryParsingException exception = assertThrows(QueryParsingException.class, () -> {
             String query = "select id, name from queue order by 0";
             _queryEvaluator.execute(query);
-            fail("Expected exception not thrown");
-        }
-        catch(Exception e)
-        {
-            assertEquals(QueryParsingException.class, e.getClass());
-            assertEquals("Order by item must be the number of a select list expression", e.getMessage());
-        }
+        });
+        assertEquals("Order by item must be the number of a select list expression", exception.getMessage());
     }
 
     @Test()
     public void orderByNegativeOrdinal()
     {
-        try
-        {
+        QueryParsingException exception = assertThrows(QueryParsingException.class, () -> {
             String query = "select id, name from queue order by -1";
             _queryEvaluator.execute(query);
-            fail("Expected exception not thrown");
-        }
-        catch(Exception e)
-        {
-            assertEquals(QueryParsingException.class, e.getClass());
-            assertEquals("Order by item must be the number of a select list expression", e.getMessage());
-        }
+        });
+        assertEquals("Order by item must be the number of a select list expression", exception.getMessage());
     }
 
     @Test()
     public void orderByNonExistingField()
     {
-        try
-        {
+        QueryEvaluationException exception = assertThrows(QueryEvaluationException.class, () -> {
             String query = "select id, name from queue order by nonExistingField";
             _queryEvaluator.execute(query);
-            fail("Expected exception not thrown");
-        }
-        catch(Exception e)
-        {
-            assertEquals(QueryEvaluationException.class, e.getClass());
-            assertEquals("Domain 'queue' does not contain field 'nonExistingField'", e.getMessage());
-        }
+        });
+        assertEquals("Domain 'queue' does not contain field 'nonExistingField'", exception.getMessage());
     }
 
     @Test()
     public void orderByNonComparableField()
     {
-        try
-        {
+        QueryParsingException exception = assertThrows(QueryParsingException.class, () -> {
             String query = "select id, name from queue order by statistics";
             _queryEvaluator.execute(query);
-            fail("Expected exception not thrown");
-        }
-        catch(Exception e)
-        {
-            assertEquals(QueryParsingException.class, e.getClass());
-            assertEquals("Sorting by field 'statistics' not supported", e.getMessage());
-        }
+        });
+        assertEquals("Sorting by field 'statistics' not supported", exception.getMessage());
     }
 
     @Test()

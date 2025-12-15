@@ -21,7 +21,7 @@
 package org.apache.qpid.server.query.engine.parsing.expression.function.aggregation;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.List;
 import java.util.Map;
@@ -44,64 +44,32 @@ public class GroupByTest
     public void groupByNegativeOrdinal()
     {
         String query = "select count(*), expiryPolicy from queue group by -1";
-        try
-        {
-            _queryEvaluator.execute(query);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryParsingException.class, e.getClass());
-            assertEquals("Group by item must be the number of a select list expression", e.getMessage());
-        }
+        QueryParsingException exception = assertThrows(QueryParsingException.class, () -> _queryEvaluator.execute(query));
+        assertEquals("Group by item must be the number of a select list expression", exception.getMessage());
     }
 
     @Test()
     public void groupByZeroOrdinal()
     {
         String query = "select count(*), expiryPolicy from queue group by 0";
-        try
-        {
-            _queryEvaluator.execute(query);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryParsingException.class, e.getClass());
-            assertEquals("Group by item must be the number of a select list expression", e.getMessage());
-        }
+        QueryParsingException exception = assertThrows(QueryParsingException.class, () -> _queryEvaluator.execute(query));
+        assertEquals("Group by item must be the number of a select list expression", exception.getMessage());
     }
 
     @Test()
     public void groupByOutOfBoundsOrdinal()
     {
         String query = "select count(*), expiryPolicy from queue group by 3";
-        try
-        {
-            _queryEvaluator.execute(query);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryParsingException.class, e.getClass());
-            assertEquals("Group by item must be the number of a select list expression", e.getMessage());
-        }
+        QueryParsingException exception = assertThrows(QueryParsingException.class, () -> _queryEvaluator.execute(query));
+        assertEquals("Group by item must be the number of a select list expression", exception.getMessage());
     }
 
     @Test()
     public void groupByNoneExistingField()
     {
         String query = "select count(*), nonExistingField from queue group by nonExistingField";
-        try
-        {
-            _queryEvaluator.execute(query);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryEvaluationException.class, e.getClass());
-            assertEquals("Domain 'queue' does not contain field 'nonExistingField'", e.getMessage());
-        }
+        QueryEvaluationException exception = assertThrows(QueryEvaluationException.class, () -> _queryEvaluator.execute(query));
+        assertEquals("Domain 'queue' does not contain field 'nonExistingField'", exception.getMessage());
     }
 
     @Test()
@@ -141,3 +109,4 @@ public class GroupByTest
         assertEquals(15, ((Map<String, Object>)map.get("NONE")).get("ROUTE_TO_ALTERNATE"));
     }
 }
+

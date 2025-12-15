@@ -21,7 +21,7 @@
 package org.apache.qpid.server.query.engine.parsing.expression.function.string;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.math.BigDecimal;
 import java.time.format.DateTimeFormatter;
@@ -167,43 +167,20 @@ public class ConcatExpressionTest
     public void noArguments()
     {
         String query = "select concat() as result";
-        try
-        {
-            _queryEvaluator.execute(query);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryParsingException.class, e.getClass());
-            assertEquals("Function 'CONCAT' requires at least 1 parameter", e.getMessage());
-        }
+        QueryParsingException exception = assertThrows(QueryParsingException.class, () -> _queryEvaluator.execute(query));
+        assertEquals("Function 'CONCAT' requires at least 1 parameter", exception.getMessage());
     }
 
     @Test()
     public void invalidArgumentType()
     {
-        String query = "select concat(statistics, '') from queue";
-        try
-        {
-            _queryEvaluator.execute(query);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryParsingException.class, e.getClass());
-            assertEquals("Parameters of function 'CONCAT' invalid (invalid types: [HashMap])", e.getMessage());
-        }
+        QueryParsingException exception = assertThrows(QueryParsingException.class, () ->
+                _queryEvaluator.execute("select concat(statistics, '') from queue"));
+        assertEquals("Parameters of function 'CONCAT' invalid (invalid types: [HashMap])", exception.getMessage());
 
-        query = "select concat(bindings, '') from exchange";
-        try
-        {
-            _queryEvaluator.execute(query);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryParsingException.class, e.getClass());
-            assertEquals("Parameters of function 'CONCAT' invalid (invalid types: [List12])", e.getMessage());
-        }
+        exception = assertThrows(QueryParsingException.class, () ->
+                _queryEvaluator.execute("select concat(bindings, '') from exchange"));
+        assertEquals("Parameters of function 'CONCAT' invalid (invalid types: [List12])", exception.getMessage());
     }
 }
+

@@ -21,7 +21,7 @@
 package org.apache.qpid.server.query.engine.parsing.expression.function.datetime;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.List;
 import java.util.Map;
@@ -47,140 +47,72 @@ public class DateDiffExpressionTest
     public void noArguments()
     {
         String query = "select datediff() as result";
-        try
-        {
-            _queryEvaluator.execute(query, _querySettings);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryParsingException.class, e.getClass());
-            assertEquals("Function 'DATEDIFF' requires 3 parameters", e.getMessage());
-        }
+        QueryParsingException exception = assertThrows(QueryParsingException.class, () -> _queryEvaluator.execute(query, _querySettings));
+        assertEquals("Function 'DATEDIFF' requires 3 parameters", exception.getMessage());
     }
 
     @Test()
     public void fourArguments()
     {
         String query = "select datediff(YEAR, 1, 2, 3) as result";
-        try
-        {
-            _queryEvaluator.execute(query, _querySettings);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryParsingException.class, e.getClass());
-            assertEquals("Function 'DATEDIFF' requires 3 parameters", e.getMessage());
-        }
+        QueryParsingException exception = assertThrows(QueryParsingException.class, () -> _queryEvaluator.execute(query, _querySettings));
+        assertEquals("Function 'DATEDIFF' requires 3 parameters", exception.getMessage());
     }
 
     @Test()
     public void invalidDatepart()
     {
-        try
-        {
+        QueryParsingException exception = assertThrows(QueryParsingException.class, () -> {
             String query = "select datediff(YEARS, 1, '2000-02-28 00:00:00') as result";
             _queryEvaluator.execute(query, _querySettings);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryParsingException.class, e.getClass());
-            assertEquals("Datepart 'YEARS' not supported", e.getMessage());
-        }
+        });
+        assertEquals("Datepart 'YEARS' not supported", exception.getMessage());
 
-        try
-        {
+        exception = assertThrows(QueryParsingException.class, () -> {
             String query = "select datediff(test, 1, '2000-02-28 00:00:00') as result";
             _queryEvaluator.execute(query, _querySettings);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryParsingException.class, e.getClass());
-            assertEquals("Datepart 'test' not supported", e.getMessage());
-        }
+        });
+        assertEquals("Datepart 'test' not supported", exception.getMessage());
 
-        try
-        {
+        exception = assertThrows(QueryParsingException.class, () -> {
             String query = "select datediff(null, 1, '2000-02-28 00:00:00') as result";
             _queryEvaluator.execute(query, _querySettings);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryParsingException.class, e.getClass());
-            assertEquals("Datepart 'null' not supported", e.getMessage());
-        }
+        });
+        assertEquals("Datepart 'null' not supported", exception.getMessage());
 
-        try
-        {
+        exception = assertThrows(QueryParsingException.class, () -> {
             String query = "select datediff(1, 1, '2000-02-28 00:00:00') as result";
             _queryEvaluator.execute(query, _querySettings);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryParsingException.class, e.getClass());
-            assertEquals("Datepart '1' not supported", e.getMessage());
-        }
+        });
+        assertEquals("Datepart '1' not supported", exception.getMessage());
 
-        try
-        {
+        exception = assertThrows(QueryParsingException.class, () -> {
             String query = "select datediff(0, 1, '2000-02-28 00:00:00') as result";
             _queryEvaluator.execute(query, _querySettings);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryParsingException.class, e.getClass());
-            assertEquals("Datepart '0' not supported", e.getMessage());
-        }
+        });
+        assertEquals("Datepart '0' not supported", exception.getMessage());
 
-        try
-        {
+        exception = assertThrows(QueryParsingException.class, () -> {
             String query = "select datediff('test', 1, '2000-02-28 00:00:00') as result";
             _queryEvaluator.execute(query, _querySettings);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryParsingException.class, e.getClass());
-            assertEquals("Datepart '\\'test\\'' not supported", e.getMessage());
-        }
+        });
+        assertEquals("Datepart '\\'test\\'' not supported", exception.getMessage());
     }
 
     @Test()
     public void invalidDate()
     {
         String query = "select datediff(YEAR, '2000-01-01 00:00:00', '2000-02-30 00:00:00') as result";
-        try
-        {
-            _queryEvaluator.execute(query, _querySettings);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryEvaluationException.class, e.getClass());
-            assertEquals("Text '2000-02-30 00:00:00' could not be parsed: Invalid date 'FEBRUARY 30'", e.getMessage());
-        }
+        QueryEvaluationException exception = assertThrows(QueryEvaluationException.class, () -> _queryEvaluator.execute(query, _querySettings));
+        assertEquals("Text '2000-02-30 00:00:00' could not be parsed: Invalid date 'FEBRUARY 30'", exception.getMessage());
     }
 
     @Test()
     public void nullDate()
     {
         String query = "select datediff(YEAR, '2000-01-01 00:00:00', null) as result";
-        try
-        {
-            _queryEvaluator.execute(query, _querySettings);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryEvaluationException.class, e.getClass());
-            assertEquals("Parameter of function 'DATEDIFF' invalid (parameter type: null)", e.getMessage());
-        }
+        QueryEvaluationException exception = assertThrows(QueryEvaluationException.class, () -> _queryEvaluator.execute(query, _querySettings));
+        assertEquals("Parameter of function 'DATEDIFF' invalid (parameter type: null)", exception.getMessage());
     }
 
     @Test()
@@ -348,3 +280,4 @@ public class DateDiffExpressionTest
         assertEquals(70, result.size());
     }
 }
+

@@ -21,9 +21,9 @@
 package org.apache.qpid.server.query.engine.validation;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -46,31 +46,15 @@ public class FunctionParameterTypePredicateTest
     @Test()
     public void emptyPredicate()
     {
-        try
-        {
-            FunctionParameterTypePredicate.builder().build();
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryValidationException.class, e.getClass());
-            assertEquals(Errors.VALIDATION.FUNCTION_ARGS_PREDICATE_EMPTY, e.getMessage());
-        }
+        QueryValidationException exception = assertThrows(QueryValidationException.class, () -> FunctionParameterTypePredicate.builder().build());
+        assertEquals(Errors.VALIDATION.FUNCTION_ARGS_PREDICATE_EMPTY, exception.getMessage());
     }
 
     @Test()
     public void allowDisallowBooleans()
     {
-        try
-        {
-            FunctionParameterTypePredicate.builder().allowBooleans().disallowBooleans().build();
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryValidationException.class, e.getClass());
-            assertEquals(Errors.VALIDATION.FUNCTION_ARGS_PREDICATE_EMPTY, e.getMessage());
-        }
+        QueryValidationException exception = assertThrows(QueryValidationException.class, () -> FunctionParameterTypePredicate.builder().allowBooleans().disallowBooleans().build());
+        assertEquals(Errors.VALIDATION.FUNCTION_ARGS_PREDICATE_EMPTY, exception.getMessage());
     }
 
     @Test()
@@ -234,3 +218,4 @@ public class FunctionParameterTypePredicateTest
         assertTrue(predicate.test((R) LocalDateTime.now()));
     }
 }
+

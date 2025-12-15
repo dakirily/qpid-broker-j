@@ -25,8 +25,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import org.apache.qpid.server.query.engine.TestBroker;
 import org.apache.qpid.server.query.engine.evaluator.QueryEvaluator;
@@ -38,101 +41,47 @@ public class IsNullExpressionTest
 {
     private final QueryEvaluator _queryEvaluator = new QueryEvaluator(TestBroker.createBroker());
 
-    @Test()
-    public void comparingIntegers()
+    @ParameterizedTest
+    @MethodSource("valueQueries")
+    public void comparingValues(final String query, final boolean expected)
     {
-        String query = "select 1 is null as result";
         List<Map<String, Object>> result = _queryEvaluator.execute(query).getResults();
         assertEquals(1, result.size());
-        assertEquals(false, result.get(0).get("result"));
-
-        query = "select 1 is not null as result";
-        result = _queryEvaluator.execute(query).getResults();
-        assertEquals(1, result.size());
-        assertEquals(true, result.get(0).get("result"));
+        assertEquals(expected, result.get(0).get("result"));
     }
 
-    @Test()
-    public void comparingLongs()
+    @ParameterizedTest
+    @MethodSource("countQueries")
+    public void countNulls(final String query, final int expectedCount)
     {
-        String query = "select 1L is null as result";
         List<Map<String, Object>> result = _queryEvaluator.execute(query).getResults();
         assertEquals(1, result.size());
-        assertEquals(false, result.get(0).get("result"));
-
-        query = "select 1L is not null as result";
-        result = _queryEvaluator.execute(query).getResults();
-        assertEquals(1, result.size());
-        assertEquals(true, result.get(0).get("result"));
+        assertEquals(expectedCount, result.get(0).values().iterator().next());
     }
 
-    @Test()
-    public void comparingDoubles()
+    private static Stream<Arguments> valueQueries()
     {
-        String query = "select 1.0 is null as result";
-        List<Map<String, Object>> result = _queryEvaluator.execute(query).getResults();
-        assertEquals(1, result.size());
-        assertEquals(false, result.get(0).get("result"));
-
-        query = "select 1.0 is not null as result";
-        result = _queryEvaluator.execute(query).getResults();
-        assertEquals(1, result.size());
-        assertEquals(true, result.get(0).get("result"));
+        return Stream.of(
+                Arguments.of("select 1 is null as result", false),
+                Arguments.of("select 1 is not null as result", true),
+                Arguments.of("select 1L is null as result", false),
+                Arguments.of("select 1L is not null as result", true),
+                Arguments.of("select 1.0 is null as result", false),
+                Arguments.of("select 1.0 is not null as result", true),
+                Arguments.of("select " + BigDecimal.valueOf(Long.MAX_VALUE).add(BigDecimal.TEN) + " is null as result", false),
+                Arguments.of("select " + BigDecimal.valueOf(Long.MAX_VALUE).add(BigDecimal.TEN) + " is not null as result", true),
+                Arguments.of("select '' is null as result", false),
+                Arguments.of("select '' is not null as result", true),
+                Arguments.of("select null is null as result", true),
+                Arguments.of("select null is not null as result", false)
+        );
     }
 
-    @Test()
-    public void comparingBigDecimals()
+    private static Stream<Arguments> countQueries()
     {
-        String query = "select " + BigDecimal.valueOf(Long.MAX_VALUE).add(BigDecimal.TEN) + " is null as result";
-        List<Map<String, Object>> result = _queryEvaluator.execute(query).getResults();
-        assertEquals(1, result.size());
-        assertEquals(false, result.get(0).get("result"));
-
-        query = "select " + BigDecimal.valueOf(Long.MAX_VALUE).add(BigDecimal.TEN) + " is not null as result";
-        result = _queryEvaluator.execute(query).getResults();
-        assertEquals(1, result.size());
-        assertEquals(true, result.get(0).get("result"));
-    }
-
-    @Test()
-    public void comparingStrings()
-    {
-        String query = "select '' is null as result";
-        List<Map<String, Object>> result = _queryEvaluator.execute(query).getResults();
-        assertEquals(1, result.size());
-        assertEquals(false, result.get(0).get("result"));
-
-        query = "select '' is not null as result";
-        result = _queryEvaluator.execute(query).getResults();
-        assertEquals(1, result.size());
-        assertEquals(true, result.get(0).get("result"));
-    }
-
-    @Test()
-    public void comparingNulls()
-    {
-        String query = "select null is null as result";
-        List<Map<String, Object>> result = _queryEvaluator.execute(query).getResults();
-        assertEquals(1, result.size());
-        assertEquals(true, result.get(0).get("result"));
-
-        query = "select null is not null as result";
-        result = _queryEvaluator.execute(query).getResults();
-        assertEquals(1, result.size());
-        assertEquals(false, result.get(0).get("result"));
-    }
-
-    @Test()
-    public void countNulls()
-    {
-        String query = "select count(*) as cnt from queue where description is null";
-        List<Map<String, Object>> result = _queryEvaluator.execute(query).getResults();
-        assertEquals(1, result.size());
-        assertEquals(40, result.get(0).get("cnt"));
-
-        query = "select count(*) as cnt from queue where description is not null";
-        result = _queryEvaluator.execute(query).getResults();
-        assertEquals(1, result.size());
-        assertEquals(30, result.get(0).get("cnt"));
+        return Stream.of(
+                Arguments.of("select count(*) as cnt from queue where description is null", 40),
+                Arguments.of("select count(*) as cnt from queue where description is not null", 30)
+        );
     }
 }

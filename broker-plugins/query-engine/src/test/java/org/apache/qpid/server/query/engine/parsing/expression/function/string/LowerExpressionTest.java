@@ -21,8 +21,8 @@
 package org.apache.qpid.server.query.engine.parsing.expression.function.string;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.fail;
 
 import java.math.BigDecimal;
 import java.time.format.DateTimeFormatter;
@@ -60,32 +60,16 @@ public class LowerExpressionTest
     public void twoArguments()
     {
         String query = "select lower('hello', 'world') as result";
-        try
-        {
-            _queryEvaluator.execute(query);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryParsingException.class, e.getClass());
-            assertEquals("Function 'LOWER' requires 1 parameter", e.getMessage());
-        }
+        QueryParsingException exception = assertThrows(QueryParsingException.class, () -> _queryEvaluator.execute(query));
+        assertEquals("Function 'LOWER' requires 1 parameter", exception.getMessage());
     }
 
     @Test()
     public void noArguments()
     {
         String query = "select lower() as result";
-        try
-        {
-            _queryEvaluator.execute(query);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryParsingException.class, e.getClass());
-            assertEquals("Function 'LOWER' requires 1 parameter", e.getMessage());
-        }
+        QueryParsingException exception = assertThrows(QueryParsingException.class, () -> _queryEvaluator.execute(query));
+        assertEquals("Function 'LOWER' requires 1 parameter", exception.getMessage());
     }
 
     @Test()
@@ -158,15 +142,8 @@ public class LowerExpressionTest
     public void invalidArgumentType()
     {
         String query = "select lower(statistics) from queue";
-        try
-        {
-            _queryEvaluator.execute(query);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryEvaluationException.class, e.getClass());
-            assertEquals("Parameter of function 'LOWER' invalid (parameter type: HashMap)", e.getMessage());
-        }
+        QueryEvaluationException exception = assertThrows(QueryEvaluationException.class, () -> _queryEvaluator.execute(query));
+        assertEquals("Parameter of function 'LOWER' invalid (parameter type: HashMap)", exception.getMessage());
     }
 }
+

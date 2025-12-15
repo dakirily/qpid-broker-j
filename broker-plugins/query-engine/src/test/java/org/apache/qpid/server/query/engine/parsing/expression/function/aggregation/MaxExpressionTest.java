@@ -21,7 +21,7 @@
 package org.apache.qpid.server.query.engine.parsing.expression.function.aggregation;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.Comparator;
 import java.util.Date;
@@ -134,48 +134,24 @@ public class MaxExpressionTest
     public void noArguments()
     {
         String query = "select max() from queue";
-        try
-        {
-            _queryEvaluator.execute(query);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryParsingException.class, e.getClass());
-            assertEquals("Function 'MAX' requires 1 parameter", e.getMessage());
-        }
+        QueryParsingException exception = assertThrows(QueryParsingException.class, () -> _queryEvaluator.execute(query));
+        assertEquals("Function 'MAX' requires 1 parameter", exception.getMessage());
     }
 
     @Test()
     public void twoArguments()
     {
         String query = "select max(queueDepthMessages, queueDepthBytes) from queue";
-        try
-        {
-            _queryEvaluator.execute(query);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryParsingException.class, e.getClass());
-            assertEquals("Function 'MAX' requires 1 parameter", e.getMessage());
-        }
+        QueryParsingException exception = assertThrows(QueryParsingException.class, () -> _queryEvaluator.execute(query));
+        assertEquals("Function 'MAX' requires 1 parameter", exception.getMessage());
     }
 
     @Test()
     public void invalidArgumentType()
     {
         String query = "select max(statistics) from queue";
-        try
-        {
-            _queryEvaluator.execute(query);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryEvaluationException.class, e.getClass());
-            assertEquals("Parameters of function 'MAX' invalid (invalid types: [HashMap])", e.getMessage());
-        }
+        QueryEvaluationException exception = assertThrows(QueryEvaluationException.class, () -> _queryEvaluator.execute(query));
+        assertEquals("Parameters of function 'MAX' invalid (invalid types: [HashMap])", exception.getMessage());
     }
 
     @Test()
@@ -223,3 +199,4 @@ public class MaxExpressionTest
         assertEquals(5, result.get(0).get("round(max(queueDepthMessages)%10)"));
     }
 }
+

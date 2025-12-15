@@ -21,7 +21,7 @@
 package org.apache.qpid.server.query.engine.parsing.expression.function.datetime;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.List;
 import java.util.Map;
@@ -47,173 +47,91 @@ public class DateAddExpressionTest
     public void noArguments()
     {
         String query = "select dateadd() as result";
-        try
-        {
-            _queryEvaluator.execute(query, _querySettings);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryParsingException.class, e.getClass());
-            assertEquals("Function 'DATEADD' requires 3 parameters", e.getMessage());
-        }
+        QueryParsingException exception = assertThrows(QueryParsingException.class, () -> _queryEvaluator.execute(query, _querySettings));
+        assertEquals("Function 'DATEADD' requires 3 parameters", exception.getMessage());
     }
 
     @Test()
     public void fourArguments()
     {
         String query = "select dateadd(YEAR, 1, 2, 3) as result";
-        try
-        {
-            _queryEvaluator.execute(query, _querySettings);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryParsingException.class, e.getClass());
-            assertEquals("Function 'DATEADD' requires 3 parameters", e.getMessage());
-        }
+        QueryParsingException exception = assertThrows(QueryParsingException.class, () -> _queryEvaluator.execute(query, _querySettings));
+        assertEquals("Function 'DATEADD' requires 3 parameters", exception.getMessage());
     }
 
     @Test()
     public void invalidDatepart()
     {
-        try
-        {
+        QueryParsingException exception = assertThrows(QueryParsingException.class, () -> {
             String query = "select dateadd(YEARS, 1, '2000-02-28 00:00:00') as result";
             _queryEvaluator.execute(query, _querySettings);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryParsingException.class, e.getClass());
-            assertEquals("Datepart 'YEARS' not supported", e.getMessage());
-        }
+        });
+        assertEquals("Datepart 'YEARS' not supported", exception.getMessage());
 
-        try
-        {
+        exception = assertThrows(QueryParsingException.class, () -> {
             String query = "select dateadd(test, 1, '2000-02-28 00:00:00') as result";
             _queryEvaluator.execute(query, _querySettings);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryParsingException.class, e.getClass());
-            assertEquals("Datepart 'test' not supported", e.getMessage());
-        }
+        });
+        assertEquals("Datepart 'test' not supported", exception.getMessage());
 
-        try
-        {
+        exception = assertThrows(QueryParsingException.class, () -> {
             String query = "select dateadd(null, 1, '2000-02-28 00:00:00') as result";
             _queryEvaluator.execute(query, _querySettings);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryParsingException.class, e.getClass());
-            assertEquals("Datepart 'null' not supported", e.getMessage());
-        }
+        });
+        assertEquals("Datepart 'null' not supported", exception.getMessage());
 
-        try
-        {
+        exception = assertThrows(QueryParsingException.class, () -> {
             String query = "select dateadd(1, 1, '2000-02-28 00:00:00') as result";
             _queryEvaluator.execute(query, _querySettings);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryParsingException.class, e.getClass());
-            assertEquals("Datepart '1' not supported", e.getMessage());
-        }
+        });
+        assertEquals("Datepart '1' not supported", exception.getMessage());
 
-        try
-        {
+        exception = assertThrows(QueryParsingException.class, () -> {
             String query = "select dateadd(0, 1, '2000-02-28 00:00:00') as result";
             _queryEvaluator.execute(query, _querySettings);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryParsingException.class, e.getClass());
-            assertEquals("Datepart '0' not supported", e.getMessage());
-        }
+        });
+        assertEquals("Datepart '0' not supported", exception.getMessage());
 
-        try
-        {
+        exception = assertThrows(QueryParsingException.class, () -> {
             String query = "select dateadd('test', 1, '2000-02-28 00:00:00') as result";
             _queryEvaluator.execute(query, _querySettings);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryParsingException.class, e.getClass());
-            assertEquals("Datepart '\\'test\\'' not supported", e.getMessage());
-        }
+        });
+        assertEquals("Datepart '\\'test\\'' not supported", exception.getMessage());
 
     }
 
     @Test()
     public void invalidAmountToAdd()
     {
-        try
-        {
+        QueryEvaluationException exception = assertThrows(QueryEvaluationException.class, () -> {
             String query = "select dateadd(YEAR, '1', '2000-02-30 00:00:00') as result";
             _queryEvaluator.execute(query, _querySettings);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryEvaluationException.class, e.getClass());
-            assertEquals("Parameter of function 'DATEADD' invalid (parameter type: String)", e.getMessage());
-        }
+        });
+        assertEquals("Parameter of function 'DATEADD' invalid (parameter type: String)", exception.getMessage());
     }
 
     @Test()
     public void nullAmountToAdd()
     {
         String query = "select dateadd(YEAR, null, '2000-02-30 00:00:00') as result";
-        try
-        {
-            _queryEvaluator.execute(query, _querySettings);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryEvaluationException.class, e.getClass());
-            assertEquals("Parameter of function 'DATEADD' invalid (parameter type: null)", e.getMessage());
-        }
+        QueryEvaluationException exception = assertThrows(QueryEvaluationException.class, () -> _queryEvaluator.execute(query, _querySettings));
+        assertEquals("Parameter of function 'DATEADD' invalid (parameter type: null)", exception.getMessage());
     }
 
     @Test()
     public void invalidDate()
     {
         String query = "select dateadd(YEAR, 1, '2000-02-30 00:00:00') as result";
-        try
-        {
-            _queryEvaluator.execute(query, _querySettings);
-            fail("Expected exception not thrown");
-        }
-            catch (Exception e)
-        {
-            assertEquals(QueryEvaluationException.class, e.getClass());
-            assertEquals("Text '2000-02-30 00:00:00' could not be parsed: Invalid date 'FEBRUARY 30'", e.getMessage());
-        }
+        QueryEvaluationException exception = assertThrows(QueryEvaluationException.class, () -> _queryEvaluator.execute(query, _querySettings));
+        assertEquals("Text '2000-02-30 00:00:00' could not be parsed: Invalid date 'FEBRUARY 30'", exception.getMessage());
     }
 
     @Test()
     public void nullDate()
     {
         String query = "select dateadd(YEAR, 1, null) as result";
-        try
-        {
-            _queryEvaluator.execute(query, _querySettings);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryEvaluationException.class, e.getClass());
-            assertEquals("Parameter of function 'DATEADD' invalid (parameter type: null)", e.getMessage());
-        }
+        QueryEvaluationException exception = assertThrows(QueryEvaluationException.class, () -> _queryEvaluator.execute(query, _querySettings));
+        assertEquals("Parameter of function 'DATEADD' invalid (parameter type: null)", exception.getMessage());
     }
 
     @Test()
@@ -896,3 +814,4 @@ public class DateAddExpressionTest
         assertEquals(70, result.size());
     }
 }
+

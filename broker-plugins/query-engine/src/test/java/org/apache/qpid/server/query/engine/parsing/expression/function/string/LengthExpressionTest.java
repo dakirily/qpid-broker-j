@@ -21,7 +21,7 @@
 package org.apache.qpid.server.query.engine.parsing.expression.function.string;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -53,57 +53,25 @@ public class LengthExpressionTest
     @Test()
     public void twoArguments()
     {
-        String query = "select len('hello', 'world') as result";
-        try
-        {
-            _queryEvaluator.execute(query);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryParsingException.class, e.getClass());
-            assertEquals("Function 'LEN' requires 1 parameter", e.getMessage());
-        }
+        QueryParsingException exception = assertThrows(QueryParsingException.class, () ->
+                _queryEvaluator.execute("select len('hello', 'world') as result"));
+        assertEquals("Function 'LEN' requires 1 parameter", exception.getMessage());
 
-        query = "select length('hello', 'world') as result";
-        try
-        {
-            _queryEvaluator.execute(query);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryParsingException.class, e.getClass());
-            assertEquals("Function 'LENGTH' requires 1 parameter", e.getMessage());
-        }
+        exception = assertThrows(QueryParsingException.class, () ->
+                _queryEvaluator.execute("select length('hello', 'world') as result"));
+        assertEquals("Function 'LENGTH' requires 1 parameter", exception.getMessage());
     }
 
     @Test()
     public void noArguments()
     {
-        String query = "select len() as result";
-        try
-        {
-            _queryEvaluator.execute(query);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryParsingException.class, e.getClass());
-            assertEquals("Function 'LEN' requires 1 parameter", e.getMessage());
-        }
+        QueryParsingException exception = assertThrows(QueryParsingException.class, () ->
+                _queryEvaluator.execute("select len() as result"));
+        assertEquals("Function 'LEN' requires 1 parameter", exception.getMessage());
 
-        query = "select length() as result";
-        try
-        {
-            _queryEvaluator.execute(query);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryParsingException.class, e.getClass());
-            assertEquals("Function 'LENGTH' requires 1 parameter", e.getMessage());
-        }
+        exception = assertThrows(QueryParsingException.class, () ->
+                _queryEvaluator.execute("select length() as result"));
+        assertEquals("Function 'LENGTH' requires 1 parameter", exception.getMessage());
     }
 
     @Test()
@@ -163,28 +131,12 @@ public class LengthExpressionTest
     @Test()
     public void invalidArgumentType()
     {
-        String query = "select len(statistics) from queue";
-        try
-        {
-            _queryEvaluator.execute(query);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryEvaluationException.class, e.getClass());
-            assertEquals("Parameter of function 'LEN' invalid (parameter type: HashMap)", e.getMessage());
-        }
+        QueryEvaluationException exception = assertThrows(QueryEvaluationException.class, () ->
+                _queryEvaluator.execute("select len(statistics) from queue"));
+        assertEquals("Parameter of function 'LEN' invalid (parameter type: HashMap)", exception.getMessage());
 
-        query = "select length(statistics) from queue";
-        try
-        {
-            _queryEvaluator.execute(query);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryEvaluationException.class, e.getClass());
-            assertEquals("Parameter of function 'LENGTH' invalid (parameter type: HashMap)", e.getMessage());
-        }
+        exception = assertThrows(QueryEvaluationException.class, () ->
+                _queryEvaluator.execute("select length(statistics) from queue"));
+        assertEquals("Parameter of function 'LENGTH' invalid (parameter type: HashMap)", exception.getMessage());
     }
 }

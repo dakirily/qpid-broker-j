@@ -21,7 +21,7 @@
 package org.apache.qpid.server.query.engine.validation;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.Collections;
 import java.util.List;
@@ -64,19 +64,13 @@ public class FunctionParametersValidatorTest
     @Test()
     public <T, R> void requireZeroParameters()
     {
-        try
-        {
+        QueryParsingException exception = assertThrows(QueryParsingException.class, () -> {
             final List<ExpressionNode<T, ?>> args = Collections.singletonList((ConstantExpression.of(0)));
             final AbstractFunctionExpression<T, R> function = (AbstractFunctionExpression<T, R>)
                 FunctionExpressionFactory.createFunction("abs(0)", "ABS", args);
             FunctionParametersValidator.requireParameters(0, args, function);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryParsingException.class, e.getClass());
-            assertEquals("Function 'ABS' requires 0 parameter", e.getMessage());
-        }
+        });
+        assertEquals("Function 'ABS' requires 0 parameter", exception.getMessage());
     }
 
     @Test()

@@ -24,8 +24,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import org.apache.qpid.server.query.engine.TestBroker;
 import org.apache.qpid.server.query.engine.evaluator.QueryEvaluator;
@@ -37,47 +40,26 @@ public class OrExpressionTest
 {
     private final QueryEvaluator _queryEvaluator = new QueryEvaluator(TestBroker.createBroker());
 
-    @Test()
-    public void or()
+    @ParameterizedTest
+    @MethodSource("orQueries")
+    public void or(final String query, final String expectedKey, final boolean expectedValue)
     {
-        String query = "select true or true";
         List<Map<String, Object>> result = _queryEvaluator.execute(query).getResults();
         assertEquals(1, result.size());
-        assertEquals(true, result.get(0).get("true or true"));
+        assertEquals(expectedValue, result.get(0).get(expectedKey));
+    }
 
-        query = "select true or false";
-        result = _queryEvaluator.execute(query).getResults();
-        assertEquals(1, result.size());
-        assertEquals(true, result.get(0).get("true or false"));
-
-        query = "select false or true";
-        result = _queryEvaluator.execute(query).getResults();
-        assertEquals(1, result.size());
-        assertEquals(true, result.get(0).get("false or true"));
-
-        query = "select false or false";
-        result = _queryEvaluator.execute(query).getResults();
-        assertEquals(1, result.size());
-        assertEquals(false, result.get(0).get("false or false"));
-
-        query = "select (true or true) or false";
-        result = _queryEvaluator.execute(query).getResults();
-        assertEquals(1, result.size());
-        assertEquals(true, result.get(0).get("(true or true) or false"));
-
-        query = "select (true or true) or (false or true)";
-        result = _queryEvaluator.execute(query).getResults();
-        assertEquals(1, result.size());
-        assertEquals(true, result.get(0).get("(true or true) or (false or true)"));
-
-        query = "select 2 > 1 or 2 < 3";
-        result = _queryEvaluator.execute(query).getResults();
-        assertEquals(1, result.size());
-        assertEquals(true, result.get(0).get("2>1 or 2<3"));
-
-        query = "select (2 >= 1 or 2 <= 3) as expr";
-        result = _queryEvaluator.execute(query).getResults();
-        assertEquals(1, result.size());
-        assertEquals(true, result.get(0).get("expr"));
+    private static Stream<Arguments> orQueries()
+    {
+        return Stream.of(
+                Arguments.of("select true or true", "true or true", true),
+                Arguments.of("select true or false", "true or false", true),
+                Arguments.of("select false or true", "false or true", true),
+                Arguments.of("select false or false", "false or false", false),
+                Arguments.of("select (true or true) or false", "(true or true) or false", true),
+                Arguments.of("select (true or true) or (false or true)", "(true or true) or (false or true)", true),
+                Arguments.of("select 2 > 1 or 2 < 3", "2>1 or 2<3", true),
+                Arguments.of("select (2 >= 1 or 2 <= 3) as expr", "expr", true)
+        );
     }
 }

@@ -21,8 +21,8 @@
 package org.apache.qpid.server.query.engine.parsing.expression.function.string;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.List;
 import java.util.Map;
@@ -45,64 +45,32 @@ public class ReplaceExpressionTest
     public void noArguments()
     {
         String query = "select replace() as result";
-        try
-        {
-            _queryEvaluator.execute(query);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryParsingException.class, e.getClass());
-            assertEquals("Function 'REPLACE' requires 3 parameters", e.getMessage());
-        }
+        QueryParsingException exception = assertThrows(QueryParsingException.class, () -> _queryEvaluator.execute(query));
+        assertEquals("Function 'REPLACE' requires 3 parameters", exception.getMessage());
     }
 
     @Test()
     public void oneArgument()
     {
         String query = "select replace('test') as result";
-        try
-        {
-            _queryEvaluator.execute(query);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryParsingException.class, e.getClass());
-            assertEquals("Function 'REPLACE' requires 3 parameters", e.getMessage());
-        }
+        QueryParsingException exception = assertThrows(QueryParsingException.class, () -> _queryEvaluator.execute(query));
+        assertEquals("Function 'REPLACE' requires 3 parameters", exception.getMessage());
     }
 
     @Test()
     public void twoArgument()
     {
         String query = "select replace('test', 'e') as result";
-        try
-        {
-            _queryEvaluator.execute(query);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryParsingException.class, e.getClass());
-            assertEquals("Function 'REPLACE' requires 3 parameters", e.getMessage());
-        }
+        QueryParsingException exception = assertThrows(QueryParsingException.class, () -> _queryEvaluator.execute(query));
+        assertEquals("Function 'REPLACE' requires 3 parameters", exception.getMessage());
     }
 
     @Test()
     public void fourArgument()
     {
         String query = "select replace('test', 'e', '', '') as result";
-        try
-        {
-            _queryEvaluator.execute(query);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryParsingException.class, e.getClass());
-            assertEquals("Function 'REPLACE' requires 3 parameters", e.getMessage());
-        }
+        QueryParsingException exception = assertThrows(QueryParsingException.class, () -> _queryEvaluator.execute(query));
+        assertEquals("Function 'REPLACE' requires 3 parameters", exception.getMessage());
     }
 
     @Test()
@@ -174,47 +142,24 @@ public class ReplaceExpressionTest
     public void firstArgumentInvalid()
     {
         String query = "select replace(statistics, 'n', '') as result from queue";
-        try
-        {
-            _queryEvaluator.execute(query);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryEvaluationException.class, e.getClass());
-            assertEquals("Parameter of function 'REPLACE' invalid (parameter type: HashMap)", e.getMessage());
-        }
+        QueryEvaluationException exception = assertThrows(QueryEvaluationException.class, () -> _queryEvaluator.execute(query));
+        assertEquals("Parameter of function 'REPLACE' invalid (parameter type: HashMap)", exception.getMessage());
     }
 
     @Test()
     public void secondArgumentInvalid()
     {
         String query = "select replace(name, statistics, '') as result from queue";
-        try
-        {
-            _queryEvaluator.execute(query);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryEvaluationException.class, e.getClass());
-            assertEquals("Parameter of function 'REPLACE' invalid (parameter type: HashMap)", e.getMessage());
-        }
+        QueryEvaluationException exception = assertThrows(QueryEvaluationException.class, () -> _queryEvaluator.execute(query));
+        assertEquals("Parameter of function 'REPLACE' invalid (parameter type: HashMap)", exception.getMessage());
     }
 
     @Test()
     public void thirdArgumentInvalid()
     {
         String query = "select replace(name, 'a', statistics) as result from queue";
-        try
-        {
-            _queryEvaluator.execute(query);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryEvaluationException.class, e.getClass());
-            assertEquals("Parameter of function 'REPLACE' invalid (parameter type: HashMap)", e.getMessage());
-        }
+        QueryEvaluationException exception = assertThrows(QueryEvaluationException.class, () -> _queryEvaluator.execute(query));
+        assertEquals("Parameter of function 'REPLACE' invalid (parameter type: HashMap)", exception.getMessage());
     }
 }
+

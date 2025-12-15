@@ -21,7 +21,7 @@
 package org.apache.qpid.server.query.engine.parsing.factory;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -268,45 +268,22 @@ public class FunctionExpressionFactoryTest
     @Test()
     public void functionNotFound()
     {
-        try
-        {
-            FunctionExpressionFactory.createFunction("", "nonExistingFunction", Collections.emptyList());
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryParsingException.class, e.getClass());
-            assertEquals("Function 'nonExistingFunction' not found", e.getMessage());
-        }
+        QueryParsingException exception = assertThrows(QueryParsingException.class, () -> FunctionExpressionFactory.createFunction("", "nonExistingFunction", Collections.emptyList()));
+        assertEquals("Function 'nonExistingFunction' not found", exception.getMessage());
     }
 
     @Test()
     public void functionNameNull()
     {
-        try
-        {
-            FunctionExpressionFactory.createFunction("", null, Collections.emptyList());
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(NullPointerException.class, e.getClass());
-            assertEquals(Errors.VALIDATION.FUNCTION_NAME_NULL, e.getMessage());
-        }
+        NullPointerException exception = assertThrows(NullPointerException.class, () -> FunctionExpressionFactory.createFunction("", null, Collections.emptyList()));
+        assertEquals(Errors.VALIDATION.FUNCTION_NAME_NULL, exception.getMessage());
     }
 
     @Test()
     public void argsNull()
     {
-        try
-        {
-            FunctionExpressionFactory.createFunction("", "CURRENT_TIMESTAMP", null);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(NullPointerException.class, e.getClass());
-            assertEquals(Errors.VALIDATION.FUNCTION_ARGS_NULL, e.getMessage());
-        }
+        NullPointerException exception = assertThrows(NullPointerException.class, () -> FunctionExpressionFactory.createFunction("", "CURRENT_TIMESTAMP", null));
+        assertEquals(Errors.VALIDATION.FUNCTION_ARGS_NULL, exception.getMessage());
     }
 }
+

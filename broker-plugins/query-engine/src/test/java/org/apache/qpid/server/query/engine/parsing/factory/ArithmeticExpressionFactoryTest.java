@@ -21,7 +21,7 @@
 package org.apache.qpid.server.query.engine.parsing.factory;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -52,46 +52,22 @@ public class ArithmeticExpressionFactoryTest
     @Test()
     public void divideWithLeftNull()
     {
-        try
-        {
-            ArithmeticExpressionFactory.divide("", null, null);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(NullPointerException.class, e.getClass());
-            assertEquals(Errors.VALIDATION.CHILD_EXPRESSION_NULL, e.getMessage());
-        }
+        NullPointerException exception = assertThrows(NullPointerException.class, () -> ArithmeticExpressionFactory.divide("", null, null));
+        assertEquals(Errors.VALIDATION.CHILD_EXPRESSION_NULL, exception.getMessage());
     }
 
     @Test()
     public void divideWithRightNull()
     {
-        try
-        {
-            ArithmeticExpressionFactory.divide("", ConstantExpression.of(1), null);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(NullPointerException.class, e.getClass());
-            assertEquals(Errors.VALIDATION.CHILD_EXPRESSION_NULL, e.getMessage());
-        }
+        NullPointerException exception = assertThrows(NullPointerException.class, () -> ArithmeticExpressionFactory.divide("", ConstantExpression.of(1), null));
+        assertEquals(Errors.VALIDATION.CHILD_EXPRESSION_NULL, exception.getMessage());
     }
 
     @Test()
     public void divideWithZeroDivision()
     {
-        try
-        {
-            ArithmeticExpressionFactory.divide("", ConstantExpression.of(1), ConstantExpression.of(0));
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryParsingException.class, e.getClass());
-            assertEquals(Errors.ARITHMETIC.ZERO_DIVISION, e.getMessage());
-        }
+        QueryParsingException exception = assertThrows(QueryParsingException.class, () -> ArithmeticExpressionFactory.divide("", ConstantExpression.of(1), ConstantExpression.of(0)));
+        assertEquals(Errors.ARITHMETIC.ZERO_DIVISION, exception.getMessage());
     }
 
     @Test()
@@ -104,31 +80,15 @@ public class ArithmeticExpressionFactoryTest
     @Test()
     public void minusWithLeftNull()
     {
-        try
-        {
-            ArithmeticExpressionFactory.minus("", null, null);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(NullPointerException.class, e.getClass());
-            assertEquals(Errors.VALIDATION.CHILD_EXPRESSION_NULL, e.getMessage());
-        }
+        NullPointerException exception = assertThrows(NullPointerException.class, () -> ArithmeticExpressionFactory.minus("", null, null));
+        assertEquals(Errors.VALIDATION.CHILD_EXPRESSION_NULL, exception.getMessage());
     }
 
     @Test()
     public void minusWithRightNull()
     {
-        try
-        {
-            ArithmeticExpressionFactory.minus("", ConstantExpression.of(1), null);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(NullPointerException.class, e.getClass());
-            assertEquals(Errors.VALIDATION.CHILD_EXPRESSION_NULL, e.getMessage());
-        }
+        NullPointerException exception = assertThrows(NullPointerException.class, () -> ArithmeticExpressionFactory.minus("", ConstantExpression.of(1), null));
+        assertEquals(Errors.VALIDATION.CHILD_EXPRESSION_NULL, exception.getMessage());
     }
 
     @Test()
@@ -141,31 +101,15 @@ public class ArithmeticExpressionFactoryTest
     @Test()
     public void modWithLeftNull()
     {
-        try
-        {
-            ArithmeticExpressionFactory.mod("", null, null);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(NullPointerException.class, e.getClass());
-            assertEquals(Errors.VALIDATION.CHILD_EXPRESSION_NULL, e.getMessage());
-        }
+        NullPointerException exception = assertThrows(NullPointerException.class, () -> ArithmeticExpressionFactory.mod("", null, null));
+        assertEquals(Errors.VALIDATION.CHILD_EXPRESSION_NULL, exception.getMessage());
     }
 
     @Test()
     public void modWithRightNull()
     {
-        try
-        {
-            ArithmeticExpressionFactory.mod("", ConstantExpression.of(1), null);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(NullPointerException.class, e.getClass());
-            assertEquals(Errors.VALIDATION.CHILD_EXPRESSION_NULL, e.getMessage());
-        }
+        NullPointerException exception = assertThrows(NullPointerException.class, () -> ArithmeticExpressionFactory.mod("", ConstantExpression.of(1), null));
+        assertEquals(Errors.VALIDATION.CHILD_EXPRESSION_NULL, exception.getMessage());
     }
 
     @Test()
@@ -178,31 +122,15 @@ public class ArithmeticExpressionFactoryTest
     @Test()
     public void multiplyWithLeftNull()
     {
-        try
-        {
-            ArithmeticExpressionFactory.multiply("", null, null);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(NullPointerException.class, e.getClass());
-            assertEquals(Errors.VALIDATION.CHILD_EXPRESSION_NULL, e.getMessage());
-        }
+        NullPointerException exception = assertThrows(NullPointerException.class, () -> ArithmeticExpressionFactory.multiply("", null, null));
+        assertEquals(Errors.VALIDATION.CHILD_EXPRESSION_NULL, exception.getMessage());
     }
 
     @Test()
     public void multiplyWithRightNull()
     {
-        try
-        {
-            ArithmeticExpressionFactory.multiply("", ConstantExpression.of(1), null);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(NullPointerException.class, e.getClass());
-            assertEquals(Errors.VALIDATION.CHILD_EXPRESSION_NULL, e.getMessage());
-        }
+        NullPointerException exception = assertThrows(NullPointerException.class, () -> ArithmeticExpressionFactory.multiply("", ConstantExpression.of(1), null));
+        assertEquals(Errors.VALIDATION.CHILD_EXPRESSION_NULL, exception.getMessage());
     }
 
     @Test()
@@ -215,31 +143,15 @@ public class ArithmeticExpressionFactoryTest
     @Test()
     public void plusWithLeftNull()
     {
-        try
-        {
-            ArithmeticExpressionFactory.plus("", null, null);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(NullPointerException.class, e.getClass());
-            assertEquals(Errors.VALIDATION.CHILD_EXPRESSION_NULL, e.getMessage());
-        }
+        NullPointerException exception = assertThrows(NullPointerException.class, () -> ArithmeticExpressionFactory.plus("", null, null));
+        assertEquals(Errors.VALIDATION.CHILD_EXPRESSION_NULL, exception.getMessage());
     }
 
     @Test()
     public void plusWithRightNull()
     {
-        try
-        {
-            ArithmeticExpressionFactory.plus("", ConstantExpression.of(1), null);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(NullPointerException.class, e.getClass());
-            assertEquals(Errors.VALIDATION.CHILD_EXPRESSION_NULL, e.getMessage());
-        }
+        NullPointerException exception = assertThrows(NullPointerException.class, () -> ArithmeticExpressionFactory.plus("", ConstantExpression.of(1), null));
+        assertEquals(Errors.VALIDATION.CHILD_EXPRESSION_NULL, exception.getMessage());
     }
 
     @Test()
@@ -249,3 +161,4 @@ public class ArithmeticExpressionFactoryTest
         assertEquals(ConstantExpression.class, expression.getClass());
     }
 }
+

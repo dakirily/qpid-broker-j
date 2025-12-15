@@ -21,7 +21,7 @@
 package org.apache.qpid.server.query.engine.parsing.query;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.List;
 import java.util.Map;
@@ -72,29 +72,13 @@ public class WithTest
     @Test()
     public void numberOfColumnNamesDoesNotMatch()
     {
-        String query = "with digest (id, name, depth) as (select id, name from queue) select * from digest";
-        try
-        {
-            _queryEvaluator.execute(query);
-            fail("Expected exception not thrown");
-        }
-        catch(Exception e)
-        {
-            assertEquals(QueryParsingException.class, e.getClass());
-            assertEquals("Number of WITH clause column names does not match number of elements in select list", e.getMessage());
-        }
+        QueryParsingException exception = assertThrows(QueryParsingException.class, () ->
+                _queryEvaluator.execute("with digest (id, name, depth) as (select id, name from queue) select * from digest"));
+        assertEquals("Number of WITH clause column names does not match number of elements in select list", exception.getMessage());
 
-        query = "with digest (id, name) as (select id, name, description from queue) select * from digest";
-        try
-        {
-            _queryEvaluator.execute(query);
-            fail("Expected exception not thrown");
-        }
-        catch(Exception e)
-        {
-            assertEquals(QueryParsingException.class, e.getClass());
-            assertEquals("Number of WITH clause column names does not match number of elements in select list", e.getMessage());
-        }
+        exception = assertThrows(QueryParsingException.class, () ->
+                _queryEvaluator.execute("with digest (id, name) as (select id, name, description from queue) select * from digest"));
+        assertEquals("Number of WITH clause column names does not match number of elements in select list", exception.getMessage());
     }
 
     @Test()

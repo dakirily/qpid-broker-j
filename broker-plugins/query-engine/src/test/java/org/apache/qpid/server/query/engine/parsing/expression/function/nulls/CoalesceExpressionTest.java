@@ -21,8 +21,8 @@
 package org.apache.qpid.server.query.engine.parsing.expression.function.nulls;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.List;
 import java.util.Map;
@@ -58,16 +58,8 @@ public class CoalesceExpressionTest
     public void noArguments()
     {
         String query = "select coalesce() as result";
-        try
-        {
-            _queryEvaluator.execute(query).getResults();
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryParsingException.class, e.getClass());
-            assertEquals("Function 'COALESCE' requires at least 1 parameter", e.getMessage());
-        }
+        QueryParsingException exception = assertThrows(QueryParsingException.class, () -> _queryEvaluator.execute(query).getResults());
+        assertEquals("Function 'COALESCE' requires at least 1 parameter", exception.getMessage());
     }
 
     @Test()
@@ -93,3 +85,4 @@ public class CoalesceExpressionTest
         assertEquals(30, result.get(0).get("result"));
     }
 }
+

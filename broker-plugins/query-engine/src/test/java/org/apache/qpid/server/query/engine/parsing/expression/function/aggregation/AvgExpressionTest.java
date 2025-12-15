@@ -21,7 +21,7 @@
 package org.apache.qpid.server.query.engine.parsing.expression.function.aggregation;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.List;
 import java.util.Map;
@@ -107,48 +107,24 @@ public class AvgExpressionTest
     public void noArguments()
     {
         String query = "select avg() from queue";
-        try
-        {
-            _queryEvaluator.execute(query);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryParsingException.class, e.getClass());
-            assertEquals("Function 'AVG' requires 1 parameter", e.getMessage());
-        }
+        QueryParsingException exception = assertThrows(QueryParsingException.class, () -> _queryEvaluator.execute(query));
+        assertEquals("Function 'AVG' requires 1 parameter", exception.getMessage());
     }
 
     @Test()
     public void twoArguments()
     {
         String query = "select avg(queueDepthMessages, queueDepthBytes) from queue";
-        try
-        {
-            _queryEvaluator.execute(query);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryParsingException.class, e.getClass());
-            assertEquals("Function 'AVG' requires 1 parameter", e.getMessage());
-        }
+        QueryParsingException exception = assertThrows(QueryParsingException.class, () -> _queryEvaluator.execute(query));
+        assertEquals("Function 'AVG' requires 1 parameter", exception.getMessage());
     }
 
     @Test()
     public void invalidArgumentType()
     {
         String query = "select avg(name) from queue";
-        try
-        {
-            _queryEvaluator.execute(query);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryEvaluationException.class, e.getClass());
-            assertEquals("Parameters of function 'AVG' invalid (invalid types: [String])", e.getMessage());
-        }
+        QueryEvaluationException exception = assertThrows(QueryEvaluationException.class, () -> _queryEvaluator.execute(query));
+        assertEquals("Parameters of function 'AVG' invalid (invalid types: [String])", exception.getMessage());
     }
 
     @Test()
@@ -180,3 +156,4 @@ public class AvgExpressionTest
         assertEquals(0.0, result.get(0).get("AverageDepth"));
     }
 }
+

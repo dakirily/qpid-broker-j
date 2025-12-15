@@ -21,8 +21,8 @@
 package org.apache.qpid.server.query.engine.parsing.expression.arithmetic;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.List;
 import java.util.Map;
@@ -256,16 +256,9 @@ public class ArithmeticExpressionsTest
             }
         }
         query.append(" as result");
-        try
-        {
-            _queryEvaluator.execute(query.toString());
-            fail("Expected exception not thrown");
-        }
-        catch (QueryParsingException e)
-        {
-            assertEquals(QueryParsingException.class, e.getClass());
-            assertTrue(e.getMessage().startsWith("Reached maximal allowed big decimal value"));
-        }
+        QueryParsingException exception =
+                assertThrows(QueryParsingException.class, () -> _queryEvaluator.execute(query.toString()));
+        assertTrue(exception.getMessage().startsWith("Reached maximal allowed big decimal value"));
     }
 
     @Test()
@@ -291,15 +284,8 @@ public class ArithmeticExpressionsTest
     public void zeroDivision()
     {
         String query = "select 1 / 0";
-        try
-        {
-            _queryEvaluator.execute(query).getResults();
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryParsingException.class, e.getClass());
-            assertEquals("Divisor is equal to zero", e.getMessage());
-        }
+        QueryParsingException exception =
+                assertThrows(QueryParsingException.class, () -> _queryEvaluator.execute(query).getResults());
+        assertEquals("Divisor is equal to zero", exception.getMessage());
     }
 }

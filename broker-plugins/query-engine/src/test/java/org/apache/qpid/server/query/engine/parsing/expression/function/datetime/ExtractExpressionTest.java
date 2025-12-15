@@ -21,13 +21,17 @@
 package org.apache.qpid.server.query.engine.parsing.expression.function.datetime;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import org.apache.qpid.server.query.engine.TestBroker;
 import org.apache.qpid.server.query.engine.evaluator.QueryEvaluator;
@@ -43,236 +47,76 @@ public class ExtractExpressionTest
 
     private final QuerySettings _querySettings = new QuerySettings();
 
-    @Test()
-    public void extractYear()
+    @ParameterizedTest
+    @MethodSource("yearQueries")
+    public void extractYear(final String query, final int expected)
     {
-        String query = "select extract(YEAR from '2000-01-01 00:00:00') as result";
         List<Map<String, Object>> result = _queryEvaluator.execute(query, _querySettings).getResults();
         assertEquals(1, result.size());
-        assertEquals(2000, result.get(0).get("result"));
-
-        query = "select extract(YEAR from '3000-01-01 00:00:00') as result";
-        result = _queryEvaluator.execute(query, _querySettings).getResults();
-        assertEquals(1, result.size());
-        assertEquals(3000, result.get(0).get("result"));
-
-        query = "select extract(YEAR from '1000-01-01 00:00:00') as result";
-        result = _queryEvaluator.execute(query, _querySettings).getResults();
-        assertEquals(1, result.size());
-        assertEquals(1000, result.get(0).get("result"));
+        assertEquals(expected, result.get(0).get("result"));
     }
 
-    @Test()
-    public void extractMonth()
+    @ParameterizedTest
+    @MethodSource("monthQueries")
+    public void extractMonth(final String query, final int expected)
     {
-        String query = "select extract(month from '2000-01-01 00:00:00') as result";
         List<Map<String, Object>> result = _queryEvaluator.execute(query, _querySettings).getResults();
         assertEquals(1, result.size());
-        assertEquals(1, result.get(0).get("result"));
-
-        query = "select extract(month from '2000-02-01 00:00:00') as result";
-        result = _queryEvaluator.execute(query, _querySettings).getResults();
-        assertEquals(1, result.size());
-        assertEquals(2, result.get(0).get("result"));
-
-        query = "select extract(month from '2000-03-01 00:00:00') as result";
-        result = _queryEvaluator.execute(query, _querySettings).getResults();
-        assertEquals(1, result.size());
-        assertEquals(3, result.get(0).get("result"));
-
-        query = "select extract(month from '2000-04-01 00:00:00') as result";
-        result = _queryEvaluator.execute(query, _querySettings).getResults();
-        assertEquals(1, result.size());
-        assertEquals(4, result.get(0).get("result"));
-
-        query = "select extract(month from '2000-05-01 00:00:00') as result";
-        result = _queryEvaluator.execute(query, _querySettings).getResults();
-        assertEquals(1, result.size());
-        assertEquals(5, result.get(0).get("result"));
-
-        query = "select extract(month from '2000-06-01 00:00:00') as result";
-        result = _queryEvaluator.execute(query, _querySettings).getResults();
-        assertEquals(1, result.size());
-        assertEquals(6, result.get(0).get("result"));
-
-        query = "select extract(month from '2000-07-01 00:00:00') as result";
-        result = _queryEvaluator.execute(query, _querySettings).getResults();
-        assertEquals(1, result.size());
-        assertEquals(7, result.get(0).get("result"));
-
-        query = "select extract(month from '2000-08-01 00:00:00') as result";
-        result = _queryEvaluator.execute(query, _querySettings).getResults();
-        assertEquals(1, result.size());
-        assertEquals(8, result.get(0).get("result"));
-
-        query = "select extract(month from '2000-09-01 00:00:00') as result";
-        result = _queryEvaluator.execute(query, _querySettings).getResults();
-        assertEquals(1, result.size());
-        assertEquals(9, result.get(0).get("result"));
-
-        query = "select extract(month from '2000-10-01 00:00:00') as result";
-        result = _queryEvaluator.execute(query, _querySettings).getResults();
-        assertEquals(1, result.size());
-        assertEquals(10, result.get(0).get("result"));
-
-        query = "select extract(month from '2000-11-01 00:00:00') as result";
-        result = _queryEvaluator.execute(query, _querySettings).getResults();
-        assertEquals(1, result.size());
-        assertEquals(11, result.get(0).get("result"));
-
-        query = "select extract(month from '2000-12-01 00:00:00') as result";
-        result = _queryEvaluator.execute(query, _querySettings).getResults();
-        assertEquals(1, result.size());
-        assertEquals(12, result.get(0).get("result"));
+        assertEquals(expected, result.get(0).get("result"));
     }
 
-    @Test()
-    public void extractWeek()
+    @ParameterizedTest
+    @MethodSource("weekQueries")
+    public void extractWeek(final String query, final int expected)
     {
-        String query = "select extract(week from '2000-01-01 00:00:00') as result";
         List<Map<String, Object>> result = _queryEvaluator.execute(query, _querySettings).getResults();
         assertEquals(1, result.size());
-        assertEquals(1, result.get(0).get("result"));
-
-        query = "select extract(week from '2000-01-08 00:00:00') as result";
-        result = _queryEvaluator.execute(query, _querySettings).getResults();
-        assertEquals(1, result.size());
-        assertEquals(2, result.get(0).get("result"));
-
-        query = "select extract(week from '2000-01-15 00:00:00') as result";
-        result = _queryEvaluator.execute(query, _querySettings).getResults();
-        assertEquals(1, result.size());
-        assertEquals(3, result.get(0).get("result"));
-
-        query = "select extract(week from '2000-01-22 00:00:00') as result";
-        result = _queryEvaluator.execute(query, _querySettings).getResults();
-        assertEquals(1, result.size());
-        assertEquals(4, result.get(0).get("result"));
-
-        query = "select extract(week from '2000-01-29 00:00:00') as result";
-        result = _queryEvaluator.execute(query, _querySettings).getResults();
-        assertEquals(1, result.size());
-        assertEquals(5, result.get(0).get("result"));
-
-        query = "select extract(week from '2000-02-05 00:00:00') as result";
-        result = _queryEvaluator.execute(query, _querySettings).getResults();
-        assertEquals(1, result.size());
-        assertEquals(6, result.get(0).get("result"));
-
-        query = "select extract(week from '2000-02-12 00:00:00') as result";
-        result = _queryEvaluator.execute(query, _querySettings).getResults();
-        assertEquals(1, result.size());
-        assertEquals(7, result.get(0).get("result"));
-
-        query = "select extract(week from '2000-02-19 00:00:00') as result";
-        result = _queryEvaluator.execute(query, _querySettings).getResults();
-        assertEquals(1, result.size());
-        assertEquals(8, result.get(0).get("result"));
-
-        query = "select extract(week from '2000-02-26 00:00:00') as result";
-        result = _queryEvaluator.execute(query, _querySettings).getResults();
-        assertEquals(1, result.size());
-        assertEquals(9, result.get(0).get("result"));
-
-        query = "select extract(week from '2000-03-04 00:00:00') as result";
-        result = _queryEvaluator.execute(query, _querySettings).getResults();
-        assertEquals(1, result.size());
-        assertEquals(10, result.get(0).get("result"));
+        assertEquals(expected, result.get(0).get("result"));
     }
 
-    @Test()
-    public void extractDay()
+    @ParameterizedTest
+    @MethodSource("dayQueries")
+    public void extractDay(final String query, final int expected)
     {
-        String query = "select extract(day from '2000-01-01 00:00:00') as result";
         List<Map<String, Object>> result = _queryEvaluator.execute(query, _querySettings).getResults();
         assertEquals(1, result.size());
-        assertEquals(1, result.get(0).get("result"));
-
-        query = "select extract(day from '2000-02-29 00:00:00') as result";
-        result = _queryEvaluator.execute(query, _querySettings).getResults();
-        assertEquals(1, result.size());
-        assertEquals(29, result.get(0).get("result"));
-
-        query = "select extract(day from '2000-12-31 00:00:00') as result";
-        result = _queryEvaluator.execute(query, _querySettings).getResults();
-        assertEquals(1, result.size());
-        assertEquals(31, result.get(0).get("result"));
+        assertEquals(expected, result.get(0).get("result"));
     }
 
-    @Test()
-    public void extractHour()
+    @ParameterizedTest
+    @MethodSource("hourQueries")
+    public void extractHour(final String query, final int expected)
     {
-        String query = "select extract(hour from '2000-01-01 00:00:00') as result";
         List<Map<String, Object>> result = _queryEvaluator.execute(query, _querySettings).getResults();
         assertEquals(1, result.size());
-        assertEquals(0, result.get(0).get("result"));
-
-        query = "select extract(hour from '2000-01-01 12:00:00') as result";
-        result = _queryEvaluator.execute(query, _querySettings).getResults();
-        assertEquals(1, result.size());
-        assertEquals(12, result.get(0).get("result"));
-
-        query = "select extract(hour from '2000-01-01 23:00:00') as result";
-        result = _queryEvaluator.execute(query, _querySettings).getResults();
-        assertEquals(1, result.size());
-        assertEquals(23, result.get(0).get("result"));
+        assertEquals(expected, result.get(0).get("result"));
     }
 
-    @Test()
-    public void extractMinute()
+    @ParameterizedTest
+    @MethodSource("minuteQueries")
+    public void extractMinute(final String query, final int expected)
     {
-        String query = "select extract(minute from '2000-01-01 00:00:00') as result";
         List<Map<String, Object>> result = _queryEvaluator.execute(query, _querySettings).getResults();
         assertEquals(1, result.size());
-        assertEquals(0, result.get(0).get("result"));
-
-        query = "select extract(minute from '2000-01-01 12:30:00') as result";
-        result = _queryEvaluator.execute(query, _querySettings).getResults();
-        assertEquals(1, result.size());
-        assertEquals(30, result.get(0).get("result"));
-
-        query = "select extract(minute from '2000-01-01 23:59:00') as result";
-        result = _queryEvaluator.execute(query, _querySettings).getResults();
-        assertEquals(1, result.size());
-        assertEquals(59, result.get(0).get("result"));
+        assertEquals(expected, result.get(0).get("result"));
     }
 
-    @Test()
-    public void extractSecond()
+    @ParameterizedTest
+    @MethodSource("secondQueries")
+    public void extractSecond(final String query, final int expected)
     {
-        String query = "select extract(second from '2000-01-01 00:01:00') as result";
         List<Map<String, Object>> result = _queryEvaluator.execute(query, _querySettings).getResults();
         assertEquals(1, result.size());
-        assertEquals(0, result.get(0).get("result"));
-
-        query = "select extract(second from '2000-01-01 12:32:30') as result";
-        result = _queryEvaluator.execute(query, _querySettings).getResults();
-        assertEquals(1, result.size());
-        assertEquals(30, result.get(0).get("result"));
-
-        query = "select extract(second from '2000-01-01 23:57:59') as result";
-        result = _queryEvaluator.execute(query, _querySettings).getResults();
-        assertEquals(1, result.size());
-        assertEquals(59, result.get(0).get("result"));
+        assertEquals(expected, result.get(0).get("result"));
     }
 
-    @Test()
-    public void extractMillisecond()
+    @ParameterizedTest
+    @MethodSource("millisecondQueries")
+    public void extractMillisecond(final String query, final int expected)
     {
-        String query = "select extract(millisecond from '2000-01-01 00:00:00') as result";
         List<Map<String, Object>> result = _queryEvaluator.execute(query, _querySettings).getResults();
         assertEquals(1, result.size());
-        assertEquals(0, result.get(0).get("result"));
-
-        query = "select extract(millisecond from '2000-01-01 12:30:30.500') as result";
-        result = _queryEvaluator.execute(query, _querySettings).getResults();
-        assertEquals(1, result.size());
-        assertEquals(500, result.get(0).get("result"));
-
-        query = "select extract(millisecond from '2000-01-01 23:59:59.999') as result";
-        result = _queryEvaluator.execute(query, _querySettings).getResults();
-        assertEquals(1, result.size());
-        assertEquals(999, result.get(0).get("result"));
+        assertEquals(expected, result.get(0).get("result"));
     }
 
     @Test()
@@ -288,31 +132,104 @@ public class ExtractExpressionTest
     public void noArguments()
     {
         String query = "select extract() as result";
-        try
-        {
-            _queryEvaluator.execute(query, _querySettings);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryParsingException.class, e.getClass());
-            assertEquals("Function 'EXTRACT' requires 2 parameters", e.getMessage());
-        }
+        QueryParsingException exception = assertThrows(QueryParsingException.class, () -> _queryEvaluator.execute(query, _querySettings));
+        assertEquals("Function 'EXTRACT' requires 2 parameters", exception.getMessage());
     }
 
     @Test()
     public void threeArguments()
     {
         String query = "select extract(year, from, current_timestamp()) as result";
-        try
-        {
-            _queryEvaluator.execute(query, _querySettings);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryParsingException.class, e.getClass());
-            assertEquals("Encountered \" \",\" \", \"\" at line 1, column 20. Was expecting: \"FROM\" ...", e.getMessage());
-        }
+        QueryParsingException exception =
+                assertThrows(QueryParsingException.class, () -> _queryEvaluator.execute(query, _querySettings));
+        assertEquals("Encountered \" \",\" \", \"\" at line 1, column 20. Was expecting: \"FROM\" ...", exception.getMessage());
+    }
+
+    private static Stream<Arguments> yearQueries()
+    {
+        return Stream.of(
+                Arguments.of("select extract(YEAR from '2000-01-01 00:00:00') as result", 2000),
+                Arguments.of("select extract(YEAR from '3000-01-01 00:00:00') as result", 3000),
+                Arguments.of("select extract(YEAR from '1000-01-01 00:00:00') as result", 1000)
+        );
+    }
+
+    private static Stream<Arguments> monthQueries()
+    {
+        return Stream.of(
+                Arguments.of("select extract(month from '2000-01-01 00:00:00') as result", 1),
+                Arguments.of("select extract(month from '2000-02-01 00:00:00') as result", 2),
+                Arguments.of("select extract(month from '2000-03-01 00:00:00') as result", 3),
+                Arguments.of("select extract(month from '2000-04-01 00:00:00') as result", 4),
+                Arguments.of("select extract(month from '2000-05-01 00:00:00') as result", 5),
+                Arguments.of("select extract(month from '2000-06-01 00:00:00') as result", 6),
+                Arguments.of("select extract(month from '2000-07-01 00:00:00') as result", 7),
+                Arguments.of("select extract(month from '2000-08-01 00:00:00') as result", 8),
+                Arguments.of("select extract(month from '2000-09-01 00:00:00') as result", 9),
+                Arguments.of("select extract(month from '2000-10-01 00:00:00') as result", 10),
+                Arguments.of("select extract(month from '2000-11-01 00:00:00') as result", 11),
+                Arguments.of("select extract(month from '2000-12-01 00:00:00') as result", 12)
+        );
+    }
+
+    private static Stream<Arguments> weekQueries()
+    {
+        return Stream.of(
+                Arguments.of("select extract(week from '2000-01-01 00:00:00') as result", 1),
+                Arguments.of("select extract(week from '2000-01-08 00:00:00') as result", 2),
+                Arguments.of("select extract(week from '2000-01-15 00:00:00') as result", 3),
+                Arguments.of("select extract(week from '2000-01-22 00:00:00') as result", 4),
+                Arguments.of("select extract(week from '2000-01-29 00:00:00') as result", 5),
+                Arguments.of("select extract(week from '2000-02-05 00:00:00') as result", 6),
+                Arguments.of("select extract(week from '2000-02-12 00:00:00') as result", 7),
+                Arguments.of("select extract(week from '2000-02-19 00:00:00') as result", 8),
+                Arguments.of("select extract(week from '2000-02-26 00:00:00') as result", 9),
+                Arguments.of("select extract(week from '2000-03-04 00:00:00') as result", 10)
+        );
+    }
+
+    private static Stream<Arguments> dayQueries()
+    {
+        return Stream.of(
+                Arguments.of("select extract(day from '2000-01-01 00:00:00') as result", 1),
+                Arguments.of("select extract(day from '2000-02-29 00:00:00') as result", 29),
+                Arguments.of("select extract(day from '2000-12-31 00:00:00') as result", 31)
+        );
+    }
+
+    private static Stream<Arguments> hourQueries()
+    {
+        return Stream.of(
+                Arguments.of("select extract(hour from '2000-01-01 00:00:00') as result", 0),
+                Arguments.of("select extract(hour from '2000-01-01 12:00:00') as result", 12),
+                Arguments.of("select extract(hour from '2000-01-01 23:00:00') as result", 23)
+        );
+    }
+
+    private static Stream<Arguments> minuteQueries()
+    {
+        return Stream.of(
+                Arguments.of("select extract(minute from '2000-01-01 00:00:00') as result", 0),
+                Arguments.of("select extract(minute from '2000-01-01 12:30:00') as result", 30),
+                Arguments.of("select extract(minute from '2000-01-01 23:59:00') as result", 59)
+        );
+    }
+
+    private static Stream<Arguments> secondQueries()
+    {
+        return Stream.of(
+                Arguments.of("select extract(second from '2000-01-01 00:01:00') as result", 0),
+                Arguments.of("select extract(second from '2000-01-01 12:32:30') as result", 30),
+                Arguments.of("select extract(second from '2000-01-01 23:57:59') as result", 59)
+        );
+    }
+
+    private static Stream<Arguments> millisecondQueries()
+    {
+        return Stream.of(
+                Arguments.of("select extract(millisecond from '2000-01-01 00:00:00') as result", 0),
+                Arguments.of("select extract(millisecond from '2000-01-01 12:30:30.500') as result", 500),
+                Arguments.of("select extract(millisecond from '2000-01-01 23:59:59.999') as result", 999)
+        );
     }
 }

@@ -24,8 +24,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import org.apache.qpid.server.query.engine.TestBroker;
 import org.apache.qpid.server.query.engine.evaluator.QueryEvaluator;
@@ -37,47 +40,26 @@ public class AndExpressionTest
 {
     private final QueryEvaluator _queryEvaluator = new QueryEvaluator(TestBroker.createBroker());
 
-    @Test()
-    public void and()
+    @ParameterizedTest
+    @MethodSource("andQueries")
+    public void and(final String query, final String expectedKey, final boolean expectedValue)
     {
-        String query = "select true and true";
         List<Map<String, Object>> result = _queryEvaluator.execute(query).getResults();
         assertEquals(1, result.size());
-        assertEquals(true, result.get(0).get("true and true"));
+        assertEquals(expectedValue, result.get(0).get(expectedKey));
+    }
 
-        query = "select true and false";
-        result = _queryEvaluator.execute(query).getResults();
-        assertEquals(1, result.size());
-        assertEquals(false, result.get(0).get("true and false"));
-
-        query = "select false and true";
-        result = _queryEvaluator.execute(query).getResults();
-        assertEquals(1, result.size());
-        assertEquals(false, result.get(0).get("false and true"));
-
-        query = "select false and false";
-        result = _queryEvaluator.execute(query).getResults();
-        assertEquals(1, result.size());
-        assertEquals(false, result.get(0).get("false and false"));
-
-        query = "select (true and true) and false";
-        result = _queryEvaluator.execute(query).getResults();
-        assertEquals(1, result.size());
-        assertEquals(false, result.get(0).get("(true and true) and false"));
-
-        query = "select (true and true) and (false and true)";
-        result = _queryEvaluator.execute(query).getResults();
-        assertEquals(1, result.size());
-        assertEquals(false, result.get(0).get("(true and true) and (false and true)"));
-
-        query = "select 2 > 1 and 2 < 3";
-        result = _queryEvaluator.execute(query).getResults();
-        assertEquals(1, result.size());
-        assertEquals(true, result.get(0).get("2>1 and 2<3"));
-
-        query = "select (2 >= 1 and 2 <= 3) as expr";
-        result = _queryEvaluator.execute(query).getResults();
-        assertEquals(1, result.size());
-        assertEquals(true, result.get(0).get("expr"));
+    private static Stream<Arguments> andQueries()
+    {
+        return Stream.of(
+                Arguments.of("select true and true", "true and true", true),
+                Arguments.of("select true and false", "true and false", false),
+                Arguments.of("select false and true", "false and true", false),
+                Arguments.of("select false and false", "false and false", false),
+                Arguments.of("select (true and true) and false", "(true and true) and false", false),
+                Arguments.of("select (true and true) and (false and true)", "(true and true) and (false and true)", false),
+                Arguments.of("select 2 > 1 and 2 < 3", "2>1 and 2<3", true),
+                Arguments.of("select (2 >= 1 and 2 <= 3) as expr", "expr", true)
+        );
     }
 }

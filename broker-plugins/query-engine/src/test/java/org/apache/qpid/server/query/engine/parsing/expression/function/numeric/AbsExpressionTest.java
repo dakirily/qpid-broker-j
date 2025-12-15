@@ -21,13 +21,17 @@
 package org.apache.qpid.server.query.engine.parsing.expression.function.numeric;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import org.apache.qpid.server.query.engine.TestBroker;
 import org.apache.qpid.server.query.engine.evaluator.QueryEvaluator;
@@ -41,149 +45,76 @@ public class AbsExpressionTest
 {
     private final QueryEvaluator _queryEvaluator = new QueryEvaluator(TestBroker.createBroker());
 
-    @Test()
-    public void argInteger()
+    @ParameterizedTest
+    @MethodSource("numericQueries")
+    public void numericArguments(final String query, final Object expected)
     {
-        String query = "select abs(1) as result";
         List<Map<String, Object>> result = _queryEvaluator.execute(query).getResults();
         assertEquals(1, result.size());
-        assertEquals(1, result.get(0).get("result"));
-
-        query = "select abs(-1) as result";
-        result = _queryEvaluator.execute(query).getResults();
-        assertEquals(1, result.size());
-        assertEquals(1, result.get(0).get("result"));
-
-        query = "select abs(" + Integer.MIN_VALUE + ") as result";
-        result = _queryEvaluator.execute(query).getResults();
-        assertEquals(1, result.size());
-        assertEquals((long) Integer.MAX_VALUE + 1, result.get(0).get("result"));
-    }
-
-    @Test()
-    public void argLong()
-    {
-        String query = "select abs(1L) as result";
-        List<Map<String, Object>> result = _queryEvaluator.execute(query).getResults();
-        assertEquals(1, result.size());
-        assertEquals(1, result.get(0).get("result"));
-
-        query = "select abs(-1L) as result";
-        result = _queryEvaluator.execute(query).getResults();
-        assertEquals(1, result.size());
-        assertEquals(1, result.get(0).get("result"));
-
-        query = "select abs(" + Long.MIN_VALUE + ") as result";
-        result = _queryEvaluator.execute(query).getResults();
-        assertEquals(1, result.size());
-        assertEquals(BigDecimal.valueOf(Long.MAX_VALUE).add(BigDecimal.ONE), result.get(0).get("result"));
-    }
-
-    @Test()
-    public void argDouble()
-    {
-        String query = "select abs(1.0) as result";
-        List<Map<String, Object>> result = _queryEvaluator.execute(query).getResults();
-        assertEquals(1, result.size());
-        assertEquals(1, result.get(0).get("result"));
-
-        query = "select abs(-1.0) as result";
-        result = _queryEvaluator.execute(query).getResults();
-        assertEquals(1, result.size());
-        assertEquals(1, result.get(0).get("result"));
-
-        query = "select abs(" + -Double.MAX_VALUE + ") as result";
-        result = _queryEvaluator.execute(query).getResults();
-        assertEquals(1, result.size());
-        assertEquals(new BigDecimal(BigDecimal.valueOf(-Double.MAX_VALUE).abs().toPlainString()), result.get(0).get("result"));
-    }
-
-    @Test()
-    public void argBigDecimal()
-    {
-        String query = "select abs(" + BigDecimal.valueOf(Long.MIN_VALUE).subtract(BigDecimal.TEN) + ") as result";
-        List<Map<String, Object>> result = _queryEvaluator.execute(query).getResults();
-        assertEquals(1, result.size());
-        assertEquals(BigDecimal.valueOf(Long.MAX_VALUE).add(BigDecimal.TEN).add(BigDecimal.ONE), result.get(0).get("result"));
+        assertEquals(expected, result.get(0).get("result"));
     }
 
     @Test()
     public void noArguments()
     {
         String query = "select abs() as result";
-        try
-        {
-            _queryEvaluator.execute(query);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryParsingException.class, e.getClass());
-            assertEquals("Function 'ABS' requires 1 parameter", e.getMessage());
-        }
+        QueryParsingException exception = assertThrows(QueryParsingException.class, () -> _queryEvaluator.execute(query));
+        assertEquals("Function 'ABS' requires 1 parameter", exception.getMessage());
     }
 
     @Test()
     public void nullArgument()
     {
         String query = "select abs(null) as result";
-        try
-        {
-            _queryEvaluator.execute(query);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryEvaluationException.class, e.getClass());
-            assertEquals("Parameter of function 'ABS' invalid (parameter type: null)", e.getMessage());
-        }
+        QueryEvaluationException exception = assertThrows(QueryEvaluationException.class, () -> _queryEvaluator.execute(query));
+        assertEquals("Parameter of function 'ABS' invalid (parameter type: null)", exception.getMessage());
     }
 
     @Test()
     public void dateArgument()
     {
         String query = "select abs(lastUpdatedTime) as result from queue where name='QUEUE_0'";
-        try
-        {
-            _queryEvaluator.execute(query);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryEvaluationException.class, e.getClass());
-            assertEquals("Parameter of function 'ABS' invalid (parameter type: Date)", e.getMessage());
-        }
+        QueryEvaluationException exception = assertThrows(QueryEvaluationException.class, () -> _queryEvaluator.execute(query));
+        assertEquals("Parameter of function 'ABS' invalid (parameter type: Date)", exception.getMessage());
     }
 
     @Test()
     public void booleanArgument()
     {
         String query = "select abs(true) as result";
-        try
-        {
-            _queryEvaluator.execute(query);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryEvaluationException.class, e.getClass());
-            assertEquals("Parameter of function 'ABS' invalid (parameter type: Boolean)", e.getMessage());
-        }
+        QueryEvaluationException exception = assertThrows(QueryEvaluationException.class, () -> _queryEvaluator.execute(query));
+        assertEquals("Parameter of function 'ABS' invalid (parameter type: Boolean)", exception.getMessage());
     }
 
-    @Test()
-    public void invalidArgumentType()
+    @ParameterizedTest
+    @MethodSource("invalidTypeQueries")
+    public void invalidArgumentType(final String query, final String expectedMessage)
     {
-        String query = "select abs(statistics) from queue";
-        try
-        {
-            _queryEvaluator.execute(query);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryEvaluationException.class, e.getClass());
-            assertEquals("Parameter of function 'ABS' invalid (parameter type: HashMap)", e.getMessage());
-        }
+        QueryEvaluationException exception = assertThrows(QueryEvaluationException.class, () -> _queryEvaluator.execute(query));
+        assertEquals(expectedMessage, exception.getMessage());
+    }
+
+    private static Stream<Arguments> numericQueries()
+    {
+        return Stream.of(
+                Arguments.of("select abs(1) as result", 1),
+                Arguments.of("select abs(-1) as result", 1),
+                Arguments.of("select abs(" + Integer.MIN_VALUE + ") as result", (long) Integer.MAX_VALUE + 1),
+                Arguments.of("select abs(1L) as result", 1),
+                Arguments.of("select abs(-1L) as result", 1),
+                Arguments.of("select abs(" + Long.MIN_VALUE + ") as result", BigDecimal.valueOf(Long.MAX_VALUE).add(BigDecimal.ONE)),
+                Arguments.of("select abs(1.0) as result", 1),
+                Arguments.of("select abs(-1.0) as result", 1),
+                Arguments.of("select abs(" + -Double.MAX_VALUE + ") as result", new BigDecimal(BigDecimal.valueOf(-Double.MAX_VALUE).abs().toPlainString())),
+                Arguments.of("select abs(" + BigDecimal.valueOf(Long.MIN_VALUE).subtract(BigDecimal.TEN) + ") as result",
+                        BigDecimal.valueOf(Long.MAX_VALUE).add(BigDecimal.TEN).add(BigDecimal.ONE))
+        );
+    }
+
+    private static Stream<Arguments> invalidTypeQueries()
+    {
+        return Stream.of(
+                Arguments.of("select abs(statistics) from queue", "Parameter of function 'ABS' invalid (parameter type: HashMap)")
+        );
     }
 }

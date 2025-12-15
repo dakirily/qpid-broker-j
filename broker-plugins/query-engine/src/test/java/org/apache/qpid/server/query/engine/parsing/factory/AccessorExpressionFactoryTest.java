@@ -21,7 +21,7 @@
 package org.apache.qpid.server.query.engine.parsing.factory;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -55,16 +55,8 @@ public class AccessorExpressionFactoryTest
     @Test()
     public void delegatingWithNullProperty()
     {
-        try
-        {
-            AccessorExpressionFactory.delegating("", null);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(NullPointerException.class, e.getClass());
-            assertEquals(Errors.VALIDATION.PROPERTY_NAME_NULL, e.getMessage());
-        }
+        NullPointerException exception = assertThrows(NullPointerException.class, () -> AccessorExpressionFactory.delegating("", null));
+        assertEquals(Errors.VALIDATION.PROPERTY_NAME_NULL, exception.getMessage());
     }
 
     @Test()
@@ -77,16 +69,8 @@ public class AccessorExpressionFactoryTest
     @Test()
     public void chainedWithNullExpression()
     {
-        try
-        {
-            AccessorExpressionFactory.chained("", null, null);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(NullPointerException.class, e.getClass());
-            assertEquals(Errors.VALIDATION.CHILD_EXPRESSION_NULL, e.getMessage());
-        }
+        NullPointerException exception = assertThrows(NullPointerException.class, () -> AccessorExpressionFactory.chained("", null, null));
+        assertEquals(Errors.VALIDATION.CHILD_EXPRESSION_NULL, exception.getMessage());
     }
 
     @Test()
@@ -103,31 +87,15 @@ public class AccessorExpressionFactoryTest
     @Test()
     public void collectionWithNullProperty()
     {
-        try
-        {
-            AccessorExpressionFactory.collection("", null, null);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(NullPointerException.class, e.getClass());
-            assertEquals(Errors.VALIDATION.PROPERTY_NAME_NULL, e.getMessage());
-        }
+        NullPointerException exception = assertThrows(NullPointerException.class, () -> AccessorExpressionFactory.collection("", null, null));
+        assertEquals(Errors.VALIDATION.PROPERTY_NAME_NULL, exception.getMessage());
     }
 
     @Test()
     public void collectionWithNullIndex()
     {
-        try
-        {
-            AccessorExpressionFactory.collection("", "test", null);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(NullPointerException.class, e.getClass());
-            assertEquals(Errors.VALIDATION.INDEX_NULL, e.getMessage());
-        }
+        NullPointerException exception = assertThrows(NullPointerException.class, () -> AccessorExpressionFactory.collection("", "test", null));
+        assertEquals(Errors.VALIDATION.INDEX_NULL, exception.getMessage());
     }
 
     @Test()
@@ -138,3 +106,4 @@ public class AccessorExpressionFactoryTest
         assertEquals(DelegatingCollectionAccessorExpression.class, expression.getClass());
     }
 }
+

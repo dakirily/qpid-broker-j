@@ -21,7 +21,7 @@
 package org.apache.qpid.server.query.engine.validation;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -53,30 +53,15 @@ public class QueryExpressionValidatorTest
     @Test()
     public void nullQueryExpression()
     {
-        try
-        {
-            _validator.validate(null);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(NullPointerException.class, e.getClass());
-            assertEquals(Errors.VALIDATION.QUERY_EXPRESSION_NULL, e.getMessage());
-        }
+        NullPointerException exception = assertThrows(NullPointerException.class, () -> _validator.validate(null));
+        assertEquals(Errors.VALIDATION.QUERY_EXPRESSION_NULL, exception.getMessage());
     }
 
     @Test()
     public void emptyQueryExpression()
     {
-        try
-        {
-            _validator.validate(new QueryExpression<>());
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryValidationException.class, e.getClass());
-            assertEquals(Errors.VALIDATION.MISSING_EXPRESSION, e.getMessage());
-        }
+        QueryValidationException exception = assertThrows(QueryValidationException.class, () -> _validator.validate(new QueryExpression<>()));
+        assertEquals(Errors.VALIDATION.MISSING_EXPRESSION, exception.getMessage());
     }
 }
+

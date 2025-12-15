@@ -21,7 +21,7 @@
 package org.apache.qpid.server.query.engine.parsing.factory;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -54,60 +54,29 @@ public class ConditionalExpressionFactoryTest
     @Test()
     public void caseWithNullConditions()
     {
-        try
-        {
-            ConditionalExpressionFactory.caseExpression(null, new ArrayList<>());
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(NullPointerException.class, e.getClass());
-            assertEquals(Errors.VALIDATION.CHILD_EXPRESSIONS_NULL, e.getMessage());
-        }
+        NullPointerException exception = assertThrows(NullPointerException.class, () -> ConditionalExpressionFactory.caseExpression(null, new ArrayList<>()));
+        assertEquals(Errors.VALIDATION.CHILD_EXPRESSIONS_NULL, exception.getMessage());
     }
 
     @Test()
     public void caseWithNullOutcomes()
     {
-        try
-        {
-            ConditionalExpressionFactory.caseExpression(new ArrayList<>(), null);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(NullPointerException.class, e.getClass());
-            assertEquals(Errors.VALIDATION.CHILD_EXPRESSIONS_NULL, e.getMessage());
-        }
+        NullPointerException exception = assertThrows(NullPointerException.class, () -> ConditionalExpressionFactory.caseExpression(new ArrayList<>(), null));
+        assertEquals(Errors.VALIDATION.CHILD_EXPRESSIONS_NULL, exception.getMessage());
     }
 
     @Test()
     public void caseWithEmptyConditions()
     {
-        try
-        {
-            ConditionalExpressionFactory.caseExpression(new ArrayList<>(), Arrays.asList(ConstantExpression.of(1)));
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryValidationException.class, e.getClass());
-            assertEquals(Errors.VALIDATION.CASE_CONDITIONS_EMPTY, e.getMessage());
-        }
+        QueryValidationException exception = assertThrows(QueryValidationException.class, () -> ConditionalExpressionFactory.caseExpression(new ArrayList<>(), Arrays.asList(ConstantExpression.of(1))));
+        assertEquals(Errors.VALIDATION.CASE_CONDITIONS_EMPTY, exception.getMessage());
     }
 
     @Test()
     public void caseWithEmptyOutcomes()
     {
-        try
-        {
-            ConditionalExpressionFactory.caseExpression(Collections.singletonList(ConstantExpression.of(1)), Collections.emptyList());
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryValidationException.class, e.getClass());
-            assertEquals(Errors.VALIDATION.CASE_OUTCOMES_EMPTY, e.getMessage());
-        }
+        QueryValidationException exception = assertThrows(QueryValidationException.class, () -> ConditionalExpressionFactory.caseExpression(Collections.singletonList(ConstantExpression.of(1)), Collections.emptyList()));
+        assertEquals(Errors.VALIDATION.CASE_OUTCOMES_EMPTY, exception.getMessage());
     }
 }
+

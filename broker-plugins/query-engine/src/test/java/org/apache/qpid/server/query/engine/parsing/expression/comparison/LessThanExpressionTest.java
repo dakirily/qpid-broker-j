@@ -21,13 +21,17 @@
 package org.apache.qpid.server.query.engine.parsing.expression.comparison;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import org.apache.qpid.server.query.engine.TestBroker;
 import org.apache.qpid.server.query.engine.exception.QueryEvaluationException;
@@ -40,185 +44,136 @@ public class LessThanExpressionTest
 {
     private final QueryEvaluator _queryEvaluator = new QueryEvaluator(TestBroker.createBroker());
 
-    @Test()
-    public void comparingIntegers()
+    @ParameterizedTest
+    @MethodSource("integerQueries")
+    public void comparingIntegers(final String query, final boolean expected)
     {
-        String query = "select 1 < 2 as result";
         List<Map<String, Object>> result = _queryEvaluator.execute(query).getResults();
         assertEquals(1, result.size());
-        assertEquals(true, result.get(0).get("result"));
-
-        query = "select 2 < 1 as result";
-        result = _queryEvaluator.execute(query).getResults();
-        assertEquals(1, result.size());
-        assertEquals(false, result.get(0).get("result"));
-
-        query = "select -1 < 0 as result";
-        result = _queryEvaluator.execute(query).getResults();
-        assertEquals(1, result.size());
-        assertEquals(true, result.get(0).get("result"));
-
-        query = "select -2 < -1 as result";
-        result = _queryEvaluator.execute(query).getResults();
-        assertEquals(1, result.size());
-        assertEquals(true, result.get(0).get("result"));
+        assertEquals(expected, result.get(0).get("result"));
     }
 
-    @Test()
-    public void comparingLongs()
+    @ParameterizedTest
+    @MethodSource("longQueries")
+    public void comparingLongs(final String query, final boolean expected)
     {
-        String query = "select 1L < 2L as result";
         List<Map<String, Object>> result = _queryEvaluator.execute(query).getResults();
         assertEquals(1, result.size());
-        assertEquals(true, result.get(0).get("result"));
-
-        query = "select 2L < 1L as result";
-        result = _queryEvaluator.execute(query).getResults();
-        assertEquals(1, result.size());
-        assertEquals(false, result.get(0).get("result"));
-
-        query = "select 0 < -1L as result";
-        result = _queryEvaluator.execute(query).getResults();
-        assertEquals(1, result.size());
-        assertEquals(false, result.get(0).get("result"));
-
-        query = "select -1L < -2 as result";
-        result = _queryEvaluator.execute(query).getResults();
-        assertEquals(1, result.size());
-        assertEquals(false, result.get(0).get("result"));
+        assertEquals(expected, result.get(0).get("result"));
     }
 
-    @Test()
-    public void comparingDoubles()
+    @ParameterizedTest
+    @MethodSource("doubleQueries")
+    public void comparingDoubles(final String query, final boolean expected)
     {
-        String query = "select 2/3 < 1/3 as result";
         List<Map<String, Object>> result = _queryEvaluator.execute(query).getResults();
         assertEquals(1, result.size());
-        assertEquals(false, result.get(0).get("result"));
-
-        query = "select 1/4 < 2/4 as result";
-        result = _queryEvaluator.execute(query).getResults();
-        assertEquals(1, result.size());
-        assertEquals(true, result.get(0).get("result"));
-
-        query = "select 0 < -1/2 as result";
-        result = _queryEvaluator.execute(query).getResults();
-        assertEquals(1, result.size());
-        assertEquals(false, result.get(0).get("result"));
-
-        query = "select -1/3 < -2/3 as result";
-        result = _queryEvaluator.execute(query).getResults();
-        assertEquals(1, result.size());
-        assertEquals(false, result.get(0).get("result"));
+        assertEquals(expected, result.get(0).get("result"));
     }
 
-    @Test()
-    public void comparingBigDecimals()
+    @ParameterizedTest
+    @MethodSource("bigDecimalQueries")
+    public void comparingBigDecimals(final String query, final boolean expected)
     {
-        String query = "select " + BigDecimal.valueOf(Long.MAX_VALUE).add(BigDecimal.TEN) + " < " + BigDecimal.valueOf(Long.MAX_VALUE).add(BigDecimal.ONE) + " as result";
         List<Map<String, Object>> result = _queryEvaluator.execute(query).getResults();
         assertEquals(1, result.size());
-        assertEquals(false, result.get(0).get("result"));
-
-        query = "select " + BigDecimal.valueOf(Long.MIN_VALUE).subtract(BigDecimal.TEN) + " <" + BigDecimal.valueOf(Long.MIN_VALUE).subtract(BigDecimal.ONE) + " as result";
-        result = _queryEvaluator.execute(query).getResults();
-        assertEquals(1, result.size());
-        assertEquals(true, result.get(0).get("result"));
+        assertEquals(expected, result.get(0).get("result"));
     }
 
     @Test()
     public void comparingBooleans()
     {
         String query = "select true < false as result";
-        try
-        {
-            _queryEvaluator.execute(query);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryEvaluationException.class, e.getClass());
-            assertEquals("Objects of types 'Boolean' and 'Boolean' can not be compared", e.getMessage());
-        }
+        QueryEvaluationException exception = assertThrows(QueryEvaluationException.class, () -> _queryEvaluator.execute(query));
+        assertEquals("Objects of types 'Boolean' and 'Boolean' can not be compared", exception.getMessage());
     }
 
-    @Test()
-    public void comparingStrings()
+    @ParameterizedTest
+    @MethodSource("stringQueries")
+    public void comparingStrings(final String query, final boolean expected)
     {
-        String query = "select 'b' < 'a' as result";
         List<Map<String, Object>> result = _queryEvaluator.execute(query).getResults();
         assertEquals(1, result.size());
-        assertEquals(false, result.get(0).get("result"));
-
-        query = "select 'b' < 'c' as result";
-        result = _queryEvaluator.execute(query).getResults();
-        assertEquals(1, result.size());
-        assertEquals(true, result.get(0).get("result"));
-
-        query = "select '1' < '2' as result";
-        result = _queryEvaluator.execute(query).getResults();
-        assertEquals(1, result.size());
-        assertEquals(true, result.get(0).get("result"));
-
-        query = "select 'test124' < 'test123' as result";
-        result = _queryEvaluator.execute(query).getResults();
-        assertEquals(1, result.size());
-        assertEquals(false, result.get(0).get("result"));
+        assertEquals(expected, result.get(0).get("result"));
     }
 
-    @Test()
-    public void comparingInvalidTypes()
+    @ParameterizedTest
+    @MethodSource("invalidTypeQueries")
+    public void comparingInvalidTypes(final String query, final String expectedMessage)
     {
-        String query = "select statistics < statistics as result from queue";
-        try
-        {
-            _queryEvaluator.execute(query);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryEvaluationException.class, e.getClass());
-            assertEquals("Objects of types 'HashMap' and 'HashMap' can not be compared", e.getMessage());
-        }
-
-        query = "select bindings < statistics as result from exchange";
-        try
-        {
-            _queryEvaluator.execute(query);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryEvaluationException.class, e.getClass());
-            assertEquals("Objects of types 'List12' and 'HashMap' can not be compared", e.getMessage());
-        }
+        QueryEvaluationException exception = assertThrows(QueryEvaluationException.class, () -> _queryEvaluator.execute(query));
+        assertEquals(expectedMessage, exception.getMessage());
     }
 
-    @Test()
-    public void comparingNulls()
+    @ParameterizedTest
+    @MethodSource("nullQueries")
+    public void comparingNulls(final String query, final String expectedMessage)
     {
-        String query = "select 1 < null as result from queue";
-        try
-        {
-            _queryEvaluator.execute(query);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryEvaluationException.class, e.getClass());
-            assertEquals("Objects of types 'Integer' and 'null' can not be compared", e.getMessage());
-        }
+        QueryEvaluationException exception = assertThrows(QueryEvaluationException.class, () -> _queryEvaluator.execute(query));
+        assertEquals(expectedMessage, exception.getMessage());
+    }
 
-        query = "select null < 'test' as result from queue";
-        try
-        {
-            _queryEvaluator.execute(query);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryEvaluationException.class, e.getClass());
-            assertEquals("Objects of types 'null' and 'String' can not be compared", e.getMessage());
-        }
+    private static Stream<Arguments> integerQueries()
+    {
+        return Stream.of(
+                Arguments.of("select 1 < 2 as result", true),
+                Arguments.of("select 2 < 1 as result", false),
+                Arguments.of("select -1 < 0 as result", true),
+                Arguments.of("select -2 < -1 as result", true)
+        );
+    }
+
+    private static Stream<Arguments> longQueries()
+    {
+        return Stream.of(
+                Arguments.of("select 1L < 2L as result", true),
+                Arguments.of("select 2L < 1L as result", false),
+                Arguments.of("select 0 < -1L as result", false),
+                Arguments.of("select -1L < -2 as result", false)
+        );
+    }
+
+    private static Stream<Arguments> doubleQueries()
+    {
+        return Stream.of(
+                Arguments.of("select 2/3 < 1/3 as result", false),
+                Arguments.of("select 1/4 < 2/4 as result", true),
+                Arguments.of("select 0 < -1/2 as result", false),
+                Arguments.of("select -1/3 < -2/3 as result", false)
+        );
+    }
+
+    private static Stream<Arguments> bigDecimalQueries()
+    {
+        return Stream.of(
+                Arguments.of("select " + BigDecimal.valueOf(Long.MAX_VALUE).add(BigDecimal.TEN) + " < " + BigDecimal.valueOf(Long.MAX_VALUE).add(BigDecimal.ONE) + " as result", false),
+                Arguments.of("select " + BigDecimal.valueOf(Long.MIN_VALUE).subtract(BigDecimal.TEN) + " <" + BigDecimal.valueOf(Long.MIN_VALUE).subtract(BigDecimal.ONE) + " as result", true)
+        );
+    }
+
+    private static Stream<Arguments> stringQueries()
+    {
+        return Stream.of(
+                Arguments.of("select 'b' < 'a' as result", false),
+                Arguments.of("select 'b' < 'c' as result", true),
+                Arguments.of("select '1' < '2' as result", true),
+                Arguments.of("select 'test124' < 'test123' as result", false)
+        );
+    }
+
+    private static Stream<Arguments> invalidTypeQueries()
+    {
+        return Stream.of(
+                Arguments.of("select statistics < statistics as result from queue", "Objects of types 'HashMap' and 'HashMap' can not be compared"),
+                Arguments.of("select bindings < statistics as result from exchange", "Objects of types 'List12' and 'HashMap' can not be compared")
+        );
+    }
+
+    private static Stream<Arguments> nullQueries()
+    {
+        return Stream.of(
+                Arguments.of("select 1 < null as result from queue", "Objects of types 'Integer' and 'null' can not be compared"),
+                Arguments.of("select null < 'test' as result from queue", "Objects of types 'null' and 'String' can not be compared")
+        );
     }
 }

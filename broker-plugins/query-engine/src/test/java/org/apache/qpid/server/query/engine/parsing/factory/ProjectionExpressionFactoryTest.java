@@ -21,7 +21,7 @@
 package org.apache.qpid.server.query.engine.parsing.factory;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -51,30 +51,15 @@ public class ProjectionExpressionFactoryTest
     @Test()
     public void createWithNullExpression()
     {
-        try
-        {
-            ProjectionExpressionFactory.projection(null, null, 1);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(NullPointerException.class, e.getClass());
-            assertEquals(Errors.VALIDATION.CHILD_EXPRESSION_NULL, e.getMessage());
-        }
+        NullPointerException exception = assertThrows(NullPointerException.class, () -> ProjectionExpressionFactory.projection(null, null, 1));
+        assertEquals(Errors.VALIDATION.CHILD_EXPRESSION_NULL, exception.getMessage());
     }
 
     @Test()
     public void createWithZeroOrdinal()
     {
-        try
-        {
-            ProjectionExpressionFactory.projection(ConstantExpression.of(null), null, 0);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryValidationException.class, e.getClass());
-            assertEquals(Errors.VALIDATION.INVALID_ORDINAL, e.getMessage());
-        }
+        QueryValidationException exception = assertThrows(QueryValidationException.class, () -> ProjectionExpressionFactory.projection(ConstantExpression.of(null), null, 0));
+        assertEquals(Errors.VALIDATION.INVALID_ORDINAL, exception.getMessage());
     }
 }
+

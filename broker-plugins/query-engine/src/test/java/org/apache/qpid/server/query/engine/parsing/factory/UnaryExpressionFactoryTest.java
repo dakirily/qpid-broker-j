@@ -21,7 +21,7 @@
 package org.apache.qpid.server.query.engine.parsing.factory;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.math.BigDecimal;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -53,31 +53,15 @@ public class UnaryExpressionFactoryTest
     @Test()
     public void negateNull()
     {
-        try
-        {
-            UnaryExpressionFactory.negate(null);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(NullPointerException.class, e.getClass());
-            assertEquals(Errors.VALIDATION.CHILD_EXPRESSION_NULL, e.getMessage());
-        }
+        NullPointerException exception = assertThrows(NullPointerException.class, () -> UnaryExpressionFactory.negate(null));
+        assertEquals(Errors.VALIDATION.CHILD_EXPRESSION_NULL, exception.getMessage());
     }
 
     @Test()
     public void negateNullLiteralExpression()
     {
-        try
-        {
-            UnaryExpressionFactory.negate(new NullLiteralExpression<>());
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryParsingException.class, e.getClass());
-            assertEquals("Negation of 'NullLiteralExpression' not supported", e.getMessage());
-        }
+        QueryParsingException exception = assertThrows(QueryParsingException.class, () -> UnaryExpressionFactory.negate(new NullLiteralExpression<>()));
+        assertEquals("Negation of 'NullLiteralExpression' not supported", exception.getMessage());
     }
 
     @Test()
@@ -152,3 +136,4 @@ public class UnaryExpressionFactoryTest
         assertEquals(BigDecimal.valueOf(Long.MAX_VALUE).add(BigDecimal.valueOf(2L)), negated.apply(null));
     }
 }
+

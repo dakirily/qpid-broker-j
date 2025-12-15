@@ -25,8 +25,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import org.apache.qpid.server.query.engine.TestBroker;
 import org.apache.qpid.server.query.engine.evaluator.EvaluationContext;
@@ -53,28 +57,27 @@ public class CurrentTimestampExpressionTest
         DateTimeConverter.getFormatter().parse((String)result.get(0).get("result"));
     }
 
-    @Test()
-    public void comparingDatetimes()
+    @ParameterizedTest
+    @MethodSource("datetimeQueries")
+    public void comparingDatetimes(final String query, final int expectedSize, final String expectedName)
     {
         QuerySettings querySettings = new QuerySettingsBuilder().zoneId(ZoneId.of("UTC")).build();
 
-        String query = "select name from virtualhostnode where createdTime < '2001-01-01 12:55:31.000'";
         List<Map<String, Object>> result = _queryEvaluator.execute(query, querySettings).getResults();
-        assertEquals(1, result.size());
-        assertEquals("mock", result.get(0).get("name"));
+        assertEquals(expectedSize, result.size());
+        if (expectedName != null && !result.isEmpty())
+        {
+            assertEquals(expectedName, result.get(0).get("name"));
+        }
+    }
 
-        query = "select name from virtualhostnode where createdTime = '2001-01-01 12:55:30.000'";
-        result = _queryEvaluator.execute(query, querySettings).getResults();
-        assertEquals(1, result.size());
-        assertEquals("mock", result.get(0).get("name"));
-
-        query = "select name from virtualhostnode where createdTime < '2001-01-01 12:55:29.000'";
-        result = _queryEvaluator.execute(query, querySettings).getResults();
-        assertEquals(0, result.size());
-
-        query = "select name from virtualhostnode where createdTime between '2001-01-01 12:55:29' and '2001-01-01 12:55:31'";
-        result = _queryEvaluator.execute(query, querySettings).getResults();
-        assertEquals(1, result.size());
-        assertEquals("mock", result.get(0).get("name"));
+    private static Stream<Arguments> datetimeQueries()
+    {
+        return Stream.of(
+                Arguments.of("select name from virtualhostnode where createdTime < '2001-01-01 12:55:31.000'", 1, "mock"),
+                Arguments.of("select name from virtualhostnode where createdTime = '2001-01-01 12:55:30.000'", 1, "mock"),
+                Arguments.of("select name from virtualhostnode where createdTime < '2001-01-01 12:55:29.000'", 0, null),
+                Arguments.of("select name from virtualhostnode where createdTime between '2001-01-01 12:55:29' and '2001-01-01 12:55:31'", 1, "mock")
+        );
     }
 }

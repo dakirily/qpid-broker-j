@@ -21,7 +21,7 @@
 package org.apache.qpid.server.query.engine.parsing.factory;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -64,46 +64,22 @@ public class ComparisonExpressionFactoryTest
     @Test()
     public void betweenWithNullLeft()
     {
-        try
-        {
-            ComparisonExpressionFactory.betweenExpression(null, null, ConstantExpression.of(1), ConstantExpression.of(2));
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(NullPointerException.class, e.getClass());
-            assertEquals(Errors.VALIDATION.CHILD_EXPRESSION_NULL, e.getMessage());
-        }
+        NullPointerException exception = assertThrows(NullPointerException.class, () -> ComparisonExpressionFactory.betweenExpression(null, null, ConstantExpression.of(1), ConstantExpression.of(2)));
+        assertEquals(Errors.VALIDATION.CHILD_EXPRESSION_NULL, exception.getMessage());
     }
 
     @Test()
     public void betweenWithNullLow()
     {
-        try
-        {
-            ComparisonExpressionFactory.betweenExpression(null, ConstantExpression.of(1), null, ConstantExpression.of(2));
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(NullPointerException.class, e.getClass());
-            assertEquals(Errors.VALIDATION.CHILD_EXPRESSION_NULL, e.getMessage());
-        }
+        NullPointerException exception = assertThrows(NullPointerException.class, () -> ComparisonExpressionFactory.betweenExpression(null, ConstantExpression.of(1), null, ConstantExpression.of(2)));
+        assertEquals(Errors.VALIDATION.CHILD_EXPRESSION_NULL, exception.getMessage());
     }
 
     @Test()
     public void betweenWithNullHigh()
     {
-        try
-        {
-            ComparisonExpressionFactory.betweenExpression(null, ConstantExpression.of(1), ConstantExpression.of(2), null);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(NullPointerException.class, e.getClass());
-            assertEquals(Errors.VALIDATION.CHILD_EXPRESSION_NULL, e.getMessage());
-        }
+        NullPointerException exception = assertThrows(NullPointerException.class, () -> ComparisonExpressionFactory.betweenExpression(null, ConstantExpression.of(1), ConstantExpression.of(2), null));
+        assertEquals(Errors.VALIDATION.CHILD_EXPRESSION_NULL, exception.getMessage());
     }
 
     @Test()
@@ -119,31 +95,15 @@ public class ComparisonExpressionFactoryTest
     @Test()
     public void equalWithNullLeft()
     {
-        try
-        {
-            ComparisonExpressionFactory.equalExpression(null, ConstantExpression.of(1));
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(NullPointerException.class, e.getClass());
-            assertEquals(Errors.VALIDATION.CHILD_EXPRESSION_NULL, e.getMessage());
-        }
+        NullPointerException exception = assertThrows(NullPointerException.class, () -> ComparisonExpressionFactory.equalExpression(null, ConstantExpression.of(1)));
+        assertEquals(Errors.VALIDATION.CHILD_EXPRESSION_NULL, exception.getMessage());
     }
 
     @Test()
     public void equalWithNullRight()
     {
-        try
-        {
-            ComparisonExpressionFactory.equalExpression(ConstantExpression.of(1), null);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(NullPointerException.class, e.getClass());
-            assertEquals(Errors.VALIDATION.CHILD_EXPRESSION_NULL, e.getMessage());
-        }
+        NullPointerException exception = assertThrows(NullPointerException.class, () -> ComparisonExpressionFactory.equalExpression(ConstantExpression.of(1), null));
+        assertEquals(Errors.VALIDATION.CHILD_EXPRESSION_NULL, exception.getMessage());
     }
 
     @Test()
@@ -158,31 +118,15 @@ public class ComparisonExpressionFactoryTest
     @Test()
     public void notEqualWithNullLeft()
     {
-        try
-        {
-            ComparisonExpressionFactory.notEqualExpression(null, ConstantExpression.of(1));
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(NullPointerException.class, e.getClass());
-            assertEquals(Errors.VALIDATION.CHILD_EXPRESSION_NULL, e.getMessage());
-        }
+        NullPointerException exception = assertThrows(NullPointerException.class, () -> ComparisonExpressionFactory.notEqualExpression(null, ConstantExpression.of(1)));
+        assertEquals(Errors.VALIDATION.CHILD_EXPRESSION_NULL, exception.getMessage());
     }
 
     @Test()
     public void notEqualWithNullRight()
     {
-        try
-        {
-            ComparisonExpressionFactory.notEqualExpression(ConstantExpression.of(1), null);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(NullPointerException.class, e.getClass());
-            assertEquals(Errors.VALIDATION.CHILD_EXPRESSION_NULL, e.getMessage());
-        }
+        NullPointerException exception = assertThrows(NullPointerException.class, () -> ComparisonExpressionFactory.notEqualExpression(ConstantExpression.of(1), null));
+        assertEquals(Errors.VALIDATION.CHILD_EXPRESSION_NULL, exception.getMessage());
     }
 
     @Test()
@@ -197,31 +141,15 @@ public class ComparisonExpressionFactoryTest
     @Test()
     public void greaterThanWithNullLeft()
     {
-        try
-        {
-            ComparisonExpressionFactory.greaterThanExpression(null, ConstantExpression.of(1));
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(NullPointerException.class, e.getClass());
-            assertEquals(Errors.VALIDATION.CHILD_EXPRESSION_NULL, e.getMessage());
-        }
+        NullPointerException exception = assertThrows(NullPointerException.class, () -> ComparisonExpressionFactory.greaterThanExpression(null, ConstantExpression.of(1)));
+        assertEquals(Errors.VALIDATION.CHILD_EXPRESSION_NULL, exception.getMessage());
     }
 
     @Test()
     public void greaterThanWithNullRight()
     {
-        try
-        {
-            ComparisonExpressionFactory.greaterThanExpression(ConstantExpression.of(1), null);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(NullPointerException.class, e.getClass());
-            assertEquals(Errors.VALIDATION.CHILD_EXPRESSION_NULL, e.getMessage());
-        }
+        NullPointerException exception = assertThrows(NullPointerException.class, () -> ComparisonExpressionFactory.greaterThanExpression(ConstantExpression.of(1), null));
+        assertEquals(Errors.VALIDATION.CHILD_EXPRESSION_NULL, exception.getMessage());
     }
 
     @Test()
@@ -236,31 +164,15 @@ public class ComparisonExpressionFactoryTest
     @Test()
     public void greaterThanOrEqualWithNullLeft()
     {
-        try
-        {
-            ComparisonExpressionFactory.greaterThanOrEqualExpression(null, ConstantExpression.of(1));
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(NullPointerException.class, e.getClass());
-            assertEquals(Errors.VALIDATION.CHILD_EXPRESSION_NULL, e.getMessage());
-        }
+        NullPointerException exception = assertThrows(NullPointerException.class, () -> ComparisonExpressionFactory.greaterThanOrEqualExpression(null, ConstantExpression.of(1)));
+        assertEquals(Errors.VALIDATION.CHILD_EXPRESSION_NULL, exception.getMessage());
     }
 
     @Test()
     public void greaterThanOrEqualWithNullRight()
     {
-        try
-        {
-            ComparisonExpressionFactory.greaterThanOrEqualExpression(ConstantExpression.of(1), null);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(NullPointerException.class, e.getClass());
-            assertEquals(Errors.VALIDATION.CHILD_EXPRESSION_NULL, e.getMessage());
-        }
+        NullPointerException exception = assertThrows(NullPointerException.class, () -> ComparisonExpressionFactory.greaterThanOrEqualExpression(ConstantExpression.of(1), null));
+        assertEquals(Errors.VALIDATION.CHILD_EXPRESSION_NULL, exception.getMessage());
     }
 
     @Test()
@@ -275,31 +187,15 @@ public class ComparisonExpressionFactoryTest
     @Test()
     public void lessThanWithNullLeft()
     {
-        try
-        {
-            ComparisonExpressionFactory.lessThanExpression(null, ConstantExpression.of(1));
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(NullPointerException.class, e.getClass());
-            assertEquals(Errors.VALIDATION.CHILD_EXPRESSION_NULL, e.getMessage());
-        }
+        NullPointerException exception = assertThrows(NullPointerException.class, () -> ComparisonExpressionFactory.lessThanExpression(null, ConstantExpression.of(1)));
+        assertEquals(Errors.VALIDATION.CHILD_EXPRESSION_NULL, exception.getMessage());
     }
 
     @Test()
     public void lessThanWithNullRight()
     {
-        try
-        {
-            ComparisonExpressionFactory.lessThanExpression(ConstantExpression.of(1), null);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(NullPointerException.class, e.getClass());
-            assertEquals(Errors.VALIDATION.CHILD_EXPRESSION_NULL, e.getMessage());
-        }
+        NullPointerException exception = assertThrows(NullPointerException.class, () -> ComparisonExpressionFactory.lessThanExpression(ConstantExpression.of(1), null));
+        assertEquals(Errors.VALIDATION.CHILD_EXPRESSION_NULL, exception.getMessage());
     }
 
     @Test()
@@ -314,31 +210,15 @@ public class ComparisonExpressionFactoryTest
     @Test()
     public void lessThanOrEqualWithNullLeft()
     {
-        try
-        {
-            ComparisonExpressionFactory.lessThanOrEqualExpression(null, ConstantExpression.of(1));
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(NullPointerException.class, e.getClass());
-            assertEquals(Errors.VALIDATION.CHILD_EXPRESSION_NULL, e.getMessage());
-        }
+        NullPointerException exception = assertThrows(NullPointerException.class, () -> ComparisonExpressionFactory.lessThanOrEqualExpression(null, ConstantExpression.of(1)));
+        assertEquals(Errors.VALIDATION.CHILD_EXPRESSION_NULL, exception.getMessage());
     }
 
     @Test()
     public void lessThanOrEqualWithNullRight()
     {
-        try
-        {
-            ComparisonExpressionFactory.lessThanOrEqualExpression(ConstantExpression.of(1), null);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(NullPointerException.class, e.getClass());
-            assertEquals(Errors.VALIDATION.CHILD_EXPRESSION_NULL, e.getMessage());
-        }
+        NullPointerException exception = assertThrows(NullPointerException.class, () -> ComparisonExpressionFactory.lessThanOrEqualExpression(ConstantExpression.of(1), null));
+        assertEquals(Errors.VALIDATION.CHILD_EXPRESSION_NULL, exception.getMessage());
     }
 
     @Test()
@@ -353,53 +233,21 @@ public class ComparisonExpressionFactoryTest
     @Test()
     public void inWithNullLeft()
     {
-        try
-        {
-            ComparisonExpressionFactory.inExpression(null,new ArrayList<>());
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(NullPointerException.class, e.getClass());
-            assertEquals(Errors.VALIDATION.CHILD_EXPRESSION_NULL, e.getMessage());
-        }
+        NullPointerException exception = assertThrows(NullPointerException.class, () -> ComparisonExpressionFactory.inExpression(null,new ArrayList<>()));
+        assertEquals(Errors.VALIDATION.CHILD_EXPRESSION_NULL, exception.getMessage());
 
-        try
-        {
-            ComparisonExpressionFactory.inExpression(null, new SelectExpression<>());
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(NullPointerException.class, e.getClass());
-            assertEquals(Errors.VALIDATION.CHILD_EXPRESSION_NULL, e.getMessage());
-        }
+        exception = assertThrows(NullPointerException.class, () -> ComparisonExpressionFactory.inExpression(null, new SelectExpression<>()));
+        assertEquals(Errors.VALIDATION.CHILD_EXPRESSION_NULL, exception.getMessage());
     }
 
     @Test()
     public <T, R> void inWithNullRight()
     {
-        try
-        {
-            ComparisonExpressionFactory.inExpression(ConstantExpression.of(null), (List<ExpressionNode<T, R>>) null);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(NullPointerException.class, e.getClass());
-            assertEquals(Errors.VALIDATION.CHILD_EXPRESSIONS_NULL, e.getMessage());
-        }
+        NullPointerException exception = assertThrows(NullPointerException.class, () -> ComparisonExpressionFactory.inExpression(ConstantExpression.of(null), (List<ExpressionNode<T, R>>) null));
+        assertEquals(Errors.VALIDATION.CHILD_EXPRESSIONS_NULL, exception.getMessage());
 
-        try
-        {
-            ComparisonExpressionFactory.inExpression(ConstantExpression.of(null), (SelectExpression<T, R>) null);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(NullPointerException.class, e.getClass());
-            assertEquals(Errors.VALIDATION.CHILD_EXPRESSION_NULL, e.getMessage());
-        }
+        exception = assertThrows(NullPointerException.class, () -> ComparisonExpressionFactory.inExpression(ConstantExpression.of(null), (SelectExpression<T, R>) null));
+        assertEquals(Errors.VALIDATION.CHILD_EXPRESSION_NULL, exception.getMessage());
     }
 
     @Test()
@@ -414,16 +262,8 @@ public class ComparisonExpressionFactoryTest
     @Test()
     public void isNullWithNullExpression()
     {
-        try
-        {
-            ComparisonExpressionFactory.isNullExpression(null);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(NullPointerException.class, e.getClass());
-            assertEquals(Errors.VALIDATION.CHILD_EXPRESSION_NULL, e.getMessage());
-        }
+        NullPointerException exception = assertThrows(NullPointerException.class, () -> ComparisonExpressionFactory.isNullExpression(null));
+        assertEquals(Errors.VALIDATION.CHILD_EXPRESSION_NULL, exception.getMessage());
     }
 
     @Test()
@@ -436,16 +276,8 @@ public class ComparisonExpressionFactoryTest
     @Test()
     public void isNotNullWithNullExpression()
     {
-        try
-        {
-            ComparisonExpressionFactory.isNotNullExpression(null);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(NullPointerException.class, e.getClass());
-            assertEquals(Errors.VALIDATION.CHILD_EXPRESSION_NULL, e.getMessage());
-        }
+        NullPointerException exception = assertThrows(NullPointerException.class, () -> ComparisonExpressionFactory.isNotNullExpression(null));
+        assertEquals(Errors.VALIDATION.CHILD_EXPRESSION_NULL, exception.getMessage());
     }
 
     @Test()
@@ -458,15 +290,8 @@ public class ComparisonExpressionFactoryTest
     @Test()
     public void likeWithNullExpression()
     {
-        try
-        {
-            ComparisonExpressionFactory.likeExpression(null, "", "");
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(NullPointerException.class, e.getClass());
-            assertEquals(Errors.VALIDATION.CHILD_EXPRESSION_NULL, e.getMessage());
-        }
+        NullPointerException exception = assertThrows(NullPointerException.class, () -> ComparisonExpressionFactory.likeExpression(null, "", ""));
+        assertEquals(Errors.VALIDATION.CHILD_EXPRESSION_NULL, exception.getMessage());
     }
 }
+

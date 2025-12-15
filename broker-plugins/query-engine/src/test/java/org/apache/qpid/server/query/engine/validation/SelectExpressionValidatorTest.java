@@ -21,7 +21,7 @@
 package org.apache.qpid.server.query.engine.validation;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -55,96 +55,59 @@ public class SelectExpressionValidatorTest
     @Test()
     public void nullSelectExpression()
     {
-        try
-        {
-            _validator.validate(null);
-        }
-        catch (Exception e)
-        {
-            assertEquals(NullPointerException.class, e.getClass());
-            assertEquals(Errors.VALIDATION.SELECT_EXPRESSION_NULL, e.getMessage());
-        }
+        NullPointerException exception = assertThrows(NullPointerException.class, () -> _validator.validate(null));
+        assertEquals(Errors.VALIDATION.SELECT_EXPRESSION_NULL, exception.getMessage());
     }
 
     @Test()
     public void emptySelectExpression()
     {
-        try
-        {
-            _validator.validate(new SelectExpression<>());
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryValidationException.class, e.getClass());
-            assertEquals(Errors.VALIDATION.MISSING_EXPRESSION, e.getMessage());
-        }
+        QueryValidationException exception =
+                assertThrows(QueryValidationException.class, () -> _validator.validate(new SelectExpression<>()));
+        assertEquals(Errors.VALIDATION.MISSING_EXPRESSION, exception.getMessage());
     }
 
     @Test()
     public <T, R> void selectWithoutFrom()
     {
-        try
-        {
+        QueryValidationException exception = assertThrows(QueryValidationException.class, () -> {
             final ExpressionParser<T, R> parser = new ExpressionParser<>();
             final QueryExpression<T, R> query = parser.parseQuery("select id");
             final SelectExpression<T, R> select = query.getSelect().getSelections().get(0);
             _validator.validate(select);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryValidationException.class, e.getClass());
-            assertEquals(Errors.VALIDATION.KEYWORD_FROM_NOT_FOUND, e.getMessage());
-        }
+        });
+        assertEquals(Errors.VALIDATION.KEYWORD_FROM_NOT_FOUND, exception.getMessage());
     }
 
     @Test()
     public <T, R> void missingGroupByItem()
     {
-        try
-        {
+        QueryValidationException exception = assertThrows(QueryValidationException.class, () -> {
             final ExpressionParser<T, R> parser = new ExpressionParser<>();
             final QueryExpression<T, R> query = parser.parseQuery("select count(*), overflowPolicy from queue");
             final SelectExpression<T, R> select = query.getSelect().getSelections().get(0);
             _validator.validate(select);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryValidationException.class, e.getClass());
-            assertEquals("Not a single-group group function: projections [overflowPolicy] should be included in GROUP BY clause", e.getMessage());
-        }
+        });
+        assertEquals("Not a single-group group function: projections [overflowPolicy] should be included in GROUP BY clause", exception.getMessage());
 
-        try
-        {
+        exception = assertThrows(QueryValidationException.class, () -> {
             final ExpressionParser<T, R> parser = new ExpressionParser<>();
             final QueryExpression<T, R> query = parser.parseQuery("select count(*), overflowPolicy, expiryPolicy from queue group by overflowPolicy");
             final SelectExpression<T, R> select = query.getSelect().getSelections().get(0);
             _validator.validate(select);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryValidationException.class, e.getClass());
-            assertEquals("Not a single-group group function: projections [expiryPolicy] should be included in GROUP BY clause", e.getMessage());
-        }
+        });
+        assertEquals("Not a single-group group function: projections [expiryPolicy] should be included in GROUP BY clause", exception.getMessage());
     }
 
     @Test()
     public <T, R> void havingWithoutAggregation()
     {
-        try
-        {
+        QueryValidationException exception = assertThrows(QueryValidationException.class, () -> {
             final ExpressionParser<T, R> parser = new ExpressionParser<>();
             final QueryExpression<T, R> query = parser.parseQuery("select * from queue having name='QUEUE_1'");
             final SelectExpression<T, R> select = query.getSelect().getSelections().get(0);
             _validator.validate(select);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryValidationException.class, e.getClass());
-            assertEquals(Errors.VALIDATION.HAVING_WITHOUT_AGGREGATION, e.getMessage());
-        }
+        });
+        assertEquals(Errors.VALIDATION.HAVING_WITHOUT_AGGREGATION, exception.getMessage());
     }
 }

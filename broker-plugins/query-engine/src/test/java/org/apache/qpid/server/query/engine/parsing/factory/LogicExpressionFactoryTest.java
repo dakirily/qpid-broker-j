@@ -21,7 +21,7 @@
 package org.apache.qpid.server.query.engine.parsing.factory;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -55,27 +55,11 @@ public class LogicExpressionFactoryTest
     @Test()
     public void andWithChildExpressionNull()
     {
-        try
-        {
-            LogicExpressionFactory.and(null, null, null);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(NullPointerException.class, e.getClass());
-            assertEquals(Errors.VALIDATION.CHILD_EXPRESSION_NULL, e.getMessage());
-        }
+        NullPointerException exception = assertThrows(NullPointerException.class, () -> LogicExpressionFactory.and(null, null, null));
+        assertEquals(Errors.VALIDATION.CHILD_EXPRESSION_NULL, exception.getMessage());
 
-        try
-        {
-            LogicExpressionFactory.and(null, ConstantExpression.of(true), null);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(NullPointerException.class, e.getClass());
-            assertEquals(Errors.VALIDATION.CHILD_EXPRESSION_NULL, e.getMessage());
-        }
+        exception = assertThrows(NullPointerException.class, () -> LogicExpressionFactory.and(null, ConstantExpression.of(true), null));
+        assertEquals(Errors.VALIDATION.CHILD_EXPRESSION_NULL, exception.getMessage());
     }
 
     @Test()
@@ -88,27 +72,11 @@ public class LogicExpressionFactoryTest
     @Test()
     public void orWithChildExpressionNull()
     {
-        try
-        {
-            LogicExpressionFactory.or(null, null, null);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(NullPointerException.class, e.getClass());
-            assertEquals(Errors.VALIDATION.CHILD_EXPRESSION_NULL, e.getMessage());
-        }
+        NullPointerException exception = assertThrows(NullPointerException.class, () -> LogicExpressionFactory.or(null, null, null));
+        assertEquals(Errors.VALIDATION.CHILD_EXPRESSION_NULL, exception.getMessage());
 
-        try
-        {
-            LogicExpressionFactory.or(null, ConstantExpression.of(true), null);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(NullPointerException.class, e.getClass());
-            assertEquals(Errors.VALIDATION.CHILD_EXPRESSION_NULL, e.getMessage());
-        }
+        exception = assertThrows(NullPointerException.class, () -> LogicExpressionFactory.or(null, ConstantExpression.of(true), null));
+        assertEquals(Errors.VALIDATION.CHILD_EXPRESSION_NULL, exception.getMessage());
     }
 
     @Test()
@@ -121,16 +89,8 @@ public class LogicExpressionFactoryTest
     @Test()
     public void negateWithChildExpressionNull()
     {
-        try
-        {
-            LogicExpressionFactory.negate(null);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(NullPointerException.class, e.getClass());
-            assertEquals(Errors.VALIDATION.CHILD_EXPRESSION_NULL, e.getMessage());
-        }
+        NullPointerException exception = assertThrows(NullPointerException.class, () -> LogicExpressionFactory.negate(null));
+        assertEquals(Errors.VALIDATION.CHILD_EXPRESSION_NULL, exception.getMessage());
     }
 
     @Test()
@@ -147,45 +107,22 @@ public class LogicExpressionFactoryTest
     @Test()
     public void negateNotPredicate()
     {
-        try
-        {
-            LogicExpressionFactory.negate(LiteralExpressionFactory.createNull());
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(QueryParsingException.class, e.getClass());
-            assertEquals("Negation of 'NullLiteralExpression' not supported", e.getMessage());
-        }
+        QueryParsingException exception = assertThrows(QueryParsingException.class, () -> LogicExpressionFactory.negate(LiteralExpressionFactory.createNull()));
+        assertEquals("Negation of 'NullLiteralExpression' not supported", exception.getMessage());
     }
 
     @Test()
     public void toPredicateWithChildExpressionNull()
     {
-        try
-        {
-            LogicExpressionFactory.toPredicate(null);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(NullPointerException.class, e.getClass());
-            assertEquals(Errors.VALIDATION.CHILD_EXPRESSION_NULL, e.getMessage());
-        }
+        NullPointerException exception = assertThrows(NullPointerException.class, () -> LogicExpressionFactory.toPredicate(null));
+        assertEquals(Errors.VALIDATION.CHILD_EXPRESSION_NULL, exception.getMessage());
     }
 
     @Test()
     public void toFunctionWithChildExpressionNull()
     {
-        try
-        {
-            LogicExpressionFactory.toFunction(null);
-            fail("Expected exception not thrown");
-        }
-        catch (Exception e)
-        {
-            assertEquals(NullPointerException.class, e.getClass());
-            assertEquals(Errors.VALIDATION.CHILD_EXPRESSION_NULL, e.getMessage());
-        }
+        NullPointerException exception = assertThrows(NullPointerException.class, () -> LogicExpressionFactory.toFunction(null));
+        assertEquals(Errors.VALIDATION.CHILD_EXPRESSION_NULL, exception.getMessage());
     }
 }
+
