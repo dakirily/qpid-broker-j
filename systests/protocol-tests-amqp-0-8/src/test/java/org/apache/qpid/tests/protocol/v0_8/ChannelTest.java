@@ -18,28 +18,34 @@
  * under the License.
  *
  */
+
 package org.apache.qpid.tests.protocol.v0_8;
 
+import org.apache.qpid.tests.utils.BrokerAdmin;
+import org.apache.qpid.tests.utils.QpidTestInfo;
+import org.apache.qpid.tests.utils.QpidTestInfoExtension;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.Test;
 
 import org.apache.qpid.server.protocol.v0_8.transport.ChannelCloseOkBody;
 import org.apache.qpid.server.protocol.v0_8.transport.ChannelOpenOkBody;
 import org.apache.qpid.server.protocol.v0_8.transport.ConnectionCloseBody;
 import org.apache.qpid.tests.protocol.SpecificationTest;
-import org.apache.qpid.tests.utils.BrokerAdminUsingTestBase;
+import org.apache.qpid.tests.utils.BrokerAdminExtension;
 
-public class ChannelTest extends BrokerAdminUsingTestBase
+@ExtendWith({ BrokerAdminExtension.class, QpidTestInfoExtension.class })
+public class ChannelTest
 {
 
     @Test
     @SpecificationTest(section = "1.5.2.1", description = "open a channel for use")
-    public void channelOpen() throws Exception
+    public void channelOpen(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
 
-            interaction.negotiateOpen()
+            interaction.negotiateOpen(testInfo.virtualHostName())
                        .channelId(1)
                        .channel().open().consumeResponse(ChannelOpenOkBody.class);
         }
@@ -47,13 +53,13 @@ public class ChannelTest extends BrokerAdminUsingTestBase
 
     @Test
     @SpecificationTest(section = "1.5.2.5", description = "request a channel close")
-    public void noFrameCanBeSentOnClosedChannel() throws Exception
+    public void noFrameCanBeSentOnClosedChannel(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
 
-            interaction.negotiateOpen()
+            interaction.negotiateOpen(testInfo.virtualHostName())
                        .channelId(1)
                        .channel().open().consumeResponse(ChannelOpenOkBody.class)
                        .channel().close().consumeResponse(ChannelCloseOkBody.class)

@@ -18,6 +18,7 @@
  * under the License.
  *
  */
+
 package org.apache.qpid.tests.protocol.v1_0.transaction;
 
 import static org.hamcrest.CoreMatchers.anyOf;
@@ -33,6 +34,7 @@ import java.util.Map;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.Test;
 
 import org.apache.qpid.server.protocol.v1_0.type.Binary;
@@ -56,15 +58,18 @@ import org.apache.qpid.tests.protocol.v1_0.FrameTransport;
 import org.apache.qpid.tests.protocol.v1_0.Interaction;
 import org.apache.qpid.tests.protocol.v1_0.Utils;
 import org.apache.qpid.tests.utils.BrokerAdmin;
-import org.apache.qpid.tests.utils.BrokerAdminUsingTestBase;
+import org.apache.qpid.tests.utils.BrokerAdminExtension;
+import org.apache.qpid.tests.utils.QpidTestInfo;
+import org.apache.qpid.tests.utils.QpidTestInfoExtension;
 
-public class TransactionalTransferTest extends BrokerAdminUsingTestBase
+@ExtendWith({ BrokerAdminExtension.class, QpidTestInfoExtension.class })
+public class TransactionalTransferTest
 {
 
     @BeforeEach
-    public void setUp()
+    public void setUp(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo)
     {
-        getBrokerAdmin().createQueue(BrokerAdmin.TEST_QUEUE_NAME);
+        brokerAdmin.createQueue(testInfo.methodName());
     }
 
     @Test
@@ -72,14 +77,15 @@ public class TransactionalTransferTest extends BrokerAdminUsingTestBase
             description = "Transactional Posting[...]the transaction controller wishes to associate an outgoing"
                           + " transfer with a transaction, it MUST set the state of the transfer with a"
                           + "transactional-state carrying the appropriate transaction identifier.")
-    public void sendTransactionalPostingReceiverSettlesFirst() throws Exception
+    public void sendTransactionalPostingReceiverSettlesFirst(final BrokerAdmin brokerAdmin,
+                                                             final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final UnsignedInteger linkHandle = UnsignedInteger.ONE;
 
             final Interaction interaction = transport.newInteraction();
-            Disposition responseDisposition = interaction.negotiateOpen()
+            Disposition responseDisposition = interaction.openHostname(testInfo.virtualHostName()).negotiateOpen()
                                                          .begin()
                                                          .consumeResponse(Begin.class)
 
@@ -87,14 +93,14 @@ public class TransactionalTransferTest extends BrokerAdminUsingTestBase
                                                          .txnDeclare()
 
                                                          .attachRole(Role.SENDER)
-                                                         .attachTargetAddress(BrokerAdmin.TEST_QUEUE_NAME)
+                                                         .attachTargetAddress(testInfo.methodName())
                                                          .attachHandle(linkHandle)
                                                          .attach().consumeResponse(Attach.class)
                                                          .consumeResponse(Flow.class)
 
                                                          .transferDeliveryId()
                                                          .transferHandle(linkHandle)
-                                                         .transferPayloadData(getTestName())
+                                                         .transferPayloadData(testInfo.methodName())
                                                          .transferTransactionalStateFromCurrentTransaction()
                                                          .transfer()
                                                          .consume(Disposition.class, Flow.class);
@@ -108,8 +114,8 @@ public class TransactionalTransferTest extends BrokerAdminUsingTestBase
 
             assertThat(interaction.getCoordinatorLatestDeliveryState(), is(instanceOf(Accepted.class)));
         }
-        Object receivedMessage = Utils.receiveMessage(getBrokerAdmin(), BrokerAdmin.TEST_QUEUE_NAME);
-        assertThat(receivedMessage, is(equalTo(getTestName())));
+        Object receivedMessage = Utils.receiveMessage(brokerAdmin, testInfo);
+        assertThat(receivedMessage, is(equalTo(testInfo.methodName())));
     }
 
     @Test
@@ -117,14 +123,15 @@ public class TransactionalTransferTest extends BrokerAdminUsingTestBase
             description = "Transactional Posting[...]the transaction controller wishes to associate an outgoing"
                           + " transfer with a transaction, it MUST set the state of the transfer with a"
                           + "transactional-state carrying the appropriate transaction identifier.")
-    public void sendTransactionalPostingDischargeFail() throws Exception
+    public void sendTransactionalPostingDischargeFail(final BrokerAdmin brokerAdmin,
+                                                      final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final UnsignedInteger linkHandle = UnsignedInteger.ONE;
 
             final Interaction interaction = transport.newInteraction();
-            Disposition responseDisposition = interaction.negotiateOpen()
+            Disposition responseDisposition = interaction.openHostname(testInfo.virtualHostName()).negotiateOpen()
                                                          .begin()
                                                          .consumeResponse(Begin.class)
 
@@ -132,14 +139,14 @@ public class TransactionalTransferTest extends BrokerAdminUsingTestBase
                                                          .txnDeclare()
 
                                                          .attachRole(Role.SENDER)
-                                                         .attachTargetAddress(BrokerAdmin.TEST_QUEUE_NAME)
+                                                         .attachTargetAddress(testInfo.methodName())
                                                          .attachHandle(linkHandle)
                                                          .attach().consumeResponse(Attach.class)
                                                          .consumeResponse(Flow.class)
 
                                                          .transferDeliveryId()
                                                          .transferHandle(linkHandle)
-                                                         .transferPayloadData(getTestName())
+                                                         .transferPayloadData(testInfo.methodName())
                                                          .transferTransactionalStateFromCurrentTransaction()
                                                          .transfer()
                                                          .consume(Disposition.class, Flow.class);
@@ -153,9 +160,9 @@ public class TransactionalTransferTest extends BrokerAdminUsingTestBase
 
             assertThat(interaction.getCoordinatorLatestDeliveryState(), is(instanceOf(Accepted.class)));
 
-            final String content = getTestName() + "_2";
-            Utils.putMessageOnQueue(getBrokerAdmin(), BrokerAdmin.TEST_QUEUE_NAME, content);
-            assertThat(Utils.receiveMessage(getBrokerAdmin(), BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(content)));
+            final String content = testInfo.methodName() + "_2";
+            Utils.putMessageOnQueue(brokerAdmin, testInfo, testInfo.methodName(), content);
+            assertThat(Utils.receiveMessage(brokerAdmin, testInfo), is(equalTo(content)));
         }
     }
 
@@ -164,14 +171,15 @@ public class TransactionalTransferTest extends BrokerAdminUsingTestBase
             description = "Transactional Posting[...]the transaction controller wishes to associate an outgoing"
                           + " transfer with a transaction, it MUST set the state of the transfer with a"
                           + "transactional-state carrying the appropriate transaction identifier.")
-    public void sendTransactionalPostingReceiverSettlesSecond() throws Exception
+    public void sendTransactionalPostingReceiverSettlesSecond(final BrokerAdmin brokerAdmin,
+                                                              final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final UnsignedInteger linkHandle = UnsignedInteger.ONE;
 
             final Interaction interaction = transport.newInteraction();
-            Disposition responseDisposition = interaction.negotiateOpen()
+            Disposition responseDisposition = interaction.openHostname(testInfo.virtualHostName()).negotiateOpen()
                                                          .begin()
                                                          .consumeResponse(Begin.class)
 
@@ -179,7 +187,7 @@ public class TransactionalTransferTest extends BrokerAdminUsingTestBase
                                                          .txnDeclare()
 
                                                          .attachRole(Role.SENDER)
-                                                         .attachTargetAddress(BrokerAdmin.TEST_QUEUE_NAME)
+                                                         .attachTargetAddress(testInfo.methodName())
                                                          .attachRcvSettleMode(ReceiverSettleMode.SECOND)
                                                          .attachHandle(linkHandle)
                                                          .attach()
@@ -189,7 +197,7 @@ public class TransactionalTransferTest extends BrokerAdminUsingTestBase
 
                                                          .transferDeliveryId()
                                                          .transferHandle(linkHandle)
-                                                         .transferPayloadData(getTestName())
+                                                         .transferPayloadData(testInfo.methodName())
                                                          .transferTransactionalStateFromCurrentTransaction()
                                                          .transfer()
                                                          .consumeResponse(Disposition.class)
@@ -209,7 +217,7 @@ public class TransactionalTransferTest extends BrokerAdminUsingTestBase
 
             assertThat(interaction.getCoordinatorLatestDeliveryState(), is(instanceOf(Accepted.class)));
         }
-        assertThat(Utils.receiveMessage(getBrokerAdmin(), BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(getTestName())));
+        assertThat(Utils.receiveMessage(brokerAdmin, testInfo), is(equalTo(testInfo.methodName())));
     }
 
     @Test
@@ -217,29 +225,30 @@ public class TransactionalTransferTest extends BrokerAdminUsingTestBase
             description = "If the transaction controller wishes to associate an outgoing transfer with a transaction,"
                           + " it MUST set the state of the transfer with a transactional-state carrying the appropriate"
                           + " transaction identifier.")
-    public void sendTransactionalPostingTransferFailsDueToUnknownTransactionId() throws Exception
+    public void sendTransactionalPostingTransferFailsDueToUnknownTransactionId(final BrokerAdmin brokerAdmin,
+                                                                               final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final UnsignedInteger linkHandle = UnsignedInteger.ONE;
 
             final Interaction interaction = transport.newInteraction();
 
-            ErrorCarryingFrameBody response = interaction.negotiateOpen()
+            ErrorCarryingFrameBody response = interaction.openHostname(testInfo.virtualHostName()).negotiateOpen()
                                               .begin().consumeResponse(Begin.class)
 
                                               .txnAttachCoordinatorLink(UnsignedInteger.ZERO, this::coordinatorAttachExpected)
                                               .txnDeclare()
 
                                               .attachRole(Role.SENDER)
-                                              .attachTargetAddress(BrokerAdmin.TEST_QUEUE_NAME)
+                                              .attachTargetAddress(testInfo.methodName())
                                               .attachHandle(linkHandle)
                                               .attach().consumeResponse(Attach.class)
                                               .consumeResponse(Flow.class)
 
                                               .transferDeliveryId()
                                               .transferHandle(linkHandle)
-                                              .transferPayloadData(getTestName())
+                                              .transferPayloadData(testInfo.methodName())
                                               .transferTransactionalState(integerToBinary(Integer.MAX_VALUE))
                                               .transfer()
                                               .consume(ErrorCarryingFrameBody.class, Flow.class);
@@ -254,14 +263,15 @@ public class TransactionalTransferTest extends BrokerAdminUsingTestBase
     @Test
     @SpecificationTest(section = "4.4.2", description = "Transactional Retirement[...] The transaction controller might"
                                                         + "wish to associate the outcome of a delivery with a transaction.")
-    public void receiveTransactionalRetirementReceiverSettleFirst() throws Exception
+    public void receiveTransactionalRetirementReceiverSettleFirst(final BrokerAdmin brokerAdmin,
+                                                                  final QpidTestInfo testInfo) throws Exception
     {
-        Utils.putMessageOnQueue(getBrokerAdmin(), BrokerAdmin.TEST_QUEUE_NAME, getTestName());
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        Utils.putMessageOnQueue(brokerAdmin, testInfo, testInfo.methodName(), testInfo.methodName());
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
 
-            interaction.negotiateOpen()
+            interaction.openHostname(testInfo.virtualHostName()).negotiateOpen()
                        .begin()
                        .consumeResponse(Begin.class)
 
@@ -270,7 +280,7 @@ public class TransactionalTransferTest extends BrokerAdminUsingTestBase
 
                        .attachRole(Role.RECEIVER)
                        .attachHandle(UnsignedInteger.ONE)
-                       .attachSourceAddress(BrokerAdmin.TEST_QUEUE_NAME)
+                       .attachSourceAddress(testInfo.methodName())
                        .attachRcvSettleMode(ReceiverSettleMode.FIRST)
                        .attach()
                        .consumeResponse(Attach.class)
@@ -287,7 +297,7 @@ public class TransactionalTransferTest extends BrokerAdminUsingTestBase
                        .decodeLatestDelivery();
 
             Object data = interaction.getDecodedLatestDelivery();
-            assertThat(data, is(equalTo(getTestName())));
+            assertThat(data, is(equalTo(testInfo.methodName())));
 
             interaction.dispositionSettled(true)
                        .dispositionRole(Role.RECEIVER)
@@ -301,13 +311,14 @@ public class TransactionalTransferTest extends BrokerAdminUsingTestBase
     @Test
     @SpecificationTest(section = "4.4.2", description = "Transactional Retirement[...] The transaction controller might"
                                                         + "wish to associate the outcome of a delivery with a transaction.")
-    public void receiveTransactionalRetirementDischargeFail() throws Exception
+    public void receiveTransactionalRetirementDischargeFail(final BrokerAdmin brokerAdmin,
+                                                            final QpidTestInfo testInfo) throws Exception
     {
-        Utils.putMessageOnQueue(getBrokerAdmin(), BrokerAdmin.TEST_QUEUE_NAME, getTestName());
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        Utils.putMessageOnQueue(brokerAdmin, testInfo, testInfo.methodName(), testInfo.methodName());
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            interaction.negotiateOpen()
+            interaction.openHostname(testInfo.virtualHostName()).negotiateOpen()
                        .begin()
                        .consumeResponse(Begin.class)
 
@@ -316,7 +327,7 @@ public class TransactionalTransferTest extends BrokerAdminUsingTestBase
 
                        .attachRole(Role.RECEIVER)
                        .attachHandle(UnsignedInteger.ONE)
-                       .attachSourceAddress(BrokerAdmin.TEST_QUEUE_NAME)
+                       .attachSourceAddress(testInfo.methodName())
                        .attachRcvSettleMode(ReceiverSettleMode.FIRST)
                        .attach()
                        .consumeResponse(Attach.class)
@@ -333,7 +344,7 @@ public class TransactionalTransferTest extends BrokerAdminUsingTestBase
                        .decodeLatestDelivery();
 
             Object data = interaction.getDecodedLatestDelivery();
-            assertThat(data, is(equalTo(getTestName())));
+            assertThat(data, is(equalTo(testInfo.methodName())));
 
             interaction.dispositionSettled(true)
                        .dispositionRole(Role.RECEIVER)
@@ -342,8 +353,8 @@ public class TransactionalTransferTest extends BrokerAdminUsingTestBase
 
             assertThat(interaction.getCoordinatorLatestDeliveryState(), is(instanceOf(Accepted.class)));
 
-            Object receivedMessage = Utils.receiveMessage(getBrokerAdmin(), BrokerAdmin.TEST_QUEUE_NAME);
-            assertThat(receivedMessage, is(equalTo(getTestName())));
+            Object receivedMessage = Utils.receiveMessage(brokerAdmin, testInfo);
+            assertThat(receivedMessage, is(equalTo(testInfo.methodName())));
         }
     }
 
@@ -354,13 +365,14 @@ public class TransactionalTransferTest extends BrokerAdminUsingTestBase
                                                         + " of the delivery to a transactional-state with the desired"
                                                         + " transaction identifier and the outcome to be applied"
                                                         + " upon a successful discharge.")
-    public void receiveTransactionalRetirementDispositionFailsDueToUnknownTransactionId() throws Exception
+    public void receiveTransactionalRetirementDispositionFailsDueToUnknownTransactionId(final BrokerAdmin brokerAdmin,
+                                                                                        final QpidTestInfo testInfo) throws Exception
     {
-        Utils.putMessageOnQueue(getBrokerAdmin(), BrokerAdmin.TEST_QUEUE_NAME, getTestName());
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        Utils.putMessageOnQueue(brokerAdmin, testInfo, testInfo.methodName(), testInfo.methodName());
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            List<Transfer> transfers = interaction.negotiateOpen()
+            List<Transfer> transfers = interaction.openHostname(testInfo.virtualHostName()).negotiateOpen()
                                                   .begin().consumeResponse(Begin.class)
 
                                                   .txnAttachCoordinatorLink(UnsignedInteger.ZERO, this::coordinatorAttachExpected)
@@ -368,7 +380,7 @@ public class TransactionalTransferTest extends BrokerAdminUsingTestBase
 
                                                   .attachRole(Role.RECEIVER)
                                                   .attachHandle(UnsignedInteger.ONE)
-                                                  .attachSourceAddress(BrokerAdmin.TEST_QUEUE_NAME)
+                                                  .attachSourceAddress(testInfo.methodName())
                                                   .attachRcvSettleMode(ReceiverSettleMode.FIRST)
                                                   .attach().consumeResponse(Attach.class)
 
@@ -387,7 +399,7 @@ public class TransactionalTransferTest extends BrokerAdminUsingTestBase
             assertThat(deliveryId, is(notNullValue()));
 
             Object data = interaction.decodeLatestDelivery().getDecodedLatestDelivery();
-            assertThat(data, is(equalTo(getTestName())));
+            assertThat(data, is(equalTo(testInfo.methodName())));
 
             ErrorCarryingFrameBody response = interaction.dispositionSettled(true)
                                               .dispositionRole(Role.RECEIVER)
@@ -403,7 +415,7 @@ public class TransactionalTransferTest extends BrokerAdminUsingTestBase
         }
         finally
         {
-            assertThat(Utils.receiveMessage(getBrokerAdmin(), BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(getTestName())));
+            assertThat(Utils.receiveMessage(brokerAdmin, testInfo), is(equalTo(testInfo.methodName())));
         }
     }
 
@@ -411,13 +423,14 @@ public class TransactionalTransferTest extends BrokerAdminUsingTestBase
     @Test
     @SpecificationTest(section = "4.4.2", description = "Transactional Retirement[...] The transaction controller might"
                                                         + "wish to associate the outcome of a delivery with a transaction.")
-    public void receiveTransactionalRetirementReceiverSettleSecond() throws Exception
+    public void receiveTransactionalRetirementReceiverSettleSecond(final BrokerAdmin brokerAdmin,
+                                                                   final QpidTestInfo testInfo) throws Exception
     {
-        Utils.putMessageOnQueue(getBrokerAdmin(), BrokerAdmin.TEST_QUEUE_NAME, getTestName());
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        Utils.putMessageOnQueue(brokerAdmin, testInfo, testInfo.methodName(), testInfo.methodName());
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            interaction.negotiateOpen()
+            interaction.openHostname(testInfo.virtualHostName()).negotiateOpen()
                        .begin()
                        .consumeResponse(Begin.class)
 
@@ -426,7 +439,7 @@ public class TransactionalTransferTest extends BrokerAdminUsingTestBase
 
                        .attachRole(Role.RECEIVER)
                        .attachHandle(UnsignedInteger.ONE)
-                       .attachSourceAddress(BrokerAdmin.TEST_QUEUE_NAME)
+                       .attachSourceAddress(testInfo.methodName())
                        .attachRcvSettleMode(ReceiverSettleMode.SECOND)
                        .assertLatestResponse(Attach.class, this::assumeReceiverSettlesSecond)
                        .attach()
@@ -444,7 +457,7 @@ public class TransactionalTransferTest extends BrokerAdminUsingTestBase
                        .decodeLatestDelivery();
 
             Object data = interaction.getDecodedLatestDelivery();
-            assertThat(data, is(equalTo(getTestName())));
+            assertThat(data, is(equalTo(testInfo.methodName())));
 
             Disposition settledDisposition = interaction.dispositionSettled(false)
                                                     .dispositionRole(Role.RECEIVER)
@@ -469,13 +482,14 @@ public class TransactionalTransferTest extends BrokerAdminUsingTestBase
                                                         + " arrives at the resource, but can in fact occur at some "
                                                         + " later point and in ways not necessarily"
                                                         + " anticipated by the controller.")
-    public void receiveTransactionalAcquisitionReceiverSettleFirst() throws Exception
+    public void receiveTransactionalAcquisitionReceiverSettleFirst(final BrokerAdmin brokerAdmin,
+                                                                   final QpidTestInfo testInfo) throws Exception
     {
-        Utils.putMessageOnQueue(getBrokerAdmin(), BrokerAdmin.TEST_QUEUE_NAME, getTestName());
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        Utils.putMessageOnQueue(brokerAdmin, testInfo, testInfo.methodName(), testInfo.methodName());
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            interaction.negotiateOpen()
+            interaction.openHostname(testInfo.virtualHostName()).negotiateOpen()
                        .begin()
                        .consumeResponse(Begin.class)
 
@@ -484,7 +498,7 @@ public class TransactionalTransferTest extends BrokerAdminUsingTestBase
 
                        .attachRole(Role.RECEIVER)
                        .attachHandle(UnsignedInteger.ONE)
-                       .attachSourceAddress(BrokerAdmin.TEST_QUEUE_NAME)
+                       .attachSourceAddress(testInfo.methodName())
                        .attachRcvSettleMode(ReceiverSettleMode.FIRST)
                        .attach()
                        .consumeResponse(Attach.class)
@@ -504,7 +518,7 @@ public class TransactionalTransferTest extends BrokerAdminUsingTestBase
             assertThat(transfers.size(), is(equalTo(1)));
 
             Object data = interaction.decodeLatestDelivery().getDecodedLatestDelivery();
-            assertThat(data, is(equalTo(getTestName())));
+            assertThat(data, is(equalTo(testInfo.methodName())));
 
             interaction.dispositionSettled(true)
                        .dispositionRole(Role.RECEIVER)
@@ -518,9 +532,9 @@ public class TransactionalTransferTest extends BrokerAdminUsingTestBase
             assumeTrue(is(instanceOf(TransactionalState.class)).matches(transfer.getState()));
             assumeTrue(is(equalTo(interaction.getCurrentTransactionId())).matches(((TransactionalState) transfer.getState()).getTxnId()));
 
-            final String content = getTestName() + "_2";
-            Utils.putMessageOnQueue(getBrokerAdmin(), BrokerAdmin.TEST_QUEUE_NAME, content);
-            assertThat(Utils.receiveMessage(getBrokerAdmin(), BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(content)));
+            final String content = testInfo.methodName() + "_2";
+            Utils.putMessageOnQueue(brokerAdmin, testInfo, testInfo.methodName(), content);
+            assertThat(Utils.receiveMessage(brokerAdmin, testInfo), is(equalTo(content)));
         }
     }
 
@@ -531,13 +545,14 @@ public class TransactionalTransferTest extends BrokerAdminUsingTestBase
                                                         + " arrives at the resource, but can in fact occur at some "
                                                         + " later point and in ways not necessarily"
                                                         + " anticipated by the controller.")
-    public void receiveTransactionalAcquisitionDischargeFail() throws Exception
+    public void receiveTransactionalAcquisitionDischargeFail(final BrokerAdmin brokerAdmin,
+                                                             final QpidTestInfo testInfo) throws Exception
     {
-        Utils.putMessageOnQueue(getBrokerAdmin(), BrokerAdmin.TEST_QUEUE_NAME, getTestName());
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        Utils.putMessageOnQueue(brokerAdmin, testInfo, testInfo.methodName(), testInfo.methodName());
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            interaction.negotiateOpen()
+            interaction.openHostname(testInfo.virtualHostName()).negotiateOpen()
                        .begin()
                        .consumeResponse(Begin.class)
 
@@ -546,7 +561,7 @@ public class TransactionalTransferTest extends BrokerAdminUsingTestBase
 
                        .attachRole(Role.RECEIVER)
                        .attachHandle(UnsignedInteger.ONE)
-                       .attachSourceAddress(BrokerAdmin.TEST_QUEUE_NAME)
+                       .attachSourceAddress(testInfo.methodName())
                        .attachRcvSettleMode(ReceiverSettleMode.FIRST)
                        .attach()
                        .consumeResponse(Attach.class)
@@ -566,7 +581,7 @@ public class TransactionalTransferTest extends BrokerAdminUsingTestBase
             assertThat(transfers.size(), is(equalTo(1)));
 
             Object data = interaction.decodeLatestDelivery().getDecodedLatestDelivery();
-            assertThat(data, is(equalTo(getTestName())));
+            assertThat(data, is(equalTo(testInfo.methodName())));
 
             interaction.dispositionSettled(true)
                        .dispositionRole(Role.RECEIVER)
@@ -575,7 +590,7 @@ public class TransactionalTransferTest extends BrokerAdminUsingTestBase
 
             assertThat(interaction.getCoordinatorLatestDeliveryState(), is(instanceOf(Accepted.class)));
 
-            assertThat(Utils.receiveMessage(getBrokerAdmin(), BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(getTestName())));
+            assertThat(Utils.receiveMessage(brokerAdmin, testInfo), is(equalTo(testInfo.methodName())));
 
             Transfer transfer = transfers.get(0);
             assumeTrue(is(instanceOf(TransactionalState.class)).matches(transfer.getState()));
@@ -592,13 +607,14 @@ public class TransactionalTransferTest extends BrokerAdminUsingTestBase
                                                         + " will be associated. This state is determined by"
                                                         + " the controller by specifying a txn-id entry in the"
                                                         + " properties map of the flow frame.")
-    public void receiveTransactionalAcquisitionFlowFailsDueToUnknownTransactionId() throws Exception
+    public void receiveTransactionalAcquisitionFlowFailsDueToUnknownTransactionId(final BrokerAdmin brokerAdmin,
+                                                                                  final QpidTestInfo testInfo) throws Exception
     {
-        Utils.putMessageOnQueue(getBrokerAdmin(), BrokerAdmin.TEST_QUEUE_NAME, getTestName());
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        Utils.putMessageOnQueue(brokerAdmin, testInfo, testInfo.methodName(), testInfo.methodName());
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            ErrorCarryingFrameBody response = interaction.negotiateOpen()
+            ErrorCarryingFrameBody response = interaction.openHostname(testInfo.virtualHostName()).negotiateOpen()
                                               .begin()
                                               .consumeResponse(Begin.class)
 
@@ -607,7 +623,7 @@ public class TransactionalTransferTest extends BrokerAdminUsingTestBase
 
                                               .attachRole(Role.RECEIVER)
                                               .attachHandle(UnsignedInteger.ONE)
-                                              .attachSourceAddress(BrokerAdmin.TEST_QUEUE_NAME)
+                                              .attachSourceAddress(testInfo.methodName())
                                               .attachRcvSettleMode(ReceiverSettleMode.FIRST)
                                               .attach()
                                               .consumeResponse(Attach.class)
@@ -626,7 +642,7 @@ public class TransactionalTransferTest extends BrokerAdminUsingTestBase
         }
         finally
         {
-            assertThat(Utils.receiveMessage(getBrokerAdmin(), BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(getTestName())));
+            assertThat(Utils.receiveMessage(brokerAdmin, testInfo), is(equalTo(testInfo.methodName())));
         }
     }
 

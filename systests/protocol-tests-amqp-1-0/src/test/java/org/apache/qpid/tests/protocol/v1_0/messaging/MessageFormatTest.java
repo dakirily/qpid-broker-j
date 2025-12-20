@@ -24,7 +24,10 @@ import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
+import org.apache.qpid.tests.utils.QpidTestInfo;
+import org.apache.qpid.tests.utils.QpidTestInfoExtension;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.Test;
 
 import org.apache.qpid.server.bytebuffer.QpidByteBuffer;
@@ -38,15 +41,16 @@ import org.apache.qpid.tests.protocol.SpecificationTest;
 import org.apache.qpid.tests.protocol.v1_0.FrameTransport;
 import org.apache.qpid.tests.protocol.v1_0.Utils;
 import org.apache.qpid.tests.utils.BrokerAdmin;
-import org.apache.qpid.tests.utils.BrokerAdminUsingTestBase;
+import org.apache.qpid.tests.utils.BrokerAdminExtension;
 
-public class MessageFormatTest extends BrokerAdminUsingTestBase
+@ExtendWith({ BrokerAdminExtension.class, QpidTestInfoExtension.class })
+public class MessageFormatTest
 {
 
     @BeforeEach
-    public void setUp()
+    public void setUp(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo)
     {
-        getBrokerAdmin().createQueue(BrokerAdmin.TEST_QUEUE_NAME);
+        brokerAdmin.createQueue(testInfo.methodName());
     }
 
     @Test
@@ -55,17 +59,18 @@ public class MessageFormatTest extends BrokerAdminUsingTestBase
                           + "This field MUST be specified for the first transfer of a multi-transfer message and can "
                           + "only be omitted for continuation transfers. It is an error if the message-format on a "
                           + "continuation transfer differs from the message-format on the first transfer of a delivery.")
-    public void differentMessageFormatOnSameDeliveryFails() throws Exception
+    public void differentMessageFormatOnSameDeliveryFails(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
-            QpidByteBuffer[] payloads = Utils.splitPayload(getTestName(), 2);
+            QpidByteBuffer[] payloads = Utils.splitPayload(testInfo.methodName(), 2);
 
             transport.newInteraction()
+                     .openHostname(testInfo.virtualHostName())
                      .negotiateOpen()
                      .begin().consumeResponse(Begin.class)
                      .attachRole(Role.SENDER)
-                     .attachTargetAddress(BrokerAdmin.TEST_QUEUE_NAME)
+                     .attachTargetAddress(testInfo.methodName())
                      .attach().consumeResponse(Attach.class)
                      .consumeResponse(Flow.class)
                      .transferMore(true)
@@ -88,8 +93,8 @@ public class MessageFormatTest extends BrokerAdminUsingTestBase
             }
         }
 
-        final String testMessage = getTestName() + "_2";
-        Utils.putMessageOnQueue(getBrokerAdmin(), BrokerAdmin.TEST_QUEUE_NAME, testMessage);
-        assertThat(Utils.receiveMessage(getBrokerAdmin(), BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(testMessage)));
+        final String testMessage = testInfo.methodName() + "_2";
+        Utils.putMessageOnQueue(brokerAdmin, testInfo, testInfo.methodName(), testMessage);
+        assertThat(Utils.receiveMessage(brokerAdmin, testInfo), is(equalTo(testMessage)));
     }
 }

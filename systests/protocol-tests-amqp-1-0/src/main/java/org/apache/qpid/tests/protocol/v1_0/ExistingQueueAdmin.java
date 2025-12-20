@@ -47,6 +47,13 @@ public class ExistingQueueAdmin implements QueueAdmin
     private static final boolean DRAIN_UNSETTLED =
             Boolean.getBoolean("qpid.tests.protocol.broker.external.existingQueueAdmin.drainUnsettled");
 
+    final String _virtualHostName;
+
+    public ExistingQueueAdmin(final String virtualHostName)
+    {
+        _virtualHostName = virtualHostName;
+    }
+
     @Override
     public void createQueue(final BrokerAdmin brokerAdmin, final String queueName)
     {
@@ -100,7 +107,7 @@ public class ExistingQueueAdmin implements QueueAdmin
         try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            interaction.negotiateOpen()
+            interaction.openHostname(_virtualHostName).negotiateOpen()
                        .begin().consumeResponse(Begin.class)
                        .attachName(ADMIN_LINK_NAME)
                        .attachRole(Role.SENDER)
@@ -142,7 +149,7 @@ public class ExistingQueueAdmin implements QueueAdmin
         try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            interaction.negotiateOpen()
+            interaction.openHostname(_virtualHostName).negotiateOpen()
                        .begin().consumeResponse()
                        .attachName(ADMIN_LINK_NAME)
                        .attachRole(Role.RECEIVER)

@@ -24,14 +24,16 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.nio.charset.StandardCharsets;
 
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.Test;
 
 import org.apache.qpid.tests.protocol.SpecificationTest;
 import org.apache.qpid.tests.protocol.v1_0.FrameTransport;
 import org.apache.qpid.tests.utils.BrokerAdmin;
-import org.apache.qpid.tests.utils.BrokerAdminUsingTestBase;
+import org.apache.qpid.tests.utils.BrokerAdminExtension;
 
-public class ProtocolHeaderTest extends BrokerAdminUsingTestBase
+@ExtendWith({ BrokerAdminExtension.class })
+public class ProtocolHeaderTest
 {
     @Test
     @SpecificationTest(section = "2.2",
@@ -39,9 +41,9 @@ public class ProtocolHeaderTest extends BrokerAdminUsingTestBase
                           + "the protocol version used on the connection. The protocol header consists of the upper case ASCII letters “AMQP” "
                           + "followed by a protocol id of zero, followed by three unsigned bytes representing the major, minor, and revision of "
                           + "the protocol version (currently 1 (MAJOR), 0 (MINOR), 0 (REVISION)).")
-    public void successfulHeaderExchange() throws Exception
+    public void successfulHeaderExchange(final BrokerAdmin brokerAdmin) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin(), BrokerAdmin.PortType.ANONYMOUS_AMQP).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin, BrokerAdmin.PortType.ANONYMOUS_AMQP).connect())
         {
             byte[] protocolHeader = "AMQP\0\1\0\0".getBytes(StandardCharsets.UTF_8);
             final byte[] response = transport.newInteraction()
@@ -57,10 +59,10 @@ public class ProtocolHeaderTest extends BrokerAdminUsingTestBase
             description = " A client might request use of a protocol id that is unacceptable to a server. [...]"
                           + "In this case, the server MUST send a protocol header with an acceptable protocol id"
                           + "(and version) and then close the socket.")
-    public void unacceptableProtocolIdSent_SaslAcceptable() throws Exception
+    public void unacceptableProtocolIdSent_SaslAcceptable(final BrokerAdmin brokerAdmin) throws Exception
     {
-        assumeTrue(getBrokerAdmin().isSASLSupported());
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin(), BrokerAdmin.PortType.AMQP).connect())
+        assumeTrue(brokerAdmin.isSASLSupported());
+        try (FrameTransport transport = new FrameTransport(brokerAdmin, BrokerAdmin.PortType.AMQP).connect())
         {
 
             byte[] rawHeaderBytes = "AMQP\0\1\0\0".getBytes(StandardCharsets.UTF_8);

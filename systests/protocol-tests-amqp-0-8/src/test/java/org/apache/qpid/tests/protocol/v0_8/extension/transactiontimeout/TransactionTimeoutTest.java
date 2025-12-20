@@ -17,6 +17,7 @@
  * under the License.
  *
  */
+
 package org.apache.qpid.tests.protocol.v0_8.extension.transactiontimeout;
 
 import static org.apache.qpid.tests.utils.BrokerAdmin.KIND_BROKER_J;
@@ -27,7 +28,9 @@ import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.util.Map;
 
+import org.apache.qpid.tests.utils.RunBrokerAdmin;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.Test;
 
 import org.apache.qpid.server.protocol.ErrorCodes;
@@ -44,25 +47,27 @@ import org.apache.qpid.server.protocol.v0_8.transport.TxSelectOkBody;
 import org.apache.qpid.tests.protocol.v0_8.FrameTransport;
 import org.apache.qpid.tests.protocol.v0_8.Interaction;
 import org.apache.qpid.tests.utils.BrokerAdmin;
-import org.apache.qpid.tests.utils.BrokerAdminUsingTestBase;
+import org.apache.qpid.tests.utils.BrokerAdminExtension;
 import org.apache.qpid.tests.utils.BrokerSpecific;
 import org.apache.qpid.tests.utils.ConfigItem;
 
+@RunBrokerAdmin(type = "EMBEDDED_BROKER_PER_CLASS")
+@ExtendWith({ BrokerAdminExtension.class })
 @BrokerSpecific(kind = KIND_BROKER_J)
 @ConfigItem(name = "virtualhost.storeTransactionOpenTimeoutClose", value = "1000")
-public class TransactionTimeoutTest extends BrokerAdminUsingTestBase
+public class TransactionTimeoutTest
 {
 
     @BeforeEach
-    public void setUp()
+    public void setUp(final BrokerAdmin brokerAdmin)
     {
-        getBrokerAdmin().createQueue(BrokerAdmin.TEST_QUEUE_NAME);
+        brokerAdmin.createQueue(BrokerAdmin.TEST_QUEUE_NAME);
     }
 
     @Test
-    public void publishTransactionTimeout() throws Exception
+    public void publishTransactionTimeout(final BrokerAdmin brokerAdmin) throws Exception
     {
-        try(FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try(FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
             interaction.negotiateOpen()
@@ -77,27 +82,27 @@ public class TransactionTimeoutTest extends BrokerAdminUsingTestBase
                        .content("Test")
                        .publishMessage()
                        .exchange().declarePassive(true).declare().consumeResponse(ExchangeDeclareOkBody.class);
-            assertThat(getBrokerAdmin().getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(0)));
+            assertThat(brokerAdmin.getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(0)));
 
             final ConnectionCloseBody close = interaction.consumeResponse().getLatestResponse(ConnectionCloseBody.class);
             assertThat(close.getReplyCode(), is(equalTo(ErrorCodes.RESOURCE_ERROR)));
             assertThat(close.getReplyText().toString(), containsString("transaction timed out"));
             interaction.connection().closeOk();
 
-            assertThat(getBrokerAdmin().getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(0)));
+            assertThat(brokerAdmin.getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(0)));
         }
     }
 
     @Test
-    public void consumeTransactionTimeout() throws Exception
+    public void consumeTransactionTimeout(final BrokerAdmin brokerAdmin) throws Exception
     {
-        getBrokerAdmin().putMessageOnQueue(BrokerAdmin.TEST_QUEUE_NAME, "message");
+        brokerAdmin.putMessageOnQueue(BrokerAdmin.TEST_QUEUE_NAME, "message");
 
-        try(FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try(FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
 
-            assertThat(getBrokerAdmin().getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(1)));
+            assertThat(brokerAdmin.getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(1)));
 
             interaction.negotiateOpen()
                        .channel().open().consumeResponse(ChannelOpenOkBody.class)
@@ -122,14 +127,14 @@ public class TransactionTimeoutTest extends BrokerAdminUsingTestBase
                        .ack()
                        .exchange().declarePassive(true).declare().consumeResponse(ExchangeDeclareOkBody.class);
 
-            assertThat(getBrokerAdmin().getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(1)));
+            assertThat(brokerAdmin.getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(1)));
 
             final ConnectionCloseBody close = interaction.consumeResponse().getLatestResponse(ConnectionCloseBody.class);
             assertThat(close.getReplyCode(), is(equalTo(ErrorCodes.RESOURCE_ERROR)));
             assertThat(close.getReplyText().toString(), containsString("transaction timed out"));
             interaction.connection().closeOk();
 
-            assertThat(getBrokerAdmin().getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(1)));
+            assertThat(brokerAdmin.getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(1)));
         }
     }
 

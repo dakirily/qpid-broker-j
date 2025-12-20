@@ -65,13 +65,14 @@
         <dependency>
           <groupId>org.apache.qpid</groupId>
           <artifactId>qpid-jms-client</artifactId>
+          <version>${qpid-jms-client-1-x-version}</version>
           <scope>test</scope>
         </dependency>
       </dependencies>
     </profile>
 
     <profile>
-      <id>excludesTestsIfNotAmqp1-0</id>
+      <id>skipsTestsIfNotAmqp1-0</id>
       <activation>
         <property>
           <name>enableAmqp0-x</name>
@@ -83,9 +84,27 @@
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-surefire-plugin</artifactId>
             <configuration>
-              <excludes>
-                <exclude>**/*</exclude>
-              </excludes>
+              <skipTests>true</skipTests>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+
+    <profile>
+      <id>skipsTestsIfAmqp1-0</id>
+      <activation>
+        <property>
+          <name>!enableAmqp0-x</name>
+        </property>
+      </activation>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-surefire-plugin</artifactId>
+            <configuration>
+              <skipTests>true</skipTests>
             </configuration>
           </plugin>
         </plugins>

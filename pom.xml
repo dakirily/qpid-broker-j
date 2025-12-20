@@ -99,6 +99,9 @@
     <profile.qpid.tests.mms.messagestore.persistence>true</profile.qpid.tests.mms.messagestore.persistence>
     <profile.virtualhostnode.context.blueprint>{"type":"ProvidedStore","globalAddressDomains":"${dollar.sign}{qpid.globalAddressDomains}"}</profile.virtualhostnode.context.blueprint>
 
+    <!-- javax | jakarta -->
+    <jms.api>jakarta</jms.api>
+
     <dollar.sign>$</dollar.sign>
     <at.sign>@</at.sign>
 
@@ -118,6 +121,7 @@
 
     <geronimo-jms-1-1-version>1.1.1</geronimo-jms-1-1-version>
     <geronimo-jms-2-0-version>1.0-alpha-2</geronimo-jms-2-0-version>
+    <jakarta-jms-version>3.1.0</jakarta-jms-version>
     <asm-version>9.9</asm-version>
 
     <velocity-version>1.4</velocity-version>
@@ -131,12 +135,14 @@
     <!-- test dependency version numbers -->
     <junit-version>6.0.1</junit-version>
     <mockito-version>5.20.0</mockito-version>
+    <awaitility-version>4.3.0</awaitility-version>
     <netty-version>4.2.7.Final</netty-version>
     <hamcrest-version>3.0</hamcrest-version>
     <maven-resolver-provider-version>3.8.6</maven-resolver-provider-version>
     <maven-resolver-version>1.9.22</maven-resolver-version>
     <httpclient-version>5.5.1</httpclient-version>
-    <qpid-jms-client-version>1.15.0</qpid-jms-client-version>
+    <qpid-jms-client-1-x-version>1.15.0</qpid-jms-client-1-x-version>
+    <qpid-jms-client-2-x-version>2.9.0</qpid-jms-client-2-x-version>
     <qpid-jms-client-amqp-0-x-version>6.4.0</qpid-jms-client-amqp-0-x-version>
     <nashorn-version>15.7</nashorn-version>
 
@@ -200,8 +206,10 @@
     <module>qpid-test-utils</module>
     <module>systests/systests-utils</module>
     <module>systests/qpid-systests-jms-core</module>
+    <module>systests/qpid-systests-jms-core-jakarta</module>
     <module>systests/qpid-systests-jms_1.1</module>
     <module>systests/qpid-systests-jms_2.0</module>
+    <module>systests/qpid-systests-jms_3.1</module>
     <module>systests/qpid-systests-http-management</module>
     <module>systests/protocol-tests-core</module>
     <module>systests/protocol-tests-amqp-0-8</module>
@@ -486,6 +494,12 @@
 
       <dependency>
         <groupId>org.apache.qpid</groupId>
+        <artifactId>qpid-systests-jms-core-jakarta</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>org.apache.qpid</groupId>
         <artifactId>qpid-systests-jms_1.1</artifactId>
         <version>${project.version}</version>
       </dependency>
@@ -519,21 +533,6 @@
         <groupId>org.apache.qpid</groupId>
         <artifactId>qpid-client</artifactId>
         <version>${qpid-jms-client-amqp-0-x-version}</version>
-      </dependency>
-      <dependency>
-        <groupId>org.apache.qpid</groupId>
-        <artifactId>qpid-jms-client</artifactId>
-        <version>${qpid-jms-client-version}</version>
-        <exclusions>
-          <exclusion>
-            <groupId>io.netty</groupId>
-            <artifactId>netty-transport-native-epoll</artifactId>
-          </exclusion>
-          <exclusion>
-            <groupId>io.netty</groupId>
-            <artifactId>netty-transport-native-kqueue</artifactId>
-          </exclusion>
-        </exclusions>
       </dependency>
       <dependency>
         <groupId>com.sleepycat</groupId>
@@ -768,6 +767,11 @@
         <artifactId>mockito-core</artifactId>
         <version>${mockito-version}</version>
         <scope>test</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.awaitility</groupId>
+        <artifactId>awaitility</artifactId>
+        <version>${awaitility-version}</version>
       </dependency>
       <dependency>
         <groupId>org.openjdk.nashorn</groupId>
@@ -1557,6 +1561,33 @@
         <profile.test.amqp_port_protocols>["AMQP_1_0"]</profile.test.amqp_port_protocols>
         <profile.virtualhostnode.type>DERBY</profile.virtualhostnode.type>
         <profile.virtualhostnode.context.blueprint>{"type":"ProvidedStore","globalAddressDomains":"${dollar.sign}{qpid.globalAddressDomains}"}</profile.virtualhostnode.context.blueprint>
+      </properties>
+    </profile>
+
+    <!-- JMS profiles -->
+    <profile>
+      <id>jms-javax</id>
+      <activation>
+        <property>
+          <name>jms.api</name>
+          <value>javax</value>
+        </property>
+      </activation>
+      <properties>
+        <qpid-jms-client.version>${qpid-jms-client-1-x-version}</qpid-jms-client.version>
+      </properties>
+    </profile>
+
+    <profile>
+      <id>jms-jakarta</id>
+      <activation>
+        <property>
+          <name>jms.api</name>
+          <value>jakarta</value>
+        </property>
+      </activation>
+      <properties>
+        <qpid-jms-client.version>${qpid-jms-client-2-x-version}</qpid-jms-client.version>
       </properties>
     </profile>
 

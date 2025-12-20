@@ -18,6 +18,7 @@
  * under the License.
  *
  */
+
 package org.apache.qpid.tests.protocol.v1_0.extensions.filter;
 
 import static org.apache.qpid.tests.utils.BrokerAdmin.KIND_BROKER_J;
@@ -35,6 +36,10 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.apache.qpid.tests.utils.QpidTestInfo;
+import org.apache.qpid.tests.utils.QpidTestInfoExtension;
+import org.apache.qpid.tests.utils.VirtualhostContextVariable;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -57,31 +62,31 @@ import org.apache.qpid.tests.protocol.v1_0.Interaction;
 import org.apache.qpid.tests.protocol.v1_0.MessageEncoder;
 import org.apache.qpid.tests.protocol.v1_0.extensions.type.TestFilter;
 import org.apache.qpid.tests.utils.BrokerAdmin;
-import org.apache.qpid.tests.utils.BrokerAdminUsingTestBase;
+import org.apache.qpid.tests.utils.BrokerAdminExtension;
 import org.apache.qpid.tests.utils.BrokerSpecific;
-import org.apache.qpid.tests.utils.ConfigItem;
 
+@ExtendWith({ BrokerAdminExtension.class, QpidTestInfoExtension.class })
 @BrokerSpecific(kind = KIND_BROKER_J)
-@ConfigItem(name = "qpid.tests.mms.messagestore.persistence", value = "false", jvm = true)
-public class FilterTest extends BrokerAdminUsingTestBase
+@VirtualhostContextVariable(name = "qpid.tests.mms.messagestore.persistence", value = "false")
+public class FilterTest
 {
     @BeforeEach
-    public void setUp()
+    public void setUp(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo)
     {
-        getBrokerAdmin().createQueue(BrokerAdmin.TEST_QUEUE_NAME);
+        brokerAdmin.createQueue(testInfo.methodName());
     }
 
     @Test
     @SpecificationTest(section = "3.5.1", description = "A source can restrict the messages transferred from a source by specifying a filter.")
-    public void selectorFilter() throws Exception
+    public void selectorFilter(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            interaction.negotiateOpen()
+            interaction.openHostname(testInfo.virtualHostName()).negotiateOpen()
                        .begin().consumeResponse(Begin.class)
                        .attachRole(Role.SENDER)
-                       .attachTargetAddress(BrokerAdmin.TEST_QUEUE_NAME)
+                       .attachTargetAddress(testInfo.methodName())
                        .attach().consumeResponse(Attach.class)
                        .consumeResponse(Flow.class);
             Flow flow = interaction.getLatestResponse(Flow.class);
@@ -90,7 +95,7 @@ public class FilterTest extends BrokerAdminUsingTestBase
             for (int i = 0; i < 2; i++)
             {
                 QpidByteBuffer payload =
-                        generateMessagePayloadWithApplicationProperties(Map.of("index", i), getTestName());
+                        generateMessagePayloadWithApplicationProperties(Map.of("index", i), testInfo.methodName());
                 interaction.transferPayload(payload)
                            .transferSettled(true)
                            .transfer();
@@ -98,13 +103,13 @@ public class FilterTest extends BrokerAdminUsingTestBase
             interaction.detachClose(true).detach().close().sync();
         }
 
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            interaction.negotiateOpen()
+            interaction.openHostname(testInfo.virtualHostName()).negotiateOpen()
                        .begin().consumeResponse(Begin.class)
                        .attachRole(Role.RECEIVER)
-                       .attachSourceAddress(BrokerAdmin.TEST_QUEUE_NAME)
+                       .attachSourceAddress(testInfo.methodName())
                        .attachRcvSettleMode(ReceiverSettleMode.FIRST)
                        .attachSourceFilter(Map.of(Symbol.valueOf("selector-filter"), new JMSSelectorFilter("index=1")))
                        .attach().consumeResponse()
@@ -117,7 +122,7 @@ public class FilterTest extends BrokerAdminUsingTestBase
                        .flow();
 
             Object data = interaction.receiveDelivery().decodeLatestDelivery().getDecodedLatestDelivery();
-            assertThat(data, is(equalTo(getTestName())));
+            assertThat(data, is(equalTo(testInfo.methodName())));
 
             Map<String, Object> applicationProperties = interaction.getLatestDeliveryApplicationProperties();
             assertThat(applicationProperties, is(notNullValue()));
@@ -134,18 +139,18 @@ public class FilterTest extends BrokerAdminUsingTestBase
 
     @Test
     @SpecificationTest(section = "3.5.1", description = "")
-    public void unsupportedFilter() throws Exception
+    public void unsupportedFilter(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
             final Map<Symbol, Filter> filters = new HashMap<>();
             filters.put(Symbol.valueOf("selector-filter"), new JMSSelectorFilter("index=1"));
             filters.put(Symbol.valueOf("test-filter"), new TestFilter("foo"));
-            final Attach responseAttach = interaction.negotiateOpen()
+            final Attach responseAttach = interaction.openHostname(testInfo.virtualHostName()).negotiateOpen()
                                                      .begin().consumeResponse(Begin.class)
                                                      .attachRole(Role.RECEIVER)
-                                                     .attachSourceAddress(BrokerAdmin.TEST_QUEUE_NAME)
+                                                     .attachSourceAddress(testInfo.methodName())
                                                      .attachSourceFilter(filters)
                                                      .attach().consumeResponse()
                                                      .getLatestResponse(Attach.class);

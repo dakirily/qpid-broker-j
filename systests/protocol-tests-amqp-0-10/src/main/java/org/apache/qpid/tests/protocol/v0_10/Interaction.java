@@ -168,6 +168,14 @@ public class Interaction extends AbstractInteraction<Interaction>
         return this;
     }
 
+    public Interaction negotiateOpen(final String virtualHostName) throws Exception
+    {
+        authenticateConnection().connection().tuneOk()
+                .connection().openVirtualHost(virtualHostName)
+                .consumeResponse(ConnectionOpenOk.class);
+        return this;
+    }
+
     public Interaction authenticateConnection() throws Exception
     {
         if (_portType == BrokerAdmin.PortType.ANONYMOUS_AMQP || _portType == BrokerAdmin.PortType.ANONYMOUS_AMQPWS)

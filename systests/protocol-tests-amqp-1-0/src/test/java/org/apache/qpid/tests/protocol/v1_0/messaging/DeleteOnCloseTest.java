@@ -30,6 +30,9 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.qpid.tests.utils.QpidTestInfo;
+import org.apache.qpid.tests.utils.QpidTestInfoExtension;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.Test;
 
 import org.apache.qpid.server.protocol.v1_0.Session_1_0;
@@ -48,24 +51,24 @@ import org.apache.qpid.tests.protocol.v1_0.FrameTransport;
 import org.apache.qpid.tests.protocol.v1_0.Interaction;
 import org.apache.qpid.tests.protocol.v1_0.Utils;
 import org.apache.qpid.tests.utils.BrokerAdmin;
-import org.apache.qpid.tests.utils.BrokerAdminUsingTestBase;
+import org.apache.qpid.tests.utils.BrokerAdminExtension;
 
-public class DeleteOnCloseTest extends BrokerAdminUsingTestBase
+@ExtendWith({ BrokerAdminExtension.class, QpidTestInfoExtension.class })
+public class DeleteOnCloseTest
 {
-
     @Test
     @SpecificationTest(section = "3.5.10",
             description = "A node dynamically created with this lifetime policy will be deleted at the point that the link which caused its\n"
                           + "creation ceases to exist.")
-    public void deleteOnCloseOnSource() throws Exception
+    public void deleteOnCloseOnSource(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             Source source = new Source();
             source.setDynamicNodeProperties(Map.of(Session_1_0.LIFETIME_POLICY, new DeleteOnClose()));
             source.setDynamic(true);
             final Interaction interaction = transport.newInteraction();
-            final Attach attachResponse = interaction.negotiateOpen()
+            final Attach attachResponse = interaction.openHostname(testInfo.virtualHostName()).negotiateOpen()
                                                      .begin().consumeResponse(Begin.class)
                                                      .attachRole(Role.RECEIVER)
                                                      .attachSource(source)
@@ -77,14 +80,14 @@ public class DeleteOnCloseTest extends BrokerAdminUsingTestBase
 
             try
             {
-                assertThat(Utils.doesNodeExist(getBrokerAdmin(), newTempQueueAddress), is(true));
+                assertThat(Utils.doesNodeExist(brokerAdmin, testInfo, newTempQueueAddress), is(true));
             }
             finally
             {
                 interaction.detachClose(true).detach().consumeResponse().getLatestResponse(Detach.class);
             }
 
-            assertThat(Utils.doesNodeExist(getBrokerAdmin(), newTempQueueAddress), is(false));
+            assertThat(Utils.doesNodeExist(brokerAdmin, testInfo, newTempQueueAddress), is(false));
         }
     }
 
@@ -92,15 +95,15 @@ public class DeleteOnCloseTest extends BrokerAdminUsingTestBase
     @SpecificationTest(section = "3.5.10",
             description = "A node dynamically created with this lifetime policy will be deleted at the point that the link which caused its\n"
                           + "creation ceases to exist.")
-    public void deleteOnCloseOnTarget() throws Exception
+    public void deleteOnCloseOnTarget(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             Target target = new Target();
             target.setDynamicNodeProperties(Map.of(Session_1_0.LIFETIME_POLICY, new DeleteOnClose()));
             target.setDynamic(true);
             final Interaction interaction = transport.newInteraction();
-            final Attach attachResponse = interaction.negotiateOpen()
+            final Attach attachResponse = interaction.openHostname(testInfo.virtualHostName()).negotiateOpen()
                                                      .begin().consumeResponse(Begin.class)
                                                      .attachRole(Role.SENDER)
                                                      .attachTarget(target)
@@ -110,19 +113,19 @@ public class DeleteOnCloseTest extends BrokerAdminUsingTestBase
             assertThat(attachResponse.getTarget(), is(notNullValue()));
             final String newTempQueueAddress = ((Target) attachResponse.getTarget()).getAddress();
 
-            assertThat(Utils.doesNodeExist(getBrokerAdmin(), newTempQueueAddress), is(true));
+            assertThat(Utils.doesNodeExist(brokerAdmin, testInfo, newTempQueueAddress), is(true));
 
             interaction.consumeResponse().getLatestResponse(Flow.class);
             try
             {
-                assertThat(Utils.doesNodeExist(getBrokerAdmin(), newTempQueueAddress), is(true));
+                assertThat(Utils.doesNodeExist(brokerAdmin, testInfo, newTempQueueAddress), is(true));
             }
             finally
             {
                 interaction.detachClose(true).detach().consumeResponse().getLatestResponse(Detach.class);
             }
 
-            assertThat(Utils.doesNodeExist(getBrokerAdmin(), newTempQueueAddress), is(false));
+            assertThat(Utils.doesNodeExist(brokerAdmin, testInfo, newTempQueueAddress), is(false));
         }
     }
 
@@ -130,15 +133,15 @@ public class DeleteOnCloseTest extends BrokerAdminUsingTestBase
     @SpecificationTest(section = "3.5.10",
             description = "A node dynamically created with this lifetime policy will be deleted at the point that the link which caused its\n"
                           + "creation ceases to exist.")
-    public void doesNotDeleteOnDetach() throws Exception
+    public void doesNotDeleteOnDetach(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             Source source = new Source();
             source.setDynamicNodeProperties(Map.of(Session_1_0.LIFETIME_POLICY, new DeleteOnClose()));
             source.setDynamic(true);
             final Interaction interaction = transport.newInteraction();
-            final Attach attachResponse = interaction.negotiateOpen()
+            final Attach attachResponse = interaction.openHostname(testInfo.virtualHostName()).negotiateOpen()
                                                      .begin().consumeResponse(Begin.class)
                                                      .attachRole(Role.RECEIVER)
                                                      .attachSource(source)
@@ -150,14 +153,14 @@ public class DeleteOnCloseTest extends BrokerAdminUsingTestBase
 
             try
             {
-                assertThat(Utils.doesNodeExist(getBrokerAdmin(), newTempQueueAddress), is(true));
+                assertThat(Utils.doesNodeExist(brokerAdmin, testInfo, newTempQueueAddress), is(true));
             }
             finally
             {
                 interaction.detach().consumeResponse().getLatestResponse(Detach.class);
             }
 
-            assertThat(Utils.doesNodeExist(getBrokerAdmin(), newTempQueueAddress), is(true));
+            assertThat(Utils.doesNodeExist(brokerAdmin, testInfo, newTempQueueAddress), is(true));
 
             interaction.attach()
                        .consumeResponse(Attach.class)
@@ -165,24 +168,24 @@ public class DeleteOnCloseTest extends BrokerAdminUsingTestBase
                        .detach()
                        .consumeResponse()
                        .getLatestResponse(Detach.class);
-            assertThat(Utils.doesNodeExist(getBrokerAdmin(), newTempQueueAddress), is(false));
+            assertThat(Utils.doesNodeExist(brokerAdmin, testInfo, newTempQueueAddress), is(false));
         }
     }
 
     @Test
-    public void dynamicNodeIsPersisted() throws Exception
+    public void dynamicNodeIsPersisted(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        assumeTrue(getBrokerAdmin().supportsRestart());
+        assumeTrue(brokerAdmin.supportsRestart());
 
         final String newTempQueueAddress;
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             Source source = new Source();
             source.setDynamicNodeProperties(Map.of(Session_1_0.LIFETIME_POLICY, new DeleteOnClose()));
             source.setExpiryPolicy(TerminusExpiryPolicy.NEVER);
             source.setDynamic(true);
             final Interaction interaction = transport.newInteraction();
-            final Attach attachResponse = interaction.negotiateOpen()
+            final Attach attachResponse = interaction.openHostname(testInfo.virtualHostName()).negotiateOpen()
                                                      .begin().consumeResponse(Begin.class)
                                                      .attachRole(Role.RECEIVER)
                                                      .attachSource(source)
@@ -192,12 +195,12 @@ public class DeleteOnCloseTest extends BrokerAdminUsingTestBase
             assertThat(attachResponse.getSource(), is(notNullValue()));
             newTempQueueAddress = ((Source) attachResponse.getSource()).getAddress();
 
-            assertThat(Utils.doesNodeExist(getBrokerAdmin(), newTempQueueAddress), is(true));
+            assertThat(Utils.doesNodeExist(brokerAdmin, testInfo, newTempQueueAddress), is(true));
         }
 
-        final CompletableFuture<Void> restart = getBrokerAdmin().restart();
+        final CompletableFuture<Void> restart = brokerAdmin.restart();
         restart.get(BrokerAdmin.RESTART_TIMEOUT, TimeUnit.MILLISECONDS);
-        assertThat(Utils.doesNodeExist(getBrokerAdmin(), newTempQueueAddress), is(true));
+        assertThat(Utils.doesNodeExist(brokerAdmin, testInfo, newTempQueueAddress), is(true));
     }
 
     private void assumeAttach(final Response<?> response)

@@ -32,7 +32,10 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 
+import org.apache.qpid.tests.utils.QpidTestInfo;
+import org.apache.qpid.tests.utils.QpidTestInfoExtension;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.Test;
 
 import org.apache.qpid.server.protocol.v1_0.type.Binary;
@@ -47,9 +50,10 @@ import org.apache.qpid.tests.protocol.v1_0.FrameTransport;
 import org.apache.qpid.tests.protocol.v1_0.Interaction;
 import org.apache.qpid.tests.utils.AddOAuth2MockProvider;
 import org.apache.qpid.tests.utils.BrokerAdmin;
-import org.apache.qpid.tests.utils.BrokerAdminUsingTestBase;
+import org.apache.qpid.tests.utils.BrokerAdminExtension;
 
-public class SaslTest extends BrokerAdminUsingTestBase
+@ExtendWith({ BrokerAdminExtension.class, QpidTestInfoExtension.class })
+public class SaslTest
 {
     private static final Symbol CRAM_MD5 = Symbol.getSymbol("CRAM-MD5");
     private static final Symbol PLAIN = Symbol.getSymbol("PLAIN");
@@ -61,20 +65,20 @@ public class SaslTest extends BrokerAdminUsingTestBase
     private String _password;
 
     @BeforeEach
-    public void setUp()
+    public void setUp(final BrokerAdmin brokerAdmin)
     {
-        assumeTrue(getBrokerAdmin().isSASLSupported());
-        assumeTrue(getBrokerAdmin().isSASLMechanismSupported(PLAIN.toString()));
-        _username = getBrokerAdmin().getValidUsername();
-        _password = getBrokerAdmin().getValidPassword();
+        assumeTrue(brokerAdmin.isSASLSupported());
+        assumeTrue(brokerAdmin.isSASLMechanismSupported(PLAIN.toString()));
+        _username = brokerAdmin.getValidUsername();
+        _password = brokerAdmin.getValidPassword();
     }
 
     @Test
     @SpecificationTest(section = "5.3.2",
             description = "SASL Negotiation [...] challenge/response step occurs zero times")
-    public void saslSuccessfulAuthentication() throws Exception
+    public void saslSuccessfulAuthentication(final BrokerAdmin brokerAdmin) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin(), BrokerAdmin.PortType.AMQP).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin, BrokerAdmin.PortType.AMQP).connect())
         {
             final Interaction interaction = transport.newInteraction();
             final byte[] saslHeaderResponse = interaction.protocolHeader(SASL_AMQP_HEADER_BYTES)
@@ -107,9 +111,9 @@ public class SaslTest extends BrokerAdminUsingTestBase
                           + " it MAY be desirable to pipeline the connection negotiation process."
                           + " A peer MAY do this by starting to send subsequent frames before receiving"
                           + " the partner’s connection header or open frame")
-    public void saslSuccessfulAuthenticationWithPipelinedFrames() throws Exception
+    public void saslSuccessfulAuthenticationWithPipelinedFrames(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin(), BrokerAdmin.PortType.AMQP).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin, BrokerAdmin.PortType.AMQP).connect())
         {
             final Binary initialResponse =
                     new Binary(String.format("\0%s\0%s", _username, _password).getBytes(StandardCharsets.US_ASCII));
@@ -122,6 +126,7 @@ public class SaslTest extends BrokerAdminUsingTestBase
                        .protocolHeader(AMQP_HEADER_BYTES)
                        .negotiateProtocol()
                        .openContainerId("testContainerId")
+                       .openHostname(testInfo.virtualHostName())
                        .open();
 
             final byte[] saslHeaderResponse = interaction.consumeResponse().getLatestResponse(byte[].class);
@@ -144,10 +149,10 @@ public class SaslTest extends BrokerAdminUsingTestBase
     @Test
     @SpecificationTest(section = "5.3.2",
             description = "SASL Negotiation [...] challenge/response step occurs once")
-    public void saslSuccessfulAuthenticationWithChallengeResponse() throws Exception
+    public void saslSuccessfulAuthenticationWithChallengeResponse(final BrokerAdmin brokerAdmin) throws Exception
     {
-        assumeTrue(getBrokerAdmin().isSASLMechanismSupported(CRAM_MD5.toString()));
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin(), BrokerAdmin.PortType.AMQP).connect())
+        assumeTrue(brokerAdmin.isSASLMechanismSupported(CRAM_MD5.toString()));
+        try (FrameTransport transport = new FrameTransport(brokerAdmin, BrokerAdmin.PortType.AMQP).connect())
         {
             final Interaction interaction = transport.newInteraction();
             final byte[] saslHeaderResponse = interaction.protocolHeader(SASL_AMQP_HEADER_BYTES)
@@ -184,9 +189,9 @@ public class SaslTest extends BrokerAdminUsingTestBase
 
     @Test
     @SpecificationTest(section = "5.3.2", description = "SASL Negotiation")
-    public void saslUnsuccessfulAuthentication() throws Exception
+    public void saslUnsuccessfulAuthentication(final BrokerAdmin brokerAdmin) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin(), BrokerAdmin.PortType.AMQP).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin, BrokerAdmin.PortType.AMQP).connect())
         {
             final Interaction interaction = transport.newInteraction();
             final byte[] saslHeaderResponse = interaction.protocolHeader(SASL_AMQP_HEADER_BYTES)
@@ -214,9 +219,9 @@ public class SaslTest extends BrokerAdminUsingTestBase
             description = "The partner MUST then choose one of the supported mechanisms and initiate a sasl exchange."
                           + "If the selected mechanism is not supported by the receiving peer, it MUST close the connection "
                           + "with the authentication-failure close-code.")
-    public void unsupportedSaslMechanism() throws Exception
+    public void unsupportedSaslMechanism(final BrokerAdmin brokerAdmin) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin(), BrokerAdmin.PortType.AMQP).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin, BrokerAdmin.PortType.AMQP).connect())
         {
             final Interaction interaction = transport.newInteraction();
             final byte[] saslHeaderResponse = interaction.protocolHeader(SASL_AMQP_HEADER_BYTES)
@@ -238,9 +243,9 @@ public class SaslTest extends BrokerAdminUsingTestBase
 
     @Test
     @SpecificationTest(section = "5.3.2", description = "SASL Negotiation")
-    public void authenticationBypassDisallowed() throws Exception
+    public void authenticationBypassDisallowed(final BrokerAdmin brokerAdmin) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin(), BrokerAdmin.PortType.AMQP).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin, BrokerAdmin.PortType.AMQP).connect())
         {
             final Interaction interaction = transport.newInteraction();
             final byte[] saslHeaderResponse = interaction.protocolHeader(SASL_AMQP_HEADER_BYTES)
@@ -259,9 +264,9 @@ public class SaslTest extends BrokerAdminUsingTestBase
     @SpecificationTest(section = "5.3.2",
             description = "The peer acting as the SASL server MUST announce supported authentication mechanisms using"
                           + "the sasl-mechanisms frame.")
-    public void clientSendsSaslMechanisms() throws Exception
+    public void clientSendsSaslMechanisms(final BrokerAdmin brokerAdmin) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin(), BrokerAdmin.PortType.AMQP).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin, BrokerAdmin.PortType.AMQP).connect())
         {
             SaslMechanisms clientMechs = new SaslMechanisms();
             clientMechs.setSaslServerMechanisms(new Symbol[] {Symbol.valueOf("CLIENT-MECH")});
@@ -278,9 +283,9 @@ public class SaslTest extends BrokerAdminUsingTestBase
 
     @Test
     @SpecificationTest(section = "5.3.2", description = "SASL Negotiation")
-    public void clientSendsSaslChallenge() throws Exception
+    public void clientSendsSaslChallenge(final BrokerAdmin brokerAdmin) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin(), BrokerAdmin.PortType.AMQP).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin, BrokerAdmin.PortType.AMQP).connect())
         {
             SaslChallenge saslChallenge = new SaslChallenge();
             saslChallenge.setChallenge(new Binary(new byte[] {}));
@@ -297,9 +302,9 @@ public class SaslTest extends BrokerAdminUsingTestBase
 
     @Test
     @SpecificationTest(section = "5.3.2", description = "SASL Negotiation")
-    public void clientSendsSaslOutcome() throws Exception
+    public void clientSendsSaslOutcome(final BrokerAdmin brokerAdmin) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin(), BrokerAdmin.PortType.AMQP).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin, BrokerAdmin.PortType.AMQP).connect())
         {
             SaslOutcome saslOutcome = new SaslOutcome();
             saslOutcome.setCode(SaslCode.OK);
@@ -316,9 +321,9 @@ public class SaslTest extends BrokerAdminUsingTestBase
 
     @Test
     @SpecificationTest(section = "5.3.1", description = "Receipt of an empty frame is an irrecoverable error.")
-    public void emptyFramesDisallowed() throws Exception
+    public void emptyFramesDisallowed(final BrokerAdmin brokerAdmin) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin(), BrokerAdmin.PortType.AMQP).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin, BrokerAdmin.PortType.AMQP).connect())
         {
             transport.newInteraction()
                      .protocolHeader(SASL_AMQP_HEADER_BYTES)
@@ -335,12 +340,12 @@ public class SaslTest extends BrokerAdminUsingTestBase
     @Test
     @AddOAuth2MockProvider()
     @SpecificationTest(section = "5.3.2", description = "SASL Negotiation")
-    public void veryLongOauth2Token() throws Exception
+    public void veryLongOauth2Token(final BrokerAdmin brokerAdmin) throws Exception
     {
         final byte[] TOKEN = ("user=xxx\1auth=Bearer " + "A".repeat(10_0000) + "\1host=localhost\1\1")
                 .getBytes(StandardCharsets.US_ASCII);
 
-        try (final FrameTransport transport = new FrameTransport(getBrokerAdmin(), BrokerAdmin.PortType.AMQP).connect())
+        try (final FrameTransport transport = new FrameTransport(brokerAdmin, BrokerAdmin.PortType.AMQP).connect())
         {
             final Interaction interaction = transport.newInteraction();
             final byte[] saslHeaderResponse = interaction.protocolHeader(SASL_AMQP_HEADER_BYTES)

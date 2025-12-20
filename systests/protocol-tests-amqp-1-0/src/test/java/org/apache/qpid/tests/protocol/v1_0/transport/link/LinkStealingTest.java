@@ -17,6 +17,7 @@
  * under the License.
  *
  */
+
 package org.apache.qpid.tests.protocol.v1_0.transport.link;
 
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -27,7 +28,10 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.lessThan;
 import static org.hamcrest.Matchers.notNullValue;
 
+import org.apache.qpid.tests.utils.QpidTestInfo;
+import org.apache.qpid.tests.utils.QpidTestInfoExtension;
 import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.Test;
 
 import org.apache.qpid.server.protocol.v1_0.type.UnsignedInteger;
@@ -43,12 +47,12 @@ import org.apache.qpid.tests.protocol.SpecificationTest;
 import org.apache.qpid.tests.protocol.v1_0.FrameTransport;
 import org.apache.qpid.tests.protocol.v1_0.Interaction;
 import org.apache.qpid.tests.utils.BrokerAdmin;
-import org.apache.qpid.tests.utils.BrokerAdminUsingTestBase;
+import org.apache.qpid.tests.utils.BrokerAdminExtension;
 import org.apache.qpid.tests.utils.BrokerSpecific;
 
-public class LinkStealingTest extends BrokerAdminUsingTestBase
+@ExtendWith({ BrokerAdminExtension.class, QpidTestInfoExtension.class })
+public class LinkStealingTest
 {
-
     @Test
     @SpecificationTest(section = "2.6.1. Naming a link",
                        description = "Consequently, a link can only be active in one connection at a time."
@@ -58,12 +62,12 @@ public class LinkStealingTest extends BrokerAdminUsingTestBase
                                      + " that in the event of a connection failure occurring and being noticed"
                                      + " by one party, that re-establishment has the desired effect.")
     @Disabled("QPID-8328: Broker erroneously ends the session with internal error")
-    public void subsequentAttachOnTheSameSession() throws Exception
+    public void subsequentAttachOnTheSameSession(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            final Attach responseAttach = interaction
+            final Attach responseAttach = interaction.openHostname(testInfo.virtualHostName())
                     .negotiateOpen()
                     .begin().consumeResponse(Begin.class)
                     .attachRole(Role.SENDER)
@@ -88,24 +92,22 @@ public class LinkStealingTest extends BrokerAdminUsingTestBase
         }
     }
 
-
-
     @Test
     @SpecificationTest(section = "2.6.1. Naming a link",
             description = "Qpid Broker J extended stolen behaviour on sessions")
     @BrokerSpecific(kind = BrokerAdmin.KIND_BROKER_J)
-    public void subsequentAttachOnDifferentSessions() throws Exception
+    public void subsequentAttachOnDifferentSessions(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        getBrokerAdmin().createQueue(BrokerAdmin.TEST_QUEUE_NAME);
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        brokerAdmin.createQueue(testInfo.methodName());
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
             final String linkName = "test";
-            final Attach responseAttach = interaction.negotiateOpen()
+            final Attach responseAttach = interaction.openHostname(testInfo.virtualHostName()).negotiateOpen()
                                                      .begin().consumeResponse(Begin.class)
                                                      .attachRole(Role.SENDER)
                                                      .attachName(linkName)
-                                                     .attachTargetAddress(BrokerAdmin.TEST_QUEUE_NAME)
+                                                     .attachTargetAddress(testInfo.methodName())
                                                      .attach().consumeResponse()
                                                      .getLatestResponse(Attach.class);
             assertThat(responseAttach.getName(), is(notNullValue()));
@@ -129,5 +131,4 @@ public class LinkStealingTest extends BrokerAdminUsingTestBase
 
         }
     }
-
 }

@@ -29,6 +29,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.Is.is;
 import static org.hamcrest.core.IsNot.not;
 
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.Test;
 
 import org.apache.qpid.server.protocol.v1_0.type.ErrorCarryingFrameBody;
@@ -49,20 +50,23 @@ import org.apache.qpid.tests.protocol.v1_0.FrameTransport;
 import org.apache.qpid.tests.protocol.v1_0.Interaction;
 import org.apache.qpid.tests.protocol.v1_0.Utils;
 import org.apache.qpid.tests.utils.BrokerAdmin;
-import org.apache.qpid.tests.utils.BrokerAdminUsingTestBase;
+import org.apache.qpid.tests.utils.BrokerAdminExtension;
+import org.apache.qpid.tests.utils.QpidTestInfo;
+import org.apache.qpid.tests.utils.QpidTestInfoExtension;
 
-public class FlowTest extends BrokerAdminUsingTestBase
+@ExtendWith({ BrokerAdminExtension.class, QpidTestInfoExtension.class })
+public class FlowTest
 {
 
     @Test
     @SpecificationTest(section = "1.3.4",
             description = "mandatory [...] a non null value for the field is always encoded.")
-    public void emptyFlow() throws Exception
+    public void emptyFlow(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        getBrokerAdmin().createQueue(BrokerAdmin.TEST_QUEUE_NAME);
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        brokerAdmin.createQueue(testInfo.methodName());
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
-            final Response<?> response = transport.newInteraction()
+            final Response<?> response = transport.newInteraction().openHostname(testInfo.virtualHostName())
                                                   .negotiateOpen()
                                                   .begin().consumeResponse(Begin.class)
                                                   .flowIncomingWindow(null)
@@ -85,11 +89,11 @@ public class FlowTest extends BrokerAdminUsingTestBase
     @Test
     @SpecificationTest(section = "2.7.4",
             description = "If set to true then the receiver SHOULD send its state at the earliest convenient opportunity.")
-    public void sessionEchoFlow() throws Exception
+    public void sessionEchoFlow(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
-            Flow responseFlow = transport.newInteraction()
+            Flow responseFlow = transport.newInteraction().openHostname(testInfo.virtualHostName())
                                          .negotiateOpen()
                                          .begin().consumeResponse(Begin.class)
                                          .flowEcho(true)
@@ -110,16 +114,16 @@ public class FlowTest extends BrokerAdminUsingTestBase
     @Test
     @SpecificationTest(section = "2.7.4",
             description = "If set to true then the receiver SHOULD send its state at the earliest convenient opportunity.")
-    public void linkEchoFlow() throws Exception
+    public void linkEchoFlow(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        getBrokerAdmin().createQueue(BrokerAdmin.TEST_QUEUE_NAME);
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        brokerAdmin.createQueue(testInfo.methodName());
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
-            Flow responseFlow = transport.newInteraction()
+            Flow responseFlow = transport.newInteraction().openHostname(testInfo.virtualHostName())
                                          .negotiateOpen()
                                          .begin().consumeResponse(Begin.class)
                                          .attachRole(Role.RECEIVER)
-                                         .attachSourceAddress(BrokerAdmin.TEST_QUEUE_NAME)
+                                         .attachSourceAddress(testInfo.methodName())
                                          .attach().consumeResponse(Attach.class)
                                          .flowEcho(true)
                                          .flowHandleFromLinkHandle()
@@ -140,17 +144,18 @@ public class FlowTest extends BrokerAdminUsingTestBase
     @SpecificationTest(section = "2.6.8",
             description = "A synchronous get of a message from a link is accomplished by incrementing the link-credit,"
                           + " sending the updated flow state, and waiting indefinitely for a transfer to arrive.")
-    public void synchronousGet() throws Exception
+    public void synchronousGet(final BrokerAdmin brokerAdmin,
+                               final QpidTestInfo testInfo) throws Exception
     {
-        getBrokerAdmin().createQueue(BrokerAdmin.TEST_QUEUE_NAME);
-        Utils.putMessageOnQueue(getBrokerAdmin(), BrokerAdmin.TEST_QUEUE_NAME, getTestName());
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        brokerAdmin.createQueue(testInfo.methodName());
+        Utils.putMessageOnQueue(brokerAdmin, testInfo, testInfo.methodName(), testInfo.methodName());
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            interaction.negotiateOpen()
+            interaction.openHostname(testInfo.virtualHostName()).negotiateOpen()
                        .begin().consumeResponse()
                        .attachRole(Role.RECEIVER)
-                       .attachSourceAddress(BrokerAdmin.TEST_QUEUE_NAME)
+                       .attachSourceAddress(testInfo.methodName())
                        .attach().consumeResponse()
                        .flowIncomingWindow(UnsignedInteger.ONE)
                        .flowNextIncomingIdFromPeerLatestSessionBeginAndDeliveryCount()
@@ -169,7 +174,7 @@ public class FlowTest extends BrokerAdminUsingTestBase
                        .disposition()
                        .sync();
             final Object data = interaction.getDecodedLatestDelivery();
-            assertThat(data, is(equalTo(getTestName())));
+            assertThat(data, is(equalTo(testInfo.methodName())));
         }
     }
 
@@ -178,16 +183,16 @@ public class FlowTest extends BrokerAdminUsingTestBase
             description = "If the sender's drain flag is set and there are no available messages,"
                           + " the sender MUST advance its delivery-count until link-credit is zero,"
                           + " and send its updated flow state to the receiver.")
-    public void drainEmptyQueue() throws Exception
+    public void drainEmptyQueue(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        getBrokerAdmin().createQueue(BrokerAdmin.TEST_QUEUE_NAME);
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        brokerAdmin.createQueue(testInfo.methodName());
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
-            Flow responseFlow = transport.newInteraction()
+            Flow responseFlow = transport.newInteraction().openHostname(testInfo.virtualHostName())
                                          .negotiateOpen()
                                          .begin().consumeResponse(Begin.class)
                                          .attachRole(Role.RECEIVER)
-                                         .attachSourceAddress(BrokerAdmin.TEST_QUEUE_NAME)
+                                         .attachSourceAddress(testInfo.methodName())
                                          .attach().consumeResponse(Attach.class)
                                          .flowIncomingWindow(UnsignedInteger.valueOf(2047))
                                          .flowNextIncomingId(UnsignedInteger.ZERO)
@@ -209,11 +214,11 @@ public class FlowTest extends BrokerAdminUsingTestBase
     @SpecificationTest(section = "2.7.4",
             description = "If set to a handle that is not currently associated with an attached link, the recipient"
                           + " MUST respond by ending the session with an unattached-handle session error.")
-    public void flowWithUnknownHandle() throws Exception
+    public void flowWithUnknownHandle(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
-            End responseEnd = transport.newInteraction()
+            End responseEnd = transport.newInteraction().openHostname(testInfo.virtualHostName())
                                        .negotiateOpen()
                                        .begin().consumeResponse(Begin.class)
                                        .flowEcho(true)
@@ -238,16 +243,16 @@ public class FlowTest extends BrokerAdminUsingTestBase
                           + " When the desired time has elapsed the receiver then sets the drain flag and sends"
                           + " the newly updated flow state again, while continuing to wait for the link-credit"
                           + " to be consumed.")
-    public void synchronousGetWithTimeoutEmptyQueue() throws Exception
+    public void synchronousGetWithTimeoutEmptyQueue(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        getBrokerAdmin().createQueue(BrokerAdmin.TEST_QUEUE_NAME);
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        brokerAdmin.createQueue(testInfo.methodName());
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
-            Interaction interaction = transport.newInteraction()
+            Interaction interaction = transport.newInteraction().openHostname(testInfo.virtualHostName())
                                                .negotiateOpen()
                                                .begin().consumeResponse(Begin.class)
                                                .attachRole(Role.RECEIVER)
-                                               .attachSourceAddress(BrokerAdmin.TEST_QUEUE_NAME)
+                                               .attachSourceAddress(testInfo.methodName())
                                                .attach().consumeResponse(Attach.class);
 
             Attach remoteAttach = interaction.getLatestResponse(Attach.class);
@@ -289,18 +294,18 @@ public class FlowTest extends BrokerAdminUsingTestBase
                           + " When the desired time has elapsed the receiver then sets the drain flag and sends"
                           + " the newly updated flow state again, while continuing to wait for the link-credit"
                           + " to be consumed.")
-    public void synchronousGetWithTimeoutNonEmptyQueue() throws Exception
+    public void synchronousGetWithTimeoutNonEmptyQueue(final BrokerAdmin brokerAdmin,
+                                                       final QpidTestInfo testInfo) throws Exception
     {
-        BrokerAdmin brokerAdmin = getBrokerAdmin();
-        brokerAdmin.createQueue(BrokerAdmin.TEST_QUEUE_NAME);
+        brokerAdmin.createQueue(testInfo.methodName());
 
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
-            Interaction interaction = transport.newInteraction()
+            Interaction interaction = transport.newInteraction().openHostname(testInfo.virtualHostName())
                                                .negotiateOpen()
                                                .begin().consumeResponse(Begin.class)
                                                .attachRole(Role.RECEIVER)
-                                               .attachSourceAddress(BrokerAdmin.TEST_QUEUE_NAME)
+                                               .attachSourceAddress(testInfo.methodName())
                                                .attach().consumeResponse(Attach.class);
 
             Attach remoteAttach = interaction.getLatestResponse(Attach.class);
@@ -318,13 +323,13 @@ public class FlowTest extends BrokerAdminUsingTestBase
                                                        .flow()
                                                        .sync();
 
-            Utils.putMessageOnQueue(getBrokerAdmin(), BrokerAdmin.TEST_QUEUE_NAME, getTestName());
+            Utils.putMessageOnQueue(brokerAdmin, testInfo, testInfo.methodName(), testInfo.methodName());
 
             final Object receivedMessageContent = interaction.receiveDelivery(Flow.class)
                                                              .decodeLatestDelivery()
                                                              .getDecodedLatestDelivery();
 
-            assertThat(receivedMessageContent, is(equalTo(getTestName())));
+            assertThat(receivedMessageContent, is(equalTo(testInfo.methodName())));
 
             final Flow responseFlow = interaction.flowNextIncomingIdFromPeerLatestSessionBeginAndDeliveryCount()
                                                  .flowLinkCredit(UnsignedInteger.ONE)
@@ -357,20 +362,20 @@ public class FlowTest extends BrokerAdminUsingTestBase
                           + " as the delivery-count increases. When the sender’s link-credit falls below a threshold,"
                           + " the flow state MAY be sent to increase the sender’s link-credit back"
                           + " to the desired target amount.")
-    public void asynchronousNotification() throws Exception
+    public void asynchronousNotification(final BrokerAdmin brokerAdmin,
+                                         final QpidTestInfo testInfo) throws Exception
     {
-        BrokerAdmin brokerAdmin = getBrokerAdmin();
-        brokerAdmin.createQueue(BrokerAdmin.TEST_QUEUE_NAME);
-        final String[] contents = Utils.createTestMessageContents(3, getTestName());
-        Utils.putMessageOnQueue(getBrokerAdmin(), BrokerAdmin.TEST_QUEUE_NAME, contents);
+        brokerAdmin.createQueue(testInfo.methodName());
+        final String[] contents = Utils.createTestMessageContents(3, testInfo.methodName());
+        Utils.putMessageOnQueue(brokerAdmin, testInfo, testInfo.methodName(), contents);
 
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
-            Interaction interaction = transport.newInteraction()
+            Interaction interaction = transport.newInteraction().openHostname(testInfo.virtualHostName())
                                                .negotiateOpen()
                                                .begin().consumeResponse(Begin.class)
                                                .attachRole(Role.RECEIVER)
-                                               .attachSourceAddress(BrokerAdmin.TEST_QUEUE_NAME)
+                                               .attachSourceAddress(testInfo.methodName())
                                                .attach().consumeResponse(Attach.class);
 
             UnsignedInteger delta = UnsignedInteger.ONE;
@@ -415,7 +420,7 @@ public class FlowTest extends BrokerAdminUsingTestBase
             // detach link and consume detach to verify that no transfer was delivered
             interaction.detachClose(true).detach().consume(Detach.class, Flow.class);
         }
-        assertThat(Utils.receiveMessage(brokerAdmin, BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(contents[2])));
+        assertThat(Utils.receiveMessage(brokerAdmin, testInfo), is(equalTo(contents[2])));
     }
 
     @Test
@@ -424,18 +429,18 @@ public class FlowTest extends BrokerAdminUsingTestBase
                           + " to be zero and sending the updated flow state. [...]"
                           + " The echo field of the flow frame MAY be used to request the sender’s flow state"
                           + " be echoed back. This MAY be used to determine when the link has finally quiesced.")
-    public void stoppingALink() throws Exception
+    public void stoppingALink(final BrokerAdmin brokerAdmin,
+                              final QpidTestInfo testInfo) throws Exception
     {
-        BrokerAdmin brokerAdmin = getBrokerAdmin();
-        brokerAdmin.createQueue(BrokerAdmin.TEST_QUEUE_NAME);
-        Utils.putMessageOnQueue(getBrokerAdmin(), BrokerAdmin.TEST_QUEUE_NAME, getTestName());
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        brokerAdmin.createQueue(testInfo.methodName());
+        Utils.putMessageOnQueue(brokerAdmin, testInfo, testInfo.methodName(), testInfo.methodName());
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
-            Interaction interaction = transport.newInteraction()
+            Interaction interaction = transport.newInteraction().openHostname(testInfo.virtualHostName())
                                                .negotiateOpen()
                                                .begin().consumeResponse(Begin.class)
                                                .attachRole(Role.RECEIVER)
-                                               .attachSourceAddress(BrokerAdmin.TEST_QUEUE_NAME)
+                                               .attachSourceAddress(testInfo.methodName())
                                                .attach().consumeResponse(Attach.class);
 
             Attach remoteAttach = interaction.getLatestResponse(Attach.class);
@@ -454,7 +459,7 @@ public class FlowTest extends BrokerAdminUsingTestBase
                                                         .receiveDelivery()
                                                         .decodeLatestDelivery()
                                                         .getDecodedLatestDelivery();
-            assertThat(receivedMessageContent1, is(equalTo(getTestName())));
+            assertThat(receivedMessageContent1, is(equalTo(testInfo.methodName())));
 
             final Response<?> response = interaction.flowIncomingWindow(incomingWindow)
                                                     .flowNextIncomingIdFromPeerLatestSessionBeginAndDeliveryCount()
@@ -476,8 +481,8 @@ public class FlowTest extends BrokerAdminUsingTestBase
                 assertThat(responseFlow.getHandle(), is(notNullValue()));
             }
 
-            final String message2 = getTestName() + "_2";
-            Utils.putMessageOnQueue(getBrokerAdmin(), BrokerAdmin.TEST_QUEUE_NAME, message2);
+            final String message2 = testInfo.methodName() + "_2";
+            Utils.putMessageOnQueue(brokerAdmin, testInfo, testInfo.methodName(), message2);
             try
             {
                 // send session flow with echo=true to verify that no message is delivered without issuing a credit
@@ -494,7 +499,7 @@ public class FlowTest extends BrokerAdminUsingTestBase
             }
             finally
             {
-                assertThat(Utils.receiveMessage(brokerAdmin, BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(message2)));
+                assertThat(Utils.receiveMessage(brokerAdmin, testInfo), is(equalTo(message2)));
 
                 interaction.dispositionSettled(true)
                            .dispositionRole(Role.RECEIVER)
@@ -512,19 +517,19 @@ public class FlowTest extends BrokerAdminUsingTestBase
                           + " available to consume the current link-credit. If set, the sender will"
                           + " (after sending all available messages) advance the delivery-count as much as possible,"
                           + " consuming all link-credit, and send the flow state to the receiver.")
-    public void drain() throws Exception
+    public void drain(final BrokerAdmin brokerAdmin,
+                      final QpidTestInfo testInfo) throws Exception
     {
-        BrokerAdmin brokerAdmin = getBrokerAdmin();
-        brokerAdmin.createQueue(BrokerAdmin.TEST_QUEUE_NAME);
-        Utils.putMessageOnQueue(getBrokerAdmin(), BrokerAdmin.TEST_QUEUE_NAME, getTestName());
+        brokerAdmin.createQueue(testInfo.methodName());
+        Utils.putMessageOnQueue(brokerAdmin, testInfo, testInfo.methodName(), testInfo.methodName());
 
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
-            Interaction interaction = transport.newInteraction()
+            Interaction interaction = transport.newInteraction().openHostname(testInfo.virtualHostName())
                                                .negotiateOpen()
                                                .begin().consumeResponse(Begin.class)
                                                .attachRole(Role.RECEIVER)
-                                               .attachSourceAddress(BrokerAdmin.TEST_QUEUE_NAME)
+                                               .attachSourceAddress(testInfo.methodName())
                                                .attach().consumeResponse(Attach.class);
 
             Attach remoteAttach = interaction.getLatestResponse(Attach.class);

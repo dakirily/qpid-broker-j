@@ -18,6 +18,7 @@
  * under the License.
  *
  */
+
 package org.apache.qpid.tests.protocol.v1_0.extensions.qpid.queue;
 
 import static org.apache.qpid.tests.utils.BrokerAdmin.KIND_BROKER_J;
@@ -30,6 +31,9 @@ import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
+import org.apache.qpid.tests.utils.QpidTestInfo;
+import org.apache.qpid.tests.utils.QpidTestInfoExtension;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -52,29 +56,29 @@ import org.apache.qpid.tests.protocol.v1_0.FrameTransport;
 import org.apache.qpid.tests.protocol.v1_0.Interaction;
 import org.apache.qpid.tests.protocol.v1_0.Utils;
 import org.apache.qpid.tests.utils.BrokerAdmin;
-import org.apache.qpid.tests.utils.BrokerAdminUsingTestBase;
+import org.apache.qpid.tests.utils.BrokerAdminExtension;
 import org.apache.qpid.tests.utils.BrokerSpecific;
 
+@ExtendWith({ BrokerAdminExtension.class, QpidTestInfoExtension.class })
 @BrokerSpecific(kind = KIND_BROKER_J)
-public class QueueDeletionTest extends BrokerAdminUsingTestBase
+public class QueueDeletionTest
 {
-
     @BeforeEach
-    public void setUp()
+    public void setUp(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo)
     {
-        getBrokerAdmin().createQueue(BrokerAdmin.TEST_QUEUE_NAME);
+        brokerAdmin.createQueue(testInfo.methodName());
     }
 
     @Test
-    public void senderDetachedOnQueueDelete() throws Exception
+    public void senderDetachedOnQueueDelete(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             Interaction interaction = transport.newInteraction();
-            final Attach responseAttach = interaction.negotiateOpen()
+            final Attach responseAttach = interaction.openHostname(testInfo.virtualHostName()).negotiateOpen()
                                                      .begin().consumeResponse(Begin.class)
                                                      .attachRole(Role.SENDER)
-                                                     .attachTargetAddress(BrokerAdmin.TEST_QUEUE_NAME)
+                                                     .attachTargetAddress(testInfo.methodName())
                                                      .attach().consumeResponse()
                                                      .getLatestResponse(Attach.class);
             assertThat(responseAttach.getRole(), is(Role.RECEIVER));
@@ -82,7 +86,7 @@ public class QueueDeletionTest extends BrokerAdminUsingTestBase
             Flow flow = interaction.consumeResponse(Flow.class).getLatestResponse(Flow.class);
             assertThat(flow.getLinkCredit().intValue(), is(greaterThan(1)));
 
-            getBrokerAdmin().deleteQueue(BrokerAdmin.TEST_QUEUE_NAME);
+            brokerAdmin.deleteQueue(testInfo.methodName());
 
             final Detach receivedDetach = interaction.consumeResponse().getLatestResponse(Detach.class);
             assertThat(receivedDetach.getError(), is(notNullValue()));
@@ -91,23 +95,23 @@ public class QueueDeletionTest extends BrokerAdminUsingTestBase
     }
 
     @Test
-    public void receiverDetachedOnQueueDelete() throws Exception
+    public void receiverDetachedOnQueueDelete(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             Interaction interaction = transport.newInteraction();
-            final Attach responseAttach = interaction.negotiateOpen()
+            final Attach responseAttach = interaction.openHostname(testInfo.virtualHostName()).negotiateOpen()
                                                      .begin()
                                                      .consumeResponse(Begin.class)
                                                      .attachRole(Role.RECEIVER)
-                                                     .attachSourceAddress(BrokerAdmin.TEST_QUEUE_NAME)
+                                                     .attachSourceAddress(testInfo.methodName())
                                                      .attach()
                                                      .consumeResponse(Attach.class)
                                                      .getLatestResponse(Attach.class);
 
             assertThat(responseAttach.getRole(), is(Role.SENDER));
 
-            getBrokerAdmin().deleteQueue(BrokerAdmin.TEST_QUEUE_NAME);
+            brokerAdmin.deleteQueue(testInfo.methodName());
 
             final Detach receivedDetach = interaction.consumeResponse().getLatestResponse(Detach.class);
             assertThat(receivedDetach.getError(), is(notNullValue()));
@@ -116,15 +120,16 @@ public class QueueDeletionTest extends BrokerAdminUsingTestBase
     }
 
     @Test
-    public void transactedSenderDetachedOnQueueDeletionWhenTransactionInProgress() throws Exception
+    public void transactedSenderDetachedOnQueueDeletionWhenTransactionInProgress(final BrokerAdmin brokerAdmin,
+                                                                                 final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final UnsignedInteger linkHandle = UnsignedInteger.ONE;
 
             final Interaction interaction = transport.newInteraction();
 
-            Attach attach = interaction.negotiateOpen()
+            Attach attach = interaction.openHostname(testInfo.virtualHostName()).negotiateOpen()
                                        .begin()
                                        .consumeResponse(Begin.class)
 
@@ -132,14 +137,14 @@ public class QueueDeletionTest extends BrokerAdminUsingTestBase
                                        .txnDeclare()
 
                                        .attachRole(Role.SENDER)
-                                       .attachTargetAddress(BrokerAdmin.TEST_QUEUE_NAME)
+                                       .attachTargetAddress(testInfo.methodName())
                                        .attachHandle(linkHandle)
                                        .attach().consumeResponse(Attach.class).getLatestResponse(Attach.class);
 
             Disposition responseDisposition = interaction.consumeResponse(Flow.class)
 
                                                          .transferHandle(linkHandle)
-                                                         .transferPayloadData(getTestName())
+                                                         .transferPayloadData(testInfo.methodName())
                                                          .transferTransactionalStateFromCurrentTransaction()
                                                          .transfer()
                                                          .consumeResponse(Disposition.class)
@@ -151,7 +156,7 @@ public class QueueDeletionTest extends BrokerAdminUsingTestBase
             assertThat(((TransactionalState) responseDisposition.getState()).getOutcome(),
                        is(instanceOf(Accepted.class)));
 
-            getBrokerAdmin().deleteQueue(BrokerAdmin.TEST_QUEUE_NAME);
+            brokerAdmin.deleteQueue(testInfo.methodName());
 
             final Detach receivedDetach = interaction.consumeResponse().getLatestResponse(Detach.class);
             assertThat(receivedDetach.getError(), is(notNullValue()));
@@ -165,16 +170,18 @@ public class QueueDeletionTest extends BrokerAdminUsingTestBase
     }
 
     @Test
-    public void transactedReceiverDetachedOnQueueDeletionWhenTransactionInProgress() throws Exception
+    public void transactedReceiverDetachedOnQueueDeletionWhenTransactionInProgress(final BrokerAdmin brokerAdmin,
+                                                                                   final QpidTestInfo testInfo) throws Exception
     {
-        Utils.putMessageOnQueue(getBrokerAdmin(),
-                                BrokerAdmin.TEST_QUEUE_NAME,
-                                getTestName() + 1,
-                                getTestName() + 2);
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        Utils.putMessageOnQueue(brokerAdmin,
+                                testInfo,
+                                testInfo.methodName(),
+                                testInfo.methodName() + 1,
+                                testInfo.methodName() + 2);
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            Attach attach = interaction.negotiateOpen()
+            Attach attach = interaction.openHostname(testInfo.virtualHostName()).negotiateOpen()
                                        .begin()
                                        .consumeResponse(Begin.class)
 
@@ -183,7 +190,7 @@ public class QueueDeletionTest extends BrokerAdminUsingTestBase
 
                                        .attachRole(Role.RECEIVER)
                                        .attachHandle(UnsignedInteger.ONE)
-                                       .attachSourceAddress(BrokerAdmin.TEST_QUEUE_NAME)
+                                       .attachSourceAddress(testInfo.methodName())
                                        .attachRcvSettleMode(ReceiverSettleMode.FIRST)
                                        .attach()
                                        .consumeResponse(Attach.class).getLatestResponse(Attach.class);
@@ -200,7 +207,7 @@ public class QueueDeletionTest extends BrokerAdminUsingTestBase
                        .decodeLatestDelivery();
 
             Object data = interaction.getDecodedLatestDelivery();
-            assertThat(data, is(equalTo(getTestName() + 1)));
+            assertThat(data, is(equalTo(testInfo.methodName() + 1)));
 
             interaction.dispositionSettled(true)
                        .dispositionRole(Role.RECEIVER)
@@ -218,9 +225,9 @@ public class QueueDeletionTest extends BrokerAdminUsingTestBase
                        .decodeLatestDelivery();
 
             data = interaction.getDecodedLatestDelivery();
-            assertThat(data, is(equalTo(getTestName() + 2)));
+            assertThat(data, is(equalTo(testInfo.methodName() + 2)));
 
-            getBrokerAdmin().deleteQueue(BrokerAdmin.TEST_QUEUE_NAME);
+            brokerAdmin.deleteQueue(testInfo.methodName());
 
             final Detach receivedDetach = interaction.consumeResponse().getLatestResponse(Detach.class);
             assertThat(receivedDetach.getError(), is(notNullValue()));
@@ -245,9 +252,8 @@ public class QueueDeletionTest extends BrokerAdminUsingTestBase
             {
                 declareTransactionDisposition = (Disposition) response.getBody();
             }
-            if (response.getBody() instanceof Flow)
+            if (response.getBody() instanceof Flow flowResponse)
             {
-                final Flow flowResponse = (Flow) response.getBody();
                 if (flowResponse.getHandle().equals(interaction.getCoordinatorHandle()))
                 {
                     coordinatorFlow = flowResponse;

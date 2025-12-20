@@ -18,6 +18,7 @@
  * under the License.
  *
  */
+
 package org.apache.qpid.tests.protocol.v0_10;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -26,6 +27,9 @@ import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.notNullValue;
 import static org.hamcrest.MatcherAssert.assertThat;
 
+import org.apache.qpid.tests.utils.QpidTestInfo;
+import org.apache.qpid.tests.utils.QpidTestInfoExtension;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -44,27 +48,27 @@ import org.apache.qpid.server.protocol.v0_10.transport.SessionConfirmed;
 import org.apache.qpid.server.protocol.v0_10.transport.SessionFlush;
 import org.apache.qpid.tests.protocol.SpecificationTest;
 import org.apache.qpid.tests.utils.BrokerAdmin;
-import org.apache.qpid.tests.utils.BrokerAdminUsingTestBase;
+import org.apache.qpid.tests.utils.BrokerAdminExtension;
 
-public class MessageTest extends BrokerAdminUsingTestBase
+@ExtendWith({ BrokerAdminExtension.class, QpidTestInfoExtension.class })
+public class MessageTest
 {
-
     @BeforeEach
-    public void setUp()
+    public void setUp(final BrokerAdmin brokerAdmin)
     {
-        getBrokerAdmin().createQueue(BrokerAdmin.TEST_QUEUE_NAME);
+        brokerAdmin.createQueue(BrokerAdmin.TEST_QUEUE_NAME);
     }
 
     @Test
     @SpecificationTest(section = "10.message.transfer",
             description = "This command transfers a message between two peers.")
-    public void sendTransfer() throws Exception
+    public void sendTransfer(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
             byte[] sessionName = "test".getBytes(UTF_8);
-            SessionCompleted completed = interaction.negotiateOpen()
+            SessionCompleted completed = interaction.negotiateOpen(testInfo.virtualHostName())
                                                     .channelId(1)
                                                     .attachSession(sessionName)
                                                     .message()
@@ -78,7 +82,7 @@ public class MessageTest extends BrokerAdminUsingTestBase
                                                     .getLatestResponse(SessionCompleted.class);
 
             assertThat(completed.getCommands().includes(0), is(equalTo(true)));
-            int queueDepthMessages = getBrokerAdmin().getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME);
+            int queueDepthMessages = brokerAdmin.getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME);
             assertThat(queueDepthMessages, is(equalTo(1)));
         }
     }
@@ -87,14 +91,14 @@ public class MessageTest extends BrokerAdminUsingTestBase
     @SpecificationTest(section = "10.message.subscribe",
             description = "This command asks the server to start a \"subscription\","
                           + " which is a request for messages from a specific queue.")
-    public void subscribe() throws Exception
+    public void subscribe(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
             byte[] sessionName = "testSession".getBytes(UTF_8);
             final String subscriberName = "testSubscriber";
-            interaction.negotiateOpen()
+            interaction.negotiateOpen(testInfo.virtualHostName())
                        .channelId(1)
                        .attachSession(sessionName)
                        .message()
@@ -119,16 +123,16 @@ public class MessageTest extends BrokerAdminUsingTestBase
             description = "The client may request a broker to transfer messages to it, from a particular queue,"
                           + " by issuing a subscribe command. The subscribe command specifies the destination"
                           + " that the broker should use for any resulting transfers.")
-    public void receiveTransfer() throws Exception
+    public void receiveTransfer(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
         String testMessageBody = "testMessage";
-        getBrokerAdmin().putMessageOnQueue(BrokerAdmin.TEST_QUEUE_NAME, testMessageBody);
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        brokerAdmin.putMessageOnQueue(BrokerAdmin.TEST_QUEUE_NAME, testMessageBody);
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
             byte[] sessionName = "testSession".getBytes(UTF_8);
             final String subscriberName = "testSubscriber";
-            interaction.negotiateOpen()
+            interaction.negotiateOpen(testInfo.virtualHostName())
                        .channelId(1)
                        .attachSession(sessionName)
                        .message()
@@ -166,16 +170,16 @@ public class MessageTest extends BrokerAdminUsingTestBase
     @Test
     @SpecificationTest(section = "10.message.accept",
             description = "Accepts the message.")
-    public void acceptTransfer() throws Exception
+    public void acceptTransfer(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
         String testMessageBody = "testMessage";
-        getBrokerAdmin().putMessageOnQueue(BrokerAdmin.TEST_QUEUE_NAME, testMessageBody);
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        brokerAdmin.putMessageOnQueue(BrokerAdmin.TEST_QUEUE_NAME, testMessageBody);
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
             byte[] sessionName = "testSession".getBytes(UTF_8);
             final String subscriberName = "testSubscriber";
-            interaction.negotiateOpen()
+            interaction.negotiateOpen(testInfo.virtualHostName())
                        .channelId(1)
                        .attachSession(sessionName)
                        .message()
@@ -203,7 +207,7 @@ public class MessageTest extends BrokerAdminUsingTestBase
                                                            SessionCommandPoint.class,
                                                            SessionConfirmed.class);
 
-            assertThat(getBrokerAdmin().getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(1)));
+            assertThat(brokerAdmin.getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(1)));
 
             RangeSet transfers = Range.newInstance(transfer.getId());
             interaction.message().acceptId(3).acceptTransfers(transfers).accept()
@@ -219,7 +223,7 @@ public class MessageTest extends BrokerAdminUsingTestBase
             assertThat(completed.getCommands(), is(notNullValue()));
             assertThat(completed.getCommands().includes(3), is(equalTo(true)));
 
-            assertThat(getBrokerAdmin().getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(0)));
+            assertThat(brokerAdmin.getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(0)));
         }
     }
 
@@ -227,16 +231,16 @@ public class MessageTest extends BrokerAdminUsingTestBase
     @SpecificationTest(section = "10.message.acquire",
             description = "Acquires previously transferred messages for consumption. The acquired ids (if any) are "
                           + "sent via message.acquired.")
-    public void acquireTransfer() throws Exception
+    public void acquireTransfer(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
         String testMessageBody = "testMessage";
-        getBrokerAdmin().putMessageOnQueue(BrokerAdmin.TEST_QUEUE_NAME, testMessageBody);
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        brokerAdmin.putMessageOnQueue(BrokerAdmin.TEST_QUEUE_NAME, testMessageBody);
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
             byte[] sessionName = "testSession".getBytes(UTF_8);
             final String subscriberName = "testSubscriber";
-            interaction.negotiateOpen()
+            interaction.negotiateOpen(testInfo.virtualHostName())
                        .channelId(1)
                        .attachSession(sessionName)
                        .message()
@@ -265,7 +269,7 @@ public class MessageTest extends BrokerAdminUsingTestBase
                                                            SessionConfirmed.class,
                                                            SessionFlush.class);
 
-            assertThat(getBrokerAdmin().getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(1)));
+            assertThat(brokerAdmin.getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(1)));
 
             RangeSet transfers = Range.newInstance(transfer.getId());
             final ExecutionResult result = interaction.message().acquireId(3).acquireTransfers(transfers).acquire()
@@ -286,7 +290,7 @@ public class MessageTest extends BrokerAdminUsingTestBase
             assertThat(completed.getCommands(), is(notNullValue()));
             assertThat(completed.getCommands().includes(4), is(equalTo(true)));
 
-            assertThat(getBrokerAdmin().getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(0)));
+            assertThat(brokerAdmin.getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(0)));
         }
     }
 }

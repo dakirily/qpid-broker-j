@@ -37,8 +37,8 @@ import org.junit.jupiter.api.Test;
 import org.apache.qpid.server.transport.network.security.ssl.QpidMultipleTrustManager;
 import org.apache.qpid.server.transport.network.security.ssl.QpidPeersOnlyTrustManager;
 import org.apache.qpid.test.utils.UnitTestBase;
-import org.apache.qpid.test.utils.tls.CertificateEntry;
-import org.apache.qpid.test.utils.tls.KeyCertificatePair;
+import org.apache.qpid.test.utils.tls.types.CertificateEntry;
+import org.apache.qpid.test.utils.tls.types.KeyCertificatePair;
 import org.apache.qpid.test.utils.tls.TlsResourceBuilder;
 import org.apache.qpid.test.utils.tls.TlsResourceHelper;
 
@@ -65,10 +65,10 @@ public class TrustManagerTest extends UnitTestBase
         final KeyPair keyPair2 = TlsResourceBuilder.createRSAKeyPair();
         final KeyCertificatePair untrustedKeyCertPair = TlsResourceBuilder.createSelfSigned(DN_UNTRUSTED);
 
-        _ca = caPair.getCertificate();
+        _ca = caPair.certificate();
         _app1 = TlsResourceBuilder.createCertificateForClientAuthorization(keyPair1, caPair, DN_APP1);
         _app2 = TlsResourceBuilder.createCertificateForClientAuthorization(keyPair2, caPair, DN_APP2);
-        _untrusted = untrustedKeyCertPair.getCertificate();
+        _untrusted = untrustedKeyCertPair.certificate();
     }
 
     /**

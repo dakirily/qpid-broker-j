@@ -32,6 +32,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.zip.GZIPInputStream;
 
+import org.apache.qpid.server.model.ConfiguredObjectJacksonModule;
 import org.junit.jupiter.api.Test;
 
 import tools.jackson.core.JacksonException;
@@ -108,7 +109,7 @@ public class CompressedResponsesTest extends HttpTestBase
                     ? new GZIPInputStream(new ByteArrayInputStream(bytes))
                     : new ByteArrayInputStream(bytes))
             {
-                ObjectMapper mapper = new ObjectMapper();
+                ObjectMapper mapper = ConfiguredObjectJacksonModule.newObjectMapper(false);
                 try
                 {
                     mapper.readValue(jsonStream, LinkedHashMap.class);

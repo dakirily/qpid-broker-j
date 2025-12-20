@@ -18,6 +18,7 @@
  * under the License.
  *
  */
+
 package org.apache.qpid.tests.protocol.v1_0.messaging;
 
 import static org.hamcrest.CoreMatchers.equalTo;
@@ -28,7 +29,9 @@ import static org.hamcrest.Matchers.hasItemInArray;
 import static org.hamcrest.Matchers.oneOf;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
+import org.apache.qpid.tests.utils.QpidTestInfo;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.Test;
 
 import org.apache.qpid.server.protocol.v1_0.type.UnsignedInteger;
@@ -45,34 +48,36 @@ import org.apache.qpid.tests.protocol.v1_0.FrameTransport;
 import org.apache.qpid.tests.protocol.v1_0.Interaction;
 import org.apache.qpid.tests.protocol.v1_0.Utils;
 import org.apache.qpid.tests.utils.BrokerAdmin;
-import org.apache.qpid.tests.utils.BrokerAdminUsingTestBase;
+import org.apache.qpid.tests.utils.BrokerAdminExtension;
+import org.apache.qpid.tests.utils.QpidTestInfoExtension;
 
-public class OutcomeTest extends BrokerAdminUsingTestBase
+@ExtendWith({ BrokerAdminExtension.class, QpidTestInfoExtension.class })
+public class OutcomeTest
 {
-
     @BeforeEach
-    public void setUp()
+    public void setUp(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo)
     {
-        getBrokerAdmin().createQueue(BrokerAdmin.TEST_QUEUE_NAME);
+        brokerAdmin.createQueue(testInfo.methodName());
     }
-
 
     @Test
     @SpecificationTest(section = "3.4.5", description = "If the undeliverable-here is set, then any messages released"
                                                         + " MUST NOT be redelivered to the modifying link endpoint.")
-    public void modifiedOutcomeWithUndeliverableHere() throws Exception
+    public void modifiedOutcomeWithUndeliverableHere(final BrokerAdmin brokerAdmin,
+                                                     final QpidTestInfo testInfo) throws Exception
     {
-        String content1 = getTestName() + "_1";
-        String content2 = getTestName() + "_2";
-        Utils.putMessageOnQueue(getBrokerAdmin(), BrokerAdmin.TEST_QUEUE_NAME, content1, content2);
+        String content1 = testInfo.methodName() + "_1";
+        String content2 = testInfo.methodName() + "_2";
+        Utils.putMessageOnQueue(brokerAdmin, testInfo, testInfo.methodName(), content1, content2);
 
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction()
+                                                     .openHostname(testInfo.virtualHostName())
                                                      .negotiateOpen()
                                                      .begin().consumeResponse(Begin.class)
                                                      .attachRole(Role.RECEIVER)
-                                                     .attachSourceAddress(BrokerAdmin.TEST_QUEUE_NAME)
+                                                     .attachSourceAddress(testInfo.methodName())
                                                      .attach().consumeResponse(Attach.class)
                                                      .assertLatestResponse(Attach.class, this::assumeModifiedSupportedBySource)
                                                      .flowIncomingWindow(UnsignedInteger.ONE)
@@ -107,8 +112,8 @@ public class OutcomeTest extends BrokerAdminUsingTestBase
             // verify that no unexpected performative is received by closing
             interaction.doCloseConnection();
         }
-        assertThat(Utils.receiveMessage(getBrokerAdmin(), BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(content1)));
-        assertThat(Utils.receiveMessage(getBrokerAdmin(), BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(content2)));
+        assertThat(Utils.receiveMessage(brokerAdmin, testInfo), is(equalTo(content1)));
+        assertThat(Utils.receiveMessage(brokerAdmin, testInfo), is(equalTo(content2)));
     }
 
     @Test
@@ -120,19 +125,20 @@ public class OutcomeTest extends BrokerAdminUsingTestBase
                           + " are provided, then the accepted outcome MUST be supported by the source)."
                           + " When present, the values MUST be a symbolic descriptor of a valid outcome, e.g.,"
                           + " “amqp:accepted:list”.")
-    public void transferMessageWithAttachSourceHavingExplicitlySetOutcomesToAccepted() throws Exception
+    public void transferMessageWithAttachSourceHavingExplicitlySetOutcomesToAccepted(final BrokerAdmin brokerAdmin,
+                                                                                     final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             Interaction interaction = transport.newInteraction();
-            Disposition disposition = interaction.negotiateOpen()
+            Disposition disposition = interaction.openHostname(testInfo.virtualHostName()).negotiateOpen()
                                                  .begin().consumeResponse(Begin.class)
                                                  .attachRole(Role.SENDER)
-                                                 .attachTargetAddress(BrokerAdmin.TEST_QUEUE_NAME)
+                                                 .attachTargetAddress(testInfo.methodName())
                                                  .attachSourceOutcomes(Accepted.ACCEPTED_SYMBOL)
                                                  .attach().consumeResponse(Attach.class)
                                                  .consumeResponse(Flow.class)
-                                                 .transferPayloadData(getTestName())
+                                                 .transferPayloadData(testInfo.methodName())
                                                  .transfer()
                                                  .consume(Disposition.class, Flow.class);
 
@@ -142,7 +148,7 @@ public class OutcomeTest extends BrokerAdminUsingTestBase
             assertThat(disposition.getLast(), oneOf(null, UnsignedInteger.ZERO));
             assertThat(disposition.getSettled(), is(equalTo(true)));
         }
-        assertThat(Utils.receiveMessage(getBrokerAdmin(), BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(getTestName())));
+        assertThat(Utils.receiveMessage(brokerAdmin, testInfo), is(equalTo(testInfo.methodName())));
     }
 
 

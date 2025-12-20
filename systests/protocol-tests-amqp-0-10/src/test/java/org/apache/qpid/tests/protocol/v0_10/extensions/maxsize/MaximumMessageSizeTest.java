@@ -18,6 +18,7 @@
  * under the License.
  *
  */
+
 package org.apache.qpid.tests.protocol.v0_10.extensions.maxsize;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -26,7 +27,9 @@ import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.util.stream.IntStream;
 
+import org.apache.qpid.tests.utils.RunBrokerAdmin;
 import org.hamcrest.core.IsEqual;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -37,25 +40,26 @@ import org.apache.qpid.server.protocol.v0_10.transport.SessionCommandPoint;
 import org.apache.qpid.tests.protocol.v0_10.FrameTransport;
 import org.apache.qpid.tests.protocol.v0_10.Interaction;
 import org.apache.qpid.tests.utils.BrokerAdmin;
-import org.apache.qpid.tests.utils.BrokerAdminUsingTestBase;
+import org.apache.qpid.tests.utils.BrokerAdminExtension;
 import org.apache.qpid.tests.utils.BrokerSpecific;
 import org.apache.qpid.tests.utils.ConfigItem;
 
+@RunBrokerAdmin(type = "EMBEDDED_BROKER_PER_CLASS")
+@ExtendWith({ BrokerAdminExtension.class })
 @BrokerSpecific(kind = KIND_BROKER_J)
 @ConfigItem(name = "qpid.max_message_size", value = "1000")
-public class MaximumMessageSizeTest extends BrokerAdminUsingTestBase
+public class MaximumMessageSizeTest
 {
-
     @BeforeEach
-    public void setUp()
+    public void setUp(final BrokerAdmin brokerAdmin)
     {
-        getBrokerAdmin().createQueue(BrokerAdmin.TEST_QUEUE_NAME);
+        brokerAdmin.createQueue(BrokerAdmin.TEST_QUEUE_NAME);
     }
 
     @Test
-    public void limitExceeded() throws Exception
+    public void limitExceeded(final BrokerAdmin brokerAdmin) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
             byte[] sessionName = "test".getBytes(UTF_8);

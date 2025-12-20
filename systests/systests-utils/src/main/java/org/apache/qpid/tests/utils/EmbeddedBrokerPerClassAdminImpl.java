@@ -48,6 +48,7 @@ import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
 import javax.security.auth.Subject;
 
+import org.apache.qpid.test.utils.tls.TlsResource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -73,12 +74,9 @@ import org.apache.qpid.server.store.MemoryConfigurationStore;
 import org.apache.qpid.server.util.FileUtils;
 import org.apache.qpid.server.virtualhost.QueueManagingVirtualHost;
 import org.apache.qpid.server.virtualhostnode.JsonVirtualHostNode;
-import org.apache.qpid.test.utils.tls.TlsResource;
 
-@SuppressWarnings({"java:S116", "unchecked", "unused"})
-// sonar complains about variable names
 @PluggableService
-public class EmbeddedBrokerPerClassAdminImpl implements BrokerAdmin
+public class EmbeddedBrokerPerClassAdminImpl extends AbstractEmbeddedBrokerAdmin implements BrokerAdmin
 {
     private static final Logger LOGGER = LoggerFactory.getLogger(EmbeddedBrokerPerClassAdminImpl.class);
     public static final String TYPE = "EMBEDDED_BROKER_PER_CLASS";
@@ -142,7 +140,7 @@ public class EmbeddedBrokerPerClassAdminImpl implements BrokerAdmin
     @Override
     public void beforeTestMethod(final Class testClass, final Method method)
     {
-        final String virtualHostNodeName = testClass.getSimpleName() + "_" + method.getName();
+        final String virtualHostNodeName = testClass.getCanonicalName() + "_" + method.getName();
         final String storeType = System.getProperty("virtualhostnode.type");
         _isPersistentStore = !"Memory".equals(storeType);
 
@@ -158,10 +156,15 @@ public class EmbeddedBrokerPerClassAdminImpl implements BrokerAdmin
 
         String blueprint = System.getProperty("virtualhostnode.context.blueprint");
 
+        final Map<String, String> context = new HashMap<>();
+        context.put("virtualhostBlueprint", blueprint);
+
+        context.putAll(virtualhostContextVariables(testClass, method));
+
         Map<String, Object> attributes = new HashMap<>();
         attributes.put(ConfiguredObject.NAME, virtualHostNodeName);
         attributes.put(ConfiguredObject.TYPE, storeType);
-        attributes.put(ConfiguredObject.CONTEXT, Collections.singletonMap("virtualhostBlueprint", blueprint));
+        attributes.put(ConfiguredObject.CONTEXT, context);
         attributes.put(VirtualHostNode.DEFAULT_VIRTUAL_HOST_NODE, true);
         attributes.put(VirtualHostNode.VIRTUALHOST_INITIAL_CONFIGURATION, blueprint);
         if (storeDir != null)
@@ -188,7 +191,10 @@ public class EmbeddedBrokerPerClassAdminImpl implements BrokerAdmin
         Subject.doAs(deleteSubject, (PrivilegedAction<Object>) () -> {
             if (Boolean.getBoolean("broker.clean.between.tests"))
             {
-                _currentVirtualHostNode.delete();
+                if (_currentVirtualHostNode != null)
+                {
+                    _currentVirtualHostNode.delete();
+                }
             }
             else
             {
@@ -481,12 +487,11 @@ public class EmbeddedBrokerPerClassAdminImpl implements BrokerAdmin
         final String TEST_POST_LOGOUT_PATH = "/testpostlogout";
 
         OAuth2MockEndpointHolder server;
-        try
+        try (final TlsResource tlsResource = new TlsResource())
         {
-            final TlsResource tlsResource = new TlsResource();
-            tlsResource.beforeAll(null);
             final Path keyStore = tlsResource.createSelfSignedKeyStore("CN=127.0.0.1");
             server = new OAuth2MockEndpointHolder(keyStore.toFile().getAbsolutePath(), tlsResource.getSecret(), tlsResource.getKeyStoreType());
+
             final OAuth2MockEndpoint identityResolverEndpoint = new OAuth2MockEndpoint();
             identityResolverEndpoint.putExpectedParameter("token", "A".repeat(10_0000));
             identityResolverEndpoint.setExpectedMethod("POST");
@@ -639,8 +644,6 @@ public class EmbeddedBrokerPerClassAdminImpl implements BrokerAdmin
         }
     }
 
-    // sonar: hostname verifier is used for test purposes
-    @SuppressWarnings("java:S4830")
     private static final class TrustingTrustManager implements X509TrustManager
     {
         @Override
@@ -662,8 +665,6 @@ public class EmbeddedBrokerPerClassAdminImpl implements BrokerAdmin
         }
     }
 
-    // sonar: hostname verifier is used for test purposes
-    @SuppressWarnings("java:S5527")
     private static final class BlindHostnameVerifier implements HostnameVerifier
     {
         @Override

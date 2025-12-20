@@ -18,6 +18,7 @@
  * under the License.
  *
  */
+
 package org.apache.qpid.tests.protocol.v1_0.extensions.bindmapjms;
 
 import static org.apache.qpid.tests.utils.BrokerAdmin.KIND_BROKER_J;
@@ -32,6 +33,9 @@ import static org.hamcrest.Matchers.lessThan;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 
+import org.apache.qpid.tests.utils.QpidTestInfo;
+import org.apache.qpid.tests.utils.QpidTestInfoExtension;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.Test;
 
 import org.apache.qpid.server.protocol.v1_0.type.Symbol;
@@ -47,11 +51,13 @@ import org.apache.qpid.server.protocol.v1_0.type.transport.Role;
 import org.apache.qpid.tests.protocol.SpecificationTest;
 import org.apache.qpid.tests.protocol.v1_0.FrameTransport;
 import org.apache.qpid.tests.protocol.v1_0.Interaction;
-import org.apache.qpid.tests.utils.BrokerAdminUsingTestBase;
+import org.apache.qpid.tests.utils.BrokerAdmin;
+import org.apache.qpid.tests.utils.BrokerAdminExtension;
 import org.apache.qpid.tests.utils.BrokerSpecific;
 
+@ExtendWith({ BrokerAdminExtension.class, QpidTestInfoExtension.class })
 @BrokerSpecific(kind = KIND_BROKER_J)
-public class TopicDestinationTest extends BrokerAdminUsingTestBase
+public class TopicDestinationTest
 {
     private static final Symbol TOPIC = Symbol.valueOf("topic");
     private static final Symbol GLOBAL = Symbol.valueOf("global");
@@ -64,9 +70,9 @@ public class TopicDestinationTest extends BrokerAdminUsingTestBase
                           + " for the application by supplying a terminus capability for the particular"
                           + " Destination type to which the client expects to attach."
                           + " Destination Type = Topic, terminus capability (type) = topic")
-    public void nonSharedVolatileSubscriptionLinkAttachDetach() throws Exception
+    public void nonSharedVolatileSubscriptionLinkAttachDetach(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Source source = new Source();
             source.setExpiryPolicy(TerminusExpiryPolicy.LINK_DETACH);
@@ -75,7 +81,7 @@ public class TopicDestinationTest extends BrokerAdminUsingTestBase
             source.setDurable(TerminusDurability.NONE);
 
             final Interaction interaction = transport.newInteraction();
-            final Attach responseAttach = interaction.negotiateOpen()
+            final Attach responseAttach = interaction.openHostname(testInfo.virtualHostName()).negotiateOpen()
                                                      .begin().consumeResponse(Begin.class)
                                                      .attachRole(Role.RECEIVER)
                                                      .attachSource(source)
@@ -98,9 +104,9 @@ public class TopicDestinationTest extends BrokerAdminUsingTestBase
     }
 
     @Test
-    public void nonSharedDurableSubscriptionLinkAttachDetach() throws Exception
+    public void nonSharedDurableSubscriptionLinkAttachDetach(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Source source = new Source();
             source.setExpiryPolicy(TerminusExpiryPolicy.NEVER);
@@ -109,7 +115,7 @@ public class TopicDestinationTest extends BrokerAdminUsingTestBase
             source.setDurable(TerminusDurability.UNSETTLED_STATE);
 
             final Interaction interaction = transport.newInteraction();
-            final Attach responseAttach = interaction.negotiateOpen()
+            final Attach responseAttach = interaction.openHostname(testInfo.virtualHostName()).negotiateOpen()
                                                      .begin().consumeResponse(Begin.class)
                                                      .attachRole(Role.RECEIVER)
                                                      .attachSource(source)
@@ -132,10 +138,10 @@ public class TopicDestinationTest extends BrokerAdminUsingTestBase
     }
 
     @Test
-    public void sharedGlobalVolatileSubscriptionLinkAttachDetach() throws Exception
+    public void sharedGlobalVolatileSubscriptionLinkAttachDetach(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
         String subscriptionName = "foo";
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Source source = new Source();
             source.setExpiryPolicy(TerminusExpiryPolicy.LINK_DETACH);
@@ -144,7 +150,7 @@ public class TopicDestinationTest extends BrokerAdminUsingTestBase
             source.setDurable(TerminusDurability.NONE);
 
             final Interaction interaction = transport.newInteraction();
-            final Attach responseAttach1 = interaction.negotiateOpen()
+            final Attach responseAttach1 = interaction.openHostname(testInfo.virtualHostName()).negotiateOpen()
                                                       .begin().consumeResponse(Begin.class)
                                                       .attachName(subscriptionName + "|global-volatile")
                                                       .attachHandle(UnsignedInteger.ZERO)
@@ -190,10 +196,10 @@ public class TopicDestinationTest extends BrokerAdminUsingTestBase
     }
 
     @Test
-    public void sharedGlobalDurableSubscriptionLinkAttachDetach() throws Exception
+    public void sharedGlobalDurableSubscriptionLinkAttachDetach(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
         String subscriptionName = "foo";
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Source source = new Source();
             source.setExpiryPolicy(TerminusExpiryPolicy.NEVER);
@@ -202,7 +208,7 @@ public class TopicDestinationTest extends BrokerAdminUsingTestBase
             source.setDurable(TerminusDurability.CONFIGURATION);
 
             final Interaction interaction = transport.newInteraction();
-            final Attach responseAttach1 = interaction.negotiateOpen()
+            final Attach responseAttach1 = interaction.openHostname(testInfo.virtualHostName()).negotiateOpen()
                                                       .begin().consumeResponse(Begin.class)
                                                       .attachName(subscriptionName + "|global")
                                                       .attachHandle(UnsignedInteger.ZERO)
@@ -272,10 +278,10 @@ public class TopicDestinationTest extends BrokerAdminUsingTestBase
     }
 
     @Test
-    public void sharedGlobalDurableSubscriptionCloseWithActiveLink() throws Exception
+    public void sharedGlobalDurableSubscriptionCloseWithActiveLink(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
         String subscriptionName = "foo";
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Source source = new Source();
             source.setExpiryPolicy(TerminusExpiryPolicy.NEVER);
@@ -284,7 +290,7 @@ public class TopicDestinationTest extends BrokerAdminUsingTestBase
             source.setDurable(TerminusDurability.CONFIGURATION);
 
             final Interaction interaction = transport.newInteraction();
-            final Attach responseAttach1 = interaction.negotiateOpen()
+            final Attach responseAttach1 = interaction.openHostname(testInfo.virtualHostName()).negotiateOpen()
                                                       .begin().consumeResponse(Begin.class)
                                                       .attachName(subscriptionName + "|global")
                                                       .attachHandle(UnsignedInteger.ZERO)

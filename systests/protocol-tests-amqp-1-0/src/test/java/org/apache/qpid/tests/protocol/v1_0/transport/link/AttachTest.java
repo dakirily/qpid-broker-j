@@ -30,6 +30,9 @@ import static org.hamcrest.Matchers.lessThan;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 
+import org.apache.qpid.tests.utils.QpidTestInfo;
+import org.apache.qpid.tests.utils.QpidTestInfoExtension;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.Test;
 
 import org.apache.qpid.server.protocol.v1_0.type.ErrorCarryingFrameBody;
@@ -46,19 +49,20 @@ import org.apache.qpid.tests.protocol.SpecificationTest;
 import org.apache.qpid.tests.protocol.v1_0.FrameTransport;
 import org.apache.qpid.tests.protocol.v1_0.Interaction;
 import org.apache.qpid.tests.utils.BrokerAdmin;
-import org.apache.qpid.tests.utils.BrokerAdminUsingTestBase;
+import org.apache.qpid.tests.utils.BrokerAdminExtension;
 import org.apache.qpid.tests.utils.BrokerSpecific;
 
-public class AttachTest extends BrokerAdminUsingTestBase
+@ExtendWith({ BrokerAdminExtension.class, QpidTestInfoExtension.class })
+public class AttachTest
 {
     @Test
     @SpecificationTest(section = "1.3.4",
             description = "mandatory [...] a non null value for the field is always encoded.")
-    public void emptyAttach() throws Exception
+    public void emptyAttach(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
-            final Response<?> response = transport.newInteraction()
+            final Response<?> response = transport.newInteraction().openHostname(testInfo.virtualHostName())
                                                   .negotiateOpen()
                                                   .begin().consumeResponse(Begin.class)
                                                   .attachRole(null)
@@ -81,17 +85,17 @@ public class AttachTest extends BrokerAdminUsingTestBase
     @SpecificationTest(section = "2.6.3",
             description = "Links are established and/or resumed by creating a link endpoint associated with a local terminus, "
                           + "assigning it to an unused handle, and sending an attach frame.")
-    public void successfulAttachAsSender() throws Exception
+    public void successfulAttachAsSender(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        getBrokerAdmin().createQueue(BrokerAdmin.TEST_QUEUE_NAME);
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        brokerAdmin.createQueue(testInfo.methodName());
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
-            final Attach responseAttach = transport.newInteraction()
+            final Attach responseAttach = transport.newInteraction().openHostname(testInfo.virtualHostName())
                                                    .negotiateOpen()
                                                    .begin().consumeResponse(Begin.class)
                                                    .attachRole(Role.SENDER)
                                                    .attachInitialDeliveryCount(UnsignedInteger.ZERO)
-                                                   .attachTargetAddress(BrokerAdmin.TEST_QUEUE_NAME)
+                                                   .attachTargetAddress(testInfo.methodName())
                                                    .attach().consumeResponse()
                                                    .getLatestResponse(Attach.class);
             assertThat(responseAttach.getName(), is(notNullValue()));
@@ -106,13 +110,13 @@ public class AttachTest extends BrokerAdminUsingTestBase
     @SpecificationTest(section = "2.6.3",
             description = "Links are established and/or resumed by creating a link endpoint associated with a local terminus, "
                           + "assigning it to an unused handle, and sending an attach frame.")
-    public void successfulAttachAsReceiver() throws Exception
+    public void successfulAttachAsReceiver(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        String queueName = BrokerAdmin.TEST_QUEUE_NAME;
-        getBrokerAdmin().createQueue(queueName);
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        String queueName = testInfo.methodName();
+        brokerAdmin.createQueue(queueName);
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
-            final Attach responseAttach = transport.newInteraction()
+            final Attach responseAttach = transport.newInteraction().openHostname(testInfo.virtualHostName())
                                                    .negotiateOpen()
                                                    .begin().consumeResponse(Begin.class)
                                                    .attachRole(Role.RECEIVER)
@@ -133,14 +137,14 @@ public class AttachTest extends BrokerAdminUsingTestBase
                           + " no associated local terminus. In this case, the session endpoint MUST immediately"
                           + " detach the newly created link endpoint.")
     @BrokerSpecific(kind = BrokerAdmin.KIND_BROKER_J)
-    public void attachReceiverWithNullTarget() throws Exception
+    public void attachReceiverWithNullTarget(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        String queueName = BrokerAdmin.TEST_QUEUE_NAME;
-        getBrokerAdmin().createQueue(queueName);
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        String queueName = testInfo.methodName();
+        brokerAdmin.createQueue(queueName);
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             Interaction interaction = transport.newInteraction();
-            final Attach responseAttach = interaction.negotiateOpen()
+            final Attach responseAttach = interaction.openHostname(testInfo.virtualHostName()).negotiateOpen()
                                                      .begin().consumeResponse(Begin.class)
                                                      .attachRole(Role.RECEIVER)
                                                      .attachSourceAddress(queueName)
@@ -175,14 +179,14 @@ public class AttachTest extends BrokerAdminUsingTestBase
                           + " no associated local terminus. In this case, the session endpoint MUST immediately"
                           + " detach the newly created link endpoint.")
     @BrokerSpecific(kind = BrokerAdmin.KIND_BROKER_J)
-    public void attachSenderWithNullSource() throws Exception
+    public void attachSenderWithNullSource(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
         String queueName = "testQueue";
-        getBrokerAdmin().createQueue(queueName);
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        brokerAdmin.createQueue(queueName);
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             Interaction interaction = transport.newInteraction();
-            final Attach responseAttach = interaction.negotiateOpen()
+            final Attach responseAttach = interaction.openHostname(testInfo.virtualHostName()).negotiateOpen()
                                                      .begin().consumeResponse(Begin.class)
                                                      .attachRole(Role.SENDER)
                                                      .attachSource(null)

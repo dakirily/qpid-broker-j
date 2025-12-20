@@ -18,6 +18,7 @@
  * under the License.
  *
  */
+
 package org.apache.qpid.tests.protocol.v0_8;
 
 import static org.hamcrest.CoreMatchers.equalTo;
@@ -26,7 +27,10 @@ import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.util.Map;
 
+import org.apache.qpid.tests.utils.QpidTestInfo;
+import org.apache.qpid.tests.utils.QpidTestInfoExtension;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.Test;
 
 import org.apache.qpid.server.properties.ConnectionStartProperties;
@@ -34,26 +38,26 @@ import org.apache.qpid.server.protocol.ErrorCodes;
 import org.apache.qpid.server.protocol.v0_8.transport.*;
 import org.apache.qpid.tests.protocol.SpecificationTest;
 import org.apache.qpid.tests.utils.BrokerAdmin;
-import org.apache.qpid.tests.utils.BrokerAdminUsingTestBase;
+import org.apache.qpid.tests.utils.BrokerAdminExtension;
 
-public class TransactionTest extends BrokerAdminUsingTestBase
+@ExtendWith({ BrokerAdminExtension.class, QpidTestInfoExtension.class })
+public class TransactionTest
 {
-
     @BeforeEach
-    public void setUp()
+    public void setUp(final BrokerAdmin brokerAdmin)
     {
-        getBrokerAdmin().createQueue(BrokerAdmin.TEST_QUEUE_NAME);
+        brokerAdmin.createQueue(BrokerAdmin.TEST_QUEUE_NAME);
     }
 
     @Test
     @SpecificationTest(section = "1.9.2.3", description = "The client MUST NOT use the Commit method on non-transacted "
                                                           + "channels.")
-    public void commitNonTransactedChannel() throws Exception
+    public void commitNonTransactedChannel(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try(FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try(FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            ChannelCloseBody res = interaction.negotiateOpen()
+            ChannelCloseBody res = interaction.negotiateOpen(testInfo.virtualHostName())
                                               .channel().open().consumeResponse(ChannelOpenOkBody.class)
                                               .tx().commit()
                                               .consumeResponse().getLatestResponse(ChannelCloseBody.class);
@@ -65,12 +69,12 @@ public class TransactionTest extends BrokerAdminUsingTestBase
     @Test
     @SpecificationTest(section = "1.9.2.3", description = "The client MUST NOT use the Rollback method on non-transacted "
                                                           + "channels.")
-    public void rollbackNonTransactedChannel() throws Exception
+    public void rollbackNonTransactedChannel(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try(FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try(FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            ChannelCloseBody res = interaction.negotiateOpen()
+            ChannelCloseBody res = interaction.negotiateOpen(testInfo.virtualHostName())
                                               .channel().open().consumeResponse(ChannelOpenOkBody.class)
                                               .tx().rollback()
                                               .consumeResponse().getLatestResponse(ChannelCloseBody.class);
@@ -81,12 +85,12 @@ public class TransactionTest extends BrokerAdminUsingTestBase
 
     @Test
     @SpecificationTest(section = "1.9.2.3", description = "commit the current transaction")
-    public void publishMessage() throws Exception
+    public void publishMessage(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try(FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try(FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            interaction.negotiateOpen()
+            interaction.negotiateOpen(testInfo.virtualHostName())
                        .channel().open().consumeResponse(ChannelOpenOkBody.class)
                        .tx().select().consumeResponse(TxSelectOkBody.class)
                        .basic().contentHeaderPropertiesContentType("text/plain")
@@ -98,21 +102,21 @@ public class TransactionTest extends BrokerAdminUsingTestBase
                        .content("Test")
                        .publishMessage()
                        .exchange().declarePassive(true).declare().consumeResponse(ExchangeDeclareOkBody.class);
-            assertThat(getBrokerAdmin().getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(0)));
+            assertThat(brokerAdmin.getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(0)));
 
             interaction.tx().commit().consumeResponse(TxCommitOkBody.class);
 
-            assertThat(getBrokerAdmin().getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(1)));
+            assertThat(brokerAdmin.getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(1)));
         }
     }
     @Test
     @SpecificationTest(section = "1.9.2.5", description = "abandon the current transaction")
-    public void publishMessageRollback() throws Exception
+    public void publishMessageRollback(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try(FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try(FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            interaction.negotiateOpen()
+            interaction.negotiateOpen(testInfo.virtualHostName())
                        .channel().open().consumeResponse(ChannelOpenOkBody.class)
                        .tx().select().consumeResponse(TxSelectOkBody.class)
                        .basic()
@@ -121,27 +125,27 @@ public class TransactionTest extends BrokerAdminUsingTestBase
                        .content("Test")
                        .publishMessage()
                        .exchange().declarePassive(true).declare().consumeResponse(ExchangeDeclareOkBody.class);
-            assertThat(getBrokerAdmin().getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(0)));
+            assertThat(brokerAdmin.getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(0)));
 
             interaction.tx().rollback().consumeResponse(TxRollbackOkBody.class);
 
-            assertThat(getBrokerAdmin().getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(0)));
+            assertThat(brokerAdmin.getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(0)));
         }
     }
 
     @Test
     @SpecificationTest(section = "1.9.2.3", description = "commit the current transaction")
-    public void consumeMessage() throws Exception
+    public void consumeMessage(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        getBrokerAdmin().putMessageOnQueue(BrokerAdmin.TEST_QUEUE_NAME, "message");
+        brokerAdmin.putMessageOnQueue(BrokerAdmin.TEST_QUEUE_NAME, "message");
 
-        try(FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try(FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
 
-            assertThat(getBrokerAdmin().getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(1)));
+            assertThat(brokerAdmin.getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(1)));
 
-            interaction.negotiateOpen()
+            interaction.negotiateOpen(testInfo.virtualHostName())
                        .channel().open().consumeResponse(ChannelOpenOkBody.class)
                        .tx().select().consumeResponse(TxSelectOkBody.class)
                        .basic().qosPrefetchCount(1)
@@ -164,27 +168,27 @@ public class TransactionTest extends BrokerAdminUsingTestBase
                        .ack()
                        .exchange().declarePassive(true).declare().consumeResponse(ExchangeDeclareOkBody.class);
 
-            assertThat(getBrokerAdmin().getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(1)));
+            assertThat(brokerAdmin.getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(1)));
 
             interaction.tx().commit().consumeResponse(TxCommitOkBody.class);
 
-            assertThat(getBrokerAdmin().getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(0)));
+            assertThat(brokerAdmin.getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(0)));
         }
     }
 
     @Test
     @SpecificationTest(section = "1.9.2.5", description = "abandon the current transaction")
-    public void consumeMessageRollbackAckdMessage() throws Exception
+    public void consumeMessageRollbackAckdMessage(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        getBrokerAdmin().putMessageOnQueue(BrokerAdmin.TEST_QUEUE_NAME, "message");
+        brokerAdmin.putMessageOnQueue(BrokerAdmin.TEST_QUEUE_NAME, "message");
 
-        try(FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try(FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
 
-            assertThat(getBrokerAdmin().getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(1)));
+            assertThat(brokerAdmin.getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(1)));
 
-            interaction.negotiateOpen()
+            interaction.negotiateOpen(testInfo.virtualHostName())
                        .channel().open().consumeResponse(ChannelOpenOkBody.class)
                        .tx().select().consumeResponse(TxSelectOkBody.class)
                        .basic().qosPrefetchCount(1)
@@ -209,11 +213,11 @@ public class TransactionTest extends BrokerAdminUsingTestBase
                        .ack()
                        .exchange().declarePassive(true).declare().consumeResponse(ExchangeDeclareOkBody.class);
 
-            assertThat(getBrokerAdmin().getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(1)));
+            assertThat(brokerAdmin.getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(1)));
 
             interaction.tx().rollback().consumeResponse(TxRollbackOkBody.class);
 
-            assertThat(getBrokerAdmin().getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(1)));
+            assertThat(brokerAdmin.getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(1)));
 
             // TODO: the server currently resends the messages again, which is not specification compliant but the
             // Qpid JMS AMQP 0-x relies on this behaviour.
@@ -235,17 +239,17 @@ public class TransactionTest extends BrokerAdminUsingTestBase
 
     @Test
     @SpecificationTest(section = "1.9.2.5", description = "abandon the current transaction")
-    public void consumeMessageRollbackDeliveredMessage() throws Exception
+    public void consumeMessageRollbackDeliveredMessage(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        getBrokerAdmin().putMessageOnQueue(BrokerAdmin.TEST_QUEUE_NAME, "message");
+        brokerAdmin.putMessageOnQueue(BrokerAdmin.TEST_QUEUE_NAME, "message");
 
-        try(FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try(FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
 
-            assertThat(getBrokerAdmin().getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(1)));
+            assertThat(brokerAdmin.getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(1)));
 
-            interaction.negotiateOpen()
+            interaction.negotiateOpen(testInfo.virtualHostName())
                        .channel().open().consumeResponse(ChannelOpenOkBody.class)
                        .tx().select().consumeResponse(TxSelectOkBody.class)
                        .basic().qosPrefetchCount(1)
@@ -266,11 +270,11 @@ public class TransactionTest extends BrokerAdminUsingTestBase
 
             assertThat(delivery.getRedelivered(), is(equalTo(false)));
 
-            assertThat(getBrokerAdmin().getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(1)));
+            assertThat(brokerAdmin.getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(1)));
 
             interaction.tx().rollback().consumeResponse(TxRollbackOkBody.class);
 
-            assertThat(getBrokerAdmin().getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(1)));
+            assertThat(brokerAdmin.getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(1)));
 
             // TODO: the server currently resends the messages again, which is not specification compliant but the
             // Qpid JMS AMQP 0-x relies on this behaviour.
@@ -287,15 +291,15 @@ public class TransactionTest extends BrokerAdminUsingTestBase
 
     /** Qpid specific extension */
     @Test
-    public void publishUnrouteableMandatoryMessageCloseWhenNoRoute() throws Exception
+    public void publishUnrouteableMandatoryMessageCloseWhenNoRoute(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try(FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try(FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
 
             Map<String, Object> clientProperties = Map.of(ConnectionStartProperties.QPID_CLOSE_WHEN_NO_ROUTE, true);
             ConnectionCloseBody response = interaction.connection().startOkClientProperties(clientProperties)
-                                                      .interaction().negotiateOpen()
+                                                      .interaction().negotiateOpen(testInfo.virtualHostName())
                                                       .channel().open().consumeResponse(ChannelOpenOkBody.class)
                                                       .tx()
                                                       .select()
@@ -314,16 +318,16 @@ public class TransactionTest extends BrokerAdminUsingTestBase
 
     /** Qpid specific extension */
     @Test
-    public void publishUnrouteableMandatory() throws Exception
+    public void publishUnrouteableMandatory(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try(FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try(FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
 
             Map<String, Object> clientProperties = Map.of(ConnectionStartProperties.QPID_CLOSE_WHEN_NO_ROUTE, false);
             final String messageContent = "Test";
             BasicReturnBody returned = interaction.connection().startOkClientProperties(clientProperties)
-                                                  .interaction().negotiateOpen()
+                                                  .interaction().negotiateOpen(testInfo.virtualHostName())
                                                   .channel()
                                                   .open()
                                                   .consumeResponse(ChannelOpenOkBody.class)

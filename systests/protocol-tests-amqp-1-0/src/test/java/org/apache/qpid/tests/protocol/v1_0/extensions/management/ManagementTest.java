@@ -29,6 +29,7 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.util.Map;
 
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.Test;
 
 import org.apache.qpid.server.protocol.v1_0.Session_1_0;
@@ -46,22 +47,23 @@ import org.apache.qpid.server.protocol.v1_0.type.transport.Role;
 import org.apache.qpid.tests.protocol.SpecificationTest;
 import org.apache.qpid.tests.protocol.v1_0.FrameTransport;
 import org.apache.qpid.tests.protocol.v1_0.Interaction;
-import org.apache.qpid.tests.utils.BrokerAdminUsingTestBase;
+import org.apache.qpid.tests.utils.BrokerAdmin;
+import org.apache.qpid.tests.utils.BrokerAdminExtension;
 
-public class ManagementTest extends BrokerAdminUsingTestBase
+@ExtendWith({ BrokerAdminExtension.class })
+public class ManagementTest
 {
-
     @Test
     @SpecificationTest(section = "2.6.7",
             description = "The drain flag indicates how the sender SHOULD behave when insufficient messages"
                           + " are available to consume the current link-credit. If set, the sender will"
                           + " (after sending all available messages) advance the delivery-count as much as possible,"
                           + " consuming all link-credit, and send the flow state to the receiver.")
-    public void drainTemporaryMessageSource() throws Exception
+    public void drainTemporaryMessageSource(final BrokerAdmin brokerAdmin) throws Exception
     {
-        assumeTrue(getBrokerAdmin().isManagementSupported());
+        assumeTrue(brokerAdmin.isManagementSupported());
 
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             Target target = new Target();
             target.setDynamicNodeProperties(Map.of(Session_1_0.LIFETIME_POLICY, new DeleteOnClose()));

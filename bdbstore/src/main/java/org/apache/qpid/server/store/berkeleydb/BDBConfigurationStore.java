@@ -81,7 +81,7 @@ public class BDBConfigurationStore implements MessageStoreProvider, DurableConfi
     private final ProvidedBDBMessageStore _providedMessageStore = new ProvidedBDBMessageStore();
     private final ProvidedBDBPreferenceStore _providedPreferenceStore = new ProvidedBDBPreferenceStore();
 
-    private EnvironmentFacade _environmentFacade;
+    private volatile EnvironmentFacade _environmentFacade;
 
     private ConfiguredObject<?> _parent;
     private final Class<? extends ConfiguredObject> _rootClass;
@@ -286,12 +286,13 @@ public class BDBConfigurationStore implements MessageStoreProvider, DurableConfi
 
     private void closeEnvironment()
     {
-        if (_environmentFacade != null)
+        final EnvironmentFacade environmentFacade = _environmentFacade;
+        _environmentFacade = null;
+        if (environmentFacade != null)
         {
             try
             {
-                _environmentFacade.close();
-                _environmentFacade = null;
+                environmentFacade.close();
             }
             catch (RuntimeException e)
             {

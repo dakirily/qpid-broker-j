@@ -34,6 +34,7 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.Test;
 
 import org.apache.qpid.server.protocol.v1_0.type.Binary;
@@ -57,15 +58,18 @@ import org.apache.qpid.tests.protocol.v1_0.FrameTransport;
 import org.apache.qpid.tests.protocol.v1_0.Interaction;
 import org.apache.qpid.tests.protocol.v1_0.Utils;
 import org.apache.qpid.tests.utils.BrokerAdmin;
-import org.apache.qpid.tests.utils.BrokerAdminUsingTestBase;
+import org.apache.qpid.tests.utils.BrokerAdminExtension;
+import org.apache.qpid.tests.utils.QpidTestInfo;
+import org.apache.qpid.tests.utils.QpidTestInfoExtension;
 
-public class DischargeTest extends BrokerAdminUsingTestBase
+@ExtendWith({ BrokerAdminExtension.class, QpidTestInfoExtension.class })
+public class DischargeTest
 {
 
     @BeforeEach
-    public void setUp()
+    public void setUp(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo)
     {
-        getBrokerAdmin().createQueue(BrokerAdmin.TEST_QUEUE_NAME);
+        brokerAdmin.createQueue(testInfo.methodName());
     }
 
     @Test
@@ -74,12 +78,13 @@ public class DischargeTest extends BrokerAdminUsingTestBase
                           + " the coordinator MUST convey the error to the controller as a transaction-error."
                           + " If the source for the link to the coordinator supports the rejected outcome, then the "
                           + " message MUST be rejected with this outcome carrying the transaction-error.")
-    public void dischargeUnknownTransactionIdWhenSourceSupportsRejectedOutcome() throws Exception
+    public void dischargeUnknownTransactionIdWhenSourceSupportsRejectedOutcome(final BrokerAdmin brokerAdmin,
+                                                                               final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            interaction.negotiateOpen()
+            interaction.openHostname(testInfo.virtualHostName()).negotiateOpen()
                        .begin().consumeResponse(Begin.class)
 
                        .txnAttachCoordinatorLink(UnsignedInteger.ZERO, this::coordinatorAttachExpected, Rejected.REJECTED_SYMBOL)
@@ -106,12 +111,13 @@ public class DischargeTest extends BrokerAdminUsingTestBase
                           + " [...] If the source does not support the rejected outcome, the transactional resource"
                           + " MUST detach the link to the coordinator, with the detach performative carrying"
                           + " the transaction-error.")
-    public void dischargeUnknownTransactionIdWhenSourceDoesNotSupportRejectedOutcome() throws Exception
+    public void dischargeUnknownTransactionIdWhenSourceDoesNotSupportRejectedOutcome(final BrokerAdmin brokerAdmin,
+                                                                                     final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            interaction.negotiateOpen()
+            interaction.openHostname(testInfo.virtualHostName()).negotiateOpen()
                                            .begin().consumeResponse(Begin.class)
                                            .txnAttachCoordinatorLink(UnsignedInteger.ZERO, this::coordinatorAttachExpected, Accepted.ACCEPTED_SYMBOL)
                                            .txnDeclare();
@@ -137,12 +143,13 @@ public class DischargeTest extends BrokerAdminUsingTestBase
                           + " To associate an outcome with a transaction the controller sends a disposition"
                           + " performative which sets the state of the delivery to a transactional-state with the"
                           + " desired transaction identifier and the outcome to be applied upon a successful discharge.")
-    public void dischargeSettledAfterReceiverDetach() throws Exception
+    public void dischargeSettledAfterReceiverDetach(final BrokerAdmin brokerAdmin,
+                                                    final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            interaction.negotiateOpen()
+            interaction.openHostname(testInfo.virtualHostName()).negotiateOpen()
                        .begin().consumeResponse(Begin.class)
 
                        .txnAttachCoordinatorLink(UnsignedInteger.ZERO, this::coordinatorAttachExpected)
@@ -150,7 +157,7 @@ public class DischargeTest extends BrokerAdminUsingTestBase
 
                        .attachRole(Role.RECEIVER)
                        .attachHandle(UnsignedInteger.ONE)
-                       .attachSourceAddress(BrokerAdmin.TEST_QUEUE_NAME)
+                       .attachSourceAddress(testInfo.methodName())
                        .attachRcvSettleMode(ReceiverSettleMode.FIRST)
                        .attach().consumeResponse(Attach.class)
 
@@ -162,7 +169,7 @@ public class DischargeTest extends BrokerAdminUsingTestBase
                        .flowHandleFromLinkHandle()
                        .flow();
 
-            Utils.putMessageOnQueue(getBrokerAdmin(), BrokerAdmin.TEST_QUEUE_NAME, getTestName());
+            Utils.putMessageOnQueue(brokerAdmin, testInfo, testInfo.methodName(), testInfo.methodName());
 
             List<Transfer> transfers = interaction.receiveDelivery().getLatestDelivery();
             assertThat(transfers, is(notNullValue()));
@@ -179,9 +186,9 @@ public class DischargeTest extends BrokerAdminUsingTestBase
             interaction.doCloseConnection();
         }
 
-        String secondMessage = getTestName() + "_2";
-        Utils.putMessageOnQueue(getBrokerAdmin(), BrokerAdmin.TEST_QUEUE_NAME, secondMessage);
-        Object receivedMessage = Utils.receiveMessage(getBrokerAdmin(), BrokerAdmin.TEST_QUEUE_NAME);
+        String secondMessage = testInfo.methodName() + "_2";
+        Utils.putMessageOnQueue(brokerAdmin, testInfo, testInfo.methodName(), secondMessage);
+        Object receivedMessage = Utils.receiveMessage(brokerAdmin, testInfo);
         assertThat(receivedMessage, is(equalTo(secondMessage)));
     }
 
@@ -194,12 +201,13 @@ public class DischargeTest extends BrokerAdminUsingTestBase
                           + " of a successful discharge. The outcome communicated by the resource MUST be associated"
                           + " with the same transaction with which the transfer from controller to resource"
                           + " was associated.")
-    public void dischargeSettledAfterSenderDetach() throws Exception
+    public void dischargeSettledAfterSenderDetach(final BrokerAdmin brokerAdmin,
+                                                  final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            interaction.negotiateOpen()
+            interaction.openHostname(testInfo.virtualHostName()).negotiateOpen()
                        .begin().consumeResponse(Begin.class)
 
                        .txnAttachCoordinatorLink(UnsignedInteger.ZERO, this::coordinatorAttachExpected)
@@ -207,13 +215,13 @@ public class DischargeTest extends BrokerAdminUsingTestBase
 
                        .attachRole(Role.SENDER)
                        .attachHandle(UnsignedInteger.ONE)
-                       .attachTargetAddress(BrokerAdmin.TEST_QUEUE_NAME)
+                       .attachTargetAddress(testInfo.methodName())
                        .attach().consumeResponse(Attach.class)
                        .consumeResponse(Flow.class)
 
                        .transferDeliveryId()
                        .transferTransactionalStateFromCurrentTransaction()
-                       .transferPayloadData(getTestName())
+                       .transferPayloadData(testInfo.methodName())
                        .transferHandle(UnsignedInteger.ONE)
                        .transfer().consume(Disposition.class, Flow.class);
 
@@ -224,8 +232,8 @@ public class DischargeTest extends BrokerAdminUsingTestBase
             assertThat(interaction.getCoordinatorLatestDeliveryState(), is(instanceOf(Accepted.class)));
         }
 
-        final Object receivedMessage = Utils.receiveMessage(getBrokerAdmin(), BrokerAdmin.TEST_QUEUE_NAME);
-        assertThat(receivedMessage, is(equalTo(getTestName())));
+        final Object receivedMessage = Utils.receiveMessage(brokerAdmin, testInfo);
+        assertThat(receivedMessage, is(equalTo(testInfo.methodName())));
     }
 
     @Test
@@ -234,12 +242,13 @@ public class DischargeTest extends BrokerAdminUsingTestBase
                           + " Delivery Sent Unsettled By Controller; Resource Does Not Settle [...]"
                           + " After a successful discharge, the state of unsettled deliveries at the resource MUST"
                           + " reflect the outcome that was applied.")
-    public void dischargeUnsettledAfterSenderClose() throws Exception
+    public void dischargeUnsettledAfterSenderClose(final BrokerAdmin brokerAdmin,
+                                                   final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            interaction.negotiateOpen()
+            interaction.openHostname(testInfo.virtualHostName()).negotiateOpen()
                        .begin().consumeResponse(Begin.class)
 
                        .txnAttachCoordinatorLink(UnsignedInteger.ZERO, this::coordinatorAttachExpected)
@@ -247,7 +256,7 @@ public class DischargeTest extends BrokerAdminUsingTestBase
 
                        .attachRole(Role.SENDER)
                        .attachHandle(UnsignedInteger.ONE)
-                       .attachTargetAddress(BrokerAdmin.TEST_QUEUE_NAME)
+                       .attachTargetAddress(testInfo.methodName())
                        .attachRcvSettleMode(ReceiverSettleMode.SECOND)
                        .attach().consumeResponse(Attach.class)
                        .assertLatestResponse(Attach.class,
@@ -257,7 +266,7 @@ public class DischargeTest extends BrokerAdminUsingTestBase
 
                        .transferDeliveryId()
                        .transferTransactionalStateFromCurrentTransaction()
-                       .transferPayloadData(getTestName())
+                       .transferPayloadData(testInfo.methodName())
                        .transferHandle(UnsignedInteger.ONE)
                        .transfer().consumeResponse(Disposition.class)
 
@@ -269,8 +278,8 @@ public class DischargeTest extends BrokerAdminUsingTestBase
             assertThat(interaction.getCoordinatorLatestDeliveryState(), is(instanceOf(Accepted.class)));
         }
 
-        final Object receivedMessage = Utils.receiveMessage(getBrokerAdmin(), BrokerAdmin.TEST_QUEUE_NAME);
-        assertThat(receivedMessage, is(equalTo(getTestName())));
+        final Object receivedMessage = Utils.receiveMessage(brokerAdmin, testInfo);
+        assertThat(receivedMessage, is(equalTo(testInfo.methodName())));
     }
 
     private void coordinatorAttachExpected(final Response<?> response)

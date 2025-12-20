@@ -17,32 +17,38 @@
  * under the License.
  *
  */
+
 package org.apache.qpid.tests.protocol.v0_8.extension.protocoltimeout;
 
+import org.apache.qpid.tests.utils.BrokerAdmin;
+import org.apache.qpid.tests.utils.RunBrokerAdmin;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.Test;
 
 import org.apache.qpid.server.model.port.AmqpPort;
 import org.apache.qpid.tests.protocol.v0_8.FrameTransport;
-import org.apache.qpid.tests.utils.BrokerAdminUsingTestBase;
+import org.apache.qpid.tests.utils.BrokerAdminExtension;
 import org.apache.qpid.tests.utils.ConfigItem;
 
+@RunBrokerAdmin(type = "EMBEDDED_BROKER_PER_CLASS")
+@ExtendWith({ BrokerAdminExtension.class })
 @ConfigItem(name = AmqpPort.PROTOCOL_HANDSHAKE_TIMEOUT, value = "500")
-public class ProtocolHeaderTimeoutTest extends BrokerAdminUsingTestBase
+public class ProtocolHeaderTimeoutTest
 {
 
     @Test
-    public void noProtocolHeader() throws Exception
+    public void noProtocolHeader(final BrokerAdmin brokerAdmin) throws Exception
     {
-        try(FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try(FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             transport.assertNoMoreResponsesAndChannelClosed();
         }
     }
 
     @Test
-    public void incompleteProtocolHeader() throws Exception
+    public void incompleteProtocolHeader(final BrokerAdmin brokerAdmin) throws Exception
     {
-        try(FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try(FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
 
             final byte[] protocolHeader = transport.getProtocolHeader();

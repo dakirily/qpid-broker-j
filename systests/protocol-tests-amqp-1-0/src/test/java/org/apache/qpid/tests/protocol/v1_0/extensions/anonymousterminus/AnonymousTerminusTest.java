@@ -18,6 +18,7 @@
  * under the License.
  *
  */
+
 package org.apache.qpid.tests.protocol.v1_0.extensions.anonymousterminus;
 
 import static org.hamcrest.CoreMatchers.anyOf;
@@ -33,6 +34,7 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.nio.charset.StandardCharsets;
 
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -64,9 +66,12 @@ import org.apache.qpid.tests.protocol.v1_0.Interaction;
 import org.apache.qpid.tests.protocol.v1_0.MessageEncoder;
 import org.apache.qpid.tests.protocol.v1_0.Utils;
 import org.apache.qpid.tests.utils.BrokerAdmin;
-import org.apache.qpid.tests.utils.BrokerAdminUsingTestBase;
+import org.apache.qpid.tests.utils.BrokerAdminExtension;
+import org.apache.qpid.tests.utils.QpidTestInfo;
+import org.apache.qpid.tests.utils.QpidTestInfoExtension;
 
-public class AnonymousTerminusTest extends BrokerAdminUsingTestBase
+@ExtendWith({ BrokerAdminExtension.class, QpidTestInfoExtension.class })
+public class AnonymousTerminusTest
 {
     private static final Symbol ANONYMOUS_RELAY = Symbol.valueOf("ANONYMOUS-RELAY");
     private static final Symbol DELIVERY_TAG = Symbol.valueOf("delivery-tag");
@@ -74,9 +79,9 @@ public class AnonymousTerminusTest extends BrokerAdminUsingTestBase
     private Binary _deliveryTag;
 
     @BeforeEach
-    public void setUp()
+    public void setUp(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo)
     {
-        getBrokerAdmin().createQueue(BrokerAdmin.TEST_QUEUE_NAME);
+        brokerAdmin.createQueue(testInfo.methodName());
         _deliveryTag = new Binary("testTag".getBytes(StandardCharsets.UTF_8));
     }
 
@@ -85,11 +90,12 @@ public class AnonymousTerminusTest extends BrokerAdminUsingTestBase
                           + " forwarded to the node referenced in the to field of properties of the message"
                           + " just as if a direct link has been established to that node.")
     @Test
-    public void transferPreSettledToKnownDestination() throws Exception
+    public void transferPreSettledToKnownDestination(final BrokerAdmin brokerAdmin,
+                                                     final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
-            final Interaction interaction = openInteractionWithAnonymousRelayCapability(transport);
+            final Interaction interaction = openInteractionWithAnonymousRelayCapability(transport, testInfo);
 
             interaction.begin()
                        .consumeResponse(Begin.class)
@@ -99,14 +105,14 @@ public class AnonymousTerminusTest extends BrokerAdminUsingTestBase
                        .consumeResponse(Flow.class)
                        .assertLatestResponse(Flow.class, this::assumeSufficientCredits)
                        .transferDeliveryId()
-                       .transferPayload(generateMessagePayloadToDestination(BrokerAdmin.TEST_QUEUE_NAME))
+                       .transferPayload(generateMessagePayloadToDestination(testInfo.methodName(), testInfo))
                        .transferSettled(Boolean.TRUE)
                        .transferDeliveryTag(_deliveryTag)
                        .transfer()
                        .detachEndCloseUnconditionally();
 
-            assertThat(Utils.receiveMessage(getBrokerAdmin(), BrokerAdmin.TEST_QUEUE_NAME),
-                       is(equalTo(getTestName())));
+            assertThat(Utils.receiveMessage(brokerAdmin, testInfo.virtualHostName(), testInfo.methodName()),
+                       is(equalTo(testInfo.methodName())));
         }
     }
 
@@ -121,11 +127,12 @@ public class AnonymousTerminusTest extends BrokerAdminUsingTestBase
                           + " [...] the info field of error MUST contain an entry with symbolic key delivery-tag"
                           + " and binary value of the delivery-tag of the message which caused the failure.")
     @Test
-    public void transferPreSettledToUnknownDestination() throws Exception
+    public void transferPreSettledToUnknownDestination(final BrokerAdmin brokerAdmin,
+                                                       final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
-            final Interaction interaction = openInteractionWithAnonymousRelayCapability(transport);
+            final Interaction interaction = openInteractionWithAnonymousRelayCapability(transport, testInfo);
 
             interaction.begin()
                        .consumeResponse(Begin.class)
@@ -135,7 +142,7 @@ public class AnonymousTerminusTest extends BrokerAdminUsingTestBase
                        .consumeResponse(Flow.class)
                        .assertLatestResponse(Flow.class, this::assumeSufficientCredits)
                        .transferDeliveryId()
-                       .transferPayload(generateMessagePayloadToDestination(getNonExistingDestinationName()))
+                       .transferPayload(generateMessagePayloadToDestination(getNonExistingDestinationName(testInfo), testInfo))
                        .transferSettled(Boolean.TRUE)
                        .transferDeliveryTag(_deliveryTag)
                        .transfer();
@@ -161,11 +168,12 @@ public class AnonymousTerminusTest extends BrokerAdminUsingTestBase
                           + " [...] the info field of error MUST contain an entry with symbolic key delivery-tag"
                           + " and binary value of the delivery-tag of the message which caused the failure.")
     @Test
-    public void transferUnsettledToUnknownDestinationWhenRejectedOutcomeSupportedBySource() throws Exception
+    public void transferUnsettledToUnknownDestinationWhenRejectedOutcomeSupportedBySource(final BrokerAdmin brokerAdmin,
+                                                                                          final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
-            final Interaction interaction = openInteractionWithAnonymousRelayCapability(transport);
+            final Interaction interaction = openInteractionWithAnonymousRelayCapability(transport, testInfo);
 
             interaction.begin()
                        .consumeResponse(Begin.class)
@@ -176,7 +184,7 @@ public class AnonymousTerminusTest extends BrokerAdminUsingTestBase
                        .consumeResponse(Flow.class)
                        .assertLatestResponse(Flow.class, this::assumeSufficientCredits)
                        .transferDeliveryId()
-                       .transferPayload(generateMessagePayloadToDestination(getNonExistingDestinationName()))
+                       .transferPayload(generateMessagePayloadToDestination(getNonExistingDestinationName(testInfo), testInfo))
                        .transferDeliveryTag(_deliveryTag)
                        .transfer();
 
@@ -208,11 +216,12 @@ public class AnonymousTerminusTest extends BrokerAdminUsingTestBase
                           + " [...] the info field of error MUST contain an entry with symbolic key delivery-tag"
                           + " and binary value of the delivery-tag of the message which caused the failure.")
     @Test
-    public void transferUnsettledToUnknownDestinationWhenRejectedOutcomeNotSupportedBySource() throws Exception
+    public void transferUnsettledToUnknownDestinationWhenRejectedOutcomeNotSupportedBySource(final BrokerAdmin brokerAdmin,
+                                                                                             final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
-            final Interaction interaction = openInteractionWithAnonymousRelayCapability(transport);
+            final Interaction interaction = openInteractionWithAnonymousRelayCapability(transport, testInfo);
 
             interaction.begin()
                        .consumeResponse(Begin.class)
@@ -223,7 +232,7 @@ public class AnonymousTerminusTest extends BrokerAdminUsingTestBase
                        .consumeResponse(Flow.class)
                        .assertLatestResponse(Flow.class, this::assumeSufficientCredits)
                        .transferDeliveryId()
-                       .transferPayload(generateMessagePayloadToDestination(getNonExistingDestinationName()))
+                       .transferPayload(generateMessagePayloadToDestination(getNonExistingDestinationName(testInfo), testInfo))
                        .transferDeliveryTag(_deliveryTag)
                        .transfer();
 
@@ -241,11 +250,12 @@ public class AnonymousTerminusTest extends BrokerAdminUsingTestBase
                           + " forwarded to the node referenced in the to field of properties of the message"
                           + " just as if a direct link has been established to that node.")
     @Test
-    public void transferPreSettledInTransactionToKnownDestination() throws Exception
+    public void transferPreSettledInTransactionToKnownDestination(final BrokerAdmin brokerAdmin,
+                                                                  final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
-            final Interaction interaction = openInteractionWithAnonymousRelayCapability(transport);
+            final Interaction interaction = openInteractionWithAnonymousRelayCapability(transport, testInfo);
             final UnsignedInteger linkHandle = UnsignedInteger.ONE;
             interaction.begin()
                        .consumeResponse(Begin.class)
@@ -260,7 +270,7 @@ public class AnonymousTerminusTest extends BrokerAdminUsingTestBase
                        .assertLatestResponse(Flow.class, this::assumeSufficientCredits)
                        .transferDeliveryId()
                        .transferHandle(linkHandle)
-                       .transferPayload(generateMessagePayloadToDestination(BrokerAdmin.TEST_QUEUE_NAME))
+                       .transferPayload(generateMessagePayloadToDestination(testInfo.methodName(), testInfo))
                        .transferDeliveryTag(_deliveryTag)
                        .transferTransactionalStateFromCurrentTransaction()
                        .transferSettled(Boolean.TRUE)
@@ -269,17 +279,18 @@ public class AnonymousTerminusTest extends BrokerAdminUsingTestBase
 
             assertThat(interaction.getCoordinatorLatestDeliveryState(), is(instanceOf(Accepted.class)));
 
-            Object receivedMessage = Utils.receiveMessage(getBrokerAdmin(), BrokerAdmin.TEST_QUEUE_NAME);
-            assertThat(receivedMessage, is(equalTo(getTestName())));
+            Object receivedMessage = Utils.receiveMessage(brokerAdmin, testInfo.virtualHostName(), testInfo.methodName());
+            assertThat(receivedMessage, is(equalTo(testInfo.methodName())));
         }
     }
 
     @Test
-    public void transferUnsettledInTransactionToKnownDestination() throws Exception
+    public void transferUnsettledInTransactionToKnownDestination(final BrokerAdmin brokerAdmin,
+                                                                 final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
-            final Interaction interaction = openInteractionWithAnonymousRelayCapability(transport);
+            final Interaction interaction = openInteractionWithAnonymousRelayCapability(transport, testInfo);
             final UnsignedInteger linkHandle = UnsignedInteger.ONE;
             interaction.begin()
                        .consumeResponse(Begin.class)
@@ -294,7 +305,7 @@ public class AnonymousTerminusTest extends BrokerAdminUsingTestBase
                        .assertLatestResponse(Flow.class, this::assumeSufficientCredits)
                        .transferDeliveryId()
                        .transferHandle(linkHandle)
-                       .transferPayload(generateMessagePayloadToDestination(BrokerAdmin.TEST_QUEUE_NAME))
+                       .transferPayload(generateMessagePayloadToDestination(testInfo.methodName(), testInfo))
                        .transferDeliveryTag(_deliveryTag)
                        .transferTransactionalStateFromCurrentTransaction()
                        .transferSettled(Boolean.FALSE)
@@ -314,17 +325,18 @@ public class AnonymousTerminusTest extends BrokerAdminUsingTestBase
 
             assertThat(interaction.getCoordinatorLatestDeliveryState(), is(instanceOf(Accepted.class)));
 
-            Object receivedMessage = Utils.receiveMessage(getBrokerAdmin(), BrokerAdmin.TEST_QUEUE_NAME);
-            assertThat(receivedMessage, is(equalTo(getTestName())));
+            Object receivedMessage = Utils.receiveMessage(brokerAdmin, testInfo.virtualHostName(), testInfo.methodName());
+            assertThat(receivedMessage, is(equalTo(testInfo.methodName())));
         }
     }
 
     @Test
-    public void transferUnsettledInTransactionToUnknownDestinationWhenRejectedOutcomeSupportedBySource() throws Exception
+    public void transferUnsettledInTransactionToUnknownDestinationWhenRejectedOutcomeSupportedBySource(final BrokerAdmin brokerAdmin,
+                                                                                                       final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
-            final Interaction interaction = openInteractionWithAnonymousRelayCapability(transport);
+            final Interaction interaction = openInteractionWithAnonymousRelayCapability(transport, testInfo);
             final UnsignedInteger linkHandle = UnsignedInteger.ONE;
             interaction.begin()
                        .consumeResponse(Begin.class)
@@ -340,7 +352,7 @@ public class AnonymousTerminusTest extends BrokerAdminUsingTestBase
                        .assertLatestResponse(Flow.class, this::assumeSufficientCredits)
                        .transferDeliveryId()
                        .transferHandle(linkHandle)
-                       .transferPayload(generateMessagePayloadToDestination(getNonExistingDestinationName()))
+                       .transferPayload(generateMessagePayloadToDestination(getNonExistingDestinationName(testInfo), testInfo))
                        .transferDeliveryTag(_deliveryTag)
                        .transferTransactionalStateFromCurrentTransaction()
                        .transferSettled(Boolean.FALSE)
@@ -368,11 +380,12 @@ public class AnonymousTerminusTest extends BrokerAdminUsingTestBase
     }
 
     @Test
-    public void transferUnsettledInTransactionToUnknownDestinationWhenRejectedOutcomeNotSupportedBySource() throws Exception
+    public void transferUnsettledInTransactionToUnknownDestinationWhenRejectedOutcomeNotSupportedBySource(final BrokerAdmin brokerAdmin,
+                                                                                                          final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
-            final Interaction interaction = openInteractionWithAnonymousRelayCapability(transport);
+            final Interaction interaction = openInteractionWithAnonymousRelayCapability(transport, testInfo);
             final UnsignedInteger linkHandle = UnsignedInteger.ONE;
             interaction.begin()
                        .consumeResponse(Begin.class)
@@ -388,7 +401,7 @@ public class AnonymousTerminusTest extends BrokerAdminUsingTestBase
                        .assertLatestResponse(Flow.class, this::assumeSufficientCredits)
                        .transferDeliveryId()
                        .transferHandle(linkHandle)
-                       .transferPayload(generateMessagePayloadToDestination(getNonExistingDestinationName()))
+                       .transferPayload(generateMessagePayloadToDestination(getNonExistingDestinationName(testInfo), testInfo))
                        .transferDeliveryId(UnsignedInteger.valueOf(1))
                        .transferDeliveryTag(_deliveryTag)
                        .transferTransactionalStateFromCurrentTransaction()
@@ -435,14 +448,15 @@ public class AnonymousTerminusTest extends BrokerAdminUsingTestBase
                           + " the coordinator supports the rejected outcome, then the message MUST be rejected"
                           + " with this outcome carrying the transaction-error.")
     @Test
-    public void transferPreSettledInTransactionToUnknownDestinationWhenRejectOutcomeSupportedByTxController()
+    public void transferPreSettledInTransactionToUnknownDestinationWhenRejectOutcomeSupportedByTxController(final BrokerAdmin brokerAdmin,
+                                                                                                            final QpidTestInfo testInfo)
             throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final UnsignedInteger linkHandle = UnsignedInteger.ONE;
             final Interaction interaction =
-                    openInteractionWithAnonymousRelayCapability(transport);
+                    openInteractionWithAnonymousRelayCapability(transport, testInfo);
 
             interaction.begin()
                        .consumeResponse(Begin.class)
@@ -459,7 +473,7 @@ public class AnonymousTerminusTest extends BrokerAdminUsingTestBase
                        .assertLatestResponse(Flow.class, this::assumeSufficientCredits)
                        .transferDeliveryId()
                        .transferHandle(linkHandle)
-                       .transferPayload(generateMessagePayloadToDestination(getNonExistingDestinationName()))
+                       .transferPayload(generateMessagePayloadToDestination(getNonExistingDestinationName(testInfo), testInfo))
                        .transferDeliveryTag(_deliveryTag)
                        .transferTransactionalStateFromCurrentTransaction()
                        .transferSettled(Boolean.TRUE)
@@ -501,14 +515,15 @@ public class AnonymousTerminusTest extends BrokerAdminUsingTestBase
                           + " detach the link to the coordinator, with the detach performative carrying"
                           + " the transaction-error")
     @Test
-    public void transferPreSettledInTransactionToUnknownDestinationWhenRejectOutcomeNotSupportedByTxController()
+    public void transferPreSettledInTransactionToUnknownDestinationWhenRejectOutcomeNotSupportedByTxController(final BrokerAdmin brokerAdmin,
+                                                                                                               final QpidTestInfo testInfo)
             throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final UnsignedInteger linkHandle = UnsignedInteger.ONE;
             final Interaction interaction =
-                    openInteractionWithAnonymousRelayCapability(transport);
+                    openInteractionWithAnonymousRelayCapability(transport, testInfo);
 
             interaction.begin()
                        .consumeResponse(Begin.class)
@@ -526,7 +541,7 @@ public class AnonymousTerminusTest extends BrokerAdminUsingTestBase
                        .assertLatestResponse(Flow.class, this::assumeSufficientCredits)
                        .transferDeliveryId()
                        .transferHandle(linkHandle)
-                       .transferPayload(generateMessagePayloadToDestination(getNonExistingDestinationName()))
+                       .transferPayload(generateMessagePayloadToDestination(getNonExistingDestinationName(testInfo), testInfo))
                        .transferDeliveryTag(_deliveryTag)
                        .transferTransactionalStateFromCurrentTransaction()
                        .transferSettled(Boolean.TRUE)
@@ -539,28 +554,28 @@ public class AnonymousTerminusTest extends BrokerAdminUsingTestBase
         }
     }
 
-    private String getNonExistingDestinationName()
+    private String getNonExistingDestinationName(final QpidTestInfo testInfo)
     {
-        return String.format("%sNonExisting%s", getTestName(), new StringUtil().randomAlphaNumericString(10));
+        return String.format("%sNonExisting%s", testInfo.methodName(), new StringUtil().randomAlphaNumericString(10));
     }
 
-    private Interaction openInteractionWithAnonymousRelayCapability(final FrameTransport transport) throws Exception
+    private Interaction openInteractionWithAnonymousRelayCapability(final FrameTransport transport, final QpidTestInfo testInfo) throws Exception
     {
         final Interaction interaction = transport.newInteraction();
-        interaction.openDesiredCapabilities(ANONYMOUS_RELAY).negotiateOpen();
+        interaction.openDesiredCapabilities(ANONYMOUS_RELAY).openHostname(testInfo.virtualHostName()).negotiateOpen();
 
         Open open = interaction.getLatestResponse(Open.class);
         assumeTrue(hasItemInArray((ANONYMOUS_RELAY)).matches(open.getOfferedCapabilities()));
         return interaction;
     }
 
-    private QpidByteBuffer generateMessagePayloadToDestination(final String destinationName)
+    private QpidByteBuffer generateMessagePayloadToDestination(final String destinationName, final QpidTestInfo testInfo)
     {
         MessageEncoder messageEncoder = new MessageEncoder();
         final Properties properties = new Properties();
         properties.setTo(destinationName);
         messageEncoder.setProperties(properties);
-        messageEncoder.addData(getTestName());
+        messageEncoder.addData(testInfo.methodName());
         return messageEncoder.getPayload();
     }
 

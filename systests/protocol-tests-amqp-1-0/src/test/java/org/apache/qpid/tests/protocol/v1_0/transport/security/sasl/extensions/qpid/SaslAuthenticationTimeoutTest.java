@@ -17,6 +17,7 @@
  * under the License.
  *
  */
+
 package org.apache.qpid.tests.protocol.v1_0.transport.security.sasl.extensions.qpid;
 
 import static org.apache.qpid.tests.utils.BrokerAdmin.KIND_BROKER_J;
@@ -29,7 +30,9 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 
+import org.apache.qpid.tests.utils.RunBrokerAdmin;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.Test;
 
 import org.apache.qpid.server.model.Port;
@@ -38,28 +41,30 @@ import org.apache.qpid.server.protocol.v1_0.type.security.SaslMechanisms;
 import org.apache.qpid.tests.protocol.v1_0.FrameTransport;
 import org.apache.qpid.tests.protocol.v1_0.Interaction;
 import org.apache.qpid.tests.utils.BrokerAdmin;
-import org.apache.qpid.tests.utils.BrokerAdminUsingTestBase;
+import org.apache.qpid.tests.utils.BrokerAdminExtension;
 import org.apache.qpid.tests.utils.BrokerSpecific;
 import org.apache.qpid.tests.utils.ConfigItem;
 
+@RunBrokerAdmin(type = "EMBEDDED_BROKER_PER_CLASS")
+@ExtendWith({ BrokerAdminExtension.class })
 @BrokerSpecific(kind = KIND_BROKER_J)
 @ConfigItem(name = Port.CONNECTION_MAXIMUM_AUTHENTICATION_DELAY, value = "500")
-public class SaslAuthenticationTimeoutTest extends BrokerAdminUsingTestBase
+public class SaslAuthenticationTimeoutTest
 {
     private static final Symbol PLAIN = Symbol.getSymbol("PLAIN");
     private static final byte[] SASL_AMQP_HEADER_BYTES = "AMQP\3\1\0\0".getBytes(StandardCharsets.UTF_8);
 
     @BeforeEach
-    public void setUp()
+    public void setUp(final BrokerAdmin brokerAdmin)
     {
-        assumeTrue(getBrokerAdmin().isSASLSupported());
-        assumeTrue(getBrokerAdmin().isSASLMechanismSupported(PLAIN.toString()));
+        assumeTrue(brokerAdmin.isSASLSupported());
+        assumeTrue(brokerAdmin.isSASLMechanismSupported(PLAIN.toString()));
     }
 
     @Test
-    public void authenticationTimeout() throws Exception
+    public void authenticationTimeout(final BrokerAdmin brokerAdmin) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin(), BrokerAdmin.PortType.AMQP).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin, BrokerAdmin.PortType.AMQP).connect())
         {
             final Interaction interaction = transport.newInteraction();
             final byte[] saslHeaderResponse = interaction.protocolHeader(SASL_AMQP_HEADER_BYTES)

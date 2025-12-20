@@ -17,6 +17,7 @@
  * under the License.
  *
  */
+
 package org.apache.qpid.tests.protocol.v0_8.extension.queue;
 
 import static org.apache.qpid.tests.utils.BrokerAdmin.KIND_BROKER_J;
@@ -26,6 +27,9 @@ import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.util.Map;
 
+import org.apache.qpid.tests.utils.BrokerAdmin;
+import org.apache.qpid.tests.utils.RunBrokerAdmin;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.Test;
 
 import org.apache.qpid.server.protocol.v0_8.AMQShortString;
@@ -33,20 +37,22 @@ import org.apache.qpid.server.protocol.v0_8.transport.ChannelOpenOkBody;
 import org.apache.qpid.server.protocol.v0_8.transport.QueueDeclareOkBody;
 import org.apache.qpid.tests.protocol.v0_8.FrameTransport;
 import org.apache.qpid.tests.protocol.v0_8.Interaction;
-import org.apache.qpid.tests.utils.BrokerAdminUsingTestBase;
+import org.apache.qpid.tests.utils.BrokerAdminExtension;
 import org.apache.qpid.tests.utils.BrokerSpecific;
 import org.apache.qpid.tests.utils.ConfigItem;
 
+@RunBrokerAdmin(type = "EMBEDDED_BROKER_PER_CLASS")
+@ExtendWith({ BrokerAdminExtension.class })
 @BrokerSpecific(kind = KIND_BROKER_J)
 @ConfigItem(name = "queue.behaviourOnUnknownDeclareArgument", value = "IGNORE")
-public class QueueDeclareInvalidOptionBehaviourTest extends BrokerAdminUsingTestBase
+public class QueueDeclareInvalidOptionBehaviourTest
 {
     private static final String TEST_QUEUE = "testQueue";
 
     @Test
-    public void queueDeclareInvalidWireArguments() throws Exception
+    public void queueDeclareInvalidWireArguments(final BrokerAdmin brokerAdmin) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
 

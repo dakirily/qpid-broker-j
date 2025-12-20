@@ -17,6 +17,7 @@
  * under the License.
  *
  */
+
 package org.apache.qpid.tests.protocol.v1_0.extensions.qpid.transactiontimeout;
 
 import static org.apache.qpid.tests.utils.BrokerAdmin.KIND_BROKER_J;
@@ -26,7 +27,11 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 
+import org.apache.qpid.tests.utils.QpidTestInfo;
+import org.apache.qpid.tests.utils.QpidTestInfoExtension;
+import org.apache.qpid.tests.utils.RunBrokerAdmin;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.Test;
 
 import org.apache.qpid.server.protocol.v1_0.type.UnsignedInteger;
@@ -45,24 +50,26 @@ import org.apache.qpid.tests.protocol.v1_0.FrameTransport;
 import org.apache.qpid.tests.protocol.v1_0.Interaction;
 import org.apache.qpid.tests.protocol.v1_0.Utils;
 import org.apache.qpid.tests.utils.BrokerAdmin;
-import org.apache.qpid.tests.utils.BrokerAdminUsingTestBase;
+import org.apache.qpid.tests.utils.BrokerAdminExtension;
 import org.apache.qpid.tests.utils.BrokerSpecific;
 import org.apache.qpid.tests.utils.ConfigItem;
 
+@RunBrokerAdmin(type = "EMBEDDED_BROKER_PER_CLASS")
+@ExtendWith({ BrokerAdminExtension.class, QpidTestInfoExtension.class })
 @BrokerSpecific(kind = KIND_BROKER_J)
 @ConfigItem(name = "virtualhost.storeTransactionOpenTimeoutClose", value = "1000")
-public class TransactionTimeoutTest extends BrokerAdminUsingTestBase
+public class TransactionTimeoutTest
 {
     @BeforeEach
-    public void setUp()
+    public void setUp(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo)
     {
-        getBrokerAdmin().createQueue(BrokerAdmin.TEST_QUEUE_NAME);
+        brokerAdmin.createQueue(testInfo.methodName());
     }
 
     @Test
-    public void transactionalPostingTimeout() throws Exception
+    public void transactionalPostingTimeout(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final UnsignedInteger linkHandle = UnsignedInteger.ONE;
 
@@ -75,13 +82,13 @@ public class TransactionTimeoutTest extends BrokerAdminUsingTestBase
                                                          .txnDeclare()
 
                                                          .attachRole(Role.SENDER)
-                                                         .attachTargetAddress(BrokerAdmin.TEST_QUEUE_NAME)
+                                                         .attachTargetAddress(testInfo.methodName())
                                                          .attachHandle(linkHandle)
                                                          .attach().consumeResponse(Attach.class)
                                                          .consumeResponse(Flow.class)
 
                                                          .transferHandle(linkHandle)
-                                                         .transferPayloadData(getTestName())
+                                                         .transferPayloadData(testInfo.methodName())
                                                          .transferTransactionalStateFromCurrentTransaction()
                                                          .transfer()
                                                          .consumeResponse(Disposition.class)
@@ -99,10 +106,10 @@ public class TransactionTimeoutTest extends BrokerAdminUsingTestBase
     }
 
     @Test
-    public void transactionalRetirementTimeout() throws Exception
+    public void transactionalRetirementTimeout(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        Utils.putMessageOnQueue(getBrokerAdmin(), BrokerAdmin.TEST_QUEUE_NAME, getTestName());
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        Utils.putMessageOnQueue(brokerAdmin, testInfo, testInfo.methodName(), testInfo.methodName());
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
             interaction.negotiateOpen()
@@ -114,7 +121,7 @@ public class TransactionTimeoutTest extends BrokerAdminUsingTestBase
 
                        .attachRole(Role.RECEIVER)
                        .attachHandle(UnsignedInteger.ONE)
-                       .attachSourceAddress(BrokerAdmin.TEST_QUEUE_NAME)
+                       .attachSourceAddress(testInfo.methodName())
                        .attachRcvSettleMode(ReceiverSettleMode.FIRST)
                        .attach()
                        .consumeResponse(Attach.class)
@@ -131,7 +138,7 @@ public class TransactionTimeoutTest extends BrokerAdminUsingTestBase
                        .decodeLatestDelivery();
 
             Object data = interaction.getDecodedLatestDelivery();
-            assertThat(data, is(equalTo(getTestName())));
+            assertThat(data, is(equalTo(testInfo.methodName())));
 
             interaction.dispositionSettled(true)
                        .dispositionRole(Role.RECEIVER)
@@ -152,6 +159,6 @@ public class TransactionTimeoutTest extends BrokerAdminUsingTestBase
             assertThat(responseClose.getError(), is(notNullValue()));
             assertThat(responseClose.getError().getCondition(), equalTo(TransactionError.TRANSACTION_TIMEOUT));
         }
-        assertThat(Utils.receiveMessage(getBrokerAdmin(), BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(getTestName())));
+        assertThat(Utils.receiveMessage(brokerAdmin, testInfo), is(equalTo(testInfo.methodName())));
     }
 }

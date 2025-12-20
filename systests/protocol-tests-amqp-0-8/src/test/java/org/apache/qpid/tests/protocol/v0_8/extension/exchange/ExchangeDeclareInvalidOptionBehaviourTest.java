@@ -17,32 +17,38 @@
  * under the License.
  *
  */
+
 package org.apache.qpid.tests.protocol.v0_8.extension.exchange;
 
 import static org.apache.qpid.tests.utils.BrokerAdmin.KIND_BROKER_J;
 
 import java.util.Map;
 
+import org.apache.qpid.tests.utils.BrokerAdmin;
+import org.apache.qpid.tests.utils.RunBrokerAdmin;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.Test;
 
 import org.apache.qpid.server.protocol.v0_8.transport.ChannelOpenOkBody;
 import org.apache.qpid.server.protocol.v0_8.transport.ExchangeDeclareOkBody;
 import org.apache.qpid.tests.protocol.v0_8.FrameTransport;
 import org.apache.qpid.tests.protocol.v0_8.Interaction;
-import org.apache.qpid.tests.utils.BrokerAdminUsingTestBase;
+import org.apache.qpid.tests.utils.BrokerAdminExtension;
 import org.apache.qpid.tests.utils.BrokerSpecific;
 import org.apache.qpid.tests.utils.ConfigItem;
 
+@RunBrokerAdmin(type = "EMBEDDED_BROKER_PER_CLASS")
+@ExtendWith({ BrokerAdminExtension.class })
 @BrokerSpecific(kind = KIND_BROKER_J)
 @ConfigItem(name = "exchange.behaviourOnUnknownDeclareArgument", value = "IGNORE")
-public class ExchangeDeclareInvalidOptionBehaviourTest extends BrokerAdminUsingTestBase
+public class ExchangeDeclareInvalidOptionBehaviourTest
 {
     private static final String TEST_EXCHANGE = "testExchange";
 
     @Test
-    public void exchangeDeclareInvalidWireArguments() throws Exception
+    public void exchangeDeclareInvalidWireArguments(final BrokerAdmin brokerAdmin) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
             interaction.negotiateOpen()

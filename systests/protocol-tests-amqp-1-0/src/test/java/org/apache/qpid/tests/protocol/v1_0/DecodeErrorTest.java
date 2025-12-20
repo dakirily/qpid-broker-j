@@ -33,6 +33,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.Test;
 
 import org.apache.qpid.server.bytebuffer.QpidByteBuffer;
@@ -53,25 +54,29 @@ import org.apache.qpid.server.protocol.v1_0.type.transport.Flow;
 import org.apache.qpid.server.protocol.v1_0.type.transport.Role;
 import org.apache.qpid.tests.protocol.SpecificationTest;
 import org.apache.qpid.tests.utils.BrokerAdmin;
-import org.apache.qpid.tests.utils.BrokerAdminUsingTestBase;
+import org.apache.qpid.tests.utils.BrokerAdminExtension;
+import org.apache.qpid.tests.utils.QpidTestInfo;
+import org.apache.qpid.tests.utils.QpidTestInfoExtension;
 
-public class DecodeErrorTest extends BrokerAdminUsingTestBase
+@ExtendWith({ BrokerAdminExtension.class, QpidTestInfoExtension.class })
+public class DecodeErrorTest
 {
     @Test
     @SpecificationTest(section = "3.2",
             description = "Altogether a message consists of the following sections: Zero or one header,"
                           + " Zero or one delivery-annotations, [...]")
-    public void illegalMessage() throws Exception
+    public void illegalMessage(final BrokerAdmin brokerAdmin,
+                               final QpidTestInfo testInfo) throws Exception
     {
-        getBrokerAdmin().createQueue(BrokerAdmin.TEST_QUEUE_NAME);
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        brokerAdmin.createQueue(testInfo.methodName());
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            interaction.negotiateOpen()
+            interaction.openHostname(testInfo.virtualHostName()).negotiateOpen()
                        .begin()
                        .consumeResponse(Begin.class)
                        .attachRole(Role.SENDER)
-                       .attachTargetAddress(BrokerAdmin.TEST_QUEUE_NAME)
+                       .attachTargetAddress(testInfo.methodName())
                        .attach()
                        .consumeResponse(Attach.class)
                        .consumeResponse(Flow.class)
@@ -79,7 +84,7 @@ public class DecodeErrorTest extends BrokerAdminUsingTestBase
                                              flow -> assumeTrue(is(greaterThan(UnsignedInteger.ZERO))
                                                      .matches(flow.getLinkCredit())));
 
-            try(final QpidByteBuffer payload = buildInvalidMessage())
+            try(final QpidByteBuffer payload = buildInvalidMessage(testInfo))
             {
                 interaction.transferMessageFormat(UnsignedInteger.ZERO)
                            .transferPayload(payload)
@@ -92,23 +97,23 @@ public class DecodeErrorTest extends BrokerAdminUsingTestBase
             interaction.closeUnconditionally();
         }
 
-        final String validMessage = getTestName() + "_2";
-        Utils.putMessageOnQueue(getBrokerAdmin(), BrokerAdmin.TEST_QUEUE_NAME, validMessage);
-        assertThat(Utils.receiveMessage(getBrokerAdmin(), BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(validMessage)));
+        final String validMessage = testInfo.methodName() + "_2";
+        Utils.putMessageOnQueue(brokerAdmin, testInfo, testInfo.methodName(), validMessage);
+        assertThat(Utils.receiveMessage(brokerAdmin, testInfo), is(equalTo(validMessage)));
     }
 
     @Test
     @SpecificationTest(section = "3.5.9",
             description = "Node Properties [...] lifetime-policy [...] "
                           + "The value of this entry MUST be of a type which provides the lifetime-policy archetype.")
-    public void nodePropertiesLifetimePolicy() throws Exception
+    public void nodePropertiesLifetimePolicy(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Source source = new Source();
             source.setDynamic(Boolean.TRUE);
             source.setDynamicNodeProperties(Map.of(Symbol.valueOf("lifetime-policy"), UnsignedInteger.MAX_VALUE));
-            final Interaction interaction = transport.newInteraction()
+            final Interaction interaction = transport.newInteraction().openHostname(testInfo.virtualHostName())
                                                         .negotiateOpen()
                                                         .begin().consumeResponse(Begin.class)
                                                         .attachSource(source)
@@ -124,25 +129,26 @@ public class DecodeErrorTest extends BrokerAdminUsingTestBase
     @SpecificationTest(section = "3.5.9",
             description = "Node Properties [...] supported-dist-modes [...] "
                           + "The value of this entry MUST be of a type which provides the lifetime-policy archetype.")
-    public void nodePropertiesSupportedDistributionModes() throws Exception
+    public void nodePropertiesSupportedDistributionModes(final BrokerAdmin brokerAdmin,
+                                                         final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Target target = new Target();
             target.setDynamic(Boolean.TRUE);
             target.setDynamicNodeProperties(Map.of(Symbol.valueOf("supported-dist-modes"), UnsignedInteger.ZERO));
-            final Interaction interaction = transport.newInteraction()
+            final Interaction interaction = transport.newInteraction().openHostname(testInfo.virtualHostName())
                                                         .negotiateOpen()
                                                         .begin().consumeResponse(Begin.class)
                                                         .attachTarget(target)
                                                         .attachRole(Role.SENDER)
-                                                        .attachTargetAddress(BrokerAdmin.TEST_QUEUE_NAME)
+                                                        .attachTargetAddress(testInfo.methodName())
                                                         .attach().sync();
             assertAttachError(interaction, DECODE_ERROR, INVALID_FIELD);
         }
     }
 
-    private QpidByteBuffer buildInvalidMessage()
+    private QpidByteBuffer buildInvalidMessage(final QpidTestInfo testInfo)
     {
         final List<QpidByteBuffer> payloads = new ArrayList<>();
         try
@@ -177,7 +183,7 @@ public class DecodeErrorTest extends BrokerAdminUsingTestBase
                 deliveryAnnotationsSection.dispose();
             }
 
-            final AmqpValueSection payload = new AmqpValue(getTestName()).createEncodingRetainingSection();
+            final AmqpValueSection payload = new AmqpValue(testInfo.methodName()).createEncodingRetainingSection();
             try
             {
                 payloads.add(payload.getEncodedForm());

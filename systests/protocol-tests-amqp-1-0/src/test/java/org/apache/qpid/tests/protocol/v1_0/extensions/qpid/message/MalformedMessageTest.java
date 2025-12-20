@@ -18,6 +18,7 @@
  * under the License.
  *
  */
+
 package org.apache.qpid.tests.protocol.v1_0.extensions.qpid.message;
 
 import static org.apache.qpid.tests.utils.BrokerAdmin.KIND_BROKER_J;
@@ -30,7 +31,11 @@ import static org.hamcrest.Matchers.notNullValue;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.qpid.tests.utils.QpidTestInfo;
+import org.apache.qpid.tests.utils.QpidTestInfoExtension;
+import org.apache.qpid.tests.utils.RunBrokerAdmin;
 import org.hamcrest.Matchers;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.Test;
 
 import org.apache.qpid.server.bytebuffer.QpidByteBuffer;
@@ -47,29 +52,31 @@ import org.apache.qpid.server.protocol.v1_0.type.transport.Role;
 import org.apache.qpid.tests.protocol.v1_0.FrameTransport;
 import org.apache.qpid.tests.protocol.v1_0.Interaction;
 import org.apache.qpid.tests.utils.BrokerAdmin;
-import org.apache.qpid.tests.utils.BrokerAdminUsingTestBase;
+import org.apache.qpid.tests.utils.BrokerAdminExtension;
 import org.apache.qpid.tests.utils.BrokerSpecific;
 import org.apache.qpid.tests.utils.ConfigItem;
 
+@RunBrokerAdmin(type = "EMBEDDED_BROKER_PER_CLASS")
+@ExtendWith({ BrokerAdminExtension.class, QpidTestInfoExtension.class })
 @BrokerSpecific(kind = KIND_BROKER_J)
 @ConfigItem(name = "broker.flowToDiskThreshold", value = "1")
 @ConfigItem(name = "connection.maxUncommittedInMemorySize", value = "1")
-public class MalformedMessageTest extends BrokerAdminUsingTestBase
+public class MalformedMessageTest
 {
     private static final String CONTENT_TEXT = "Test";
 
     @Test
-    public void malformedMessage() throws Exception
+    public void malformedMessage(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        getBrokerAdmin().createQueue(BrokerAdmin.TEST_QUEUE_NAME);
-        try (final FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        brokerAdmin.createQueue(testInfo.methodName());
+        try (final FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
             interaction.negotiateOpen()
                        .begin()
                        .consumeResponse(Begin.class)
                        .attachRole(Role.SENDER)
-                       .attachTargetAddress(BrokerAdmin.TEST_QUEUE_NAME)
+                       .attachTargetAddress(testInfo.methodName())
                        .attach()
                        .consumeResponse(Attach.class)
                        .consumeResponse(Flow.class);
@@ -77,7 +84,7 @@ public class MalformedMessageTest extends BrokerAdminUsingTestBase
             final Flow flow = interaction.getLatestResponse(Flow.class);
             assertThat(flow.getLinkCredit().intValue(), Matchers.is(greaterThan(1)));
 
-            final QpidByteBuffer payload = generateMalformed();
+            final QpidByteBuffer payload = generateMalformed(testInfo);
             interaction.transferSettled(true)
                        .transferPayload(payload)
                        .transferSettled(true)
@@ -92,12 +99,12 @@ public class MalformedMessageTest extends BrokerAdminUsingTestBase
         }
     }
 
-    private QpidByteBuffer generateMalformed()
+    private QpidByteBuffer generateMalformed(final QpidTestInfo testInfo)
     {
         final List<QpidByteBuffer> payload = new ArrayList<>();
 
         final Properties properties = new Properties();
-        properties.setTo(BrokerAdmin.TEST_QUEUE_NAME);
+        properties.setTo(testInfo.methodName());
         PropertiesSection propertiesSection = properties.createEncodingRetainingSection();
         final QpidByteBuffer props = propertiesSection.getEncodedForm();
         payload.add(props);

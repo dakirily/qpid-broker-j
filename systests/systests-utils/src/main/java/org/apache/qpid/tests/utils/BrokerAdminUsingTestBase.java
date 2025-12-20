@@ -60,7 +60,7 @@ public abstract class BrokerAdminUsingTestBase
 
     protected String getTestClass()
     {
-        return _testInfo.getTestClass().orElseThrow(() -> new RuntimeException("Failed to resolve test class")).getSimpleName();
+        return _testInfo.getTestClass().orElseThrow(() -> new RuntimeException("Failed to resolve test class")).getCanonicalName();
     }
 
     protected String getTestName()

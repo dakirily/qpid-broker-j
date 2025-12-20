@@ -17,6 +17,7 @@
  * under the License.
  *
  */
+
 package org.apache.qpid.tests.protocol.v0_8.extension.authtimeout;
 
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -25,6 +26,8 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.util.Arrays;
 
+import org.apache.qpid.tests.utils.RunBrokerAdmin;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.Test;
 
 import org.apache.qpid.server.model.Port;
@@ -33,18 +36,20 @@ import org.apache.qpid.server.protocol.v0_8.transport.ConnectionStartBody;
 import org.apache.qpid.tests.protocol.v0_8.FrameTransport;
 import org.apache.qpid.tests.protocol.v0_8.Interaction;
 import org.apache.qpid.tests.utils.BrokerAdmin;
-import org.apache.qpid.tests.utils.BrokerAdminUsingTestBase;
+import org.apache.qpid.tests.utils.BrokerAdminExtension;
 import org.apache.qpid.tests.utils.ConfigItem;
 
+@RunBrokerAdmin(type = "EMBEDDED_BROKER_PER_CLASS")
+@ExtendWith({ BrokerAdminExtension.class })
 @ConfigItem(name = Port.CONNECTION_MAXIMUM_AUTHENTICATION_DELAY, value = "500")
-public class AuthenticationTimeoutTest extends BrokerAdminUsingTestBase
+public class AuthenticationTimeoutTest
 {
     @Test
-    public void authenticationTimeout() throws Exception
+    public void authenticationTimeout(final BrokerAdmin brokerAdmin) throws Exception
     {
-        assumeTrue(getBrokerAdmin().isSASLMechanismSupported("PLAIN"));
+        assumeTrue(brokerAdmin.isSASLMechanismSupported("PLAIN"));
 
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin(), BrokerAdmin.PortType.AMQP).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin, BrokerAdmin.PortType.AMQP).connect())
         {
             final Interaction interaction = transport.newInteraction();
             final ConnectionStartBody start = interaction.negotiateProtocol()

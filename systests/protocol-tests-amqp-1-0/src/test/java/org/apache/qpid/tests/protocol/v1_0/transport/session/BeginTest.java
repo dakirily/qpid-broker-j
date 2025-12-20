@@ -28,6 +28,10 @@ import static org.hamcrest.Matchers.lessThan;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
+import org.apache.qpid.tests.utils.BrokerAdmin;
+import org.apache.qpid.tests.utils.QpidTestInfo;
+import org.apache.qpid.tests.utils.QpidTestInfoExtension;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.Test;
 
 import org.apache.qpid.server.protocol.v1_0.type.ErrorCarryingFrameBody;
@@ -44,19 +48,20 @@ import org.apache.qpid.tests.protocol.Response;
 import org.apache.qpid.tests.protocol.SpecificationTest;
 import org.apache.qpid.tests.protocol.v1_0.FrameTransport;
 import org.apache.qpid.tests.protocol.v1_0.Interaction;
-import org.apache.qpid.tests.utils.BrokerAdminUsingTestBase;
+import org.apache.qpid.tests.utils.BrokerAdminExtension;
 
-public class BeginTest extends BrokerAdminUsingTestBase
+@ExtendWith({ BrokerAdminExtension.class, QpidTestInfoExtension.class })
+public class BeginTest
 {
 
     @Test
     @SpecificationTest(section = "1.3.4",
             description = "mandatory [...] a non null value for the field is always encoded.")
-    public void emptyBegin() throws Exception
+    public void emptyBegin(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try(FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try(FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
-            final Response<?> response =  transport.newInteraction()
+            final Response<?> response =  transport.newInteraction().openHostname(testInfo.virtualHostName())
                                            .negotiateOpen()
                                            .beginNextOutgoingId(null)
                                            .beginIncomingWindow(null)
@@ -77,13 +82,13 @@ public class BeginTest extends BrokerAdminUsingTestBase
     @SpecificationTest(section = "2.5.1",
             description = "Sessions are established by creating a session endpoint, assigning it to an unused channel number, "
                           + "and sending a begin announcing the association of the session endpoint with the outgoing channel.")
-    public void successfulBegin() throws Exception
+    public void successfulBegin(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final UnsignedShort channel = UnsignedShort.valueOf(37);
             Interaction interaction = transport.newInteraction();
-            Begin responseBegin = interaction
+            Begin responseBegin = interaction.openHostname(testInfo.virtualHostName())
                                            .negotiateOpen()
                                            .sessionChannel(channel)
                                            .begin().consumeResponse()
@@ -103,13 +108,14 @@ public class BeginTest extends BrokerAdminUsingTestBase
             description = "A peer MUST not use channel numbers outside the range that its partner can handle."
                           + "A peer that receives a channel number outside the supported range MUST close "
                           + "the connection with the framing-error error-code..")
-    public void channelMax() throws Exception
+    public void channelMax(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
             final int ourChannelMax = 5;
             final Open responseOpen = interaction.openChannelMax(UnsignedShort.valueOf(ourChannelMax))
+                                                 .openHostname(testInfo.virtualHostName())
                                                  .negotiateOpen().getLatestResponse(Open.class);
 
             final UnsignedShort remoteChannelMax = responseOpen.getChannelMax();

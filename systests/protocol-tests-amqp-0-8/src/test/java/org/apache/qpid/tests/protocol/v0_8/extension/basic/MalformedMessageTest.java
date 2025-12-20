@@ -18,6 +18,7 @@
  * under the License.
  *
  */
+
 package org.apache.qpid.tests.protocol.v0_8.extension.basic;
 
 import static org.apache.qpid.tests.utils.BrokerAdmin.KIND_BROKER_J;
@@ -32,7 +33,9 @@ import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.apache.qpid.tests.utils.RunBrokerAdmin;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.Test;
 
 import org.apache.qpid.server.bytebuffer.QpidByteBuffer;
@@ -58,43 +61,45 @@ import org.apache.qpid.tests.protocol.ChannelClosedResponse;
 import org.apache.qpid.tests.protocol.v0_8.FrameTransport;
 import org.apache.qpid.tests.protocol.v0_8.Interaction;
 import org.apache.qpid.tests.utils.BrokerAdmin;
-import org.apache.qpid.tests.utils.BrokerAdminUsingTestBase;
+import org.apache.qpid.tests.utils.BrokerAdminExtension;
 import org.apache.qpid.tests.utils.BrokerSpecific;
 import org.apache.qpid.tests.utils.ConfigItem;
 
+@RunBrokerAdmin(type = "EMBEDDED_BROKER_PER_CLASS")
+@ExtendWith({ BrokerAdminExtension.class })
 @BrokerSpecific(kind = KIND_BROKER_J)
 @ConfigItem(name = "broker.flowToDiskThreshold", value = "1")
 @ConfigItem(name = "connection.maxUncommittedInMemorySize", value = "1")
-public class MalformedMessageTest extends BrokerAdminUsingTestBase
+public class MalformedMessageTest
 {
     private static final String CONTENT_TEXT = "Test";
 
     @BeforeEach
-    public void setUp()
+    public void setUp(final BrokerAdmin brokerAdmin)
     {
-        getBrokerAdmin().createQueue(BrokerAdmin.TEST_QUEUE_NAME);
+        brokerAdmin.createQueue(BrokerAdmin.TEST_QUEUE_NAME);
     }
 
     @Test
-    public void malformedHeaderValue() throws Exception
+    public void malformedHeaderValue(final BrokerAdmin brokerAdmin) throws Exception
     {
         final FieldTable malformedHeader = createHeadersWithMalformedLongString();
         byte[] contentBytes = CONTENT_TEXT.getBytes(StandardCharsets.UTF_8);
-        publishMalformedMessage(malformedHeader, contentBytes);
-        assertThat(getBrokerAdmin().getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(0)));
+        publishMalformedMessage(brokerAdmin, malformedHeader, contentBytes);
+        assertThat(brokerAdmin.getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(0)));
     }
 
     @Test
-    public void malformedHeader() throws Exception
+    public void malformedHeader(final BrokerAdmin brokerAdmin) throws Exception
     {
         final FieldTable malformedHeader = createMalformedHeaders();
         byte[] contentBytes = CONTENT_TEXT.getBytes(StandardCharsets.UTF_8);
-        publishMalformedMessage(malformedHeader, contentBytes);
-        assertThat(getBrokerAdmin().getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(0)));
+        publishMalformedMessage(brokerAdmin, malformedHeader, contentBytes);
+        assertThat(brokerAdmin.getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(0)));
     }
 
     @Test
-    public void publishMalformedMessageToQueueBoundWithSelector() throws Exception
+    public void publishMalformedMessageToQueueBoundWithSelector(final BrokerAdmin brokerAdmin) throws Exception
     {
         final FieldTable malformedHeader = createMalformedHeadersWithMissingValue("prop");
         final BasicContentHeaderProperties basicContentHeaderProperties = new BasicContentHeaderProperties();
@@ -103,7 +108,7 @@ public class MalformedMessageTest extends BrokerAdminUsingTestBase
         basicContentHeaderProperties.setDeliveryMode(BasicContentHeaderProperties.PERSISTENT);
         byte[] contentBytes = CONTENT_TEXT.getBytes(StandardCharsets.UTF_8);
 
-        try(FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try(FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
             interaction.negotiateOpen()
@@ -123,14 +128,14 @@ public class MalformedMessageTest extends BrokerAdminUsingTestBase
                        .consumeResponse()
                        .getLatestResponse(ChannelClosedResponse.class);
 
-            assertThat(getBrokerAdmin().getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(0)));
+            assertThat(brokerAdmin.getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(0)));
         }
     }
 
     @Test
-    public void publishMalformedMessageInTransactionExceedingMaxUncommittedLimit() throws Exception
+    public void publishMalformedMessageInTransactionExceedingMaxUncommittedLimit(final BrokerAdmin brokerAdmin) throws Exception
     {
-        assumeTrue(getBrokerAdmin().supportsRestart(), "Persistent store is required for the test");
+        assumeTrue(brokerAdmin.supportsRestart(), "Persistent store is required for the test");
 
         final FieldTable malformedHeader = createMalformedHeadersWithMissingValue("prop");
         final BasicContentHeaderProperties basicContentHeaderProperties = new BasicContentHeaderProperties();
@@ -139,7 +144,7 @@ public class MalformedMessageTest extends BrokerAdminUsingTestBase
         basicContentHeaderProperties.setDeliveryMode(BasicContentHeaderProperties.PERSISTENT);
         byte[] contentBytes = CONTENT_TEXT.getBytes(StandardCharsets.UTF_8);
 
-        try(FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try(FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
             interaction.negotiateOpen()
@@ -155,12 +160,12 @@ public class MalformedMessageTest extends BrokerAdminUsingTestBase
                        .consumeResponse()
                        .getLatestResponse(ChannelClosedResponse.class);
 
-            assertThat(getBrokerAdmin().getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(0)));
+            assertThat(brokerAdmin.getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(0)));
         }
     }
 
     @Test
-    public void consumeMalformedMessage() throws Exception
+    public void consumeMalformedMessage(final BrokerAdmin brokerAdmin) throws Exception
     {
         final FieldTable malformedHeader = createHeadersWithMalformedLongString();
         final byte[] contentBytes = CONTENT_TEXT.getBytes(StandardCharsets.UTF_8);
@@ -168,7 +173,7 @@ public class MalformedMessageTest extends BrokerAdminUsingTestBase
         final String content2 = "message2";
         final byte[] content2Bytes = content2.getBytes(StandardCharsets.UTF_8);
 
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
             String consumerTag = "A";
@@ -224,10 +229,10 @@ public class MalformedMessageTest extends BrokerAdminUsingTestBase
         }
     }
 
-    private void publishMalformedMessage(final FieldTable malformedHeader, final byte[] contentBytes) throws Exception
+    private void publishMalformedMessage(final BrokerAdmin brokerAdmin, final FieldTable malformedHeader, final byte[] contentBytes) throws Exception
     {
 
-        try(FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try(FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
             interaction.negotiateOpen()

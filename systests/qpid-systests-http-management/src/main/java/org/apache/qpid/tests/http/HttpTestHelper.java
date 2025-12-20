@@ -55,6 +55,8 @@ import javax.net.ssl.X509TrustManager;
 
 import jakarta.servlet.http.HttpServletResponse;
 
+import org.apache.qpid.server.model.ConfiguredObjectJacksonModule;
+import org.apache.qpid.test.utils.tls.PemUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -65,9 +67,8 @@ import org.apache.qpid.server.model.Port;
 import org.apache.qpid.server.security.NonJavaKeyStore;
 import org.apache.qpid.server.transport.network.security.ssl.SSLUtil;
 import org.apache.qpid.server.util.DataUrlUtils;
-import org.apache.qpid.test.utils.tls.KeyCertificatePair;
+import org.apache.qpid.test.utils.tls.types.KeyCertificatePair;
 import org.apache.qpid.test.utils.tls.TlsResourceBuilder;
-import org.apache.qpid.test.utils.tls.TlsResourceHelper;
 import org.apache.qpid.tests.utils.BrokerAdmin;
 
 public class HttpTestHelper
@@ -81,6 +82,9 @@ public class HttpTestHelper
     private static final TypeReference<Boolean> TYPE_BOOLEAN = new TypeReference<>() { };
 
     private static final String API_BASE = "/api/latest/";
+
+    private final ObjectMapper objectMapper = ConfiguredObjectJacksonModule.newObjectMapper(false);
+
     private final int _httpPort;
     private String _username;
     private String _password;
@@ -145,9 +149,8 @@ public class HttpTestHelper
         final URL url = getManagementURL(path);
         LOGGER.debug("Opening connection : {} {}", method, url);
         HttpURLConnection httpCon = (HttpURLConnection) url.openConnection();
-        if (httpCon instanceof HttpsURLConnection)
+        if (httpCon instanceof HttpsURLConnection httpsCon)
         {
-            HttpsURLConnection httpsCon = (HttpsURLConnection) httpCon;
             try
             {
                 SSLContext sslContext = SSLUtil.tryGetSSLContext();
@@ -182,7 +185,7 @@ public class HttpTestHelper
             httpCon.setRequestProperty("Authorization", "Basic " + encoded);
         }
 
-        if (_acceptEncoding != null && !"".equals(_acceptEncoding))
+        if (_acceptEncoding != null && !_acceptEncoding.isEmpty())
         {
             httpCon.setRequestProperty("Accept-Encoding", _acceptEncoding);
         }
@@ -196,8 +199,7 @@ public class HttpTestHelper
     {
         byte[] data = readConnectionInputStream(connection);
 
-        ObjectMapper mapper = new ObjectMapper();
-        return mapper.readValue(new ByteArrayInputStream(data), TYPE_MAP);
+        return objectMapper.readValue(new ByteArrayInputStream(data), TYPE_MAP);
     }
 
     private byte[] readConnectionInputStream(HttpURLConnection connection) throws IOException
@@ -217,7 +219,7 @@ public class HttpTestHelper
     {
         try (OutputStream outputStream = connection.getOutputStream())
         {
-            new ObjectMapper().writeValue(outputStream, data);
+            objectMapper.writeValue(outputStream, data);
         }
     }
 
@@ -252,7 +254,7 @@ public class HttpTestHelper
 
             byte[] data = readConnectionInputStream(connection);
             LOGGER.debug("Response : {}", new String(data, StandardCharsets.UTF_8));
-            return new ObjectMapper().readValue(new ByteArrayInputStream(data), valueTypeRef);
+            return objectMapper.readValue(new ByteArrayInputStream(data), valueTypeRef);
         }
         finally
         {
@@ -276,7 +278,7 @@ public class HttpTestHelper
 
             byte[] buf = readConnectionInputStream(connection);
             LOGGER.debug("Response data: {}", new String(buf, StandardCharsets.UTF_8));
-            return new ObjectMapper().readValue(new ByteArrayInputStream(buf), valueTypeRef);
+            return objectMapper.readValue(new ByteArrayInputStream(buf), valueTypeRef);
         }
         finally
         {
@@ -318,6 +320,11 @@ public class HttpTestHelper
                 writeJsonRequest(connection, data);
             }
             responseCode = connection.getResponseCode();
+            if (responseCode == 400)
+            {
+                LOGGER.warn("Error code 400 returned, error stream: {}", errorStream(connection));
+                LOGGER.warn("Error code 400 returned, input stream: {}", inputStream(connection));
+            }
             if (responseHeadersToCapture != null)
             {
                 responseHeadersToCapture.putAll(connection.getHeaderFields());
@@ -399,9 +406,9 @@ public class HttpTestHelper
     public void createKeyStoreAndSetItOnPort(final String cn) throws Exception
     {
         final KeyCertificatePair keyCertPair = TlsResourceBuilder.createSelfSigned("CN=" + cn);
-        final String privateKey = DataUrlUtils.getDataUrlForBytes(TlsResourceHelper.toPEM(keyCertPair.getPrivateKey())
+        final String privateKey = DataUrlUtils.getDataUrlForBytes(PemUtils.toPEM(keyCertPair.privateKey())
                 .getBytes(UTF_8));
-        final String certificate = DataUrlUtils.getDataUrlForBytes(TlsResourceHelper.toPEM(keyCertPair.getCertificate())
+        final String certificate = DataUrlUtils.getDataUrlForBytes(PemUtils.toPEM(keyCertPair.certificate())
                 .getBytes(UTF_8));
         final Map<String, Object> attributes = Map.of(
                 NonJavaKeyStore.NAME, cn,
@@ -434,6 +441,30 @@ public class HttpTestHelper
         submitRequest("keystore/" + cn, "DELETE", Map.of(), SC_OK);
         postJson("port/HTTP/updateTLS", Map.of(), TYPE_BOOLEAN, SC_OK);
         setTls(false);
+    }
+
+    private String errorStream(HttpURLConnection connection)
+    {
+        try
+        {
+            return new String(connection.getErrorStream().readAllBytes(), UTF_8);
+        }
+        catch (Exception e)
+        {
+            return "unavailable";
+        }
+    }
+
+    private String inputStream(HttpURLConnection connection)
+    {
+        try
+        {
+            return new String(connection.getInputStream().readAllBytes(), UTF_8);
+        }
+        catch (Exception e)
+        {
+            return "unavailable";
+        }
     }
 
     private static class TrustAllTrustManager implements X509TrustManager

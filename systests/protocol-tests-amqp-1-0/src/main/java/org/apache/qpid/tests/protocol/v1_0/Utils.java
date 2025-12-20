@@ -36,15 +36,16 @@ import org.apache.qpid.server.protocol.v1_0.type.transport.Flow;
 import org.apache.qpid.server.protocol.v1_0.type.transport.Role;
 import org.apache.qpid.server.protocol.v1_0.type.transport.SenderSettleMode;
 import org.apache.qpid.tests.utils.BrokerAdmin;
+import org.apache.qpid.tests.utils.QpidTestInfo;
 
 public class Utils
 {
-    public static boolean doesNodeExist(final BrokerAdmin brokerAdmin, final String nodeAddress) throws Exception
+    public static boolean doesNodeExist(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo, final String nodeAddress) throws Exception
     {
         try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            final Attach attachValidationResponse = interaction.negotiateOpen()
+            final Attach attachValidationResponse = interaction.openHostname(testInfo.virtualHostName()).negotiateOpen()
                                                                .begin().consumeResponse()
                                                                .attachName("validationAttach")
                                                                .attachRole(Role.RECEIVER)
@@ -66,16 +67,16 @@ public class Utils
         }
     }
 
-    public static Object receiveMessage(final BrokerAdmin brokerAdmin, final String queueName) throws Exception
+    public static Object receiveMessage(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
         try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            interaction.negotiateOpen()
+            interaction.openHostname(testInfo.virtualHostName()).negotiateOpen()
                        .begin().consumeResponse()
                        .attachRole(Role.RECEIVER)
                        .attachName("utilsReceiverLink")
-                       .attachSourceAddress(queueName)
+                       .attachSourceAddress(testInfo.methodName())
                        .attach().consumeResponse()
                        .flowIncomingWindow(UnsignedInteger.ONE)
                        .flowNextIncomingIdFromPeerLatestSessionBeginAndDeliveryCount()
@@ -93,6 +94,37 @@ public class Utils
                        .dispositionState(new Accepted())
                        .disposition()
                        .detachEndCloseUnconditionally();
+            return interaction.getDecodedLatestDelivery();
+        }
+    }
+
+    public static Object receiveMessage(final BrokerAdmin brokerAdmin, final String virtualhost, final String queueName) throws Exception
+    {
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
+        {
+            final Interaction interaction = transport.newInteraction();
+            interaction.openHostname(virtualhost).negotiateOpen()
+                    .begin().consumeResponse()
+                    .attachRole(Role.RECEIVER)
+                    .attachName("utilsReceiverLink")
+                    .attachSourceAddress(queueName)
+                    .attach().consumeResponse()
+                    .flowIncomingWindow(UnsignedInteger.ONE)
+                    .flowNextIncomingIdFromPeerLatestSessionBeginAndDeliveryCount()
+                    .flowOutgoingWindow(UnsignedInteger.ZERO)
+                    .flowNextOutgoingId(UnsignedInteger.ZERO)
+                    .flowLinkCredit(UnsignedInteger.ONE)
+                    .flowHandleFromLinkHandle()
+                    .flow()
+                    .receiveDelivery()
+                    .decodeLatestDelivery()
+                    .dispositionSettled(true)
+                    .dispositionRole(Role.RECEIVER)
+                    .dispositionFirst(interaction.getLatestDeliveryId())
+                    .dispositionLast(interaction.getLatestDeliveryId())
+                    .dispositionState(new Accepted())
+                    .disposition()
+                    .detachEndCloseUnconditionally();
             return interaction.getDecodedLatestDelivery();
         }
     }
@@ -134,7 +166,7 @@ public class Utils
         return result;
     }
 
-    public static void putMessageOnQueue(final BrokerAdmin brokerAdmin, final String queueName, final String... message)
+    public static void putMessageOnQueue(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo, final String queueName, final String... message)
             throws Exception
     {
         if (brokerAdmin.isPutMessageOnQueueSupported())
@@ -146,7 +178,7 @@ public class Utils
             try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
             {
                 final Interaction interaction = transport.newInteraction();
-                interaction.negotiateOpen()
+                interaction.openHostname(testInfo.virtualHostName()).negotiateOpen()
                            .begin().consumeResponse(Begin.class)
                            .attachName("utilsSenderLink")
                            .attachRole(Role.SENDER)

@@ -69,6 +69,12 @@ public class ConnectionInteraction
         return _interaction.sendPerformative(_open);
     }
 
+    public Interaction openVirtualHost(final String virtualHostName) throws Exception
+    {
+        final ConnectionOpen open = new ConnectionOpen(virtualHostName, null);
+        return _interaction.sendPerformative(open);
+    }
+
     public ConnectionInteraction tuneOkChannelMax(final int channelMax)
     {
         _tuneOk.setChannelMax(channelMax);

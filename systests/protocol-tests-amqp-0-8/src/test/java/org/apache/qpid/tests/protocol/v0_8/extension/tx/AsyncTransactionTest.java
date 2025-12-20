@@ -18,6 +18,7 @@
  * under the License.
  *
  */
+
 package org.apache.qpid.tests.protocol.v0_8.extension.tx;
 
 import static org.apache.qpid.tests.utils.BrokerAdmin.KIND_BROKER_J;
@@ -25,7 +26,10 @@ import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
 
+import org.apache.qpid.tests.utils.QpidTestInfo;
+import org.apache.qpid.tests.utils.QpidTestInfoExtension;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.Test;
 
 import org.apache.qpid.server.protocol.v0_8.transport.BasicConsumeOkBody;
@@ -43,28 +47,29 @@ import org.apache.qpid.server.protocol.v0_8.transport.TxSelectOkBody;
 import org.apache.qpid.tests.protocol.v0_8.FrameTransport;
 import org.apache.qpid.tests.protocol.v0_8.Interaction;
 import org.apache.qpid.tests.utils.BrokerAdmin;
-import org.apache.qpid.tests.utils.BrokerAdminUsingTestBase;
+import org.apache.qpid.tests.utils.BrokerAdminExtension;
 import org.apache.qpid.tests.utils.BrokerSpecific;
 
+@ExtendWith({ BrokerAdminExtension.class, QpidTestInfoExtension.class })
 @BrokerSpecific(kind = KIND_BROKER_J)
-public class AsyncTransactionTest extends BrokerAdminUsingTestBase
+public class AsyncTransactionTest
 {
     private static final int MESSAGE_COUNT = 10;
 
     @BeforeEach
-    public void setUp()
+    public void setUp(final BrokerAdmin brokerAdmin)
     {
-        getBrokerAdmin().createQueue(BrokerAdmin.TEST_QUEUE_NAME);
+        brokerAdmin.createQueue(BrokerAdmin.TEST_QUEUE_NAME);
     }
 
     @Test
-    public void subsequentCommit() throws Exception
+    public void subsequentCommit(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        publishPersistentMessages();
-        assertThat(getBrokerAdmin().getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(MESSAGE_COUNT)));
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        publishPersistentMessages(brokerAdmin, testInfo);
+        assertThat(brokerAdmin.getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(MESSAGE_COUNT)));
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
-            final Interaction interaction = createConsumerInteraction(transport);
+            final Interaction interaction = createConsumerInteraction(transport, testInfo);
 
             acknowledgeDeliveries(interaction, receiveBasicDeliverBodies(interaction));
             interaction.tx().commit();
@@ -75,18 +80,18 @@ public class AsyncTransactionTest extends BrokerAdminUsingTestBase
             interaction.consumeResponse(TxCommitOkBody.class);
             interaction.consumeResponse(TxCommitOkBody.class);
 
-            assertThat(getBrokerAdmin().getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(0)));
+            assertThat(brokerAdmin.getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(0)));
         }
     }
 
     @Test
-    public void subsequentRollback() throws Exception
+    public void subsequentRollback(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        publishPersistentMessages();
-        assertThat(getBrokerAdmin().getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(MESSAGE_COUNT)));
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        publishPersistentMessages(brokerAdmin, testInfo);
+        assertThat(brokerAdmin.getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(MESSAGE_COUNT)));
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
-            final Interaction interaction = createConsumerInteraction(transport);
+            final Interaction interaction = createConsumerInteraction(transport, testInfo);
 
             acknowledgeDeliveries(interaction, receiveBasicDeliverBodies(interaction));
             interaction.tx().commit();
@@ -97,17 +102,17 @@ public class AsyncTransactionTest extends BrokerAdminUsingTestBase
             interaction.consumeResponse(TxCommitOkBody.class);
             interaction.consumeResponse(TxRollbackOkBody.class);
 
-            assertThat(getBrokerAdmin().getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(0)));
+            assertThat(brokerAdmin.getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(0)));
         }
     }
 
 
-    private void publishPersistentMessages() throws Exception
+    private void publishPersistentMessages(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            interaction.negotiateOpen()
+            interaction.negotiateOpen(testInfo.virtualHostName())
                        .channel().open().consumeResponse(ChannelOpenOkBody.class);
             for (int i = 0; i < MESSAGE_COUNT; i++)
             {
@@ -122,11 +127,11 @@ public class AsyncTransactionTest extends BrokerAdminUsingTestBase
         }
     }
 
-    private Interaction createConsumerInteraction(final FrameTransport transport)
+    private Interaction createConsumerInteraction(final FrameTransport transport, final QpidTestInfo testInfo)
             throws Exception
     {
         final Interaction interaction = transport.newInteraction();
-        interaction.negotiateOpen()
+        interaction.negotiateOpen(testInfo.virtualHostName())
                    .channel().open().consumeResponse(ChannelOpenOkBody.class)
                    .tx().select().consumeResponse(TxSelectOkBody.class)
                    .basic().qosPrefetchCount(MESSAGE_COUNT)

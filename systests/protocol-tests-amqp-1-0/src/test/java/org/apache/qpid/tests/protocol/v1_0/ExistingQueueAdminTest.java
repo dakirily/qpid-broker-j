@@ -25,78 +25,56 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.Test;
 
-import org.apache.qpid.test.utils.UnitTestBase;
 import org.apache.qpid.tests.utils.BrokerAdmin;
 import org.apache.qpid.tests.utils.BrokerAdminException;
-import org.apache.qpid.tests.utils.EmbeddedBrokerPerClassAdminImpl;
+import org.apache.qpid.tests.utils.BrokerAdminExtension;
+import org.apache.qpid.tests.utils.QpidTestInfo;
+import org.apache.qpid.tests.utils.QpidTestInfoExtension;
 
-public class ExistingQueueAdminTest extends UnitTestBase
+@ExtendWith({ BrokerAdminExtension.class, QpidTestInfoExtension.class })
+public class ExistingQueueAdminTest
 {
-    private static BrokerAdmin _brokerAdmin;
-
-    private ExistingQueueAdmin _queueAdmin;
-    private String _testQueueName;
-
-    @BeforeAll
-    public static void beforeSuite()
-    {
-        _brokerAdmin = new EmbeddedBrokerPerClassAdminImpl();
-        _brokerAdmin.beforeTestClass(ExistingQueueAdminTest.class);
-    }
-
-    @AfterAll
-    public static void afterSuite()
-    {
-        _brokerAdmin.afterTestClass(ExistingQueueAdminTest.class);
-    }
-
     @BeforeEach
-    public void before() throws NoSuchMethodException
+    public void before(final BrokerAdmin brokerAdmin,
+                       final QpidTestInfo testInfo)
     {
-        _brokerAdmin.beforeTestMethod(getClass(), getClass().getMethod(getTestName()));
-        _brokerAdmin.createQueue(getTestName());
-        _queueAdmin = new ExistingQueueAdmin();
-        _testQueueName = getTestName();
-    }
-
-    @AfterEach
-    public void after() throws NoSuchMethodException
-    {
-        _brokerAdmin.afterTestMethod(getClass(), getClass().getMethod(getTestName()));
-    }
-
-
-    @Test
-    public void createQueue()
-    {
-        _queueAdmin.createQueue(_brokerAdmin, getTestName());
+        brokerAdmin.createQueue(testInfo.methodName());
     }
 
     @Test
-    public void deleteQueue() throws Exception
+    public void createQueue(final BrokerAdmin brokerAdmin,
+                            final QpidTestInfo testInfo)
     {
-        final String[] messages = Utils.createTestMessageContents(2, _testQueueName);
-        _brokerAdmin.putMessageOnQueue(_testQueueName, messages);
-
-        _queueAdmin.deleteQueue(_brokerAdmin, _testQueueName);
-
-        final String controlMessage = String.format("controlMessage %s", _testQueueName);
-        _brokerAdmin.putMessageOnQueue(_testQueueName, controlMessage);
-        assertEquals(controlMessage, Utils.receiveMessage(_brokerAdmin, _testQueueName));
+        final ExistingQueueAdmin queueAdmin = new ExistingQueueAdmin(testInfo.virtualHostName());
+        queueAdmin.createQueue(brokerAdmin, testInfo.methodName());
     }
 
     @Test
-    public void deleteQueueNonExisting()
+    public void deleteQueue(final BrokerAdmin brokerAdmin,
+                            final QpidTestInfo testInfo) throws Exception
+    {
+        final String[] messages = Utils.createTestMessageContents(2, testInfo.methodName());
+        brokerAdmin.putMessageOnQueue(testInfo.methodName(), messages);
+
+        final ExistingQueueAdmin queueAdmin = new ExistingQueueAdmin(testInfo.virtualHostName());
+        queueAdmin.deleteQueue(brokerAdmin, testInfo.methodName());
+
+        final String controlMessage = String.format("controlMessage %s", testInfo.methodName());
+        brokerAdmin.putMessageOnQueue(testInfo.methodName(), controlMessage);
+        assertEquals(controlMessage, Utils.receiveMessage(brokerAdmin, testInfo));
+    }
+
+    @Test
+    public void deleteQueueNonExisting(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo)
     {
         try
         {
-            _queueAdmin.deleteQueue(_brokerAdmin, _testQueueName + "_NonExisting");
+            final ExistingQueueAdmin queueAdmin = new ExistingQueueAdmin(testInfo.virtualHostName());
+            queueAdmin.deleteQueue(brokerAdmin, testInfo.methodName() + "_NonExisting");
             fail("Exception is expected");
         }
         catch (BrokerAdminException e)
@@ -106,21 +84,25 @@ public class ExistingQueueAdminTest extends UnitTestBase
     }
 
     @Test
-    public void putMessageOnQueue() throws Exception
+    public void putMessageOnQueue(final BrokerAdmin brokerAdmin,
+                                  final QpidTestInfo testInfo) throws Exception
     {
-        final String[] messages = Utils.createTestMessageContents(2, _testQueueName);
-        _queueAdmin.putMessageOnQueue(_brokerAdmin, _testQueueName, messages);
-        assertEquals(messages[0], Utils.receiveMessage(_brokerAdmin, _testQueueName));
-        assertEquals(messages[1], Utils.receiveMessage(_brokerAdmin, _testQueueName));
+        final String[] messages = Utils.createTestMessageContents(2, testInfo.methodName());
+        final ExistingQueueAdmin queueAdmin = new ExistingQueueAdmin(testInfo.virtualHostName());
+        queueAdmin.putMessageOnQueue(brokerAdmin, testInfo.methodName(), messages);
+        assertEquals(messages[0], Utils.receiveMessage(brokerAdmin, testInfo));
+        assertEquals(messages[1], Utils.receiveMessage(brokerAdmin, testInfo));
     }
 
     @Test
-    public void putMessageOnQueueNonExisting()
+    public void putMessageOnQueueNonExisting(final BrokerAdmin brokerAdmin,
+                                             final QpidTestInfo testInfo)
     {
-        final String[] messages = Utils.createTestMessageContents(2, _testQueueName);
+        final String[] messages = Utils.createTestMessageContents(2, testInfo.methodName());
         try
         {
-            _queueAdmin.putMessageOnQueue(_brokerAdmin, _testQueueName + "_NonExisting", messages);
+            final ExistingQueueAdmin queueAdmin = new ExistingQueueAdmin(testInfo.virtualHostName());
+            queueAdmin.putMessageOnQueue(brokerAdmin, testInfo.methodName() + "_NonExisting", messages);
             fail("Exception is expected"); }
         catch (BrokerAdminException e)
         {
@@ -129,14 +111,16 @@ public class ExistingQueueAdminTest extends UnitTestBase
     }
 
     @Test
-    public void isDeleteQueueSupported()
+    public void isDeleteQueueSupported(final QpidTestInfo testInfo)
     {
-        assertFalse(_queueAdmin.isDeleteQueueSupported());
+        final ExistingQueueAdmin queueAdmin = new ExistingQueueAdmin(testInfo.virtualHostName());
+        assertFalse(queueAdmin.isDeleteQueueSupported());
     }
 
     @Test
-    public void isPutMessageOnQueueSupported()
+    public void isPutMessageOnQueueSupported(final QpidTestInfo testInfo)
     {
-        assertTrue(_queueAdmin.isPutMessageOnQueueSupported());
+        final ExistingQueueAdmin queueAdmin = new ExistingQueueAdmin(testInfo.virtualHostName());
+        assertTrue(queueAdmin.isPutMessageOnQueueSupported());
     }
 }

@@ -18,6 +18,7 @@
  * under the License.
  *
  */
+
 package org.apache.qpid.tests.protocol.v0_8.extension.exchange;
 
 import static org.apache.qpid.tests.utils.BrokerAdmin.KIND_BROKER_J;
@@ -27,6 +28,9 @@ import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.util.Map;
 
+import org.apache.qpid.tests.utils.QpidTestInfo;
+import org.apache.qpid.tests.utils.QpidTestInfoExtension;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.Test;
 
 import org.apache.qpid.server.protocol.ErrorCodes;
@@ -36,21 +40,23 @@ import org.apache.qpid.server.protocol.v0_8.transport.ExchangeBoundOkBody;
 import org.apache.qpid.server.protocol.v0_8.transport.ExchangeDeclareOkBody;
 import org.apache.qpid.tests.protocol.v0_8.FrameTransport;
 import org.apache.qpid.tests.protocol.v0_8.Interaction;
-import org.apache.qpid.tests.utils.BrokerAdminUsingTestBase;
+import org.apache.qpid.tests.utils.BrokerAdmin;
+import org.apache.qpid.tests.utils.BrokerAdminExtension;
 import org.apache.qpid.tests.utils.BrokerSpecific;
 
+@ExtendWith({ BrokerAdminExtension.class, QpidTestInfoExtension.class })
 @BrokerSpecific(kind = KIND_BROKER_J)
-public class ExchangeTest extends BrokerAdminUsingTestBase
+public class ExchangeTest
 {
     private static final String TEST_EXCHANGE = "testExchange";
 
     @Test
-    public void exchangeDeclareValidWireArguments() throws Exception
+    public void exchangeDeclareValidWireArguments(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            interaction.negotiateOpen()
+            interaction.negotiateOpen(testInfo.virtualHostName())
                        .channel().open().consumeResponse(ChannelOpenOkBody.class)
                        .exchange()
                        .declareName(TEST_EXCHANGE)
@@ -68,12 +74,12 @@ public class ExchangeTest extends BrokerAdminUsingTestBase
     }
 
     @Test
-    public void exchangeDeclareInvalidWireArguments() throws Exception
+    public void exchangeDeclareInvalidWireArguments(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            ConnectionCloseBody response = interaction.negotiateOpen()
+            ConnectionCloseBody response = interaction.negotiateOpen(testInfo.virtualHostName())
                                                       .channel()
                                                       .open()
                                                       .consumeResponse(ChannelOpenOkBody.class)

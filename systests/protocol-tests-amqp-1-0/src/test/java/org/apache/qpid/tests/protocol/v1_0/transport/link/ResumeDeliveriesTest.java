@@ -42,10 +42,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.apache.qpid.tests.utils.VirtualhostContextVariable;
 import org.hamcrest.Matchers;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.Test;
 
 import org.apache.qpid.server.bytebuffer.QpidByteBuffer;
@@ -72,18 +74,20 @@ import org.apache.qpid.tests.protocol.v1_0.FrameTransport;
 import org.apache.qpid.tests.protocol.v1_0.Interaction;
 import org.apache.qpid.tests.protocol.v1_0.Utils;
 import org.apache.qpid.tests.utils.BrokerAdmin;
-import org.apache.qpid.tests.utils.BrokerAdminUsingTestBase;
-import org.apache.qpid.tests.utils.ConfigItem;
+import org.apache.qpid.tests.utils.BrokerAdminExtension;
+import org.apache.qpid.tests.utils.QpidTestInfo;
+import org.apache.qpid.tests.utils.QpidTestInfoExtension;
 
-@ConfigItem(name = "qpid.tests.mms.messagestore.persistence", value = "false", jvm = true)
-public class ResumeDeliveriesTest extends BrokerAdminUsingTestBase
+@ExtendWith({ BrokerAdminExtension.class, QpidTestInfoExtension.class })
+@VirtualhostContextVariable(name = "qpid.tests.mms.messagestore.persistence", value = "false")
+public class ResumeDeliveriesTest
 {
     private static final int MIN_MAX_FRAME_SIZE = 512;
 
     @BeforeEach
-    public void setUp()
+    public void setUp(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo)
     {
-        getBrokerAdmin().createQueue(BrokerAdmin.TEST_QUEUE_NAME);
+        brokerAdmin.createQueue(testInfo.methodName());
     }
 
     @Disabled("QPID-7845")
@@ -92,11 +96,12 @@ public class ResumeDeliveriesTest extends BrokerAdminUsingTestBase
             description = "When a suspended link having unsettled deliveries is resumed, the unsettled field from the"
                           + " attach frame will carry the delivery-tags and delivery state of all deliveries"
                           + " considered unsettled by the issuing link endpoint.")
-    public void resumeSendingLinkSingleUnsettledDelivery() throws Exception
+    public void resumeSendingLinkSingleUnsettledDelivery(final BrokerAdmin brokerAdmin,
+                                                         final QpidTestInfo testInfo) throws Exception
     {
-        final String destination = BrokerAdmin.TEST_QUEUE_NAME;
+        final String destination = testInfo.methodName();
         final Binary deliveryTag = new Binary("testDeliveryTag".getBytes(StandardCharsets.UTF_8));
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
 
             final UnsignedInteger linkHandle1 = UnsignedInteger.ZERO;
@@ -117,7 +122,7 @@ public class ResumeDeliveriesTest extends BrokerAdminUsingTestBase
             final Disposition responseDisposition = interaction.transferHandle(linkHandle1)
                                                                .transferDeliveryId(UnsignedInteger.ZERO)
                                                                .transferDeliveryTag(deliveryTag)
-                                                               .transferPayloadData(getTestName())
+                                                               .transferPayloadData(testInfo.methodName())
                                                                .transfer()
                                                                .consumeResponse()
                                                                .getLatestResponse(Disposition.class);
@@ -152,10 +157,11 @@ public class ResumeDeliveriesTest extends BrokerAdminUsingTestBase
                           + " frame size then the session MAY be ended with the frame-size-too-small error. The"
                           + " endpoint SHOULD make use of the ability to send an incomplete unsettled map (see below)"
                           + " to avoid sending an error.")
-    public void resumeSendingLinkWithIncompleteUnsettled() throws Exception
+    public void resumeSendingLinkWithIncompleteUnsettled(final BrokerAdmin brokerAdmin,
+                                                         final QpidTestInfo testInfo) throws Exception
     {
-        final String destination = BrokerAdmin.TEST_QUEUE_NAME;
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        final String destination = testInfo.methodName();
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
 
@@ -178,7 +184,7 @@ public class ResumeDeliveriesTest extends BrokerAdminUsingTestBase
             // 2. send enough unsettled deliveries to cause incomplete-unsettled to be true
             //    assume each delivery requires at least 1 byte, therefore max-frame-size deliveries should be enough
             interaction.transferHandle(linkHandle1)
-                       .transferPayloadData(getTestName());
+                       .transferPayloadData(testInfo.methodName());
             Map<Binary, DeliveryState> localUnsettled = new HashMap<>(open.getMaxFrameSize().intValue());
             for (int i = 0; i < open.getMaxFrameSize().intValue(); ++i)
             {
@@ -245,10 +251,11 @@ public class ResumeDeliveriesTest extends BrokerAdminUsingTestBase
             + "NOT send any new deliveries (i.e. deliveries where resume is not set to true) to its partner (and "
             + "a receiving endpoint which sent an incomplete unsettled map MUST detach with an error on "
             + "receiving a transfer which does not have the resume flag set to true).")
-    public void rejectNewDeliveryWhilstUnsettledIncomplete() throws Exception
+    public void rejectNewDeliveryWhilstUnsettledIncomplete(final BrokerAdmin brokerAdmin,
+                                                           final QpidTestInfo testInfo) throws Exception
     {
-        final String destination = BrokerAdmin.TEST_QUEUE_NAME;
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        final String destination = testInfo.methodName();
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
 
@@ -271,7 +278,7 @@ public class ResumeDeliveriesTest extends BrokerAdminUsingTestBase
             // 2. send enough unsettled deliverys to cause incomplete-unsettled to be true
             //    assume each delivery requires at least 1 byte, therefore max-frame-size deliveries should be enough
             interaction.transferHandle(linkHandle1)
-                       .transferPayloadData(getTestName());
+                       .transferPayloadData(testInfo.methodName());
             Map<Binary, DeliveryState> localUnsettled = new HashMap<>(open.getMaxFrameSize().intValue());
             for (int i = 0; i < open.getMaxFrameSize().intValue(); ++i)
             {
@@ -326,14 +333,15 @@ public class ResumeDeliveriesTest extends BrokerAdminUsingTestBase
             + "NOT send any new deliveries (i.e. deliveries where resume is not set to true) to its partner (and "
             + "a receiving endpoint which sent an incomplete unsettled map MUST detach with an error on "
             + "receiving a transfer which does not have the resume flag set to true).")
-    public void incompleteUnsettledReceiving() throws Exception
+    public void incompleteUnsettledReceiving(final BrokerAdmin brokerAdmin,
+                                             final QpidTestInfo testInfo) throws Exception
     {
         for (int i = 0; i < MIN_MAX_FRAME_SIZE; i++)
         {
-            Utils.putMessageOnQueue(getBrokerAdmin(), BrokerAdmin.TEST_QUEUE_NAME, getTestName() + "-" + i);
+            Utils.putMessageOnQueue(brokerAdmin, testInfo, testInfo.methodName(), testInfo.methodName() + "-" + i);
         }
 
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             // 1. open with small max-frame=512, begin, attach receiver with
             //    with rcv-settle-mode=second, snd-settle-mode=unsettled,
@@ -346,7 +354,7 @@ public class ResumeDeliveriesTest extends BrokerAdminUsingTestBase
                        .attachRole(Role.RECEIVER)
                        .attachRcvSettleMode(ReceiverSettleMode.SECOND)
                        .attachSndSettleMode(SenderSettleMode.UNSETTLED)
-                       .attachSourceAddress(BrokerAdmin.TEST_QUEUE_NAME)
+                       .attachSourceAddress(testInfo.methodName())
                        .attach()
                        .consumeResponse(Attach.class)
                        .assertLatestResponse(Attach.class, this::assumeReceiverSettlesSecond);
@@ -443,17 +451,19 @@ public class ResumeDeliveriesTest extends BrokerAdminUsingTestBase
                                                          + " the unsettled field from the attach frame will carry"
                                                          + " the delivery-tags and delivery state of all deliveries"
                                                          + " considered unsettled by the issuing link endpoint.")
-    public void resumeReceivingLinkEmptyUnsettled() throws Exception
+    public void resumeReceivingLinkEmptyUnsettled(final BrokerAdmin brokerAdmin,
+                                                  final QpidTestInfo testInfo) throws Exception
     {
-        Utils.putMessageOnQueue(getBrokerAdmin(), BrokerAdmin.TEST_QUEUE_NAME, getTestName());
+        Utils.putMessageOnQueue(brokerAdmin, testInfo, testInfo.methodName(), testInfo.methodName());
 
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction()
+                                                     .openHostname(testInfo.virtualHostName())
                                                      .negotiateOpen()
                                                      .begin().consumeResponse()
                                                      .attachRole(Role.RECEIVER)
-                                                     .attachSourceAddress(BrokerAdmin.TEST_QUEUE_NAME)
+                                                     .attachSourceAddress(testInfo.methodName())
                                                      .attachRcvSettleMode(ReceiverSettleMode.FIRST)
                                                      .attach().consumeResponse()
                                                      .flowIncomingWindow(UnsignedInteger.ONE)
@@ -465,7 +475,7 @@ public class ResumeDeliveriesTest extends BrokerAdminUsingTestBase
                                                      .decodeLatestDelivery();
 
             Object data = interaction.getDecodedLatestDelivery();
-            assertThat(data, is(equalTo(getTestName())));
+            assertThat(data, is(equalTo(testInfo.methodName())));
 
             interaction.dispositionSettled(true)
                        .dispositionState(new Accepted())
@@ -494,18 +504,19 @@ public class ResumeDeliveriesTest extends BrokerAdminUsingTestBase
                                                          + " the unsettled field from the attach frame will carry"
                                                          + " the delivery-tags and delivery state of all deliveries"
                                                          + " considered unsettled by the issuing link endpoint.")
-    public void resumeReceivingLinkWithSingleUnsettledAccepted() throws Exception
+    public void resumeReceivingLinkWithSingleUnsettledAccepted(final BrokerAdmin brokerAdmin,
+                                                               final QpidTestInfo testInfo) throws Exception
     {
-        Utils.putMessageOnQueue(getBrokerAdmin(), BrokerAdmin.TEST_QUEUE_NAME, getTestName());
+        Utils.putMessageOnQueue(brokerAdmin, testInfo, testInfo.methodName(), testInfo.methodName());
 
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction()
                                                      .negotiateOpen(
                                                                    )
                                                      .begin().consumeResponse()
                                                      .attachRole(Role.RECEIVER)
-                                                     .attachSourceAddress(BrokerAdmin.TEST_QUEUE_NAME)
+                                                     .attachSourceAddress(testInfo.methodName())
                                                      .attachRcvSettleMode(ReceiverSettleMode.FIRST)
                                                      .attachSndSettleMode(SenderSettleMode.UNSETTLED)
                                                      .attach().consumeResponse();
@@ -527,7 +538,7 @@ public class ResumeDeliveriesTest extends BrokerAdminUsingTestBase
             assertThat(deliveryTag, is(notNullValue()));
             assertThat(transfer.getSettled(), is(not(equalTo(true))));
             Object data = interaction.decodeLatestDelivery().getDecodedLatestDelivery();
-            assertThat(data, is(equalTo(getTestName())));
+            assertThat(data, is(equalTo(testInfo.methodName())));
 
             Detach detach = interaction.detach().consumeResponse().getLatestResponse(Detach.class);
             assertThat(detach.getClosed(), anyOf(nullValue(), equalTo(false)));
@@ -568,9 +579,9 @@ public class ResumeDeliveriesTest extends BrokerAdminUsingTestBase
 
             interaction.doCloseConnection();
 
-            final String content = getTestName() + "_2";
-            Utils.putMessageOnQueue(getBrokerAdmin(), BrokerAdmin.TEST_QUEUE_NAME, content);
-            assertThat(Utils.receiveMessage(getBrokerAdmin(), BrokerAdmin.TEST_QUEUE_NAME), Matchers.is(Matchers.equalTo(content)));
+            final String content = testInfo.methodName() + "_2";
+            Utils.putMessageOnQueue(brokerAdmin, testInfo, testInfo.methodName(), content);
+            assertThat(Utils.receiveMessage(brokerAdmin, testInfo), Matchers.is(Matchers.equalTo(content)));
         }
     }
 
@@ -580,17 +591,18 @@ public class ResumeDeliveriesTest extends BrokerAdminUsingTestBase
                                                          + " the unsettled field from the attach frame will carry"
                                                          + " the delivery-tags and delivery state of all deliveries"
                                                          + " considered unsettled by the issuing link endpoint.")
-    public void resumeReceivingLinkOneUnsettledWithNoOutcome() throws Exception
+    public void resumeReceivingLinkOneUnsettledWithNoOutcome(final BrokerAdmin brokerAdmin,
+                                                             final QpidTestInfo testInfo) throws Exception
     {
-        Utils.putMessageOnQueue(getBrokerAdmin(), BrokerAdmin.TEST_QUEUE_NAME, getTestName());
+        Utils.putMessageOnQueue(brokerAdmin, testInfo, testInfo.methodName(), testInfo.methodName());
 
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction()
                                                      .negotiateOpen()
                                                      .begin().consumeResponse()
                                                      .attachRole(Role.RECEIVER)
-                                                     .attachSourceAddress(BrokerAdmin.TEST_QUEUE_NAME)
+                                                     .attachSourceAddress(testInfo.methodName())
                                                      .attachRcvSettleMode(ReceiverSettleMode.FIRST)
                                                      .attachSndSettleMode(SenderSettleMode.UNSETTLED)
                                                      .attach().consumeResponse();
@@ -611,7 +623,7 @@ public class ResumeDeliveriesTest extends BrokerAdminUsingTestBase
             Binary deliveryTag = transfer.getDeliveryTag();
             assertThat(deliveryTag, is(notNullValue()));
             Object data = interaction.decodeLatestDelivery().getDecodedLatestDelivery();
-            assertThat(data, is(equalTo(getTestName())));
+            assertThat(data, is(equalTo(testInfo.methodName())));
 
             Detach detach = interaction.detach().consumeResponse(Detach.class).getLatestResponse(Detach.class);
             assertThat(detach.getClosed(), anyOf(nullValue(), equalTo(false)));
@@ -649,9 +661,9 @@ public class ResumeDeliveriesTest extends BrokerAdminUsingTestBase
 
             interaction.doCloseConnection();
 
-            final String content = getTestName() + "_2";
-            Utils.putMessageOnQueue(getBrokerAdmin(), BrokerAdmin.TEST_QUEUE_NAME, content);
-            assertThat(Utils.receiveMessage(getBrokerAdmin(), BrokerAdmin.TEST_QUEUE_NAME), Matchers.is(Matchers.equalTo(content)));
+            final String content = testInfo.methodName() + "_2";
+            Utils.putMessageOnQueue(brokerAdmin, testInfo, testInfo.methodName(), content);
+            assertThat(Utils.receiveMessage(brokerAdmin, testInfo), Matchers.is(Matchers.equalTo(content)));
         }
     }
 
@@ -661,13 +673,14 @@ public class ResumeDeliveriesTest extends BrokerAdminUsingTestBase
             description = "When a suspended link having unsettled deliveries is resumed, the unsettled field from the"
                           + " attach frame will carry the delivery-tags and delivery state of all deliveries"
                           + " considered unsettled by the issuing link endpoint.")
-    public void resumeSendingLinkSinglePartialDelivery() throws Exception
+    public void resumeSendingLinkSinglePartialDelivery(final BrokerAdmin brokerAdmin,
+                                                       final QpidTestInfo testInfo) throws Exception
     {
-        final String destination = BrokerAdmin.TEST_QUEUE_NAME;
+        final String destination = testInfo.methodName();
         final Binary deliveryTag = new Binary("testDeliveryTag".getBytes(StandardCharsets.UTF_8));
 
-        QpidByteBuffer[] messagePayload = Utils.splitPayload(getTestName(), 2);
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        QpidByteBuffer[] messagePayload = Utils.splitPayload(testInfo.methodName(), 2);
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
 
             final UnsignedInteger linkHandle1 = UnsignedInteger.ZERO;

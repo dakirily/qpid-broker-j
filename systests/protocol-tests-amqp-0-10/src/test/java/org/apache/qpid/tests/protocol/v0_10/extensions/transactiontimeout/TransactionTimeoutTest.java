@@ -17,6 +17,7 @@
  * under the License.
  *
  */
+
 package org.apache.qpid.tests.protocol.v0_10.extensions.transactiontimeout;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -27,6 +28,8 @@ import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.notNullValue;
 import static org.hamcrest.MatcherAssert.assertThat;
 
+import org.apache.qpid.tests.utils.RunBrokerAdmin;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -43,25 +46,26 @@ import org.apache.qpid.tests.protocol.Response;
 import org.apache.qpid.tests.protocol.v0_10.FrameTransport;
 import org.apache.qpid.tests.protocol.v0_10.Interaction;
 import org.apache.qpid.tests.utils.BrokerAdmin;
-import org.apache.qpid.tests.utils.BrokerAdminUsingTestBase;
+import org.apache.qpid.tests.utils.BrokerAdminExtension;
 import org.apache.qpid.tests.utils.BrokerSpecific;
 import org.apache.qpid.tests.utils.ConfigItem;
 
+@RunBrokerAdmin(type = "EMBEDDED_BROKER_PER_CLASS")
+@ExtendWith({ BrokerAdminExtension.class })
 @BrokerSpecific(kind = KIND_BROKER_J)
 @ConfigItem(name = "virtualhost.storeTransactionOpenTimeoutClose", value = "1000")
-public class TransactionTimeoutTest extends BrokerAdminUsingTestBase
+public class TransactionTimeoutTest
 {
-
     @BeforeEach
-    public void setUp()
+    public void setUp(final BrokerAdmin brokerAdmin)
     {
-        getBrokerAdmin().createQueue(BrokerAdmin.TEST_QUEUE_NAME);
+        brokerAdmin.createQueue(BrokerAdmin.TEST_QUEUE_NAME);
     }
 
     @Test
-    public void publishTransactionTimeout() throws Exception
+    public void publishTransactionTimeout(final BrokerAdmin brokerAdmin) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
             byte[] sessionName = "test".getBytes(UTF_8);
@@ -84,23 +88,23 @@ public class TransactionTimeoutTest extends BrokerAdminUsingTestBase
             }
             while (!completed.getCommands().includes(1));
 
-            int queueDepthMessages = getBrokerAdmin().getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME);
+            int queueDepthMessages = brokerAdmin.getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME);
             assertThat(queueDepthMessages, is(equalTo(0)));
 
             ConnectionClose close = receiveResponse(interaction, ConnectionClose.class);
             assertThat(close.getReplyCode(), is(equalTo(ConnectionCloseCode.CONNECTION_FORCED)));
             assertThat(close.getReplyText(), containsString("transaction timed out"));
 
-            assertThat(getBrokerAdmin().getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(0)));
+            assertThat(brokerAdmin.getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(0)));
         }
     }
 
     @Test
-    public void consumeTransactionTimeout() throws Exception
+    public void consumeTransactionTimeout(final BrokerAdmin brokerAdmin) throws Exception
     {
         String testMessageBody = "testMessage";
-        getBrokerAdmin().putMessageOnQueue(BrokerAdmin.TEST_QUEUE_NAME, testMessageBody);
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        brokerAdmin.putMessageOnQueue(BrokerAdmin.TEST_QUEUE_NAME, testMessageBody);
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
             byte[] sessionName = "testSession".getBytes(UTF_8);
@@ -131,7 +135,7 @@ public class TransactionTimeoutTest extends BrokerAdminUsingTestBase
 
             MessageTransfer transfer = receiveResponse(interaction, MessageTransfer.class);
 
-            assertThat(getBrokerAdmin().getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(1)));
+            assertThat(brokerAdmin.getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(1)));
 
             RangeSet transfers = Range.newInstance(transfer.getId());
             interaction.message().acceptId(3).acceptTransfers(transfers).accept()

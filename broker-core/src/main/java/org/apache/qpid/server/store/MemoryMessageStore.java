@@ -54,7 +54,12 @@ public class MemoryMessageStore implements MessageStore
     private final AtomicLong _inMemorySize = new AtomicLong();
     private final Set<MessageDeleteListener> _messageDeleteListeners = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
+    private boolean _persistent;
 
+    public MemoryMessageStore()
+    {
+        _persistent = Boolean.parseBoolean(System.getProperty("qpid.tests.mms.messagestore.persistence", "false"));
+    }
 
     private final class MemoryMessageStoreTransaction implements Transaction
     {
@@ -257,6 +262,9 @@ public class MemoryMessageStore implements MessageStore
     @Override
     public void openMessageStore(final ConfiguredObject<?> parent)
     {
+        _persistent = parent.getContextKeys(true).contains("qpid.tests.mms.messagestore.persistence")
+                ?  parent.getContextValue(Boolean.class, "qpid.tests.mms.messagestore.persistence")
+                : Boolean.parseBoolean(System.getProperty("qpid.tests.mms.messagestore.persistence", "false"));
     }
 
     @Override
@@ -325,7 +333,7 @@ public class MemoryMessageStore implements MessageStore
     @Override
     public boolean isPersistent()
     {
-        return Boolean.parseBoolean(System.getProperty("qpid.tests.mms.messagestore.persistence", "false"));
+        return _persistent;
     }
 
     @Override

@@ -18,6 +18,7 @@
  * under the License.
  *
  */
+
 package org.apache.qpid.tests.protocol.v0_10;
 
 import static org.hamcrest.CoreMatchers.instanceOf;
@@ -34,6 +35,7 @@ import java.nio.charset.StandardCharsets;
 
 import org.hamcrest.core.IsEqual;
 
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.Test;
 
 import org.apache.qpid.server.protocol.v0_10.transport.ConnectionStart;
@@ -41,9 +43,10 @@ import org.apache.qpid.tests.protocol.HeaderResponse;
 import org.apache.qpid.tests.protocol.Response;
 import org.apache.qpid.tests.protocol.SpecificationTest;
 import org.apache.qpid.tests.utils.BrokerAdmin;
-import org.apache.qpid.tests.utils.BrokerAdminUsingTestBase;
+import org.apache.qpid.tests.utils.BrokerAdminExtension;
 
-public class ProtocolTest extends BrokerAdminUsingTestBase
+@ExtendWith({ BrokerAdminExtension.class })
+public class ProtocolTest
 {
     private static final String DEFAULT_LOCALE = "en_US";
 
@@ -53,10 +56,10 @@ public class ProtocolTest extends BrokerAdminUsingTestBase
                           + " it MUST send a protocol header with the client's preferred protocol version."
                           + "If the requested protocol version is supported, the server MUST send its own protocol"
                           + " header with the requested version to the socket, and then implement the protocol accordingly")
-    public void versionNegotiation() throws Exception
+    public void versionNegotiation(final BrokerAdmin brokerAdmin) throws Exception
     {
-        assumeTrue(getBrokerAdmin().isAnonymousSupported());
-        try(FrameTransport transport = new FrameTransport(getBrokerAdmin(), BrokerAdmin.PortType.ANONYMOUS_AMQP).connect())
+        assumeTrue(brokerAdmin.isAnonymousSupported());
+        try(FrameTransport transport = new FrameTransport(brokerAdmin, BrokerAdmin.PortType.ANONYMOUS_AMQP).connect())
         {
             final Interaction interaction = transport.newInteraction();
             Response<?> response = interaction.negotiateProtocol().consumeResponse().getLatestResponse();
@@ -75,9 +78,9 @@ public class ProtocolTest extends BrokerAdminUsingTestBase
     @SpecificationTest(section = "4.3. Version Negotiation",
             description = "If the server can't parse the protocol header, the server MUST send a valid protocol "
                           + "header with a supported protocol version and then close the socket.")
-    public void unrecognisedProtocolHeader() throws Exception
+    public void unrecognisedProtocolHeader(final BrokerAdmin brokerAdmin) throws Exception
     {
-        try(FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try(FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
 
             final Interaction interaction = transport.newInteraction();
@@ -96,9 +99,9 @@ public class ProtocolTest extends BrokerAdminUsingTestBase
     @SpecificationTest(section = "4.3. Version Negotiation",
             description = "If the requested protocol version is not supported, the server MUST send a protocol "
                           + "header with a supported protocol version and then close the socket.")
-    public void unrecognisedProtocolVersion() throws Exception
+    public void unrecognisedProtocolVersion(final BrokerAdmin brokerAdmin) throws Exception
     {
-        try(FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try(FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
 
 
@@ -116,9 +119,9 @@ public class ProtocolTest extends BrokerAdminUsingTestBase
 
     @Test
     @SpecificationTest(section = "8. Domains", description = "valid values for the frame type indicator.")
-    public void invalidSegmentType() throws Exception
+    public void invalidSegmentType(final BrokerAdmin brokerAdmin) throws Exception
     {
-        try(FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try(FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
 

@@ -18,35 +18,40 @@
  * under the License.
  *
  */
+
 package org.apache.qpid.tests.protocol.v0_10;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.nio.charset.StandardCharsets;
 
+import org.apache.qpid.tests.utils.BrokerAdmin;
+import org.apache.qpid.tests.utils.QpidTestInfo;
+import org.apache.qpid.tests.utils.QpidTestInfoExtension;
 import org.hamcrest.core.IsEqual;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.Test;
 
 import org.apache.qpid.server.protocol.v0_10.transport.SessionAttached;
 import org.apache.qpid.server.protocol.v0_10.transport.SessionDetachCode;
 import org.apache.qpid.server.protocol.v0_10.transport.SessionDetached;
 import org.apache.qpid.tests.protocol.SpecificationTest;
-import org.apache.qpid.tests.utils.BrokerAdminUsingTestBase;
+import org.apache.qpid.tests.utils.BrokerAdminExtension;
 
-public class SessionTest extends BrokerAdminUsingTestBase
+@ExtendWith({ BrokerAdminExtension.class, QpidTestInfoExtension.class })
+public class SessionTest
 {
-
     @Test
     @SpecificationTest(section = "9.session.attach",
             description = "Requests that the current transport be attached to the named session.")
-    public void attach() throws Exception
+    public void attach(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try(FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try(FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
             byte[] sessionName = "test".getBytes(StandardCharsets.UTF_8);
             final int channelId = 1;
-            SessionAttached sessionAttached = interaction.negotiateOpen()
+            SessionAttached sessionAttached = interaction.negotiateOpen(testInfo.virtualHostName())
                                                          .channelId(channelId)
                                                          .session()
                                                          .attachName(sessionName)
@@ -58,18 +63,17 @@ public class SessionTest extends BrokerAdminUsingTestBase
         }
     }
 
-
     @Test
     @SpecificationTest(section = "9.session.detach",
             description = "Detaches the current transport from the named session.")
-    public void detach() throws Exception
+    public void detach(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
             byte[] sessionName = "test".getBytes(StandardCharsets.UTF_8);
             final int channelId = 1;
-            SessionDetached sessionDetached = interaction.negotiateOpen()
+            SessionDetached sessionDetached = interaction.negotiateOpen(testInfo.virtualHostName())
                                                          .channelId(channelId)
                                                          .session()
                                                          .attachName(sessionName)
@@ -92,14 +96,14 @@ public class SessionTest extends BrokerAdminUsingTestBase
                           + " \"attach\", \"attached\", \"detach\", or \"detached\"."
                           + " A peer receiving any other control on a detached transport MUST discard it and send a"
                           + " session.detached with the \"not-attached\" reason code.")
-    public void detachUnknownSession() throws Exception
+    public void detachUnknownSession(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
             byte[] sessionName = "test".getBytes(StandardCharsets.UTF_8);
             final int channelId = 1;
-            SessionDetached sessionDetached = interaction.negotiateOpen()
+            SessionDetached sessionDetached = interaction.negotiateOpen(testInfo.virtualHostName())
                                                          .channelId(channelId)
                                                          .session()
                                                          .detachName(sessionName)
@@ -115,14 +119,14 @@ public class SessionTest extends BrokerAdminUsingTestBase
     @Test
     @SpecificationTest(section = "9.session",
             description = "A session MUST NOT be attached to more than one transport at a time.")
-    public void attachSameSessionTwiceDisallowed() throws Exception
+    public void attachSameSessionTwiceDisallowed(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport1 = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport1 = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction1 = transport1.newInteraction();
             byte[] sessionName = "test".getBytes(StandardCharsets.UTF_8);
             final int channelId1 = 1;
-            SessionAttached sessionAttached = interaction1.negotiateOpen()
+            SessionAttached sessionAttached = interaction1.negotiateOpen(testInfo.virtualHostName())
                                                           .channelId(channelId1)
                                                           .session()
                                                           .attachName(sessionName)
@@ -134,11 +138,11 @@ public class SessionTest extends BrokerAdminUsingTestBase
             assertThat(sessionAttached.getChannel(), IsEqual.equalTo(channelId1));
 
 
-            try (FrameTransport transport2 = new FrameTransport(getBrokerAdmin()).connect())
+            try (FrameTransport transport2 = new FrameTransport(brokerAdmin).connect())
             {
                 final Interaction interaction2 = transport2.newInteraction();
                 final int channelId2 = 2;
-                SessionDetached sessionDetached = interaction2.negotiateOpen()
+                SessionDetached sessionDetached = interaction2.negotiateOpen(testInfo.virtualHostName())
                                                               .channelId(channelId2)
                                                               .session()
                                                               .attachName(sessionName)

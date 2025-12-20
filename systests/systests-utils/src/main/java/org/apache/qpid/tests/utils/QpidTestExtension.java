@@ -55,7 +55,9 @@ public class QpidTestExtension implements Extension, InvocationInterceptor, Test
         BrokerAdminUsingTestBase test;
         try
         {
-            test = (BrokerAdminUsingTestBase) factoryCtx.getTestClass().getConstructor().newInstance();
+            final var constructor = factoryCtx.getTestClass().getDeclaredConstructor();
+            constructor.setAccessible(true);
+            test = (BrokerAdminUsingTestBase) constructor.newInstance();
         }
         catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e)
         {
@@ -85,6 +87,36 @@ public class QpidTestExtension implements Extension, InvocationInterceptor, Test
     public void interceptTestMethod(final InvocationInterceptor.Invocation<Void> invocation,
                                     final ReflectiveInvocationContext<Method> invocationContext,
                                     final ExtensionContext extensionContext) throws Throwable
+    {
+        final Method method = TestUtils.getTestMethod(extensionContext);
+        BrokerSpecific brokerSpecific = method.getAnnotation(BrokerSpecific.class);
+        if (brokerSpecific == null)
+        {
+            brokerSpecific = method.getDeclaringClass().getAnnotation(BrokerSpecific.class);
+        }
+        if (brokerSpecific != null && !brokerSpecific.kind().equalsIgnoreCase(_brokerAdmin.getKind()))
+        {
+            // log skipping
+            invocation.skip();
+        }
+        if (!beforeMethod)
+        {
+            _brokerAdmin.beforeTestMethod(_testClass, method);
+        }
+        try
+        {
+            invocation.proceed();
+        }
+        finally
+        {
+            _brokerAdmin.afterTestMethod(_testClass, method);
+            beforeMethod = false;
+        }
+    }
+
+    public void interceptTestTemplateMethod(final Invocation<Void> invocation,
+                                            final ReflectiveInvocationContext<Method> invocationContext,
+                                            final ExtensionContext extensionContext) throws Throwable
     {
         final Method method = TestUtils.getTestMethod(extensionContext);
         BrokerSpecific brokerSpecific = method.getAnnotation(BrokerSpecific.class);

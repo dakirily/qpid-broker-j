@@ -30,21 +30,26 @@ import static org.apache.qpid.tests.protocol.v1_0.extensions.soleconn.SoleConnec
 
 import java.util.Map;
 
+import org.apache.qpid.tests.utils.QpidTestInfo;
+import org.apache.qpid.tests.utils.QpidTestInfoExtension;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.Test;
 
 import org.apache.qpid.server.protocol.v1_0.type.transport.Close;
 import org.apache.qpid.server.protocol.v1_0.type.transport.Open;
 import org.apache.qpid.tests.protocol.v1_0.FrameTransport;
 import org.apache.qpid.tests.protocol.v1_0.Interaction;
-import org.apache.qpid.tests.utils.BrokerAdminUsingTestBase;
+import org.apache.qpid.tests.utils.BrokerAdmin;
+import org.apache.qpid.tests.utils.BrokerAdminExtension;
 
-public class MixedPolicyTest extends BrokerAdminUsingTestBase
+@ExtendWith({ BrokerAdminExtension.class, QpidTestInfoExtension.class })
+public class MixedPolicyTest
 {
 
     @Test
-    public void firstCloseThenRefuse() throws Exception
+    public void firstCloseThenRefuse(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport1 = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport1 = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction1 = transport1.newInteraction();
             interaction1.openContainerId("testContainerId")
@@ -56,24 +61,26 @@ public class MixedPolicyTest extends BrokerAdminUsingTestBase
             assumeSoleConnectionCapability(responseOpen);
             assumeEnforcementPolicyCloseExisting(responseOpen);
 
-            try (FrameTransport transport2 = new FrameTransport(getBrokerAdmin()).connect())
+            try (FrameTransport transport2 = new FrameTransport(brokerAdmin).connect())
             {
                 final Interaction interaction2 = transport2.newInteraction();
                 interaction2.openContainerId("testContainerId")
                             .openDesiredCapabilities(SOLE_CONNECTION_FOR_CONTAINER)
                             .openProperties(Map.of(SOLE_CONNECTION_ENFORCEMENT_POLICY, REFUSE_CONNECTION))
+                            .openHostname(testInfo.virtualHostName())
                             .sendOpen().sync();
 
                 interaction1.consumeResponse(Close.class);
 
                 interaction2.consumeResponse(Open.class);
 
-                try (FrameTransport transport3 = new FrameTransport(getBrokerAdmin()).connect())
+                try (FrameTransport transport3 = new FrameTransport(brokerAdmin).connect())
                 {
                     final Interaction interaction3 = transport3.newInteraction();
                     interaction3.openContainerId("testContainerId")
                                 .openDesiredCapabilities(SOLE_CONNECTION_FOR_CONTAINER)
                                 .openProperties(Map.of(SOLE_CONNECTION_ENFORCEMENT_POLICY, CLOSE_EXISTING))
+                                .openHostname(testInfo.virtualHostName())
                                 .negotiateOpen()
                                 .consumeResponse(Close.class);
                 }
@@ -82,26 +89,28 @@ public class MixedPolicyTest extends BrokerAdminUsingTestBase
     }
 
     @Test
-    public void firstRefuseThenClose() throws Exception
+    public void firstRefuseThenClose(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport1 = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport1 = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction1 = transport1.newInteraction();
             interaction1.openContainerId("testContainerId")
                         .openDesiredCapabilities(SOLE_CONNECTION_FOR_CONTAINER)
                         .openProperties(Map.of(SOLE_CONNECTION_ENFORCEMENT_POLICY, REFUSE_CONNECTION))
+                        .openHostname(testInfo.virtualHostName())
                         .negotiateOpen();
 
             final Open responseOpen = interaction1.getLatestResponse(Open.class);
             assumeSoleConnectionCapability(responseOpen);
             assumeEnforcementPolicyRefuse(responseOpen);
 
-            try (FrameTransport transport2 = new FrameTransport(getBrokerAdmin()).connect())
+            try (FrameTransport transport2 = new FrameTransport(brokerAdmin).connect())
             {
                 final Interaction interaction2 = transport2.newInteraction();
                 interaction2.openContainerId("testContainerId")
                             .openDesiredCapabilities(SOLE_CONNECTION_FOR_CONTAINER)
                             .openProperties(Map.of(SOLE_CONNECTION_ENFORCEMENT_POLICY, CLOSE_EXISTING))
+                            .openHostname(testInfo.virtualHostName())
                             .negotiateOpen()
                             .consumeResponse(Close.class);
             }

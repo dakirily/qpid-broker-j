@@ -18,6 +18,7 @@
  * under the License.
  *
  */
+
 package org.apache.qpid.tests.protocol.v0_8;
 
 import static org.hamcrest.CoreMatchers.anyOf;
@@ -28,7 +29,10 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.util.Map;
 
+import org.apache.qpid.tests.utils.QpidTestInfo;
+import org.apache.qpid.tests.utils.QpidTestInfoExtension;
 import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.Test;
 
 import org.apache.qpid.server.exchange.ExchangeDefaults;
@@ -44,20 +48,21 @@ import org.apache.qpid.server.protocol.v0_8.transport.QueueDeleteOkBody;
 import org.apache.qpid.server.protocol.v0_8.transport.QueueUnbindOkBody;
 import org.apache.qpid.tests.protocol.SpecificationTest;
 import org.apache.qpid.tests.utils.BrokerAdmin;
-import org.apache.qpid.tests.utils.BrokerAdminUsingTestBase;
+import org.apache.qpid.tests.utils.BrokerAdminExtension;
 
-public class ExchangeTest extends BrokerAdminUsingTestBase
+@ExtendWith({ BrokerAdminExtension.class, QpidTestInfoExtension.class })
+public class ExchangeTest
 {
     private static final String TEST_EXCHANGE = "testExchange";
 
     @Test
     @SpecificationTest(section = "1.6.2.1", description = "verify exchange exists, create if needed")
-    public void exchangeDeclare() throws Exception
+    public void exchangeDeclare(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try(FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try(FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            interaction.negotiateOpen()
+            interaction.negotiateOpen(testInfo.virtualHostName())
                        .channel().open().consumeResponse(ChannelOpenOkBody.class)
                        .exchange().declareName(TEST_EXCHANGE).declare()
                        .consumeResponse(ExchangeDeclareOkBody.class);
@@ -77,12 +82,12 @@ public class ExchangeTest extends BrokerAdminUsingTestBase
                        description = "If [passive is] set, the server will reply with Declare-Ok if the exchange "
                                      + "already exists with the same name, and raise an error if not.  The client can "
                                      + "use this to check whether an exchange exists without modifying the server state.")
-    public void exchangeDeclarePassive() throws Exception
+    public void exchangeDeclarePassive(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try(FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try(FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            interaction.negotiateOpen()
+            interaction.negotiateOpen(testInfo.virtualHostName())
                        .channel().open().consumeResponse(ChannelOpenOkBody.class)
                        .exchange().declareName(TEST_EXCHANGE).declare()
                        .consumeResponse(ExchangeDeclareOkBody.class)
@@ -102,12 +107,12 @@ public class ExchangeTest extends BrokerAdminUsingTestBase
             description = "Exchange names starting with \"amq.\" are reserved for pre-declared and standardised "
                           + "exchanges. The client MAY declare an exchange starting with  \"amq.\" if the passive "
                           + "option is set, or the exchange already exists.")
-    public void exchangeDeclareAmqDisallowed() throws Exception
+    public void exchangeDeclareAmqDisallowed(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try(FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try(FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            interaction.negotiateOpen()
+            interaction.negotiateOpen(testInfo.virtualHostName())
                        .channel().open().consumeResponse(ChannelOpenOkBody.class)
                        .exchange().declarePassive(true).declareName(ExchangeDefaults.DIRECT_EXCHANGE_NAME).declare()
                        .consumeResponse(ExchangeDeclareOkBody.class)
@@ -129,12 +134,12 @@ public class ExchangeTest extends BrokerAdminUsingTestBase
     @SpecificationTest(section = "1.6.2.1",
             description = "The client MUST not attempt to redeclare an existing exchange with a different type than "
                           + "used in the original Exchange.Declare method")
-    public void exchangeRedeclareDifferentType() throws Exception
+    public void exchangeRedeclareDifferentType(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try(FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try(FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            interaction.negotiateOpen()
+            interaction.negotiateOpen(testInfo.virtualHostName())
                        .channel().open().consumeResponse(ChannelOpenOkBody.class)
                        .exchange().declareType(ExchangeDefaults.DIRECT_EXCHANGE_CLASS).declareName(TEST_EXCHANGE).declare()
                        .consumeResponse(ExchangeDeclareOkBody.class);
@@ -152,12 +157,12 @@ public class ExchangeTest extends BrokerAdminUsingTestBase
     @Disabled("The server does not implement this rule.")
     @SpecificationTest(section = "1.6.2.1",
             description = "When [passive] set, all other method fields [of declare] except name and no-wait are ignored.")
-    public void exchangeRedeclarePassiveDifferentType() throws Exception
+    public void exchangeRedeclarePassiveDifferentType(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try(FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try(FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            interaction.negotiateOpen()
+            interaction.negotiateOpen(testInfo.virtualHostName())
                        .channel().open().consumeResponse(ChannelOpenOkBody.class)
                        .exchange().declareType(ExchangeDefaults.DIRECT_EXCHANGE_CLASS)
                        .declareName(TEST_EXCHANGE).declare()
@@ -175,12 +180,12 @@ public class ExchangeTest extends BrokerAdminUsingTestBase
     @SpecificationTest(section = "1.6.2.1",
             description = "The client MUST NOT attempt to declare an exchange with a type that the server does not "
                           + "support.")
-    public void exchangeUnsupportedExchangeType() throws Exception
+    public void exchangeUnsupportedExchangeType(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try(FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try(FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            interaction.negotiateOpen()
+            interaction.negotiateOpen(testInfo.virtualHostName())
                        .channel().open().consumeResponse(ChannelOpenOkBody.class)
                        .exchange()
                        .declareType(ExchangeDefaults.DIRECT_EXCHANGE_CLASS)
@@ -200,24 +205,24 @@ public class ExchangeTest extends BrokerAdminUsingTestBase
             description = "If [durable is] set when creating a new exchange, the exchange will be marked as durable. "
                           + "Durable exchanges remain active when a server restarts. Non-durable exchanges (transient "
                           + "exchanges) are purged if/when a server restarts.")
-    public void exchangeDeclareDurable() throws Exception
+    public void exchangeDeclareDurable(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try(FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try(FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            interaction.negotiateOpen()
+            interaction.negotiateOpen(testInfo.virtualHostName())
                        .channel().open().consumeResponse(ChannelOpenOkBody.class)
                        .exchange().declareDurable(true).declareName(TEST_EXCHANGE).declare()
                        .consumeResponse(ExchangeDeclareOkBody.class);
         }
 
-        assumeTrue(getBrokerAdmin().supportsRestart());
-        getBrokerAdmin().restart();
+        assumeTrue(brokerAdmin.supportsRestart());
+        brokerAdmin.restart();
 
-        try(FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try(FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            ExchangeBoundOkBody response = interaction.negotiateOpen()
+            ExchangeBoundOkBody response = interaction.negotiateOpen(testInfo.virtualHostName())
                                                       .channel().open().consumeResponse(ChannelOpenOkBody.class)
                                                       .exchange()
                                                       .boundExchangeName(TEST_EXCHANGE)
@@ -232,12 +237,12 @@ public class ExchangeTest extends BrokerAdminUsingTestBase
     @SpecificationTest(section = "1.6.2.3",
             description = "This method deletes an exchange. When an exchange is deleted all queue bindings on the "
                           + "exchange are cancelled.")
-    public void exchangeDelete() throws Exception
+    public void exchangeDelete(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try(FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try(FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            interaction.negotiateOpen()
+            interaction.negotiateOpen(testInfo.virtualHostName())
                        .channel().open().consumeResponse(ChannelOpenOkBody.class)
                        .exchange().declareName(TEST_EXCHANGE).declare()
                        .consumeResponse().getLatestResponse(ExchangeDeclareOkBody.class);
@@ -266,12 +271,12 @@ public class ExchangeTest extends BrokerAdminUsingTestBase
     @Test
     @SpecificationTest(section = "1.6.2.3",
             description = "The client MUST NOT attempt to delete an exchange that does not exist.")
-    public void exchangeDeleteExchangeNotFound() throws Exception
+    public void exchangeDeleteExchangeNotFound(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try(FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try(FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            ChannelCloseBody unknownExchange = interaction.negotiateOpen()
+            ChannelCloseBody unknownExchange = interaction.negotiateOpen(testInfo.virtualHostName())
                                                           .channel().open().consumeResponse(ChannelOpenOkBody.class)
                                                           .exchange().deleteExchangeName("unknownExchange").delete()
                                                           .consumeResponse().getLatestResponse(ChannelCloseBody.class);
@@ -285,14 +290,14 @@ public class ExchangeTest extends BrokerAdminUsingTestBase
             description = "If [if-unused is] set, the server will only delete the exchange if it has no queue"
                           + "bindings. If the exchange has queue bindings the server does not delete it but raises a "
                           + "channel exception instead.")
-    public void exchangeDeleteInUse() throws Exception
+    public void exchangeDeleteInUse(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        getBrokerAdmin().createQueue(BrokerAdmin.TEST_QUEUE_NAME);
+        brokerAdmin.createQueue(BrokerAdmin.TEST_QUEUE_NAME);
 
-        try(FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try(FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            interaction.negotiateOpen()
+            interaction.negotiateOpen(testInfo.virtualHostName())
                        .channel().open().consumeResponse(ChannelOpenOkBody.class)
                        .exchange().declareName(TEST_EXCHANGE).declare()
                        .consumeResponse(ExchangeDeclareOkBody.class)
@@ -331,12 +336,12 @@ public class ExchangeTest extends BrokerAdminUsingTestBase
     @SpecificationTest(section = "1.6.2.3",
             description = "The server MUST, in each virtual host, pre-declare an exchange instance for each standard "
                           + "exchange type that it implements.")
-    public void exchangeDeleteAmqDisallowed() throws Exception
+    public void exchangeDeleteAmqDisallowed(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try(FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try(FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            ChannelCloseBody response = interaction.negotiateOpen()
+            ChannelCloseBody response = interaction.negotiateOpen(testInfo.virtualHostName())
                                                    .channel().open().consumeResponse(ChannelOpenOkBody.class)
                                                    .exchange()
                                                    .deleteExchangeName(ExchangeDefaults.DIRECT_EXCHANGE_NAME).delete()
@@ -347,14 +352,14 @@ public class ExchangeTest extends BrokerAdminUsingTestBase
 
     /** Qpid specific extension */
     @Test
-    public void exchangeDeclareAutoDelete() throws Exception
+    public void exchangeDeclareAutoDelete(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        getBrokerAdmin().createQueue(BrokerAdmin.TEST_QUEUE_NAME);
+        brokerAdmin.createQueue(BrokerAdmin.TEST_QUEUE_NAME);
 
-        try(FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try(FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            interaction.negotiateOpen()
+            interaction.negotiateOpen(testInfo.virtualHostName())
                        .channel().open().consumeResponse(ChannelOpenOkBody.class)
                        .exchange().declareName(TEST_EXCHANGE).declareAutoDelete(true).declare()
                        .consumeResponse(ExchangeDeclareOkBody.class)
@@ -375,13 +380,13 @@ public class ExchangeTest extends BrokerAdminUsingTestBase
 
     /** Qpid specific extension */
     @Test
-    public void exchangeDeclareWithAlternateExchange() throws Exception
+    public void exchangeDeclareWithAlternateExchange(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try(FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try(FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final String altExchName = "altExchange";
             final Interaction interaction = transport.newInteraction();
-            interaction.negotiateOpen()
+            interaction.negotiateOpen(testInfo.virtualHostName())
                        .channel().open().consumeResponse(ChannelOpenOkBody.class)
                        .exchange()
                        .declareName(altExchName)
@@ -413,12 +418,12 @@ public class ExchangeTest extends BrokerAdminUsingTestBase
 
     /** Qpid specific extension */
     @Test
-    public void exchangeDeclareWithUnknownAlternateExchange() throws Exception
+    public void exchangeDeclareWithUnknownAlternateExchange(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try(FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try(FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            ConnectionCloseBody response = interaction.negotiateOpen()
+            ConnectionCloseBody response = interaction.negotiateOpen(testInfo.virtualHostName())
                                                       .channel().open().consumeResponse(ChannelOpenOkBody.class)
                                                       .exchange()
                                                       .declareName(TEST_EXCHANGE)

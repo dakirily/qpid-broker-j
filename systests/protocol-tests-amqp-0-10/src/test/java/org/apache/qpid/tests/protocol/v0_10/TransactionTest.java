@@ -18,6 +18,7 @@
  * under the License.
  *
  */
+
 package org.apache.qpid.tests.protocol.v0_10;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -25,33 +26,36 @@ import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
 
+import org.apache.qpid.tests.utils.QpidTestInfo;
+import org.apache.qpid.tests.utils.QpidTestInfoExtension;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import org.apache.qpid.server.protocol.v0_10.transport.SessionCompleted;
 import org.apache.qpid.tests.protocol.SpecificationTest;
 import org.apache.qpid.tests.utils.BrokerAdmin;
-import org.apache.qpid.tests.utils.BrokerAdminUsingTestBase;
+import org.apache.qpid.tests.utils.BrokerAdminExtension;
 
-public class TransactionTest extends BrokerAdminUsingTestBase
+@ExtendWith({ BrokerAdminExtension.class, QpidTestInfoExtension.class })
+public class TransactionTest
 {
-
     @BeforeEach
-    public void setUp()
+    public void setUp(final BrokerAdmin brokerAdmin)
     {
-        getBrokerAdmin().createQueue(BrokerAdmin.TEST_QUEUE_NAME);
+        brokerAdmin.createQueue(BrokerAdmin.TEST_QUEUE_NAME);
     }
 
     @Test
     @SpecificationTest(section = "10.tx.commit",
             description = "This command commits all messages published and accepted in the current transaction.")
-    public void messageSendCommit() throws Exception
+    public void messageSendCommit(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
             byte[] sessionName = "test".getBytes(UTF_8);
-            interaction.negotiateOpen()
+            interaction.negotiateOpen(testInfo.virtualHostName())
                        .channelId(1)
                        .attachSession(sessionName)
                        .tx().selectId(0).select()
@@ -70,7 +74,7 @@ public class TransactionTest extends BrokerAdminUsingTestBase
             }
             while (!completed.getCommands().includes(1));
 
-            int queueDepthMessages = getBrokerAdmin().getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME);
+            int queueDepthMessages = brokerAdmin.getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME);
             assertThat(queueDepthMessages, is(equalTo(0)));
 
             interaction.tx().commitId(2).commit()
@@ -81,7 +85,7 @@ public class TransactionTest extends BrokerAdminUsingTestBase
             completed = interaction.consumeResponse().getLatestResponse(SessionCompleted.class);
             assertThat(completed.getCommands().includes(2), is(equalTo(true)));
 
-            queueDepthMessages = getBrokerAdmin().getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME);
+            queueDepthMessages = brokerAdmin.getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME);
             assertThat(queueDepthMessages, is(equalTo(1)));
         }
     }

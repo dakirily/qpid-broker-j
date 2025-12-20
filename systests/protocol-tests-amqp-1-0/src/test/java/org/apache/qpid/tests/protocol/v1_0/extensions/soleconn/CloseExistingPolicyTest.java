@@ -35,6 +35,9 @@ import static org.hamcrest.Matchers.in;
 
 import java.util.Map;
 
+import org.apache.qpid.tests.utils.QpidTestInfo;
+import org.apache.qpid.tests.utils.QpidTestInfoExtension;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.Test;
 
 import org.apache.qpid.server.protocol.v1_0.type.UnsignedInteger;
@@ -43,15 +46,17 @@ import org.apache.qpid.server.protocol.v1_0.type.transport.Close;
 import org.apache.qpid.server.protocol.v1_0.type.transport.Open;
 import org.apache.qpid.tests.protocol.v1_0.FrameTransport;
 import org.apache.qpid.tests.protocol.v1_0.Interaction;
-import org.apache.qpid.tests.utils.BrokerAdminUsingTestBase;
+import org.apache.qpid.tests.utils.BrokerAdmin;
+import org.apache.qpid.tests.utils.BrokerAdminExtension;
 
-public class CloseExistingPolicyTest extends BrokerAdminUsingTestBase
+@ExtendWith({ BrokerAdminExtension.class, QpidTestInfoExtension.class })
+public class CloseExistingPolicyTest
 {
 
     @Test
-    public void basicNegotiation() throws Exception
+    public void basicNegotiation(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             Open responseOpen = transport.newInteraction()
                                          .openContainerId("testContainerId")
@@ -59,6 +64,7 @@ public class CloseExistingPolicyTest extends BrokerAdminUsingTestBase
                                          .openProperties(Map.of(
                                                  SOLE_CONNECTION_ENFORCEMENT_POLICY,
                                                  CLOSE_EXISTING))
+                                         .openHostname(testInfo.virtualHostName())
                                          .negotiateOpen()
                                          .getLatestResponse(Open.class);
 
@@ -75,26 +81,28 @@ public class CloseExistingPolicyTest extends BrokerAdminUsingTestBase
     }
 
     @Test
-    public void existingConnectionClosed() throws Exception
+    public void existingConnectionClosed(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport1 = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport1 = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction1 = transport1.newInteraction();
             interaction1.openContainerId("testContainerId")
                         .openDesiredCapabilities(SOLE_CONNECTION_FOR_CONTAINER)
                         .openProperties(Map.of(SOLE_CONNECTION_ENFORCEMENT_POLICY, CLOSE_EXISTING))
+                        .openHostname(testInfo.virtualHostName())
                         .negotiateOpen();
 
             final Open responseOpen = interaction1.getLatestResponse(Open.class);
             assumeSoleConnectionCapability(responseOpen);
             assumeEnforcementPolicyCloseExisting(responseOpen);
 
-            try (FrameTransport transport2 = new FrameTransport(getBrokerAdmin()).connect())
+            try (FrameTransport transport2 = new FrameTransport(brokerAdmin).connect())
             {
                 final Interaction interaction2 = transport2.newInteraction();
                 interaction2.openContainerId("testContainerId")
                             .openDesiredCapabilities(SOLE_CONNECTION_FOR_CONTAINER)
                             .openProperties(Map.of(SOLE_CONNECTION_ENFORCEMENT_POLICY, CLOSE_EXISTING))
+                            .openHostname(testInfo.virtualHostName())
                             .sendOpen()
                             .sync();
 
@@ -109,25 +117,27 @@ public class CloseExistingPolicyTest extends BrokerAdminUsingTestBase
 
 
     @Test
-    public void strongDetectionWhenConnectionWithoutSoleConnectionCapabilityOpened() throws Exception
+    public void strongDetectionWhenConnectionWithoutSoleConnectionCapabilityOpened(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport1 = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport1 = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction1 = transport1.newInteraction();
             // Omit setting the desired capability to test weak detection
             interaction1.openContainerId("testContainerId")
+                        .openHostname(testInfo.virtualHostName())
                         .negotiateOpen();
 
             final Open responseOpen = interaction1.getLatestResponse(Open.class);
             assumeSoleConnectionCapability(responseOpen);
             assumeDetectionPolicyStrong(responseOpen);
 
-            try (FrameTransport transport2 = new FrameTransport(getBrokerAdmin()).connect())
+            try (FrameTransport transport2 = new FrameTransport(brokerAdmin).connect())
             {
                 final Interaction interaction2 = transport2.newInteraction();
                 interaction2.openContainerId("testContainerId")
                             .openDesiredCapabilities(SOLE_CONNECTION_FOR_CONTAINER)
                             .openProperties(Map.of(SOLE_CONNECTION_ENFORCEMENT_POLICY, CLOSE_EXISTING))
+                            .openHostname(testInfo.virtualHostName())
                             .negotiateOpen();
 
                 final Open responseOpen2 = interaction2.getLatestResponse(Open.class);
@@ -140,9 +150,9 @@ public class CloseExistingPolicyTest extends BrokerAdminUsingTestBase
     }
 
     @Test
-    public void strongDetection() throws Exception
+    public void strongDetection(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport1 = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport1 = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction1 = transport1.newInteraction();
             Open responseOpen = interaction1.openContainerId("testContainerId")
@@ -150,6 +160,7 @@ public class CloseExistingPolicyTest extends BrokerAdminUsingTestBase
                                             .openProperties(Map.of(
                                                     SOLE_CONNECTION_ENFORCEMENT_POLICY,
                                                     CLOSE_EXISTING))
+                                            .openHostname(testInfo.virtualHostName())
                                             .negotiateOpen()
                                             .getLatestResponse(Open.class);
 
@@ -157,11 +168,12 @@ public class CloseExistingPolicyTest extends BrokerAdminUsingTestBase
             assumeEnforcementPolicyCloseExisting(responseOpen);
             assumeDetectionPolicyStrong(responseOpen);
 
-            try (FrameTransport transport2 = new FrameTransport(getBrokerAdmin()).connect())
+            try (FrameTransport transport2 = new FrameTransport(brokerAdmin).connect())
             {
                 final Interaction interaction2 = transport2.newInteraction();
                 // Omit setting the desired capability to test strong detection
                 interaction2.openContainerId("testContainerId")
+                            .openHostname(testInfo.virtualHostName())
                             .sendOpen().sync();
 
                 assertResourceLocked(interaction1.consumeResponse().getLatestResponse(Close.class));

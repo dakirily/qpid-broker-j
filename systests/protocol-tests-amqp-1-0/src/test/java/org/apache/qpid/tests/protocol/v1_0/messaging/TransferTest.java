@@ -46,8 +46,10 @@ import java.util.stream.Collectors;
 import java.util.stream.LongStream;
 import java.util.stream.Stream;
 
+import org.apache.qpid.tests.utils.VirtualhostContextVariable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.Test;
 
 import org.apache.qpid.server.bytebuffer.QpidByteBuffer;
@@ -82,38 +84,41 @@ import org.apache.qpid.tests.protocol.v1_0.MessageDecoder;
 import org.apache.qpid.tests.protocol.v1_0.MessageEncoder;
 import org.apache.qpid.tests.protocol.v1_0.Utils;
 import org.apache.qpid.tests.utils.BrokerAdmin;
-import org.apache.qpid.tests.utils.BrokerAdminUsingTestBase;
+import org.apache.qpid.tests.utils.BrokerAdminExtension;
 import org.apache.qpid.tests.utils.BrokerSpecific;
-import org.apache.qpid.tests.utils.ConfigItem;
+import org.apache.qpid.tests.utils.QpidTestInfo;
+import org.apache.qpid.tests.utils.QpidTestInfoExtension;
 
-@ConfigItem(name = "qpid.tests.mms.messagestore.persistence", value = "false", jvm = true)
-public class TransferTest extends BrokerAdminUsingTestBase
+@ExtendWith({ BrokerAdminExtension.class, QpidTestInfoExtension.class })
+@VirtualhostContextVariable(name = "qpid.tests.mms.messagestore.persistence", value = "false")
+public class TransferTest
 {
     private static final long MAX_MAX_MESSAGE_SIZE_WE_ARE_WILLING_TO_TEST = 200 * 1024 * 1024L;
 
     @BeforeEach
-    public void setUp()
+    public void setUp(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo)
     {
-        getBrokerAdmin().createQueue(BrokerAdmin.TEST_QUEUE_NAME);
+        brokerAdmin.createQueue(testInfo.methodName());
     }
 
     @Test
     @SpecificationTest(section = "1.3.4",
             description = "mandatory [...] a non null value for the field is always encoded.")
-    public void transferHandleUnspecified() throws Exception
+    public void transferHandleUnspecified(final BrokerAdmin brokerAdmin, 
+                                          final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             Interaction interact = transport.newInteraction();
-            Response<?> response = interact.negotiateOpen()
+            Response<?> response = interact.openHostname(testInfo.virtualHostName()).negotiateOpen()
                                            .begin().consumeResponse(Begin.class)
                                            .attachRole(Role.SENDER)
-                                           .attachTargetAddress(BrokerAdmin.TEST_QUEUE_NAME)
+                                           .attachTargetAddress(testInfo.methodName())
                                            .attach().consumeResponse(Attach.class)
                                            .consumeResponse(Flow.class)
                                            .assertLatestResponse(Flow.class, this::assumeSufficientCredits)
                                            .transferHandle(null)
-                                           .transferPayloadData(getTestName())
+                                           .transferPayloadData(testInfo.methodName())
                                            .transfer()
                                            .consumeResponse()
                                            .getLatestResponse();
@@ -132,20 +137,21 @@ public class TransferTest extends BrokerAdminUsingTestBase
     @Test
     @SpecificationTest(section = "2.7.5",
             description = "The delivery-id MUST be supplied on the first transfer of a multi-transfer delivery.")
-    public void transferDeliveryIdUnspecified() throws Exception
+    public void transferDeliveryIdUnspecified(final BrokerAdmin brokerAdmin,
+                                              final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             Interaction interact = transport.newInteraction();
-            Response<?> response = interact.negotiateOpen()
+            Response<?> response = interact.openHostname(testInfo.virtualHostName()).negotiateOpen()
                                            .begin().consumeResponse(Begin.class)
                                            .attachRole(Role.SENDER)
-                                           .attachTargetAddress(BrokerAdmin.TEST_QUEUE_NAME)
+                                           .attachTargetAddress(testInfo.methodName())
                                            .attach().consumeResponse(Attach.class)
                                            .consumeResponse(Flow.class)
                                            .assertLatestResponse(Flow.class, this::assumeSufficientCredits)
                                            .transferDeliveryId(null)
-                                           .transferPayloadData(getTestName())
+                                           .transferPayloadData(testInfo.methodName())
                                            .transfer()
                                            .consumeResponse()
                                            .getLatestResponse();
@@ -164,21 +170,22 @@ public class TransferTest extends BrokerAdminUsingTestBase
     @SpecificationTest(section = "2.7.5",
             description = "[delivery-tag] MUST be specified for the first transfer "
                           + "[...] and can only be omitted for continuation transfers.")
-    public void transferDeliveryTagUnspecified() throws Exception
+    public void transferDeliveryTagUnspecified(final BrokerAdmin brokerAdmin,
+                                               final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
-            Interaction interaction = transport.newInteraction()
+            Interaction interaction = transport.newInteraction().openHostname(testInfo.virtualHostName())
                                                .negotiateOpen()
                                                .begin().consumeResponse(Begin.class)
                                                .attachRole(Role.SENDER)
-                                               .attachTargetAddress(BrokerAdmin.TEST_QUEUE_NAME)
+                                               .attachTargetAddress(testInfo.methodName())
                                                .attach().consumeResponse(Attach.class)
                                                .consumeResponse(Flow.class)
                                                .assertLatestResponse(Flow.class, this::assumeSufficientCredits)
                                                .transferDeliveryId()
                                                .transferDeliveryTag(null)
-                                               .transferPayloadData(getTestName())
+                                               .transferPayloadData(testInfo.methodName())
                                                .transfer()
                                                .consumeResponse();
 
@@ -197,44 +204,46 @@ public class TransferTest extends BrokerAdminUsingTestBase
     @SpecificationTest(section = "2.6.12 Transferring A Message",
             description = "[...] the receiving application chooses to settle immediately upon processing the message"
                           + " rather than waiting for the sender to settle first, that yields an at-least-once guarantee.")
-    public void transferUnsettled() throws Exception
+    public void transferUnsettled(final BrokerAdmin brokerAdmin,
+                                  final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final UnsignedInteger linkHandle = UnsignedInteger.ONE;
-            Disposition responseDisposition = transport.newInteraction()
+            Disposition responseDisposition = transport.newInteraction().openHostname(testInfo.virtualHostName())
                                                        .negotiateOpen()
                                                        .begin().consumeResponse(Begin.class)
                                                        .attachRole(Role.SENDER)
-                                                       .attachTargetAddress(BrokerAdmin.TEST_QUEUE_NAME)
+                                                       .attachTargetAddress(testInfo.methodName())
                                                        .attachHandle(linkHandle)
                                                        .attach().consumeResponse(Attach.class)
                                                        .consumeResponse(Flow.class)
                                                        .assertLatestResponse(Flow.class, this::assumeSufficientCredits)
                                                        .transferDeliveryId()
                                                        .transferHandle(linkHandle)
-                                                       .transferPayloadData(getTestName())
+                                                       .transferPayloadData(testInfo.methodName())
                                                        .transfer()
                                                        .consume(Disposition.class, Flow.class);
             assertThat(responseDisposition.getRole(), is(Role.RECEIVER));
             assertThat(responseDisposition.getSettled(), is(Boolean.TRUE));
             assertThat(responseDisposition.getState(), is(instanceOf(Accepted.class)));
         }
-        assertThat(Utils.receiveMessage(getBrokerAdmin(), BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(getTestName())));
+        assertThat(Utils.receiveMessage(brokerAdmin, testInfo), is(equalTo(testInfo.methodName())));
     }
 
     @Test
-    public void transferWithoutPayload() throws Exception
+    public void transferWithoutPayload(final BrokerAdmin brokerAdmin,
+                                       final QpidTestInfo testInfo) throws Exception
     {
-        final String firstMessage = getTestName() + "_1";
-        Utils.putMessageOnQueue(getBrokerAdmin(), BrokerAdmin.TEST_QUEUE_NAME, firstMessage);
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        final String firstMessage = testInfo.methodName() + "_1";
+        Utils.putMessageOnQueue(brokerAdmin, testInfo, testInfo.methodName(), firstMessage);
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            interaction.negotiateOpen()
+            interaction.openHostname(testInfo.virtualHostName()).negotiateOpen()
                     .begin().consumeResponse(Begin.class)
                     .attachRole(Role.SENDER)
-                    .attachTargetAddress(BrokerAdmin.TEST_QUEUE_NAME)
+                    .attachTargetAddress(testInfo.methodName())
                     .attachHandle(UnsignedInteger.ONE)
                     .attach().consumeResponse(Attach.class)
                     .consumeResponse(Flow.class)
@@ -253,28 +262,29 @@ public class TransferTest extends BrokerAdminUsingTestBase
             assertThat(error, is(notNullValue()));
             assertThat(error.getCondition(), equalTo(AmqpError.NOT_IMPLEMENTED));
         }
-        assertThat(Utils.receiveMessage(getBrokerAdmin(), BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(firstMessage)));
+        assertThat(Utils.receiveMessage(brokerAdmin, testInfo), is(equalTo(firstMessage)));
     }
 
     @Test
     @SpecificationTest(section = "2.6.12 Transferring A Message",
             description = "The delivery-tag MUST be unique amongst all deliveries"
                           + " that could be considered unsettled by either end of the link.")
-    public void transferMessagesWithTheSameDeliveryTagOnSeparateLinksBelongingToTheSameSession() throws Exception
+    public void transferMessagesWithTheSameDeliveryTagOnSeparateLinksBelongingToTheSameSession(final BrokerAdmin brokerAdmin,
+                                                                                               final QpidTestInfo testInfo) throws Exception
     {
-        final String[] contents = Utils.createTestMessageContents(2, getTestName());
-        try (final FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        final String[] contents = Utils.createTestMessageContents(2, testInfo.methodName());
+        try (final FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final UnsignedInteger link1Handle = UnsignedInteger.ONE;
             final UnsignedInteger link2Handle = UnsignedInteger.valueOf(2);
             final Binary deliveryTag = new Binary("deliveryTag".getBytes(StandardCharsets.UTF_8));
             final Interaction interaction = transport.newInteraction();
-            interaction.negotiateOpen()
+            interaction.openHostname(testInfo.virtualHostName()).negotiateOpen()
                                      .begin().consumeResponse(Begin.class)
 
                                      .attachName("test1")
                                      .attachRole(Role.SENDER)
-                                     .attachTargetAddress(BrokerAdmin.TEST_QUEUE_NAME)
+                                     .attachTargetAddress(testInfo.methodName())
                                      .attachSndSettleMode(SenderSettleMode.UNSETTLED)
                                      .attachRcvSettleMode(ReceiverSettleMode.FIRST)
                                      .attachHandle(link1Handle)
@@ -314,26 +324,27 @@ public class TransferTest extends BrokerAdminUsingTestBase
                 assertThat(disposition2.getFirst(), is(not(equalTo(first))));
             }
         }
-        assertTestQueueMessages(contents);
+        assertTestQueueMessages(brokerAdmin, testInfo, contents);
     }
 
     @Test
     @SpecificationTest(section = "2.7.5",
             description = "If first, this indicates that the receiver MUST settle the delivery once"
                           + " it has arrived without waiting for the sender to settle first")
-    public void transferReceiverSettleModeFirst() throws Exception
+    public void transferReceiverSettleModeFirst(final BrokerAdmin brokerAdmin,
+                                                final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
-            Disposition responseDisposition = transport.newInteraction()
+            Disposition responseDisposition = transport.newInteraction().openHostname(testInfo.virtualHostName())
                                                        .negotiateOpen()
                                                        .begin().consumeResponse(Begin.class)
                                                        .attachRole(Role.SENDER)
-                                                       .attachTargetAddress(BrokerAdmin.TEST_QUEUE_NAME)
+                                                       .attachTargetAddress(testInfo.methodName())
                                                        .attach().consumeResponse(Attach.class)
                                                        .consumeResponse(Flow.class)
                                                        .assertLatestResponse(Flow.class, this::assumeSufficientCredits)
-                                                       .transferPayloadData(getTestName())
+                                                       .transferPayloadData(testInfo.methodName())
                                                        .transferRcvSettleMode(ReceiverSettleMode.FIRST)
                                                        .transfer()
                                                        .consume(Disposition.class, Flow.class);
@@ -341,7 +352,7 @@ public class TransferTest extends BrokerAdminUsingTestBase
             assertThat(responseDisposition.getSettled(), is(Boolean.TRUE));
             assertThat(responseDisposition.getState(), is(instanceOf(Accepted.class)));
         }
-        assertThat(Utils.receiveMessage(getBrokerAdmin(), BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(getTestName())));
+        assertThat(Utils.receiveMessage(brokerAdmin, testInfo), is(equalTo(testInfo.methodName())));
     }
 
     @Test
@@ -353,20 +364,21 @@ public class TransferTest extends BrokerAdminUsingTestBase
                           + " to the sender and receiving a settled disposition from the sender."
                           + " If not set, this value is defaulted to the value negotiated on link attach."
                           + " If the negotiated link value is first, then it is illegal to set this field to second.")
-    public void transferReceiverSettleModeCannotBeSecondWhenLinkModeIsFirst() throws Exception
+    public void transferReceiverSettleModeCannotBeSecondWhenLinkModeIsFirst(final BrokerAdmin brokerAdmin,
+                                                                            final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
-            Response<?> response = transport.newInteraction()
+            Response<?> response = transport.newInteraction().openHostname(testInfo.virtualHostName())
                                      .negotiateOpen()
                                      .begin().consumeResponse(Begin.class)
                                      .attachRole(Role.SENDER)
-                                     .attachTargetAddress(BrokerAdmin.TEST_QUEUE_NAME)
+                                     .attachTargetAddress(testInfo.methodName())
                                      .attachRcvSettleMode(ReceiverSettleMode.FIRST)
                                      .attach().consumeResponse(Attach.class)
                                      .consumeResponse(Flow.class)
                                      .assertLatestResponse(Flow.class, this::assumeSufficientCredits)
-                                     .transferPayloadData(getTestName())
+                                     .transferPayloadData(testInfo.methodName())
                                      .transferRcvSettleMode(ReceiverSettleMode.SECOND)
                                      .transfer()
                                      .consumeResponse()
@@ -386,19 +398,21 @@ public class TransferTest extends BrokerAdminUsingTestBase
 
     @Test
     @SpecificationTest(section = "2.6.12 Transferring A Message", description = "Pipelined message send")
-    public void presettledPipelined() throws Exception
+    public void presettledPipelined(final BrokerAdmin brokerAdmin,
+                                    final QpidTestInfo testInfo) throws Exception
     {
-        assumeTrue(getBrokerAdmin().isAnonymousSupported());
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        assumeTrue(brokerAdmin.isAnonymousSupported());
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
             interaction.negotiateProtocol()
+                       .openHostname(testInfo.virtualHostName())
                        .open()
                        .begin()
                        .attachRole(Role.SENDER)
-                       .attachTargetAddress(BrokerAdmin.TEST_QUEUE_NAME)
+                       .attachTargetAddress(testInfo.methodName())
                        .attach()
-                       .transferPayloadData(getTestName())
+                       .transferPayloadData(testInfo.methodName())
                        .transferSettled(true)
                        .transfer()
                        .close()
@@ -413,7 +427,7 @@ public class TransferTest extends BrokerAdminUsingTestBase
             interaction.consumeResponse().getLatestResponse(Flow.class);
             interaction.consumeResponse().getLatestResponse(Close.class);
         }
-        assertThat(Utils.receiveMessage(getBrokerAdmin(), BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(getTestName())));
+        assertThat(Utils.receiveMessage(brokerAdmin, testInfo), is(equalTo(testInfo.methodName())));
     }
 
     @Test
@@ -424,20 +438,21 @@ public class TransferTest extends BrokerAdminUsingTestBase
                           + "message SHOULD be rejected with the precondition-failed error, otherwise the link MUST be "
                           + "detached by the receiver with the same error.")
     @BrokerSpecific(kind = BrokerAdmin.KIND_BROKER_J)
-    public void durableTransferWithRejectedOutcome() throws Exception
+    public void durableTransferWithRejectedOutcome(final BrokerAdmin brokerAdmin,
+                                                   final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             MessageEncoder messageEncoder = new MessageEncoder();
             final Header header = new Header();
             header.setDurable(true);
             messageEncoder.setHeader(header);
-            messageEncoder.addData(getTestName());
-            final Disposition receivedDisposition = transport.newInteraction()
+            messageEncoder.addData(testInfo.methodName());
+            final Disposition receivedDisposition = transport.newInteraction().openHostname(testInfo.virtualHostName())
                                                              .negotiateOpen()
                                                              .begin().consumeResponse(Begin.class)
                                                              .attachRole(Role.SENDER)
-                                                             .attachTargetAddress(BrokerAdmin.TEST_QUEUE_NAME)
+                                                             .attachTargetAddress(testInfo.methodName())
                                                              .attachSourceOutcomes(Accepted.ACCEPTED_SYMBOL,
                                                                                    Rejected.REJECTED_SYMBOL)
                                                              .attach().consumeResponse(Attach.class)
@@ -452,7 +467,7 @@ public class TransferTest extends BrokerAdminUsingTestBase
 
             assertThat(receivedDisposition.getSettled(), is(true));
             assertThat(receivedDisposition.getState(), is(instanceOf(Outcome.class)));
-            if (getBrokerAdmin().supportsRestart())
+            if (brokerAdmin.supportsRestart())
             {
                 assertThat(((Outcome) receivedDisposition.getState()).getSymbol(), is(Accepted.ACCEPTED_SYMBOL));
             }
@@ -471,20 +486,21 @@ public class TransferTest extends BrokerAdminUsingTestBase
                           + "message SHOULD be rejected with the precondition-failed error, otherwise the link MUST be "
                           + "detached by the receiver with the same error.")
     @BrokerSpecific(kind = BrokerAdmin.KIND_BROKER_J)
-    public void durableTransferWithoutRejectedOutcome() throws Exception
+    public void durableTransferWithoutRejectedOutcome(final BrokerAdmin brokerAdmin,
+                                                      final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             MessageEncoder messageEncoder = new MessageEncoder();
             final Header header = new Header();
             header.setDurable(true);
             messageEncoder.setHeader(header);
-            messageEncoder.addData(getTestName());
-            final Response<?> response = transport.newInteraction()
+            messageEncoder.addData(testInfo.methodName());
+            final Response<?> response = transport.newInteraction().openHostname(testInfo.virtualHostName())
                                                   .negotiateOpen()
                                                   .begin().consumeResponse(Begin.class)
                                                   .attachRole(Role.SENDER)
-                                                  .attachTargetAddress(BrokerAdmin.TEST_QUEUE_NAME)
+                                                  .attachTargetAddress(testInfo.methodName())
                                                   .attachSourceOutcomes(Accepted.ACCEPTED_SYMBOL)
                                                   .attach().consumeResponse(Attach.class)
                                                   .consumeResponse(Flow.class)
@@ -496,7 +512,7 @@ public class TransferTest extends BrokerAdminUsingTestBase
                                                   .consumeResponse()
                                                   .getLatestResponse();
 
-            if (getBrokerAdmin().supportsRestart())
+            if (brokerAdmin.supportsRestart())
             {
                 assertThat(response, is(notNullValue()));
                 assertThat(response.getBody(), is(instanceOf(Disposition.class)));
@@ -518,17 +534,18 @@ public class TransferTest extends BrokerAdminUsingTestBase
 
     @Test
     @SpecificationTest(section = "2.6.12", description = "Transferring A Message.")
-    public void receiveTransferUnsettled() throws Exception
+    public void receiveTransferUnsettled(final BrokerAdmin brokerAdmin,
+                                         final QpidTestInfo testInfo) throws Exception
     {
-        Utils.putMessageOnQueue(getBrokerAdmin(), BrokerAdmin.TEST_QUEUE_NAME, getTestName());
+        Utils.putMessageOnQueue(brokerAdmin, testInfo, testInfo.methodName(), testInfo.methodName());
 
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
-            final Interaction interaction = transport.newInteraction()
+            final Interaction interaction = transport.newInteraction().openHostname(testInfo.virtualHostName())
                                                      .negotiateOpen()
                                                      .begin().consumeResponse()
                                                      .attachRole(Role.RECEIVER)
-                                                     .attachSourceAddress(BrokerAdmin.TEST_QUEUE_NAME)
+                                                     .attachSourceAddress(testInfo.methodName())
                                                      .attach().consumeResponse()
                                                      .flowIncomingWindow(UnsignedInteger.ONE)
                                                      .flowNextIncomingIdFromPeerLatestSessionBeginAndDeliveryCount()
@@ -549,24 +566,25 @@ public class TransferTest extends BrokerAdminUsingTestBase
             while (hasMore);
 
             Object data = messageDecoder.getData();
-            assertThat(data, is(equalTo(getTestName())));
+            assertThat(data, is(equalTo(testInfo.methodName())));
         }
-        assertThat(Utils.receiveMessage(getBrokerAdmin(), BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(getTestName())));
+        assertThat(Utils.receiveMessage(brokerAdmin, testInfo), is(equalTo(testInfo.methodName())));
     }
 
     @Test
     @SpecificationTest(section = "2.6.12", description = "Transferring A Message.")
-    public void receiveTransferReceiverSettleFirst() throws Exception
+    public void receiveTransferReceiverSettleFirst(final BrokerAdmin brokerAdmin,
+                                                   final QpidTestInfo testInfo) throws Exception
     {
-        Utils.putMessageOnQueue(getBrokerAdmin(), BrokerAdmin.TEST_QUEUE_NAME, getTestName());
+        Utils.putMessageOnQueue(brokerAdmin, testInfo, testInfo.methodName(), testInfo.methodName());
 
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
-            final Interaction interaction = transport.newInteraction()
+            final Interaction interaction = transport.newInteraction().openHostname(testInfo.virtualHostName())
                                                      .negotiateOpen()
                                                      .begin().consumeResponse()
                                                      .attachRole(Role.RECEIVER)
-                                                     .attachSourceAddress(BrokerAdmin.TEST_QUEUE_NAME)
+                                                     .attachSourceAddress(testInfo.methodName())
                                                      .attachRcvSettleMode(ReceiverSettleMode.FIRST)
                                                      .attach().consumeResponse()
                                                      .flowIncomingWindow(UnsignedInteger.ONE)
@@ -580,7 +598,7 @@ public class TransferTest extends BrokerAdminUsingTestBase
                                                      .decodeLatestDelivery();
 
             Object data = interaction.getDecodedLatestDelivery();
-            assertThat(data, is(equalTo(getTestName())));
+            assertThat(data, is(equalTo(testInfo.methodName())));
 
             interaction.dispositionSettled(true)
                        .dispositionState(new Accepted())
@@ -593,15 +611,16 @@ public class TransferTest extends BrokerAdminUsingTestBase
 
     @Test
     @SpecificationTest(section = "2.6.12", description = "Transferring A Message.")
-    public void receiveTransferReceiverSettleSecond() throws Exception
+    public void receiveTransferReceiverSettleSecond(final BrokerAdmin brokerAdmin,
+                                                    final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
-            final Interaction interaction = transport.newInteraction()
+            final Interaction interaction = transport.newInteraction().openHostname(testInfo.virtualHostName())
                                                      .negotiateOpen()
                                                      .begin().consumeResponse()
                                                      .attachRole(Role.RECEIVER)
-                                                     .attachSourceAddress(BrokerAdmin.TEST_QUEUE_NAME)
+                                                     .attachSourceAddress(testInfo.methodName())
                                                      .attachRcvSettleMode(ReceiverSettleMode.SECOND)
                                                      .attach().consumeResponse()
                                                      .assertLatestResponse(this::assumeAttach)
@@ -614,12 +633,12 @@ public class TransferTest extends BrokerAdminUsingTestBase
                                                      .flowHandleFromLinkHandle()
                                                      .flow();
 
-            Utils.putMessageOnQueue(getBrokerAdmin(), BrokerAdmin.TEST_QUEUE_NAME, getTestName());
+            Utils.putMessageOnQueue(brokerAdmin, testInfo, testInfo.methodName(), testInfo.methodName());
 
             Object data = interaction.receiveDelivery()
                                      .decodeLatestDelivery()
                                      .getDecodedLatestDelivery();
-            assertThat(data, is(equalTo(getTestName())));
+            assertThat(data, is(equalTo(testInfo.methodName())));
 
             Disposition disposition = interaction.dispositionSettled(false)
                                                  .dispositionFirstFromLatestDelivery()
@@ -639,15 +658,16 @@ public class TransferTest extends BrokerAdminUsingTestBase
 
     @Test
     @SpecificationTest(section = "2.6.12", description = "Transferring A Message.")
-    public void receiveTransferReceiverSettleSecondWithRejectedOutcome() throws Exception
+    public void receiveTransferReceiverSettleSecondWithRejectedOutcome(final BrokerAdmin brokerAdmin,
+                                                                       final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
-            final Interaction interaction = transport.newInteraction()
+            final Interaction interaction = transport.newInteraction().openHostname(testInfo.virtualHostName())
                                                      .negotiateOpen()
                                                      .begin().consumeResponse()
                                                      .attachRole(Role.RECEIVER)
-                                                     .attachSourceAddress(BrokerAdmin.TEST_QUEUE_NAME)
+                                                     .attachSourceAddress(testInfo.methodName())
                                                      .attachSourceOutcomes(Accepted.ACCEPTED_SYMBOL, Rejected.REJECTED_SYMBOL)
                                                      .attachRcvSettleMode(ReceiverSettleMode.SECOND)
                                                      .attach().consumeResponse()
@@ -661,10 +681,10 @@ public class TransferTest extends BrokerAdminUsingTestBase
                                                      .flowHandleFromLinkHandle()
                                                      .flow();
 
-            Utils.putMessageOnQueue(getBrokerAdmin(), BrokerAdmin.TEST_QUEUE_NAME, getTestName());
+            Utils.putMessageOnQueue(brokerAdmin, testInfo, testInfo.methodName(), testInfo.methodName());
 
             Object data = interaction.receiveDelivery().decodeLatestDelivery().getDecodedLatestDelivery();
-            assertThat(data, is(equalTo(getTestName())));
+            assertThat(data, is(equalTo(testInfo.methodName())));
 
             interaction.dispositionSettled(false)
                        .dispositionFirstFromLatestDelivery()
@@ -688,23 +708,24 @@ public class TransferTest extends BrokerAdminUsingTestBase
                        .disposition();
 
         }
-        assertThat(Utils.receiveMessage(getBrokerAdmin(), BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(getTestName())));
+        assertThat(Utils.receiveMessage(brokerAdmin, testInfo), is(equalTo(testInfo.methodName())));
     }
 
     @Disabled
     @Test
     @SpecificationTest(section = "2.6.12", description = "Transferring A Message.")
-    public void receiveTransferReceiverSettleSecondWithImplicitDispositionState() throws Exception
+    public void receiveTransferReceiverSettleSecondWithImplicitDispositionState(final BrokerAdmin brokerAdmin,
+                                                                                final QpidTestInfo testInfo) throws Exception
     {
-        Utils.putMessageOnQueue(getBrokerAdmin(), BrokerAdmin.TEST_QUEUE_NAME, getTestName());
+        Utils.putMessageOnQueue(brokerAdmin, testInfo, testInfo.methodName(), testInfo.methodName());
 
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
-            final Interaction interaction = transport.newInteraction()
+            final Interaction interaction = transport.newInteraction().openHostname(testInfo.virtualHostName())
                                                      .negotiateOpen()
                                                      .begin().consumeResponse()
                                                      .attachRole(Role.RECEIVER)
-                                                     .attachSourceAddress(BrokerAdmin.TEST_QUEUE_NAME)
+                                                     .attachSourceAddress(testInfo.methodName())
                                                      .attachRcvSettleMode(ReceiverSettleMode.SECOND)
                                                      .attachSourceOutcomes()
                                                      .attachSourceDefaultOutcome(null)
@@ -721,7 +742,7 @@ public class TransferTest extends BrokerAdminUsingTestBase
                                                      .decodeLatestDelivery();
 
             Object data = interaction.getDecodedLatestDelivery();
-            assertThat(data, is(equalTo(getTestName())));
+            assertThat(data, is(equalTo(testInfo.methodName())));
 
             Disposition disposition = interaction.dispositionSettled(false)
                                                  .dispositionFirstFromLatestDelivery()
@@ -734,24 +755,25 @@ public class TransferTest extends BrokerAdminUsingTestBase
             interaction.consumeResponse(null, Flow.class);
 
         }
-        assertThat(Utils.receiveMessage(getBrokerAdmin(), BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(getTestName())));
+        assertThat(Utils.receiveMessage(brokerAdmin, testInfo), is(equalTo(testInfo.methodName())));
     }
 
     @Test
     @SpecificationTest(section = "2.6.12", description = "[...] the receiving application MAY wish to indicate"
                                                          + " non-terminal delivery states to the sender")
-    public void receiveTransferReceiverIndicatesNonTerminalDeliveryState() throws Exception
+    public void receiveTransferReceiverIndicatesNonTerminalDeliveryState(final BrokerAdmin brokerAdmin,
+                                                                         final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
 
             Open open = interaction.openMaxFrameSize(UnsignedInteger.valueOf(4096))
-                                   .negotiateOpen()
+                                   .openHostname(testInfo.virtualHostName()).negotiateOpen()
                                    .getLatestResponse(Open.class);
             interaction.begin().consumeResponse()
                        .attachRole(Role.RECEIVER)
-                       .attachSourceAddress(BrokerAdmin.TEST_QUEUE_NAME)
+                       .attachSourceAddress(testInfo.methodName())
                        .attachRcvSettleMode(ReceiverSettleMode.SECOND)
                        .attach().consumeResponse()
                        .assertLatestResponse(this::assumeAttach)
@@ -768,7 +790,7 @@ public class TransferTest extends BrokerAdminUsingTestBase
             final int negotiatedFrameSize = open.getMaxFrameSize().intValue();
             final String testMessageData = Stream.generate(() -> "*").limit(negotiatedFrameSize).collect(Collectors.joining());
 
-            Utils.putMessageOnQueue(getBrokerAdmin(), BrokerAdmin.TEST_QUEUE_NAME, testMessageData);
+            Utils.putMessageOnQueue(brokerAdmin, testInfo, testInfo.methodName(), testMessageData);
 
             MessageDecoder messageDecoder = new MessageDecoder();
 
@@ -810,17 +832,18 @@ public class TransferTest extends BrokerAdminUsingTestBase
     @Test
     @SpecificationTest(section = "2.7.3", description = "The sender SHOULD respect the receiver’s desired settlement mode if"
                                                         + " the receiver initiates the attach exchange and the sender supports the desired mode.")
-    public void receiveTransferSenderSettleModeSettled() throws Exception
+    public void receiveTransferSenderSettleModeSettled(final BrokerAdmin brokerAdmin,
+                                                       final QpidTestInfo testInfo) throws Exception
     {
-        Utils.putMessageOnQueue(getBrokerAdmin(), BrokerAdmin.TEST_QUEUE_NAME, getTestName());
+        Utils.putMessageOnQueue(brokerAdmin, testInfo, testInfo.methodName(), testInfo.methodName());
 
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
-            final Interaction interaction = transport.newInteraction()
+            final Interaction interaction = transport.newInteraction().openHostname(testInfo.virtualHostName())
                                                      .negotiateOpen()
                                                      .begin().consumeResponse()
                                                      .attachRole(Role.RECEIVER)
-                                                     .attachSourceAddress(BrokerAdmin.TEST_QUEUE_NAME)
+                                                     .attachSourceAddress(testInfo.methodName())
                                                      .attachSndSettleMode(SenderSettleMode.SETTLED)
                                                      .attach().consumeResponse(Attach.class);
             Attach attach = interaction.getLatestResponse(Attach.class);
@@ -843,28 +866,29 @@ public class TransferTest extends BrokerAdminUsingTestBase
             interaction.detachEndCloseUnconditionally();
         }
 
-        Utils.putMessageOnQueue(getBrokerAdmin(), BrokerAdmin.TEST_QUEUE_NAME, "test");
-        assertThat(Utils.receiveMessage(getBrokerAdmin(), BrokerAdmin.TEST_QUEUE_NAME), is(equalTo("test")));
+        Utils.putMessageOnQueue(brokerAdmin, testInfo, testInfo.methodName(), "test");
+        assertThat(Utils.receiveMessage(brokerAdmin, testInfo), is(equalTo("test")));
     }
 
     @Test
     @SpecificationTest(section = "2.7.5",
             description = "[delivery-tag] uniquely identifies the delivery attempt for a given message on this link.")
     @Disabled("QPID-8346: test relies on receiver-settle-mode=second which is broken")
-    public void transfersWithDuplicateUnsettledDeliveryTag() throws Exception
+    public void transfersWithDuplicateUnsettledDeliveryTag(final BrokerAdmin brokerAdmin,
+                                                           final QpidTestInfo testInfo) throws Exception
     {
-        String content1 = getTestName() + "_1";
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        String content1 = testInfo.methodName() + "_1";
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Binary deliveryTag = new Binary("testDeliveryTag".getBytes(UTF_8));
 
             Interaction interaction = transport.newInteraction();
-            interaction.negotiateOpen()
+            interaction.openHostname(testInfo.virtualHostName()).negotiateOpen()
                        .begin()
                        .consumeResponse(Begin.class)
                        .attachRole(Role.SENDER)
                        .attachRcvSettleMode(ReceiverSettleMode.SECOND)
-                       .attachTargetAddress(BrokerAdmin.TEST_QUEUE_NAME)
+                       .attachTargetAddress(testInfo.methodName())
                        .attach()
                        .consumeResponse(Attach.class)
                        .assertLatestResponse(Attach.class, this::assumeReceiverSettlesSecond)
@@ -876,7 +900,7 @@ public class TransferTest extends BrokerAdminUsingTestBase
                        .transfer()
                        .transferDeliveryTag(deliveryTag)
                        .transferDeliveryId()
-                       .transferPayloadData(getTestName() + "_2")
+                       .transferPayloadData(testInfo.methodName() + "_2")
                        .transfer()
                        .sync();
 
@@ -893,9 +917,8 @@ public class TransferTest extends BrokerAdminUsingTestBase
                     assertThat(error, is(notNullValue()));
                     break;
                 }
-                else if (body instanceof Disposition)
+                else if (body instanceof Disposition disposition)
                 {
-                    Disposition disposition = (Disposition) body;
                     assertThat(disposition.getSettled(), is(equalTo(false)));
                     assertThat(disposition.getFirst(), is(not(equalTo(UnsignedInteger.ONE))));
                     assertThat(disposition.getLast(), is(not(equalTo(UnsignedInteger.ONE))));
@@ -912,19 +935,20 @@ public class TransferTest extends BrokerAdminUsingTestBase
     @SpecificationTest(section = "2.6.12",
             description = "The delivery-tag MUST be unique amongst all deliveries that"
                           + " could be considered unsettled by either end of the link.")
-    public void deliveryTagCanBeReusedAfterDeliveryIsSettled() throws Exception
+    public void deliveryTagCanBeReusedAfterDeliveryIsSettled(final BrokerAdmin brokerAdmin,
+                                                             final QpidTestInfo testInfo) throws Exception
     {
-        final String[] contents = Utils.createTestMessageContents(2, getTestName());
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        final String[] contents = Utils.createTestMessageContents(2, testInfo.methodName());
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Binary deliveryTag = new Binary("testDeliveryTag".getBytes(UTF_8));
 
             Interaction interaction = transport.newInteraction();
-            interaction.negotiateOpen()
+            interaction.openHostname(testInfo.virtualHostName()).negotiateOpen()
                        .begin()
                        .consumeResponse(Begin.class)
                        .attachRole(Role.SENDER)
-                       .attachTargetAddress(BrokerAdmin.TEST_QUEUE_NAME)
+                       .attachTargetAddress(testInfo.methodName())
                        .attach()
                        .consumeResponse(Attach.class)
                        .consumeResponse(Flow.class)
@@ -945,7 +969,7 @@ public class TransferTest extends BrokerAdminUsingTestBase
             interaction.closeUnconditionally();
 
         }
-        assertTestQueueMessages(contents);
+        assertTestQueueMessages(brokerAdmin, testInfo, contents);
     }
 
     @Test
@@ -954,21 +978,22 @@ public class TransferTest extends BrokerAdminUsingTestBase
                           + " endpoint. Any attempt to deliver a message larger than this results in a"
                           + " message-size-exceeded link-error. If this field is zero or unset, there is no maximum"
                           + " size imposed by the link endpoint.")
-    public void exceedMaxMessageSizeLimit() throws Exception
+    public void exceedMaxMessageSizeLimit(final BrokerAdmin brokerAdmin,
+                                          final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Binary deliveryTag = new Binary("testDeliveryTag".getBytes(UTF_8));
 
             Interaction interaction = transport.newInteraction();
-            Open open = interaction.negotiateOpen()
+            Open open = interaction.openHostname(testInfo.virtualHostName()).negotiateOpen()
                                    .getLatestResponse(Open.class);
 
             long maxFrameSize = open.getMaxFrameSize() == null ? Integer.MAX_VALUE : open.getMaxFrameSize().longValue();
 
             Attach attach = interaction.begin().consumeResponse(Begin.class)
                                        .attachRole(Role.SENDER)
-                                       .attachTargetAddress(BrokerAdmin.TEST_QUEUE_NAME)
+                                       .attachTargetAddress(testInfo.methodName())
                                        .attach().consumeResponse(Attach.class)
                                        .getLatestResponse(Attach.class);
 
@@ -991,7 +1016,7 @@ public class TransferTest extends BrokerAdminUsingTestBase
             int payloadSize = 0;
             while (payloadSize < maxMessageSizeLimit.longValue())
             {
-                payloadSize += chunkSize;
+                payloadSize += (int) chunkSize;
                 interaction.transfer().sync();
             }
 
@@ -1021,16 +1046,17 @@ public class TransferTest extends BrokerAdminUsingTestBase
 
     @Test
     @SpecificationTest(section = "2.6.12", description = "Transferring A Message.")
-    public void transferMultipleDeliveries() throws Exception
+    public void transferMultipleDeliveries(final BrokerAdmin brokerAdmin,
+                                           final QpidTestInfo testInfo) throws Exception
     {
-        final String[] contents = Utils.createTestMessageContents(3, getTestName());
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        final String[] contents = Utils.createTestMessageContents(3, testInfo.methodName());
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
-            final Interaction interaction = transport.newInteraction()
+            final Interaction interaction = transport.newInteraction().openHostname(testInfo.virtualHostName())
                                                      .negotiateOpen()
                                                      .begin().consumeResponse(Begin.class)
                                                      .attachRole(Role.SENDER)
-                                                     .attachTargetAddress(BrokerAdmin.TEST_QUEUE_NAME)
+                                                     .attachTargetAddress(testInfo.methodName())
                                                      .attach().consumeResponse(Attach.class)
                                                      .consumeResponse(Flow.class);
             Flow flow = interaction.getLatestResponse(Flow.class);
@@ -1057,21 +1083,23 @@ public class TransferTest extends BrokerAdminUsingTestBase
             // verify that no unexpected performative is received by closing
             interaction.doCloseConnection();
         }
-        assertTestQueueMessages(contents);
+        assertTestQueueMessages(brokerAdmin, testInfo, contents);
     }
 
 
     @Test
     @SpecificationTest(section = "2.6.12", description = "Transferring A Message.")
-    public void transferMixtureOfTransactionalAndNonTransactionalDeliveries() throws Exception
+    public void transferMixtureOfTransactionalAndNonTransactionalDeliveries(final BrokerAdmin brokerAdmin,
+                                                                            final QpidTestInfo testInfo) throws Exception
     {
-        final String[] contents = Utils.createTestMessageContents(3, getTestName());
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        final String[] contents = Utils.createTestMessageContents(3, testInfo.methodName());
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
-            final Interaction interaction = transport.newInteraction().negotiateOpen()
+            final Interaction interaction = transport.newInteraction().openHostname(testInfo.virtualHostName())
+                                                     .negotiateOpen()
                                                      .begin().consumeResponse(Begin.class)
                                                      .attachRole(Role.SENDER)
-                                                     .attachTargetAddress(BrokerAdmin.TEST_QUEUE_NAME)
+                                                     .attachTargetAddress(testInfo.methodName())
                                                      .attach().consumeResponse(Attach.class)
                                                      .consumeResponse(Flow.class);
 
@@ -1102,24 +1130,25 @@ public class TransferTest extends BrokerAdminUsingTestBase
                     UnsignedInteger.valueOf(3),
                     UnsignedInteger.valueOf(4))));
         }
-        assertTestQueueMessages(contents);
+        assertTestQueueMessages(brokerAdmin, testInfo, contents);
     }
 
     @Test
     @SpecificationTest(section = "2.6.12", description = "Transferring A Message.")
-    public void receiveMultipleDeliveries() throws Exception
+    public void receiveMultipleDeliveries(final BrokerAdmin brokerAdmin,
+                                          final QpidTestInfo testInfo) throws Exception
     {
         final int numberOfMessages = 4;
-        final String[] contents = Utils.createTestMessageContents(numberOfMessages, getTestName());
-        Utils.putMessageOnQueue(getBrokerAdmin(), BrokerAdmin.TEST_QUEUE_NAME, contents);
+        final String[] contents = Utils.createTestMessageContents(numberOfMessages, testInfo.methodName());
+        Utils.putMessageOnQueue(brokerAdmin, testInfo, testInfo.methodName(), contents);
 
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
-            final Interaction interaction = transport.newInteraction()
+            final Interaction interaction = transport.newInteraction().openHostname(testInfo.virtualHostName())
                                                      .negotiateOpen()
                                                      .begin().consumeResponse()
                                                      .attachRole(Role.RECEIVER)
-                                                     .attachSourceAddress(BrokerAdmin.TEST_QUEUE_NAME)
+                                                     .attachSourceAddress(testInfo.methodName())
                                                      .attachRcvSettleMode(ReceiverSettleMode.FIRST)
                                                      .attach().consumeResponse()
                                                      .flowIncomingWindow(UnsignedInteger.valueOf(numberOfMessages))
@@ -1151,26 +1180,27 @@ public class TransferTest extends BrokerAdminUsingTestBase
             interaction.detachEndCloseUnconditionally();
         }
 
-        final String messageText = getTestName() + "_" + 4;
-        Utils.putMessageOnQueue(getBrokerAdmin(), BrokerAdmin.TEST_QUEUE_NAME, messageText);
-        Object receivedMessage = Utils.receiveMessage(getBrokerAdmin(), BrokerAdmin.TEST_QUEUE_NAME);
+        final String messageText = testInfo.methodName() + "_" + 4;
+        Utils.putMessageOnQueue(brokerAdmin, testInfo, testInfo.methodName(), messageText);
+        Object receivedMessage = Utils.receiveMessage(brokerAdmin, testInfo);
         assertThat(receivedMessage, is(equalTo(messageText)));
     }
 
     @Test
     @SpecificationTest(section = "2.6.12", description = "Transferring A Message.")
-    public void receiveMixtureOfTransactionalAndNonTransactionalDeliveries() throws Exception
+    public void receiveMixtureOfTransactionalAndNonTransactionalDeliveries(final BrokerAdmin brokerAdmin,
+                                                                           final QpidTestInfo testInfo) throws Exception
     {
         final int numberOfMessages = 4;
-        final String[] contents = Utils.createTestMessageContents(numberOfMessages, getTestName());
+        final String[] contents = Utils.createTestMessageContents(numberOfMessages, testInfo.methodName());
 
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
-            final Interaction interaction = transport.newInteraction()
+            final Interaction interaction = transport.newInteraction().openHostname(testInfo.virtualHostName())
                                                      .negotiateOpen()
                                                      .begin().consumeResponse()
                                                      .attachRole(Role.RECEIVER)
-                                                     .attachSourceAddress(BrokerAdmin.TEST_QUEUE_NAME)
+                                                     .attachSourceAddress(testInfo.methodName())
                                                      .attachRcvSettleMode(ReceiverSettleMode.FIRST)
                                                      .attachHandle(UnsignedInteger.ZERO)
                                                      .attach().consumeResponse()
@@ -1182,7 +1212,7 @@ public class TransferTest extends BrokerAdminUsingTestBase
                                                      .flowHandleFromLinkHandle()
                                                      .flow();
 
-            Utils.putMessageOnQueue(getBrokerAdmin(), BrokerAdmin.TEST_QUEUE_NAME, contents);
+            Utils.putMessageOnQueue(brokerAdmin, testInfo, testInfo.methodName(), contents);
 
             final List<UnsignedInteger> deliveryIds = new ArrayList<>();
             for (final String content : contents)
@@ -1212,9 +1242,9 @@ public class TransferTest extends BrokerAdminUsingTestBase
             interaction.txnDischarge(false);
         }
 
-        String messageText = getTestName() + "_" + 4;
-        Utils.putMessageOnQueue(getBrokerAdmin(), BrokerAdmin.TEST_QUEUE_NAME, messageText);
-        Object receivedMessage = Utils.receiveMessage(getBrokerAdmin(), BrokerAdmin.TEST_QUEUE_NAME);
+        String messageText = testInfo.methodName() + "_" + 4;
+        Utils.putMessageOnQueue(brokerAdmin, testInfo, testInfo.methodName(), messageText);
+        Object receivedMessage = Utils.receiveMessage(brokerAdmin, testInfo);
         assertThat(receivedMessage, is(equalTo(messageText)));
     }
 
@@ -1246,11 +1276,11 @@ public class TransferTest extends BrokerAdminUsingTestBase
         return new byte[(int) payloadSize];
     }
 
-    private void assertTestQueueMessages(final String[] contents) throws Exception
+    private void assertTestQueueMessages(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo, final String[] contents) throws Exception
     {
         for (final String content : contents)
         {
-            assertThat(Utils.receiveMessage(getBrokerAdmin(), BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(content)));
+            assertThat(Utils.receiveMessage(brokerAdmin, testInfo), is(equalTo(content)));
         }
     }
 

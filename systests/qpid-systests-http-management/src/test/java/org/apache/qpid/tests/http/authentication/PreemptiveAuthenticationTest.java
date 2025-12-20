@@ -45,6 +45,7 @@ import java.util.Set;
 
 import jakarta.servlet.http.HttpServletResponse;
 
+import org.apache.qpid.test.utils.tls.types.KeyStoreEntry;
 import org.junit.jupiter.api.Assertions;
 
 import org.junit.jupiter.api.AfterEach;
@@ -61,10 +62,10 @@ import org.apache.qpid.server.security.ManagedPeerCertificateTrustStore;
 import org.apache.qpid.server.security.auth.manager.AnonymousAuthenticationManager;
 import org.apache.qpid.server.security.auth.manager.ExternalAuthenticationManager;
 import org.apache.qpid.server.util.BaseAction;
-import org.apache.qpid.test.utils.tls.AltNameType;
-import org.apache.qpid.test.utils.tls.AlternativeName;
-import org.apache.qpid.test.utils.tls.KeyCertificatePair;
-import org.apache.qpid.test.utils.tls.PrivateKeyEntry;
+import org.apache.qpid.test.utils.tls.types.AltNameType;
+import org.apache.qpid.test.utils.tls.types.AlternativeName;
+import org.apache.qpid.test.utils.tls.types.KeyCertificatePair;
+import org.apache.qpid.test.utils.tls.types.PrivateKeyEntry;
 import org.apache.qpid.test.utils.tls.TlsResourceBuilder;
 import org.apache.qpid.test.utils.tls.TlsResourceHelper;
 import org.apache.qpid.tests.http.HttpTestBase;
@@ -224,7 +225,7 @@ public class PreemptiveAuthenticationTest extends HttpTestBase
     private HttpTestHelper configForClientAuth(final String x500Name) throws Exception
     {
         final KeyCertificatePair clientKeyCertPair = getKeyCertPair(x500Name);
-        final byte[] clientCertificate = clientKeyCertPair.getCertificate().getEncoded();
+        final byte[] clientCertificate = clientKeyCertPair.certificate().getEncoded();
         final String clientKeyStore = createKeyStoreDataUrl(clientKeyCertPair);
 
         final KeyCertificatePair brokerKeyCertPair = getKeyCertPair(x500Name);
@@ -321,19 +322,15 @@ public class PreemptiveAuthenticationTest extends HttpTestBase
 
     private String createKeyStoreDataUrl(final KeyCertificatePair keyCertPair) throws Exception
     {
-        return TlsResourceHelper.createKeyStoreAsDataUrl(KeyStore.getDefaultType(),
-                                                         STORE_PASSWORD.toCharArray(),
-                                                         new PrivateKeyEntry("key1",
-                                                                             keyCertPair.getPrivateKey(),
-                                                                             keyCertPair.getCertificate()));
+        final KeyStoreEntry[] entries = { new PrivateKeyEntry("key1", keyCertPair) };
+        return TlsResourceHelper.createKeyStoreAsDataUrl(KeyStore.getDefaultType(), STORE_PASSWORD.toCharArray(), entries);
     }
 
     private KeyCertificatePair getKeyCertPair(final String x500Name) throws Exception
     {
         final String loopbackAddress = InetAddress.getLoopbackAddress().getHostAddress();
-        return TlsResourceBuilder.createSelfSigned(x500Name,
-                                                   new AlternativeName(AltNameType.IP_ADDRESS,
-                                                                       loopbackAddress));
+        final AlternativeName alternativeName = new AlternativeName(AltNameType.IP_ADDRESS, loopbackAddress);
+        return TlsResourceBuilder.createSelfSigned(x500Name, alternativeName);
     }
 
 }

@@ -30,7 +30,11 @@ import static org.hamcrest.Matchers.oneOf;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.apache.qpid.tests.utils.QpidTestInfo;
+import org.apache.qpid.tests.utils.QpidTestInfoExtension;
+import org.apache.qpid.tests.utils.VirtualhostContextVariable;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.Test;
 
 import org.apache.qpid.server.bytebuffer.QpidByteBuffer;
@@ -47,17 +51,17 @@ import org.apache.qpid.tests.protocol.v1_0.FrameTransport;
 import org.apache.qpid.tests.protocol.v1_0.Interaction;
 import org.apache.qpid.tests.protocol.v1_0.Utils;
 import org.apache.qpid.tests.utils.BrokerAdmin;
-import org.apache.qpid.tests.utils.BrokerAdminUsingTestBase;
-import org.apache.qpid.tests.utils.ConfigItem;
+import org.apache.qpid.tests.utils.BrokerAdminExtension;
 
-@ConfigItem(name = "qpid.tests.mms.messagestore.persistence", value = "false", jvm = true)
-public class MultiTransferTest extends BrokerAdminUsingTestBase
+@ExtendWith({ BrokerAdminExtension.class, QpidTestInfoExtension.class })
+@VirtualhostContextVariable(name = "qpid.tests.mms.messagestore.persistence", value = "false")
+public class MultiTransferTest
 {
 
     @BeforeEach
-    public void setUp()
+    public void setUp(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo)
     {
-        getBrokerAdmin().createQueue(BrokerAdmin.TEST_QUEUE_NAME);
+        brokerAdmin.createQueue(testInfo.methodName());
     }
 
     @Test
@@ -65,20 +69,20 @@ public class MultiTransferTest extends BrokerAdminUsingTestBase
             description = "For messages that are too large to fit within the maximum frame size, additional data MAY"
                           + " be transferred in additional transfer frames by setting the more flag on all"
                           + " but the last transfer frame")
-    public void multiTransferMessage() throws Exception
+    public void multiTransferMessage(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
-            QpidByteBuffer[] payloads = Utils.splitPayload(getTestName(), 2);
+            QpidByteBuffer[] payloads = Utils.splitPayload(testInfo.methodName(), 2);
 
             final UnsignedInteger deliveryId = UnsignedInteger.ZERO;
             final Binary deliveryTag = new Binary("testTransfer".getBytes(UTF_8));
 
             Interaction interaction = transport.newInteraction();
-            Disposition disposition = interaction.negotiateOpen()
+            Disposition disposition = interaction.openHostname(testInfo.virtualHostName()).negotiateOpen()
                                                  .begin().consumeResponse(Begin.class)
                                                  .attachRole(Role.SENDER)
-                                                 .attachTargetAddress(BrokerAdmin.TEST_QUEUE_NAME)
+                                                 .attachTargetAddress(testInfo.methodName())
                                                  .attach().consumeResponse(Attach.class)
                                                  .consumeResponse(Flow.class)
                                                  .transferPayload(payloads[0])
@@ -103,25 +107,26 @@ public class MultiTransferTest extends BrokerAdminUsingTestBase
             assertThat(disposition.getLast(), oneOf(null, deliveryId));
             assertThat(disposition.getSettled(), is(equalTo(true)));
         }
-        assertThat(Utils.receiveMessage(getBrokerAdmin(), BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(getTestName())));
+        assertThat(Utils.receiveMessage(brokerAdmin, testInfo), is(equalTo(testInfo.methodName())));
     }
 
     @Test
     @SpecificationTest(section = "", description = "")
-    public void multiTransferMessageHavingTransfersWithoutPayload() throws Exception
+    public void multiTransferMessageHavingTransfersWithoutPayload(final BrokerAdmin brokerAdmin,
+                                                                  final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
-            QpidByteBuffer[] payloads = Utils.splitPayload(getTestName(), 1);
+            QpidByteBuffer[] payloads = Utils.splitPayload(testInfo.methodName(), 1);
 
             final UnsignedInteger deliveryId = UnsignedInteger.ZERO;
             final Binary deliveryTag = new Binary("testTransfer".getBytes(UTF_8));
 
             Interaction interaction = transport.newInteraction();
-            Disposition disposition = interaction.negotiateOpen()
+            Disposition disposition = interaction.openHostname(testInfo.virtualHostName()).negotiateOpen()
                     .begin().consumeResponse(Begin.class)
                     .attachRole(Role.SENDER)
-                    .attachTargetAddress(BrokerAdmin.TEST_QUEUE_NAME)
+                    .attachTargetAddress(testInfo.methodName())
                     .attach().consumeResponse(Attach.class)
                     .consumeResponse(Flow.class)
                     .transferPayload(payloads[0])
@@ -150,7 +155,7 @@ public class MultiTransferTest extends BrokerAdminUsingTestBase
             assertThat(disposition.getLast(), oneOf(null, deliveryId));
             assertThat(disposition.getSettled(), is(equalTo(true)));
         }
-        assertThat(Utils.receiveMessage(getBrokerAdmin(), BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(getTestName())));
+        assertThat(Utils.receiveMessage(brokerAdmin, testInfo), is(equalTo(testInfo.methodName())));
     }
 
     @Test
@@ -158,19 +163,20 @@ public class MultiTransferTest extends BrokerAdminUsingTestBase
             description = "[delivery-id] On continuation transfers the delivery-id MAY be omitted..."
                           + "[delivery-tag] field MUST be specified for the first transfer of a multi-transfer"
                           + " message and can only be omitted for continuation transfers.")
-    public void multiTransferMessageOmittingOptionalTagAndID() throws Exception
+    public void multiTransferMessageOmittingOptionalTagAndID(final BrokerAdmin brokerAdmin,
+                                                             final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
-            QpidByteBuffer[] payloads = Utils.splitPayload(getTestName(), 4);
+            QpidByteBuffer[] payloads = Utils.splitPayload(testInfo.methodName(), 4);
             final UnsignedInteger deliveryId = UnsignedInteger.ZERO;
             final Binary deliveryTag = new Binary("testTransfer".getBytes(UTF_8));
 
             Interaction interaction = transport.newInteraction();
-            interaction.negotiateOpen()
+            interaction.openHostname(testInfo.virtualHostName()).negotiateOpen()
                        .begin().consumeResponse(Begin.class)
                        .attachRole(Role.SENDER)
-                       .attachTargetAddress(BrokerAdmin.TEST_QUEUE_NAME)
+                       .attachTargetAddress(testInfo.methodName())
                        .attach().consumeResponse(Attach.class)
                        .consumeResponse(Flow.class)
                        .transferDeliveryId(deliveryId)
@@ -210,27 +216,27 @@ public class MultiTransferTest extends BrokerAdminUsingTestBase
             assertThat(disposition.getSettled(), is(equalTo(true)));
             assertThat(disposition.getState(), is(instanceOf(Accepted.class)));
         }
-        assertThat(Utils.receiveMessage(getBrokerAdmin(), BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(getTestName())));
+        assertThat(Utils.receiveMessage(brokerAdmin, testInfo), is(equalTo(testInfo.methodName())));
     }
 
     @Test
     @SpecificationTest(section = "2.6.14",
             description = "The sender MAY indicate an aborted attempt to deliver a message by setting the abort flag on the last transfer."
                           + "In this case the receiver MUST discard the message data that was transferred prior to the abort.")
-    public void abortMultiTransferMessage() throws Exception
+    public void abortMultiTransferMessage(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
-            QpidByteBuffer[] payloads = Utils.splitPayload(getTestName(), 2);
+            QpidByteBuffer[] payloads = Utils.splitPayload(testInfo.methodName(), 2);
 
             final UnsignedInteger deliveryId = UnsignedInteger.ZERO;
             final Binary deliveryTag = new Binary("testTransfer".getBytes(UTF_8));
 
             Interaction interaction = transport.newInteraction();
-            interaction.negotiateOpen()
+            interaction.openHostname(testInfo.virtualHostName()).negotiateOpen()
                        .begin().consumeResponse(Begin.class)
                        .attachRole(Role.SENDER)
-                       .attachTargetAddress(BrokerAdmin.TEST_QUEUE_NAME)
+                       .attachTargetAddress(testInfo.methodName())
                        .attach().consumeResponse(Attach.class)
                        .consumeResponse(Flow.class)
                        .transferPayload(payloads[0])
@@ -251,19 +257,19 @@ public class MultiTransferTest extends BrokerAdminUsingTestBase
 
             interaction.detachEndCloseUnconditionally();
         }
-        String secondMessage = getTestName() + "_2";
-        Utils.putMessageOnQueue(getBrokerAdmin(), BrokerAdmin.TEST_QUEUE_NAME, secondMessage);
-        assertThat(Utils.receiveMessage(getBrokerAdmin(), BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(secondMessage)));
+        String secondMessage = testInfo.methodName() + "_2";
+        Utils.putMessageOnQueue(brokerAdmin, testInfo, testInfo.methodName(), secondMessage);
+        assertThat(Utils.receiveMessage(brokerAdmin, testInfo), is(equalTo(secondMessage)));
     }
 
     @Test
     @SpecificationTest(section = "2.6.14",
             description = "[...]messages being transferred along different links MAY be interleaved")
-    public void multiTransferInterleaved() throws Exception
+    public void multiTransferInterleaved(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        String messageContent1 = getTestName() + "_1";
-        String messageContent2 = getTestName() + "_2";
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        String messageContent1 = testInfo.methodName() + "_1";
+        String messageContent2 = testInfo.methodName() + "_2";
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             QpidByteBuffer[] messagePayload1 = Utils.splitPayload(messageContent1, 2);
             QpidByteBuffer[] messagePayload2 = Utils.splitPayload(messageContent2, 2);
@@ -277,20 +283,20 @@ public class MultiTransferTest extends BrokerAdminUsingTestBase
 
             Interaction interaction = transport.newInteraction();
 
-            interaction.negotiateOpen()
+            interaction.openHostname(testInfo.virtualHostName()).negotiateOpen()
                        .begin().consumeResponse(Begin.class)
 
                        .attachName("testLink1")
                        .attachHandle(linkHandle1)
                        .attachRole(Role.SENDER)
-                       .attachTargetAddress(BrokerAdmin.TEST_QUEUE_NAME)
+                       .attachTargetAddress(testInfo.methodName())
                        .attach().consumeResponse(Attach.class)
                        .consumeResponse(Flow.class)
 
                        .attachName("testLink2")
                        .attachHandle(linkHandle2)
                        .attachRole(Role.SENDER)
-                       .attachTargetAddress(BrokerAdmin.TEST_QUEUE_NAME)
+                       .attachTargetAddress(testInfo.methodName())
                        .attach().consumeResponse(Attach.class)
                        .consumeResponse(Flow.class)
 
@@ -352,8 +358,8 @@ public class MultiTransferTest extends BrokerAdminUsingTestBase
             assertThat(dispositionMap.containsKey(deliverId1), is(true));
             assertThat(dispositionMap.containsKey(deliveryId2), is(true));
         }
-        assertThat(Utils.receiveMessage(getBrokerAdmin(), BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(messageContent1)));
-        assertThat(Utils.receiveMessage(getBrokerAdmin(), BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(messageContent2)));
+        assertThat(Utils.receiveMessage(brokerAdmin, testInfo), is(equalTo(messageContent1)));
+        assertThat(Utils.receiveMessage(brokerAdmin, testInfo), is(equalTo(messageContent2)));
     }
 
     @Test
@@ -364,11 +370,12 @@ public class MultiTransferTest extends BrokerAdminUsingTestBase
                           + " When a message is split up into multiple transfer frames in this manner,"
                           + " messages being transferred along different links MAY be interleaved."
                           + " However, messages transferred along a single link MUST NOT be interleaved.")
-    public void illegallyInterleavedMultiTransferOnSingleLink() throws Exception
+    public void illegallyInterleavedMultiTransferOnSingleLink(final BrokerAdmin brokerAdmin,
+                                                              final QpidTestInfo testInfo) throws Exception
     {
-        String messageContent1 = getTestName() + "_1";
-        String messageContent2 = getTestName() + "_2";
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        String messageContent1 = testInfo.methodName() + "_1";
+        String messageContent2 = testInfo.methodName() + "_2";
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             QpidByteBuffer[] messagePayload1 = Utils.splitPayload(messageContent1, 2);
             QpidByteBuffer[] messagePayload2 = Utils.splitPayload(messageContent2, 2);
@@ -380,11 +387,11 @@ public class MultiTransferTest extends BrokerAdminUsingTestBase
 
             Interaction interaction = transport.newInteraction();
 
-            interaction.negotiateOpen()
+            interaction.openHostname(testInfo.virtualHostName()).negotiateOpen()
                        .begin().consumeResponse(Begin.class)
 
                        .attachRole(Role.SENDER)
-                       .attachTargetAddress(BrokerAdmin.TEST_QUEUE_NAME)
+                       .attachTargetAddress(testInfo.methodName())
                        .attach().consumeResponse(Attach.class)
                        .consumeResponse(Flow.class)
 
@@ -427,8 +434,8 @@ public class MultiTransferTest extends BrokerAdminUsingTestBase
             interaction.closeUnconditionally();
         }
 
-        final String controlMessage = getTestName() + "_Control";
-        Utils.putMessageOnQueue(getBrokerAdmin(), BrokerAdmin.TEST_QUEUE_NAME, controlMessage);
-        assertThat(Utils.receiveMessage(getBrokerAdmin(), BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(controlMessage)));
+        final String controlMessage = testInfo.methodName() + "_Control";
+        Utils.putMessageOnQueue(brokerAdmin, testInfo, testInfo.methodName(), controlMessage);
+        assertThat(Utils.receiveMessage(brokerAdmin, testInfo), is(equalTo(controlMessage)));
     }
 }

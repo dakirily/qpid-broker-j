@@ -18,6 +18,7 @@
  * under the License.
  *
  */
+
 package org.apache.qpid.tests.protocol.v0_10;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -27,6 +28,9 @@ import static org.hamcrest.CoreMatchers.nullValue;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
+import org.apache.qpid.tests.utils.QpidTestInfo;
+import org.apache.qpid.tests.utils.QpidTestInfoExtension;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.Test;
 
 import org.apache.qpid.server.protocol.v0_10.transport.ExecutionErrorCode;
@@ -39,20 +43,21 @@ import org.apache.qpid.server.protocol.v0_10.transport.SessionDetached;
 import org.apache.qpid.server.protocol.v0_10.transport.SessionFlush;
 import org.apache.qpid.tests.protocol.SpecificationTest;
 import org.apache.qpid.tests.utils.BrokerAdmin;
-import org.apache.qpid.tests.utils.BrokerAdminUsingTestBase;
+import org.apache.qpid.tests.utils.BrokerAdminExtension;
 
-public class QueueTest extends BrokerAdminUsingTestBase
+@ExtendWith({ BrokerAdminExtension.class, QpidTestInfoExtension.class })
+public class QueueTest
 {
     private static final byte[] SESSION_NAME = "test".getBytes(UTF_8);
 
     @Test
     @SpecificationTest(section = "10.queue.declare", description = "This command creates or checks a queue.")
-    public void queueDeclare() throws Exception
+    public void queueDeclare(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            SessionCompleted completed = interaction.negotiateOpen()
+            SessionCompleted completed = interaction.negotiateOpen(testInfo.virtualHostName())
                                                     .channelId(1)
                                                     .attachSession(SESSION_NAME)
                                                     .queue()
@@ -66,7 +71,7 @@ public class QueueTest extends BrokerAdminUsingTestBase
                                                     .getLatestResponse(SessionCompleted.class);
 
             assertThat(completed.getCommands().includes(0), is(equalTo(true)));
-            assertThat(getBrokerAdmin().getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(0)));
+            assertThat(brokerAdmin.getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(0)));
         }
     }
 
@@ -74,12 +79,12 @@ public class QueueTest extends BrokerAdminUsingTestBase
     @SpecificationTest(section = "10.queue.declare",
             description = "The alternate-exchange field specifies how messages on this queue should be treated when "
                           + "they are rejected by a subscriber, or when they are orphaned by queue deletion.")
-    public void queueDeclareWithAlternateExchange() throws Exception
+    public void queueDeclareWithAlternateExchange(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            interaction.negotiateOpen()
+            interaction.negotiateOpen(testInfo.virtualHostName())
                        .channelId(1)
                        .attachSession(SESSION_NAME)
                        .queue()
@@ -98,12 +103,12 @@ public class QueueTest extends BrokerAdminUsingTestBase
     @SpecificationTest(section = "10.queue.declare",
             description = "if the alternate-exchange does not match the name of any existing exchange on the server, "
                           + "then an exception must be raised.")
-    public void queueDeclareAlternateExchangeNotFound() throws Exception
+    public void queueDeclareAlternateExchangeNotFound(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            ExecutionException response = interaction.negotiateOpen()
+            ExecutionException response = interaction.negotiateOpen(testInfo.virtualHostName())
                                                      .channelId(1)
                                                      .attachSession(SESSION_NAME)
                                                      .queue()
@@ -126,13 +131,13 @@ public class QueueTest extends BrokerAdminUsingTestBase
     @SpecificationTest(section = "10.queue.declare",
             description = "The client MAY ask the server to assert that a queue exists without creating the queue if "
                           + "not.")
-    public void queueDeclarePassive() throws Exception
+    public void queueDeclarePassive(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        getBrokerAdmin().createQueue(BrokerAdmin.TEST_QUEUE_NAME);
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        brokerAdmin.createQueue(BrokerAdmin.TEST_QUEUE_NAME);
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            interaction.negotiateOpen()
+            interaction.negotiateOpen(testInfo.virtualHostName())
                        .channelId(1)
                        .attachSession(SESSION_NAME)
                        .queue()
@@ -151,12 +156,12 @@ public class QueueTest extends BrokerAdminUsingTestBase
     @Test
     @SpecificationTest(section = "10.queue.declare",
             description = "[...] If the queue does not exist, the server treats this as a failure.")
-    public void queueDeclarePassiveQueueNotFound() throws Exception
+    public void queueDeclarePassiveQueueNotFound(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            ExecutionException response = interaction.negotiateOpen()
+            ExecutionException response = interaction.negotiateOpen(testInfo.virtualHostName())
                                                      .channelId(1)
                                                      .attachSession(SESSION_NAME)
                                                      .queue()
@@ -179,12 +184,12 @@ public class QueueTest extends BrokerAdminUsingTestBase
     @SpecificationTest(section = "10.queue.declare",
             description = "If set when creating a new queue, the queue will be marked as durable. Durable queues "
                           + "remain active when a server restarts.")
-    public void queueDeclareDurable() throws Exception
+    public void queueDeclareDurable(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            interaction.negotiateOpen()
+            interaction.negotiateOpen(testInfo.virtualHostName())
                        .channelId(1)
                        .attachSession(SESSION_NAME)
                        .queue()
@@ -198,13 +203,13 @@ public class QueueTest extends BrokerAdminUsingTestBase
                        .consumeResponse(SessionCompleted.class);
         }
 
-        assumeTrue(getBrokerAdmin().supportsRestart());
-        getBrokerAdmin().restart();
+        assumeTrue(brokerAdmin.supportsRestart());
+        brokerAdmin.restart();
 
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            interaction.negotiateOpen()
+            interaction.negotiateOpen(testInfo.virtualHostName())
                        .channelId(1)
                        .attachSession(SESSION_NAME)
                        .queue()
@@ -224,12 +229,12 @@ public class QueueTest extends BrokerAdminUsingTestBase
     @SpecificationTest(section = "10.queue.declare",
             description = "If the server receives a declare, bind, consume or get request for a queue that has been"
                           + "declared as exclusive by an existing client session, it MUST raise an exception.")
-    public void queueDeclareAttemptedConsumeOfExclusivelyDeclaredQueue() throws Exception
+    public void queueDeclareAttemptedConsumeOfExclusivelyDeclaredQueue(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            interaction.negotiateOpen()
+            interaction.negotiateOpen(testInfo.virtualHostName())
                        .channelId(1)
                        .attachSession(SESSION_NAME)
                        .queue()
@@ -242,10 +247,10 @@ public class QueueTest extends BrokerAdminUsingTestBase
                        .flush()
                        .consumeResponse(SessionCompleted.class);
 
-            try (FrameTransport transport2 = new FrameTransport(getBrokerAdmin()).connect())
+            try (FrameTransport transport2 = new FrameTransport(brokerAdmin).connect())
             {
                 final Interaction interaction2 = transport2.newInteraction();
-                ExecutionException response = interaction2.negotiateOpen()
+                ExecutionException response = interaction2.negotiateOpen(testInfo.virtualHostName())
                                                           .channelId(1)
                                                           .attachSession("test2".getBytes(UTF_8))
                                                           .message()
@@ -264,10 +269,10 @@ public class QueueTest extends BrokerAdminUsingTestBase
             }
         }
 
-        try (FrameTransport transport2 = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport2 = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction2 = transport2.newInteraction();
-            interaction2.negotiateOpen()
+            interaction2.negotiateOpen(testInfo.virtualHostName())
                         .channelId(1)
                         .attachSession("test2".getBytes(UTF_8))
                         .message()
@@ -286,12 +291,12 @@ public class QueueTest extends BrokerAdminUsingTestBase
     @SpecificationTest(section = "10.queue.declare",
             description = "If the server receives a declare, bind, consume or get request for a queue that has been"
                           + "declared as exclusive by an existing client session, it MUST raise an exception.")
-    public void queueDeclareRedeclareOfExclusivelyDeclaredQueue() throws Exception
+    public void queueDeclareRedeclareOfExclusivelyDeclaredQueue(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            interaction.negotiateOpen()
+            interaction.negotiateOpen(testInfo.virtualHostName())
                        .channelId(1)
                        .attachSession(SESSION_NAME)
                        .queue()
@@ -304,10 +309,10 @@ public class QueueTest extends BrokerAdminUsingTestBase
                        .flush()
                        .consumeResponse(SessionCompleted.class);
 
-            try (FrameTransport transport2 = new FrameTransport(getBrokerAdmin()).connect())
+            try (FrameTransport transport2 = new FrameTransport(brokerAdmin).connect())
             {
                 final Interaction interaction2 = transport2.newInteraction();
-                ExecutionException response = interaction2.negotiateOpen()
+                ExecutionException response = interaction2.negotiateOpen(testInfo.virtualHostName())
                                                           .channelId(1)
                                                           .attachSession("test2".getBytes(UTF_8))
                                                           .queue()
@@ -326,10 +331,10 @@ public class QueueTest extends BrokerAdminUsingTestBase
             }
         }
 
-        try (FrameTransport transport2 = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport2 = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction2 = transport2.newInteraction();
-            interaction2.negotiateOpen()
+            interaction2.negotiateOpen(testInfo.virtualHostName())
                         .channelId(1)
                         .attachSession("test2".getBytes(UTF_8))
                         .queue()
@@ -348,12 +353,12 @@ public class QueueTest extends BrokerAdminUsingTestBase
     @SpecificationTest(section = "10.queue.declare",
             description = "If this field [auto-delete] is set and the exclusive field is also set, then the queue "
                           + "MUST be deleted when the session closes.")
-    public void queueDeclareAutoDeleteAndExclusiveDeletedBySessionDetach() throws Exception
+    public void queueDeclareAutoDeleteAndExclusiveDeletedBySessionDetach(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            interaction.negotiateOpen()
+            interaction.negotiateOpen(testInfo.virtualHostName())
                        .channelId(1)
                        .attachSession(SESSION_NAME)
                        .queue()
@@ -394,12 +399,12 @@ public class QueueTest extends BrokerAdminUsingTestBase
             description = "If this field is set and the exclusive field is not set the queue is deleted when all the "
                           + "consumers have finished using it. Last consumer can be cancelled either explicitly or "
                           + "because its session is closed.")
-    public void queueDeclareAutoDeleteDeletedByLastConsumerCancelled() throws Exception
+    public void queueDeclareAutoDeleteDeletedByLastConsumerCancelled(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            interaction.negotiateOpen()
+            interaction.negotiateOpen(testInfo.virtualHostName())
                        .channelId(1)
                        .attachSession(SESSION_NAME)
                        .queue()
@@ -413,11 +418,11 @@ public class QueueTest extends BrokerAdminUsingTestBase
                        .consumeResponse(SessionCompleted.class);
         }
 
-        try (FrameTransport transport2 = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport2 = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction2 = transport2.newInteraction();
             String subscriberName = "mysub";
-            interaction2.negotiateOpen()
+            interaction2.negotiateOpen(testInfo.virtualHostName())
                         .channelId(1)
                         .attachSession("test2".getBytes(UTF_8))
                         .queue()
@@ -461,14 +466,14 @@ public class QueueTest extends BrokerAdminUsingTestBase
 
     @Test
     @SpecificationTest(section = "10.queue.delete", description = "This command deletes a queue.")
-    public void queueDelete() throws Exception
+    public void queueDelete(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        getBrokerAdmin().createQueue(BrokerAdmin.TEST_QUEUE_NAME);
+        brokerAdmin.createQueue(BrokerAdmin.TEST_QUEUE_NAME);
 
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            interaction.negotiateOpen()
+            interaction.negotiateOpen(testInfo.virtualHostName())
                        .channelId(1)
                        .attachSession(SESSION_NAME)
                        .queue()
@@ -500,12 +505,12 @@ public class QueueTest extends BrokerAdminUsingTestBase
     @SpecificationTest(section = "10.queue.delete",
             description = "The queue must exist. If the client attempts to delete a non-existing queue the server "
                           + "MUST raise an exception.")
-    public void queueDeleteQueueNotFound() throws Exception
+    public void queueDeleteQueueNotFound(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            ExecutionException response = interaction.negotiateOpen()
+            ExecutionException response = interaction.negotiateOpen(testInfo.virtualHostName())
                                                      .channelId(1)
                                                      .attachSession(SESSION_NAME)
                                                      .queue()
@@ -526,16 +531,16 @@ public class QueueTest extends BrokerAdminUsingTestBase
     @SpecificationTest(section = "10.queue.delete",
             description = "If set, the server will only delete the queue if it has no consumers. If the queue has "
                           + "consumers the server does does not delete it but raises an exception instead.")
-    public void queueDeleteQueueDeleteWithConsumer() throws Exception
+    public void queueDeleteQueueDeleteWithConsumer(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        getBrokerAdmin().createQueue(BrokerAdmin.TEST_QUEUE_NAME);
+        brokerAdmin.createQueue(BrokerAdmin.TEST_QUEUE_NAME);
 
-        try (FrameTransport consumerTransport = new FrameTransport(getBrokerAdmin()).connect();
-             FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport consumerTransport = new FrameTransport(brokerAdmin).connect();
+             FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction consumerInteraction = consumerTransport.newInteraction();
             String subscriberName = "mysub";
-            consumerInteraction.negotiateOpen()
+            consumerInteraction.negotiateOpen(testInfo.virtualHostName())
                                .channelId(1)
                                .attachSession(SESSION_NAME)
                                .message()
@@ -549,7 +554,7 @@ public class QueueTest extends BrokerAdminUsingTestBase
                                .consumeResponse(SessionCompleted.class);
 
             final Interaction interaction = transport.newInteraction();
-            ExecutionException response = interaction.negotiateOpen()
+            ExecutionException response = interaction.negotiateOpen(testInfo.virtualHostName())
                                                      .channelId(1)
                                                      .attachSession("test2".getBytes(UTF_8))
                                                      .queue()
@@ -589,15 +594,15 @@ public class QueueTest extends BrokerAdminUsingTestBase
 
     @Test
     @SpecificationTest(section = "10.queue.purge", description = "This command removes all messages from a queue.")
-    public void queuePurge() throws Exception
+    public void queuePurge(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        getBrokerAdmin().createQueue(BrokerAdmin.TEST_QUEUE_NAME);
-        getBrokerAdmin().putMessageOnQueue(BrokerAdmin.TEST_QUEUE_NAME, "message");
+        brokerAdmin.createQueue(BrokerAdmin.TEST_QUEUE_NAME);
+        brokerAdmin.putMessageOnQueue(BrokerAdmin.TEST_QUEUE_NAME, "message");
 
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            ExecutionResult result = interaction.negotiateOpen()
+            ExecutionResult result = interaction.negotiateOpen(testInfo.virtualHostName())
                                                 .channelId(1)
                                                 .attachSession(SESSION_NAME)
                                                 .queue()
@@ -638,12 +643,12 @@ public class QueueTest extends BrokerAdminUsingTestBase
     @SpecificationTest(section = "10.queue.purge",
             description = "The queue must exist. If the client attempts to purge a non-existing queue the server "
                           + "MUST raise an exception.")
-    public void queuePurgeQueueNotFound() throws Exception
+    public void queuePurgeQueueNotFound(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            ExecutionException response = interaction.negotiateOpen()
+            ExecutionException response = interaction.negotiateOpen(testInfo.virtualHostName())
                                                      .channelId(1)
                                                      .attachSession(SESSION_NAME)
                                                      .queue()
@@ -664,15 +669,15 @@ public class QueueTest extends BrokerAdminUsingTestBase
     @Test
     @SpecificationTest(section = "10.queue.query",
             description = "This command requests information about a queue.")
-    public void queueQuery() throws Exception
+    public void queueQuery(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        getBrokerAdmin().createQueue(BrokerAdmin.TEST_QUEUE_NAME);
-        getBrokerAdmin().putMessageOnQueue(BrokerAdmin.TEST_QUEUE_NAME, "message");
+        brokerAdmin.createQueue(BrokerAdmin.TEST_QUEUE_NAME);
+        brokerAdmin.putMessageOnQueue(BrokerAdmin.TEST_QUEUE_NAME, "message");
 
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            ExecutionResult result = interaction.negotiateOpen()
+            ExecutionResult result = interaction.negotiateOpen(testInfo.virtualHostName())
                                                         .channelId(1)
                                                         .attachSession(SESSION_NAME)
                                                         .queue()

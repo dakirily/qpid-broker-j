@@ -18,6 +18,7 @@
  * under the License.
  *
  */
+
 package org.apache.qpid.tests.protocol.v0_8.extension.queue;
 
 import static org.apache.qpid.tests.utils.BrokerAdmin.KIND_BROKER_J;
@@ -31,6 +32,9 @@ import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.apache.qpid.tests.utils.QpidTestInfo;
+import org.apache.qpid.tests.utils.QpidTestInfoExtension;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.Test;
 
 import org.apache.qpid.server.bytebuffer.QpidByteBuffer;
@@ -50,20 +54,21 @@ import org.apache.qpid.server.protocol.v0_8.transport.QueueDeclareOkBody;
 import org.apache.qpid.tests.protocol.v0_8.FrameTransport;
 import org.apache.qpid.tests.protocol.v0_8.Interaction;
 import org.apache.qpid.tests.utils.BrokerAdmin;
-import org.apache.qpid.tests.utils.BrokerAdminUsingTestBase;
+import org.apache.qpid.tests.utils.BrokerAdminExtension;
 import org.apache.qpid.tests.utils.BrokerSpecific;
 
+@ExtendWith({ BrokerAdminExtension.class, QpidTestInfoExtension.class })
 @BrokerSpecific(kind = KIND_BROKER_J)
-public class QueueTest extends BrokerAdminUsingTestBase
+public class QueueTest
 {
 
     @Test
-    public void queueDeclareUsingRealQueueAttributesInWireArguments() throws Exception
+    public void queueDeclareUsingRealQueueAttributesInWireArguments(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            QueueDeclareOkBody response = interaction.negotiateOpen()
+            QueueDeclareOkBody response = interaction.negotiateOpen(testInfo.virtualHostName())
                                                      .channel().open().consumeResponse(ChannelOpenOkBody.class)
                                                      .queue().declareName(BrokerAdmin.TEST_QUEUE_NAME)
                                                      .declareArguments(Map.of("defaultFilters",
@@ -139,22 +144,22 @@ public class QueueTest extends BrokerAdminUsingTestBase
             String receivedContent = new String(contentData, StandardCharsets.UTF_8);
 
             assertThat(receivedContent, is(equalTo(receivedContent)));
-            assertThat(getBrokerAdmin().getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(2)));
+            assertThat(brokerAdmin.getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(2)));
 
             interaction.basic().ackDeliveryTag(delivery.getDeliveryTag())
                        .ack()
                        .channel().close().consumeResponse(ChannelCloseOkBody.class);
-            assertThat(getBrokerAdmin().getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(1)));
+            assertThat(brokerAdmin.getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(1)));
         }
     }
 
     @Test
-    public void queueDeclareInvalidWireArguments() throws Exception
+    public void queueDeclareInvalidWireArguments(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            ConnectionCloseBody response = interaction.negotiateOpen()
+            ConnectionCloseBody response = interaction.negotiateOpen(testInfo.virtualHostName())
                                                       .channel().open().consumeResponse(ChannelOpenOkBody.class)
                                                       .queue().declareName(BrokerAdmin.TEST_QUEUE_NAME)
                                                       .declareArguments(Map.of("foo", "bar"))

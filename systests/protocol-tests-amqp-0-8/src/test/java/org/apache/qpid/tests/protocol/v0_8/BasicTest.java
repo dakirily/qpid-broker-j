@@ -18,6 +18,7 @@
  * under the License.
  *
  */
+
 package org.apache.qpid.tests.protocol.v0_8;
 
 import static org.hamcrest.CoreMatchers.equalTo;
@@ -32,7 +33,10 @@ import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.apache.qpid.tests.utils.QpidTestInfo;
+import org.apache.qpid.tests.utils.QpidTestInfoExtension;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.Test;
 
 import org.apache.qpid.server.bytebuffer.QpidByteBuffer;
@@ -55,24 +59,25 @@ import org.apache.qpid.server.protocol.v0_8.transport.ExchangeDeclareOkBody;
 import org.apache.qpid.server.protocol.v0_8.transport.QueueDeclareOkBody;
 import org.apache.qpid.tests.protocol.SpecificationTest;
 import org.apache.qpid.tests.utils.BrokerAdmin;
-import org.apache.qpid.tests.utils.BrokerAdminUsingTestBase;
+import org.apache.qpid.tests.utils.BrokerAdminExtension;
 
-public class BasicTest extends BrokerAdminUsingTestBase
+@ExtendWith({ BrokerAdminExtension.class, QpidTestInfoExtension.class })
+public class BasicTest
 {
     @BeforeEach
-    public void setUp()
+    public void setUp(final BrokerAdmin brokerAdmin)
     {
-        getBrokerAdmin().createQueue(BrokerAdmin.TEST_QUEUE_NAME);
+        brokerAdmin.createQueue(BrokerAdmin.TEST_QUEUE_NAME);
     }
 
     @Test
     @SpecificationTest(section = "1.8.3.7", description = "publish a message")
-    public void publishMessage() throws Exception
+    public void publishMessage(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try(FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try(FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            interaction.negotiateOpen()
+            interaction.negotiateOpen(testInfo.virtualHostName())
                        .channel().open().consumeResponse(ChannelOpenOkBody.class)
                        .basic().contentHeaderPropertiesContentType("text/plain")
                                .contentHeaderPropertiesHeaders(Map.of("test", "testValue"))
@@ -85,18 +90,18 @@ public class BasicTest extends BrokerAdminUsingTestBase
                        .channel().close()
                        .consumeResponse(ChannelCloseOkBody.class);
 
-            assertThat(getBrokerAdmin().getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(1)));
+            assertThat(brokerAdmin.getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(1)));
         }
     }
 
     @Test
     @SpecificationTest(section = "1.8.3.7", description = "indicate mandatory routing")
-    public void publishMandatoryMessage() throws Exception
+    public void publishMandatoryMessage(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try(FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try(FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            interaction.negotiateOpen()
+            interaction.negotiateOpen(testInfo.virtualHostName())
                        .channel().open().consumeResponse(ChannelOpenOkBody.class)
                        .basic().publishExchange("")
                                .publishRoutingKey(BrokerAdmin.TEST_QUEUE_NAME)
@@ -106,7 +111,7 @@ public class BasicTest extends BrokerAdminUsingTestBase
                        .channel().close()
                        .consumeResponse(ChannelCloseOkBody.class);
 
-            assertThat(getBrokerAdmin().getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(1)));
+            assertThat(brokerAdmin.getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(1)));
         }
     }
 
@@ -115,13 +120,13 @@ public class BasicTest extends BrokerAdminUsingTestBase
             description = "This flag [mandatory] tells the server how to react if the message cannot be routed to a "
                           + "queue. If this flag is set, the server will return an unroutable message with a "
                           + "Return method.")
-    public void publishUnrouteableMandatoryMessage() throws Exception
+    public void publishUnrouteableMandatoryMessage(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try(FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try(FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
             String messageContent = "Test";
-            BasicReturnBody returned = interaction.negotiateOpen()
+            BasicReturnBody returned = interaction.negotiateOpen(testInfo.virtualHostName())
                                                   .channel().open().consumeResponse(ChannelOpenOkBody.class)
                                                   .basic().publishExchange("")
                                                   .publishRoutingKey("unrouteable")
@@ -144,12 +149,12 @@ public class BasicTest extends BrokerAdminUsingTestBase
     @SpecificationTest(section = "1.8.3.7",
             description = "This flag [mandatory] tells the server how to react if the message cannot be routed to a "
                           + "queue. If this flag is zero, the server silently drops the message.")
-    public void publishUnrouteableMessage() throws Exception
+    public void publishUnrouteableMessage(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try(FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try(FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            interaction.negotiateOpen()
+            interaction.negotiateOpen(testInfo.virtualHostName())
                        .channel().open().consumeResponse(ChannelOpenOkBody.class)
                        .basic().publishExchange("")
                        .publishRoutingKey("unrouteable")
@@ -164,7 +169,7 @@ public class BasicTest extends BrokerAdminUsingTestBase
     @SpecificationTest(section = "1.8",
             description = "The server SHOULD respect the persistent property of basic messages and SHOULD make a best "
                           + "effort to hold persistent basic messages on a reliable storage mechanism.")
-    public void messagePersistence() throws Exception
+    public void messagePersistence(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
         String queueName = "durableQueue";
         String messageContent = "Test";
@@ -172,10 +177,10 @@ public class BasicTest extends BrokerAdminUsingTestBase
         byte deliveryMode = (byte) 2;
         Map<String, Object> messageHeaders = Map.of("test", "testValue");
 
-        try(FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try(FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            interaction.negotiateOpen()
+            interaction.negotiateOpen(testInfo.virtualHostName())
                        .channel().open().consumeResponse(ChannelOpenOkBody.class)
                        .queue().declareName(queueName).declareDurable(true).declare()
                        .consumeResponse(QueueDeclareOkBody.class)
@@ -189,18 +194,18 @@ public class BasicTest extends BrokerAdminUsingTestBase
                        .channel().close()
                        .consumeResponse(ChannelCloseOkBody.class);
 
-            assertThat(getBrokerAdmin().getQueueDepthMessages(queueName), is(equalTo(1)));
+            assertThat(brokerAdmin.getQueueDepthMessages(queueName), is(equalTo(1)));
         }
 
-        assumeTrue(getBrokerAdmin().supportsRestart());
-        getBrokerAdmin().restart();
-        assertThat(getBrokerAdmin().getQueueDepthMessages(queueName), is(equalTo(1)));
+        assumeTrue(brokerAdmin.supportsRestart());
+        brokerAdmin.restart();
+        assertThat(brokerAdmin.getQueueDepthMessages(queueName), is(equalTo(1)));
 
-        try(FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try(FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
 
-            interaction.negotiateOpen()
+            interaction.negotiateOpen(testInfo.virtualHostName())
                        .channel().open()
                        .consumeResponse(ChannelOpenOkBody.class)
                        .basic().getQueueName(queueName).getNoAck(true).get()
@@ -221,15 +226,15 @@ public class BasicTest extends BrokerAdminUsingTestBase
 
             interaction.channel().close().consumeResponse(ChannelCloseOkBody.class);
 
-            assertThat(getBrokerAdmin().getQueueDepthMessages(queueName), is(equalTo(0)));
+            assertThat(brokerAdmin.getQueueDepthMessages(queueName), is(equalTo(0)));
         }
     }
 
     @Test
     @SpecificationTest(section = "1.8.3.3", description = "start a queue consumer")
-    public void consumeMessage() throws Exception
+    public void consumeMessage(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try(FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try(FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
             String messageContent = "Test";
@@ -239,7 +244,7 @@ public class BasicTest extends BrokerAdminUsingTestBase
             String messageContentType = "text/plain";
             byte deliveryMode = (byte) 1;
             byte priority = (byte) 2;
-            interaction.negotiateOpen()
+            interaction.negotiateOpen(testInfo.virtualHostName())
                        .channel().open()
                        .consumeResponse(ChannelOpenOkBody.class)
                        .basic().qosPrefetchCount(1)
@@ -284,28 +289,28 @@ public class BasicTest extends BrokerAdminUsingTestBase
             String receivedContent = interaction.getLatestResponseContentBodyAsString();
 
             assertThat(receivedContent, is(equalTo(messageContent)));
-            assertThat(getBrokerAdmin().getQueueDepthMessages(queueName), is(equalTo(1)));
+            assertThat(brokerAdmin.getQueueDepthMessages(queueName), is(equalTo(1)));
 
             interaction.basic().ackDeliveryTag(delivery.getDeliveryTag())
                               .ack()
                        .channel().close().consumeResponse(ChannelCloseOkBody.class);
-            assertThat(getBrokerAdmin().getQueueDepthMessages(queueName), is(equalTo(0)));
+            assertThat(brokerAdmin.getQueueDepthMessages(queueName), is(equalTo(0)));
         }
     }
 
     @Test
     @SpecificationTest(section = "1.8.3.3", description = "If no consumer tag is given then the server should generate " +
             "a unique tag, not clashing with an existing tag")
-    public void serverGeneratedTagUniqueness() throws Exception
+    public void serverGeneratedTagUniqueness(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
 
 
             String queueName = BrokerAdmin.TEST_QUEUE_NAME;
             String consumerTag = "sgen_1";
-            interaction.negotiateOpen()
+            interaction.negotiateOpen(testInfo.virtualHostName())
                     .channel().open()
                     .consumeResponse(ChannelOpenOkBody.class)
                     .basic().qosPrefetchCount(1)
@@ -334,15 +339,15 @@ public class BasicTest extends BrokerAdminUsingTestBase
                           + " a client MUST not acknowledge the same message more than once."
                           + ""
                           + "Note current broker behaviour is spec incompliant: broker ignores not valid delivery tags")
-    public void ackWithInvalidDeliveryTag() throws Exception
+    public void ackWithInvalidDeliveryTag(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try(FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try(FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
             String consumerTag = "A";
             final long deliveryTag = 12345L;
             String queueName = BrokerAdmin.TEST_QUEUE_NAME;
-            interaction.negotiateOpen()
+            interaction.negotiateOpen(testInfo.virtualHostName())
                        .channel().open()
                        .consumeResponse(ChannelOpenOkBody.class)
                        .basic().qosPrefetchCount(1)
@@ -361,15 +366,15 @@ public class BasicTest extends BrokerAdminUsingTestBase
 
     @Test
     @SpecificationTest(section = "1.8.3.10", description = "direct access to a queue")
-    public void get() throws Exception
+    public void get(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
         String messageContent = "message";
-        getBrokerAdmin().putMessageOnQueue(BrokerAdmin.TEST_QUEUE_NAME, messageContent);
+        brokerAdmin.putMessageOnQueue(BrokerAdmin.TEST_QUEUE_NAME, messageContent);
 
-        try(FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try(FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            BasicGetOkBody response = interaction.negotiateOpen()
+            BasicGetOkBody response = interaction.negotiateOpen(testInfo.virtualHostName())
                                                  .channel().open()
                                                  .consumeResponse(ChannelOpenOkBody.class)
                                                  .basic().getQueueName(BrokerAdmin.TEST_QUEUE_NAME).get()
@@ -382,26 +387,26 @@ public class BasicTest extends BrokerAdminUsingTestBase
             String receivedContent = getContent(content);
             assertThat(receivedContent, is(equalTo(messageContent)));
 
-            assertThat(getBrokerAdmin().getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(1)));
+            assertThat(brokerAdmin.getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(1)));
 
             interaction.basic().ackDeliveryTag(deliveryTag).ack()
                        .channel().close().consumeResponse(ChannelCloseOkBody.class);
 
-            assertThat(getBrokerAdmin().getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(0)));
+            assertThat(brokerAdmin.getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(0)));
         }
     }
 
     @Test
     @SpecificationTest(section = "1.8.3.10", description = "direct access to a queue")
-    public void getNoAck() throws Exception
+    public void getNoAck(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
         String messageContent = "message";
-        getBrokerAdmin().putMessageOnQueue(BrokerAdmin.TEST_QUEUE_NAME, messageContent);
+        brokerAdmin.putMessageOnQueue(BrokerAdmin.TEST_QUEUE_NAME, messageContent);
 
-        try(FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try(FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            interaction.negotiateOpen()
+            interaction.negotiateOpen(testInfo.virtualHostName())
                        .channel().open()
                        .consumeResponse(ChannelOpenOkBody.class)
                        .basic().getQueueName(BrokerAdmin.TEST_QUEUE_NAME).getNoAck(true).get()
@@ -415,18 +420,18 @@ public class BasicTest extends BrokerAdminUsingTestBase
 
             interaction.channel().close().consumeResponse(ChannelCloseOkBody.class);
 
-            assertThat(getBrokerAdmin().getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(0)));
+            assertThat(brokerAdmin.getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(0)));
         }
     }
 
     @Test
     @SpecificationTest(section = "1.8.3.10", description = "direct access to a queue")
-    public void getEmptyQueue() throws Exception
+    public void getEmptyQueue(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try(FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try(FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            interaction.negotiateOpen()
+            interaction.negotiateOpen(testInfo.virtualHostName())
                        .channel().open()
                        .consumeResponse(ChannelOpenOkBody.class)
                        .basic().getQueueName(BrokerAdmin.TEST_QUEUE_NAME).get()
@@ -439,18 +444,18 @@ public class BasicTest extends BrokerAdminUsingTestBase
             description = "This field specifies the prefetch window size in octets. The server will send a message "
                           + "in advance if it is equal to or smaller in size than the available prefetch size (and "
                           + "also falls into other prefetch limits).")
-    public void qosBytesPrefetch() throws Exception
+    public void qosBytesPrefetch(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
         String messageContent1 = "1".repeat(128);
         String messageContent2 = "2".repeat(128);
         String messageContent3 = "3".repeat(256);
 
-        try(FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try(FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
             String consumerTag = "A";
 
-            interaction.negotiateOpen()
+            interaction.negotiateOpen(testInfo.virtualHostName())
                        .channel().open()
                        .consumeResponse(ChannelOpenOkBody.class)
                        .basic()
@@ -510,17 +515,17 @@ public class BasicTest extends BrokerAdminUsingTestBase
                           + "the prefetch size does not limit the transfer of single messages to a client, only "
                           + "the sending in advance of more messages while the client still has one or more "
                           + "unacknowledged messages.")
-    public void qosBytesSizeQosDoesNotPreventFirstMessage() throws Exception
+    public void qosBytesSizeQosDoesNotPreventFirstMessage(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
         String messageContent = "*".repeat(1024);
-        getBrokerAdmin().putMessageOnQueue(BrokerAdmin.TEST_QUEUE_NAME, messageContent);
+        brokerAdmin.putMessageOnQueue(BrokerAdmin.TEST_QUEUE_NAME, messageContent);
 
-        try(FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try(FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
             String consumerTag = "A";
 
-            interaction.negotiateOpen()
+            interaction.negotiateOpen(testInfo.virtualHostName())
                        .channel().open()
                        .consumeResponse(ChannelOpenOkBody.class)
                        .channel().flow(true)
@@ -552,7 +557,7 @@ public class BasicTest extends BrokerAdminUsingTestBase
                        .ack()
                        .channel().close().consumeResponse(ChannelCloseOkBody.class);
 
-            assertThat(getBrokerAdmin().getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(0)));
+            assertThat(brokerAdmin.getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(0)));
         }
     }
 
@@ -561,16 +566,16 @@ public class BasicTest extends BrokerAdminUsingTestBase
      * to prevent channel starvation. This test supports this qos use-case.
      */
     @Test
-    public void qosCountResized() throws Exception
+    public void qosCountResized(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        getBrokerAdmin().putMessageOnQueue(BrokerAdmin.TEST_QUEUE_NAME, "A", "B", "C", "D", "E", "F");
+        brokerAdmin.putMessageOnQueue(BrokerAdmin.TEST_QUEUE_NAME, "A", "B", "C", "D", "E", "F");
 
-        try(FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try(FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
             String consumerTag = "A";
 
-            interaction.negotiateOpen()
+            interaction.negotiateOpen(testInfo.virtualHostName())
                        .channel().open()
                        .consumeResponse(ChannelOpenOkBody.class)
                        .channel().flow(true)
@@ -620,7 +625,7 @@ public class BasicTest extends BrokerAdminUsingTestBase
 
             interaction.channel().close().consumeResponse(ChannelCloseOkBody.class);
 
-            assertThat(getBrokerAdmin().getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(2)));
+            assertThat(brokerAdmin.getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(2)));
         }
     }
 
@@ -629,16 +634,16 @@ public class BasicTest extends BrokerAdminUsingTestBase
      * basic.qos (count one) and regulating the flow using channel.flow. This test supports this use-case.
      */
     @Test
-    public void pollingUsingFlow() throws Exception
+    public void pollingUsingFlow(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        getBrokerAdmin().putMessageOnQueue(BrokerAdmin.TEST_QUEUE_NAME, "A", "B", "C");
+        brokerAdmin.putMessageOnQueue(BrokerAdmin.TEST_QUEUE_NAME, "A", "B", "C");
 
-        try(FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try(FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
             String consumerTag = "A";
 
-            interaction.negotiateOpen()
+            interaction.negotiateOpen(testInfo.virtualHostName())
                        .channel().open()
                        .consumeResponse(ChannelOpenOkBody.class)
                        .basic().qosPrefetchCount(1)
@@ -674,7 +679,7 @@ public class BasicTest extends BrokerAdminUsingTestBase
                        .basic().ackDeliveryTag(deliveryTagB).ack()
                        .channel().close().consumeResponse(ChannelCloseOkBody.class);
 
-            assertThat(getBrokerAdmin().getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(1)));
+            assertThat(brokerAdmin.getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(1)));
         }
     }
 

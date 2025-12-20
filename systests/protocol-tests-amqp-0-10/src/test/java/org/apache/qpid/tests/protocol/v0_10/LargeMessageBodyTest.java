@@ -18,6 +18,7 @@
  * under the License.
  *
  */
+
 package org.apache.qpid.tests.protocol.v0_10;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -27,7 +28,9 @@ import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.util.stream.IntStream;
 
-import org.junit.jupiter.api.BeforeEach;
+import org.apache.qpid.tests.utils.QpidTestInfo;
+import org.apache.qpid.tests.utils.QpidTestInfoExtension;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.Test;
 
 import org.apache.qpid.server.bytebuffer.QpidByteBuffer;
@@ -40,21 +43,16 @@ import org.apache.qpid.server.protocol.v0_10.transport.SessionCommandPoint;
 import org.apache.qpid.server.protocol.v0_10.transport.SessionCompleted;
 import org.apache.qpid.server.protocol.v0_10.transport.SessionConfirmed;
 import org.apache.qpid.tests.utils.BrokerAdmin;
-import org.apache.qpid.tests.utils.BrokerAdminUsingTestBase;
+import org.apache.qpid.tests.utils.BrokerAdminExtension;
 
-public class LargeMessageBodyTest extends BrokerAdminUsingTestBase
+@ExtendWith({ BrokerAdminExtension.class, QpidTestInfoExtension.class })
+public class LargeMessageBodyTest
 {
-
-    @BeforeEach
-    public void setUp()
-    {
-        getBrokerAdmin().createQueue(BrokerAdmin.TEST_QUEUE_NAME);
-    }
-
     @Test
-    public void messageBodyOverManyFrames() throws Exception
+    public void messageBodyOverManyFrames(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        brokerAdmin.createQueue(BrokerAdmin.TEST_QUEUE_NAME);
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
             final String subscriberName = "testSubscriber";
@@ -66,7 +64,7 @@ public class LargeMessageBodyTest extends BrokerAdminUsingTestBase
             IntStream.range(0, messageContent.length).forEach(i -> {messageContent[i] = (byte) (i & 0xFF);});
 
             interaction.connection().tuneOk()
-                       .connection().open()
+                       .connection().openVirtualHost(testInfo.virtualHostName())
                        .consumeResponse(ConnectionOpenOk.class);
 
             MessageProperties messageProperties = new MessageProperties();

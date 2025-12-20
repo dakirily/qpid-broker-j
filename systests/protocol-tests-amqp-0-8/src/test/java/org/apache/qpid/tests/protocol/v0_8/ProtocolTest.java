@@ -18,6 +18,7 @@
  * under the License.
  *
  */
+
 package org.apache.qpid.tests.protocol.v0_8;
 
 import static org.hamcrest.CoreMatchers.equalTo;
@@ -27,6 +28,8 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.nio.charset.StandardCharsets;
 
+import org.apache.qpid.tests.utils.BrokerAdmin;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.Test;
 
 import org.apache.qpid.server.protocol.ProtocolVersion;
@@ -35,18 +38,19 @@ import org.apache.qpid.server.protocol.v0_8.transport.AMQVersionAwareProtocolSes
 import org.apache.qpid.server.protocol.v0_8.transport.ConnectionStartBody;
 import org.apache.qpid.server.transport.ByteBufferSender;
 import org.apache.qpid.tests.protocol.SpecificationTest;
-import org.apache.qpid.tests.utils.BrokerAdminUsingTestBase;
+import org.apache.qpid.tests.utils.BrokerAdminExtension;
 
-public class ProtocolTest extends BrokerAdminUsingTestBase
+@ExtendWith({ BrokerAdminExtension.class })
+public class ProtocolTest
 {
 
     @Test
     @SpecificationTest(section = "4.2.2",
             description = "If the server does not recognise the first 5 octets of data on the socket [...], it MUST "
                           + "write a valid protocol header to the socket, [...] and then close the socket connection.")
-    public void unrecognisedProtocolHeader() throws Exception
+    public void unrecognisedProtocolHeader(final BrokerAdmin brokerAdmin) throws Exception
     {
-        try(FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try(FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             assumeTrue(is(equalTo(ProtocolVersion.v0_91)).matches(transport.getProtocolVersion()));
 
@@ -67,9 +71,9 @@ public class ProtocolTest extends BrokerAdminUsingTestBase
             description = "If the server [...] does not support the specific protocol version that the client "
                           + "requests, it MUST write a valid protocol header to the socket, [...] and then close "
                           + "the socket connection.")
-    public void unrecognisedProtocolVersion() throws Exception
+    public void unrecognisedProtocolVersion(final BrokerAdmin brokerAdmin) throws Exception
     {
-        try(FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try(FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             assumeTrue(is(equalTo(ProtocolVersion.v0_91)).matches(transport.getProtocolVersion()));
 
@@ -87,9 +91,9 @@ public class ProtocolTest extends BrokerAdminUsingTestBase
 
     @Test
     @SpecificationTest(section = "4.2.2", description = "The server either accepts [...] the protocol header")
-    public void validProtocolVersion() throws Exception
+    public void validProtocolVersion(final BrokerAdmin brokerAdmin) throws Exception
     {
-        try(FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try(FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
 
@@ -104,9 +108,9 @@ public class ProtocolTest extends BrokerAdminUsingTestBase
             description = "If a peer receives a frame with a type that is not one of these defined types, it MUST "
                           + "treat this as a fatal protocol error and close the connection without sending any "
                           + "further data on it")
-    public void unrecognisedFrameType() throws Exception
+    public void unrecognisedFrameType(final BrokerAdmin brokerAdmin) throws Exception
     {
-        try(FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try(FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
 

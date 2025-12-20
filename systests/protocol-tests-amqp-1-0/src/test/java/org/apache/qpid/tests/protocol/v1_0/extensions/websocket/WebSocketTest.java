@@ -18,6 +18,7 @@
  * under the License.
  *
  */
+
 package org.apache.qpid.tests.protocol.v1_0.extensions.websocket;
 
 import static org.hamcrest.CoreMatchers.both;
@@ -29,7 +30,10 @@ import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
+import org.apache.qpid.tests.utils.QpidTestInfo;
+import org.apache.qpid.tests.utils.QpidTestInfoExtension;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.Test;
 
 import org.apache.qpid.server.protocol.v1_0.type.UnsignedInteger;
@@ -38,22 +42,24 @@ import org.apache.qpid.server.protocol.v1_0.type.transport.Open;
 import org.apache.qpid.tests.protocol.SpecificationTest;
 import org.apache.qpid.tests.protocol.v1_0.FrameTransport;
 import org.apache.qpid.tests.protocol.v1_0.Interaction;
-import org.apache.qpid.tests.utils.BrokerAdminUsingTestBase;
+import org.apache.qpid.tests.utils.BrokerAdmin;
+import org.apache.qpid.tests.utils.BrokerAdminExtension;
 
-public class WebSocketTest extends BrokerAdminUsingTestBase
+@ExtendWith({ BrokerAdminExtension.class, QpidTestInfoExtension.class })
+public class WebSocketTest
 {
     @BeforeEach
-    public void setUp()
+    public void setUp(final BrokerAdmin brokerAdmin)
     {
-        assumeTrue(getBrokerAdmin().isWebSocketSupported(), "Broker support for AMQP over websockets is required");
-        assumeTrue(getBrokerAdmin().isAnonymousSupported(), "Broker support for Anonymous open is required");
+        assumeTrue(brokerAdmin.isWebSocketSupported(), "Broker support for AMQP over websockets is required");
+        assumeTrue(brokerAdmin.isAnonymousSupported(), "Broker support for Anonymous open is required");
     }
 
     @Test
     @SpecificationTest(section = "2.1", description = "Opening a WebSocket Connection")
-    public void protocolHeader() throws Exception
+    public void protocolHeader(final BrokerAdmin brokerAdmin) throws Exception
     {
-        try (FrameTransport transport = new WebSocketFrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new WebSocketFrameTransport(brokerAdmin).connect())
         {
             final byte[] response = transport.newInteraction().negotiateProtocol().consumeResponse().getLatestResponse(byte[].class);
             assertArrayEquals(transport.getProtocolHeader(), response, "Unexpected protocol header response");
@@ -62,12 +68,13 @@ public class WebSocketTest extends BrokerAdminUsingTestBase
 
     @Test
     @SpecificationTest(section = "2.4", description = "[...] a single AMQP frame MAY be split over one or more consecutive WebSocket messages. ")
-    public void amqpFramesSplitOverManyWebSocketFrames() throws Exception
+    public void amqpFramesSplitOverManyWebSocketFrames(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new WebSocketFrameTransport(getBrokerAdmin()).splitAmqpFrames().connect())
+        try (FrameTransport transport = new WebSocketFrameTransport(brokerAdmin).splitAmqpFrames().connect())
         {
             Interaction interaction = transport.newInteraction();
-            final Open responseOpen = interaction.negotiateOpen().getLatestResponse(Open.class);
+            final Open responseOpen = interaction.openHostname(testInfo.virtualHostName())
+                    .negotiateOpen().getLatestResponse(Open.class);
 
             assertThat(responseOpen.getContainerId(), is(notNullValue()));
             assertThat(responseOpen.getMaxFrameSize().longValue(),
@@ -81,14 +88,15 @@ public class WebSocketTest extends BrokerAdminUsingTestBase
 
     @Test
     @SpecificationTest(section = "2.1", description = "Opening a WebSocket Connection")
-    public void successfulOpen() throws Exception
+    public void successfulOpen(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        assumeTrue(getBrokerAdmin().isWebSocketSupported());
+        assumeTrue(brokerAdmin.isWebSocketSupported());
 
-        try (FrameTransport transport = new WebSocketFrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new WebSocketFrameTransport(brokerAdmin).connect())
         {
             Interaction interaction = transport.newInteraction();
-            final Open responseOpen = interaction.negotiateOpen().getLatestResponse(Open.class);
+            final Open responseOpen = interaction.openHostname(testInfo.virtualHostName())
+                    .negotiateOpen().getLatestResponse(Open.class);
 
             assertThat(responseOpen.getContainerId(), is(notNullValue()));
             assertThat(responseOpen.getMaxFrameSize().longValue(),

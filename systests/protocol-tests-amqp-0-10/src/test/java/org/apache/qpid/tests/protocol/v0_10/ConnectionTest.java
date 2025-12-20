@@ -18,6 +18,7 @@
  * under the License.
  *
  */
+
 package org.apache.qpid.tests.protocol.v0_10;
 
 import static org.hamcrest.CoreMatchers.both;
@@ -29,6 +30,9 @@ import static org.hamcrest.Matchers.lessThan;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
+import org.apache.qpid.tests.utils.QpidTestInfo;
+import org.apache.qpid.tests.utils.QpidTestInfoExtension;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.Test;
 
 import org.apache.qpid.server.protocol.v0_10.transport.ConnectionClose;
@@ -41,18 +45,18 @@ import org.apache.qpid.tests.protocol.ChannelClosedResponse;
 import org.apache.qpid.tests.protocol.Response;
 import org.apache.qpid.tests.protocol.SpecificationTest;
 import org.apache.qpid.tests.utils.BrokerAdmin;
-import org.apache.qpid.tests.utils.BrokerAdminUsingTestBase;
+import org.apache.qpid.tests.utils.BrokerAdminExtension;
 
-public class ConnectionTest extends BrokerAdminUsingTestBase
+@ExtendWith({ BrokerAdminExtension.class, QpidTestInfoExtension.class })
+public class ConnectionTest
 {
-
     @Test
     @SpecificationTest(section = "9.connection.start-ok",
             description = "An AMQP client MUST handle incoming connection.start controls.")
-    public void startOk() throws Exception
+    public void startOk(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        assumeTrue(getBrokerAdmin().isAnonymousSupported());
-        try(FrameTransport transport = new FrameTransport(getBrokerAdmin(), BrokerAdmin.PortType.ANONYMOUS_AMQP).connect())
+        assumeTrue(brokerAdmin.isAnonymousSupported());
+        try(FrameTransport transport = new FrameTransport(brokerAdmin, BrokerAdmin.PortType.ANONYMOUS_AMQP).connect())
         {
             final Interaction interaction = transport.newInteraction();
             interaction.negotiateProtocol().consumeResponse()
@@ -66,10 +70,10 @@ public class ConnectionTest extends BrokerAdminUsingTestBase
     @SpecificationTest(section = "9.connection.tune-ok",
             description = "This control sends the client's connection tuning parameters to the server."
                           + " Certain fields are negotiated, others provide capability information.")
-    public void tuneOkAndOpen() throws Exception
+    public void tuneOkAndOpen(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        assumeTrue(getBrokerAdmin().isAnonymousSupported());
-        try(FrameTransport transport = new FrameTransport(getBrokerAdmin(), BrokerAdmin.PortType.ANONYMOUS_AMQP).connect())
+        assumeTrue(brokerAdmin.isAnonymousSupported());
+        try(FrameTransport transport = new FrameTransport(brokerAdmin, BrokerAdmin.PortType.ANONYMOUS_AMQP).connect())
         {
             final Interaction interaction = transport.newInteraction();
             interaction.negotiateProtocol().consumeResponse()
@@ -77,7 +81,7 @@ public class ConnectionTest extends BrokerAdminUsingTestBase
                        .connection().startOkMechanism(ConnectionInteraction.SASL_MECHANISM_ANONYMOUS).startOk()
                        .consumeResponse(ConnectionTune.class)
                        .connection().tuneOk()
-                       .connection().open()
+                       .connection().openVirtualHost(testInfo.virtualHostName())
                        .consumeResponse().getLatestResponse(ConnectionOpenOk.class);
         }
     }
@@ -85,15 +89,15 @@ public class ConnectionTest extends BrokerAdminUsingTestBase
     @Test
     @SpecificationTest(section = "9",
             description = "open-connection = C:protocol-header S:START C:START-OK *challenge S:TUNE C:TUNE-OK C:OPEN S:OPEN-OK")
-    public void authenticationBypassBySendingTuneOk() throws Exception
+    public void authenticationBypassBySendingTuneOk(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try(FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try(FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
             interaction.negotiateProtocol().consumeResponse()
                        .consumeResponse(ConnectionStart.class)
                        .connection().tuneOk()
-                       .connection().open()
+                       .connection().openVirtualHost(testInfo.virtualHostName())
                        .consumeResponse().getLatestResponse(ConnectionClose.class);
         }
     }
@@ -101,13 +105,13 @@ public class ConnectionTest extends BrokerAdminUsingTestBase
     @Test
     @SpecificationTest(section = "9",
             description = "open-connection = C:protocol-header S:START C:START-OK *challenge S:TUNE C:TUNE-OK C:OPEN S:OPEN-OK")
-    public void authenticationBypassBySendingOpen() throws Exception
+    public void authenticationBypassBySendingOpen(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try(FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try(FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
             interaction.negotiateProtocol().consumeResponse().consumeResponse(ConnectionStart.class)
-                       .connection().open()
+                       .connection().openVirtualHost(testInfo.virtualHostName())
                        .consumeResponse().getLatestResponse(ConnectionClose.class);
         }
     }
@@ -115,17 +119,17 @@ public class ConnectionTest extends BrokerAdminUsingTestBase
     @Test
     @SpecificationTest(section = "9",
             description = "open-connection = C:protocol-header S:START C:START-OK *challenge S:TUNE C:TUNE-OK C:OPEN S:OPEN-OK")
-    public void authenticationBypassAfterSendingStartOk() throws Exception
+    public void authenticationBypassAfterSendingStartOk(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        assumeTrue(getBrokerAdmin().isSASLMechanismSupported(ConnectionInteraction.SASL_MECHANISM_PLAIN));
-        try(FrameTransport transport = new FrameTransport(getBrokerAdmin(), BrokerAdmin.PortType.AMQP).connect())
+        assumeTrue(brokerAdmin.isSASLMechanismSupported(ConnectionInteraction.SASL_MECHANISM_PLAIN));
+        try(FrameTransport transport = new FrameTransport(brokerAdmin, BrokerAdmin.PortType.AMQP).connect())
         {
             final Interaction interaction = transport.newInteraction();
             interaction.negotiateProtocol().consumeResponse()
                        .consumeResponse(ConnectionStart.class)
                        .connection().startOkMechanism(ConnectionInteraction.SASL_MECHANISM_PLAIN).startOk().consumeResponse(ConnectionSecure.class)
                        .connection().tuneOk()
-                       .connection().open()
+                       .connection().openVirtualHost(testInfo.virtualHostName())
                        .consumeResponse(ConnectionClose.class, ChannelClosedResponse.class);
         }
     }
@@ -134,9 +138,9 @@ public class ConnectionTest extends BrokerAdminUsingTestBase
     @Test
     @SpecificationTest(section = "9.connection.tune-ok.minimum",
             description = "[...] the minimum negotiated value for max-frame-size is also MIN-MAX-FRAME-SIZE [4096]")
-    public void tooSmallFrameSize() throws Exception
+    public void tooSmallFrameSize(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
             ConnectionTune response = interaction.authenticateConnection().getLatestResponse(ConnectionTune.class);
@@ -144,7 +148,7 @@ public class ConnectionTest extends BrokerAdminUsingTestBase
             interaction.connection().tuneOkChannelMax(response.getChannelMax())
                                     .tuneOkMaxFrameSize(1024)
                                     .tuneOk()
-                       .connection().open()
+                       .connection().openVirtualHost(testInfo.virtualHostName())
                        .consumeResponse(ConnectionClose.class, ChannelClosedResponse.class);
         }
     }
@@ -154,9 +158,9 @@ public class ConnectionTest extends BrokerAdminUsingTestBase
             description = "If the client specifies a channel max that is higher than the value provided by the server,"
                           + " the server MUST close the connection without attempting a negotiated close."
                           + " The server may report the error in some fashion to assist implementers.")
-    public void tooLargeFrameSize() throws Exception
+    public void tooLargeFrameSize(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
             ConnectionTune response = interaction.authenticateConnection().getLatestResponse(ConnectionTune.class);
@@ -166,7 +170,7 @@ public class ConnectionTest extends BrokerAdminUsingTestBase
             interaction.connection().tuneOkChannelMax(response.getChannelMax())
                                     .tuneOkMaxFrameSize(response.getMaxFrameSize() + 1)
                                     .tuneOk()
-                       .connection().open()
+                       .connection().openVirtualHost(testInfo.virtualHostName())
                        .consumeResponse(ConnectionClose.class, ChannelClosedResponse.class);
         }
     }
@@ -175,9 +179,9 @@ public class ConnectionTest extends BrokerAdminUsingTestBase
     @SpecificationTest(section = "9.connection",
             description = "The heartbeat control may be used to generate artificial network traffic when a connection "
                           + "is idle.")
-    public void heartbeating() throws Exception
+    public void heartbeating(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
             ConnectionTune response = interaction.authenticateConnection().getLatestResponse(ConnectionTune.class);
@@ -196,7 +200,7 @@ public class ConnectionTest extends BrokerAdminUsingTestBase
                        .tuneOk();
 
             final long startTime = System.currentTimeMillis();
-            interaction.connection().open()
+            interaction.connection().openVirtualHost(testInfo.virtualHostName())
                        .consumeResponse(ConnectionOpenOk.class)
                        .consumeResponse().getLatestResponse(ConnectionHeartbeat.class);
 
@@ -217,9 +221,9 @@ public class ConnectionTest extends BrokerAdminUsingTestBase
     @SpecificationTest(section = "9.connection",
             description = "If a connection is idle for more than twice the negotiated heartbeat delay, the peers MAY "
                           + "be considered disconnected.")
-    public void heartbeatingIncomingIdle() throws Exception
+    public void heartbeatingIncomingIdle(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
             ConnectionTune response = interaction.authenticateConnection().getLatestResponse(ConnectionTune.class);
@@ -236,13 +240,13 @@ public class ConnectionTest extends BrokerAdminUsingTestBase
                        .tuneOkMaxFrameSize(response.getMaxFrameSize())
                        .tuneOkHeartbeat(heartbeatPeriod)
                        .tuneOk()
-                       .connection().open()
+                       .connection().openVirtualHost(testInfo.virtualHostName())
                        .consumeResponse(ConnectionOpenOk.class);
 
             interaction.consumeResponse().getLatestResponse(ConnectionHeartbeat.class);
 
             // the server might be able to send two heartbeats
-            Response latestResponse = interaction.consumeResponse().getLatestResponse();
+            Response<?> latestResponse = interaction.consumeResponse().getLatestResponse();
             if (latestResponse !=null && latestResponse.getBody() instanceof  ConnectionHeartbeat)
             {
                 latestResponse = interaction.consumeResponse().getLatestResponse();

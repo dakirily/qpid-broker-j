@@ -67,12 +67,12 @@ public abstract class HttpTestBase extends BrokerAdminUsingTestBase
 
     protected String getVirtualHost()
     {
-        return getClass().getSimpleName() + "_" + getTestName();
+        return getClass().getCanonicalName() + "_" + getTestName();
     }
 
     protected String getVirtualHostNode()
     {
-        return getClass().getSimpleName() + "_" + getTestName();
+        return getClass().getCanonicalName() + "_" + getTestName();
     }
 
     public HttpTestHelper getHelper()
@@ -89,10 +89,11 @@ public abstract class HttpTestBase extends BrokerAdminUsingTestBase
     {
         InetSocketAddress brokerAddress = getBrokerAdmin().getBrokerAddress(BrokerAdmin.PortType.AMQP);
         return _jmsProvider.getConnectionBuilder()
-                           .setHost(brokerAddress.getHostName())
-                           .setPort(brokerAddress.getPort())
-                           .setUsername(getBrokerAdmin().getValidUsername())
-                           .setPassword(getBrokerAdmin().getValidPassword());
+                .setHost(brokerAddress.getHostName())
+                .setPort(brokerAddress.getPort())
+                .setUsername(getBrokerAdmin().getValidUsername())
+                .setPassword(getBrokerAdmin().getValidPassword())
+                .setVirtualHost(getVirtualHostNode());
     }
 
     private HttpRequestConfig getHttpRequestConfig()

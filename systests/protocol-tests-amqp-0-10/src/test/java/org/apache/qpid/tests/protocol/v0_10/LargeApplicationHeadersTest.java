@@ -18,6 +18,7 @@
  * under the License.
  *
  */
+
 package org.apache.qpid.tests.protocol.v0_10;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -30,8 +31,10 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.junit.jupiter.api.BeforeEach;
+import org.apache.qpid.tests.utils.QpidTestInfo;
+import org.apache.qpid.tests.utils.QpidTestInfoExtension;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 import org.apache.qpid.server.protocol.v0_10.transport.ConnectionOpenOk;
 import org.apache.qpid.server.protocol.v0_10.transport.ConnectionTune;
@@ -43,21 +46,16 @@ import org.apache.qpid.server.protocol.v0_10.transport.SessionCommandPoint;
 import org.apache.qpid.server.protocol.v0_10.transport.SessionCompleted;
 import org.apache.qpid.server.protocol.v0_10.transport.SessionConfirmed;
 import org.apache.qpid.tests.utils.BrokerAdmin;
-import org.apache.qpid.tests.utils.BrokerAdminUsingTestBase;
+import org.apache.qpid.tests.utils.BrokerAdminExtension;
 
-public class LargeApplicationHeadersTest extends BrokerAdminUsingTestBase
+@ExtendWith({ BrokerAdminExtension.class, QpidTestInfoExtension.class })
+public class LargeApplicationHeadersTest
 {
-
-    @BeforeEach
-    public void setUp()
-    {
-        getBrokerAdmin().createQueue(BrokerAdmin.TEST_QUEUE_NAME);
-    }
-
     @Test
-    public void applicationHeadersSentOverManyFrames() throws Exception
+    public void applicationHeadersSentOverManyFrames(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        brokerAdmin.createQueue(BrokerAdmin.TEST_QUEUE_NAME);
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
             final String subscriberName = "testSubscriber";
@@ -73,7 +71,7 @@ public class LargeApplicationHeadersTest extends BrokerAdminUsingTestBase
             messageProperties.setApplicationHeaders(applicationHeaders);
 
             interaction.connection().tuneOk()
-                       .connection().open()
+                       .connection().openVirtualHost(testInfo.virtualHostName())
                        .consumeResponse(ConnectionOpenOk.class);
 
             interaction.channelId(1)

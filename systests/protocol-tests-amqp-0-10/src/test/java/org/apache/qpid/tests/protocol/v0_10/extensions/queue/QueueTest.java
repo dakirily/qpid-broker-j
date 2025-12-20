@@ -18,6 +18,7 @@
  * under the License.
  *
  */
+
 package org.apache.qpid.tests.protocol.v0_10.extensions.queue;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -29,6 +30,9 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
+import org.apache.qpid.tests.utils.QpidTestInfo;
+import org.apache.qpid.tests.utils.QpidTestInfoExtension;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.Test;
 
 import org.apache.qpid.server.bytebuffer.QpidByteBuffer;
@@ -43,21 +47,22 @@ import org.apache.qpid.server.protocol.v0_10.transport.SessionConfirmed;
 import org.apache.qpid.tests.protocol.v0_10.FrameTransport;
 import org.apache.qpid.tests.protocol.v0_10.Interaction;
 import org.apache.qpid.tests.utils.BrokerAdmin;
-import org.apache.qpid.tests.utils.BrokerAdminUsingTestBase;
+import org.apache.qpid.tests.utils.BrokerAdminExtension;
 import org.apache.qpid.tests.utils.BrokerSpecific;
 
+@ExtendWith({ BrokerAdminExtension.class, QpidTestInfoExtension.class })
 @BrokerSpecific(kind = KIND_BROKER_J)
-public class QueueTest extends BrokerAdminUsingTestBase
+public class QueueTest
 {
     private static final byte[] SESSION_NAME = "test".getBytes(UTF_8);
 
     @Test
-    public void queueDeclareUsingRealQueueAttributesInWireArguments() throws Exception
+    public void queueDeclareUsingRealQueueAttributesInWireArguments(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            SessionCompleted completed = interaction.negotiateOpen()
+            SessionCompleted completed = interaction.negotiateOpen(testInfo.virtualHostName())
                                                     .channelId(1)
                                                     .attachSession(SESSION_NAME)
                                                     .queue()
@@ -73,7 +78,7 @@ public class QueueTest extends BrokerAdminUsingTestBase
                                                     .getLatestResponse(SessionCompleted.class);
 
             assertThat(completed.getCommands().includes(0), is(equalTo(true)));
-            assertThat(getBrokerAdmin().getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(0)));
+            assertThat(brokerAdmin.getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(0)));
 
             MessageProperties messageProperties1 = new MessageProperties();
             messageProperties1.setApplicationHeaders(Map.of("id", 1));
@@ -136,14 +141,13 @@ public class QueueTest extends BrokerAdminUsingTestBase
         }
     }
 
-
     @Test
-    public void queueDeclareInvalidWireArguments() throws Exception
+    public void queueDeclareInvalidWireArguments(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            interaction.negotiateOpen()
+            interaction.negotiateOpen(testInfo.virtualHostName())
                        .channelId(1)
                        .attachSession(SESSION_NAME)
                        .queue()

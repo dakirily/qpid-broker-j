@@ -18,6 +18,7 @@
  * under the License.
  *
  */
+
 package org.apache.qpid.tests.protocol.v0_10;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -30,8 +31,11 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.util.Map;
 
+import org.apache.qpid.tests.utils.QpidTestInfo;
+import org.apache.qpid.tests.utils.QpidTestInfoExtension;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 import org.apache.qpid.server.exchange.ExchangeDefaults;
 import org.apache.qpid.server.protocol.v0_10.transport.ExchangeBoundResult;
@@ -43,20 +47,21 @@ import org.apache.qpid.server.protocol.v0_10.transport.SessionCommandPoint;
 import org.apache.qpid.server.protocol.v0_10.transport.SessionCompleted;
 import org.apache.qpid.tests.protocol.SpecificationTest;
 import org.apache.qpid.tests.utils.BrokerAdmin;
-import org.apache.qpid.tests.utils.BrokerAdminUsingTestBase;
+import org.apache.qpid.tests.utils.BrokerAdminExtension;
 
-public class ExchangeTest extends BrokerAdminUsingTestBase
+@ExtendWith({ BrokerAdminExtension.class, QpidTestInfoExtension.class })
+public class ExchangeTest
 {
     private static final byte[] SESSION_NAME = "test".getBytes(UTF_8);
 
     @Test
     @SpecificationTest(section = "10.exchange.declare", description = "verify exchange exists, create if needed.")
-    public void exchangeDeclare() throws Exception
+    public void exchangeDeclare(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            SessionCompleted completed = interaction.negotiateOpen()
+            SessionCompleted completed = interaction.negotiateOpen(testInfo.virtualHostName())
                                                     .channelId(1)
                                                     .attachSession(SESSION_NAME)
                                                     .exchange()
@@ -78,12 +83,12 @@ public class ExchangeTest extends BrokerAdminUsingTestBase
     @SpecificationTest(section = "10.exchange.declare",
             description = "In the event that a message cannot be routed, this is the name of the exchange to which the"
                           + " message will be sent.")
-    public void exchangeDeclareWithAlternateExchange() throws Exception
+    public void exchangeDeclareWithAlternateExchange(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            interaction.negotiateOpen()
+            interaction.negotiateOpen(testInfo.virtualHostName())
                        .channelId(1)
                        .attachSession(SESSION_NAME)
                        .exchange()
@@ -103,12 +108,12 @@ public class ExchangeTest extends BrokerAdminUsingTestBase
     @SpecificationTest(section = "10.exchange.declare",
             description = "if the alternate-exchange does not match the name of any existing exchange on the server, "
                           + "then an exception must be raised.")
-    public void exchangeDeclareAlternateExchangeNotFound() throws Exception
+    public void exchangeDeclareAlternateExchangeNotFound(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            ExecutionException response = interaction.negotiateOpen()
+            ExecutionException response = interaction.negotiateOpen(testInfo.virtualHostName())
                                                      .channelId(1)
                                                      .attachSession(SESSION_NAME)
                                                      .exchange()
@@ -132,13 +137,13 @@ public class ExchangeTest extends BrokerAdminUsingTestBase
     @SpecificationTest(section = "10.exchange.declare",
             description = "If set [durable] when creating a new exchange, the exchange will be marked as durable. "
                           + "Durable exchanges remain active when a server restarts. ")
-    public void exchangeDeclareDurable() throws Exception
+    public void exchangeDeclareDurable(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
         String exchangeName = "myexch";
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            interaction.negotiateOpen()
+            interaction.negotiateOpen(testInfo.virtualHostName())
                        .channelId(1)
                        .attachSession(SESSION_NAME)
                        .exchange()
@@ -153,13 +158,13 @@ public class ExchangeTest extends BrokerAdminUsingTestBase
                        .consumeResponse(SessionCompleted.class);
         }
 
-        assumeTrue(getBrokerAdmin().supportsRestart());
-        getBrokerAdmin().restart();
+        assumeTrue(brokerAdmin.supportsRestart());
+        brokerAdmin.restart();
 
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            interaction.negotiateOpen()
+            interaction.negotiateOpen(testInfo.virtualHostName())
                        .channelId(1)
                        .attachSession(SESSION_NAME)
                        .exchange()
@@ -177,13 +182,13 @@ public class ExchangeTest extends BrokerAdminUsingTestBase
 
     @Test
     @SpecificationTest(section = "10.exchange.delete", description = "delete an exchange")
-    public void exchangeDelete() throws Exception
+    public void exchangeDelete(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
         String exchangeName = "myexch";
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            interaction.negotiateOpen()
+            interaction.negotiateOpen(testInfo.virtualHostName())
                        .channelId(1)
                        .attachSession(SESSION_NAME)
                        .exchange()
@@ -223,14 +228,14 @@ public class ExchangeTest extends BrokerAdminUsingTestBase
     @SpecificationTest(section = "10.exchange.delete",
             description = "An exchange MUST NOT be deleted if it is in use as an alternate-exchange by a queue or by "
                           + "another exchange.")
-    public void exchangeDeleteInUseAsAlternate() throws Exception
+    public void exchangeDeleteInUseAsAlternate(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
         String exchangeName1 = "myexch1";
         String exchangeName2 = "myexch2";
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            ExecutionException response = interaction.negotiateOpen()
+            ExecutionException response = interaction.negotiateOpen(testInfo.virtualHostName())
                                                      .channelId(1)
                                                      .attachSession(SESSION_NAME)
                                                      .exchange()
@@ -261,13 +266,13 @@ public class ExchangeTest extends BrokerAdminUsingTestBase
 
     @Test
     @SpecificationTest(section = "10.exchange.query", description = "request information about an exchange")
-    public void exchangeQuery() throws Exception
+    public void exchangeQuery(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
         String exchangeName = "myexch";
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            ExecutionResult result = interaction.negotiateOpen()
+            ExecutionResult result = interaction.negotiateOpen(testInfo.virtualHostName())
                                                 .channelId(1)
                                                 .attachSession(SESSION_NAME)
                                                 .exchange()
@@ -293,14 +298,14 @@ public class ExchangeTest extends BrokerAdminUsingTestBase
     @SpecificationTest(section = "10.exchange.bind",
             description = "This command binds a queue to an exchange."
                           + " Until a queue is bound it will not receive any messages.")
-    public void exchangeBind() throws Exception
+    public void exchangeBind(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        getBrokerAdmin().createQueue(BrokerAdmin.TEST_QUEUE_NAME);
+        brokerAdmin.createQueue(BrokerAdmin.TEST_QUEUE_NAME);
 
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            interaction.negotiateOpen()
+            interaction.negotiateOpen(testInfo.virtualHostName())
                        .channelId(1)
                        .attachSession(SESSION_NAME)
                        .exchange()
@@ -341,14 +346,14 @@ public class ExchangeTest extends BrokerAdminUsingTestBase
                     "A client MUST NOT be allowed to bind a non-existent and unnamed queue (i.e. empty queue name)"
                     + " to an exchange.")
     @Disabled("spec requires INVALID_ARGUMENT error but NOT_FOUND is returned")
-    public void exchangeBindEmptyQueue() throws Exception
+    public void exchangeBindEmptyQueue(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        getBrokerAdmin().createQueue(BrokerAdmin.TEST_QUEUE_NAME);
+        brokerAdmin.createQueue(BrokerAdmin.TEST_QUEUE_NAME);
 
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            ExecutionException response = interaction.negotiateOpen()
+            ExecutionException response = interaction.negotiateOpen(testInfo.virtualHostName())
                                                      .channelId(1)
                                                      .attachSession(SESSION_NAME)
                                                      .exchange()
@@ -374,14 +379,14 @@ public class ExchangeTest extends BrokerAdminUsingTestBase
                     "A client MUST NOT be allowed to bind a non-existent and unnamed queue (i.e. empty queue name)"
                     + " to an exchange.")
     @Disabled("spec requires INVALID_ARGUMENT error but NOT_FOUND is returned")
-    public void exchangeBindNonExistingQueue() throws Exception
+    public void exchangeBindNonExistingQueue(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        getBrokerAdmin().createQueue(BrokerAdmin.TEST_QUEUE_NAME);
+        brokerAdmin.createQueue(BrokerAdmin.TEST_QUEUE_NAME);
 
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            ExecutionException response = interaction.negotiateOpen()
+            ExecutionException response = interaction.negotiateOpen(testInfo.virtualHostName())
                                                      .channelId(1)
                                                      .attachSession(SESSION_NAME)
                                                      .exchange()
@@ -405,14 +410,14 @@ public class ExchangeTest extends BrokerAdminUsingTestBase
     @Test
     @SpecificationTest(section = "10.exchange.bind",
             description = "The name of the exchange MUST NOT be a blank or empty string.")
-    public void exchangeBindEmptyExchange() throws Exception
+    public void exchangeBindEmptyExchange(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        getBrokerAdmin().createQueue(BrokerAdmin.TEST_QUEUE_NAME);
+        brokerAdmin.createQueue(BrokerAdmin.TEST_QUEUE_NAME);
 
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            ExecutionException response = interaction.negotiateOpen()
+            ExecutionException response = interaction.negotiateOpen(testInfo.virtualHostName())
                                                      .channelId(1)
                                                      .attachSession(SESSION_NAME)
                                                      .exchange()
@@ -435,14 +440,14 @@ public class ExchangeTest extends BrokerAdminUsingTestBase
     @Test
     @SpecificationTest(section = "10.exchange.bind",
             description = "The name of the exchange MUST NOT be a blank or empty string.")
-    public void exchangeBindNonExistingExchange() throws Exception
+    public void exchangeBindNonExistingExchange(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        getBrokerAdmin().createQueue(BrokerAdmin.TEST_QUEUE_NAME);
+        brokerAdmin.createQueue(BrokerAdmin.TEST_QUEUE_NAME);
 
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            ExecutionException response = interaction.negotiateOpen()
+            ExecutionException response = interaction.negotiateOpen(testInfo.virtualHostName())
                                                      .channelId(1)
                                                      .attachSession(SESSION_NAME)
                                                      .exchange()
@@ -468,14 +473,14 @@ public class ExchangeTest extends BrokerAdminUsingTestBase
                           + " same exchange, queue, and binding-key - without treating these as an error."
                           + " The value of the arguments used for the binding MUST NOT be altered"
                           + " by subsequent binding requests.")
-    public void exchangeBindIgnoreDuplicates() throws Exception
+    public void exchangeBindIgnoreDuplicates(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        getBrokerAdmin().createQueue(BrokerAdmin.TEST_QUEUE_NAME);
+        brokerAdmin.createQueue(BrokerAdmin.TEST_QUEUE_NAME);
 
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            interaction.negotiateOpen()
+            interaction.negotiateOpen(testInfo.virtualHostName())
                        .channelId(1)
                        .attachSession(SESSION_NAME)
                        .exchange()
@@ -527,14 +532,14 @@ public class ExchangeTest extends BrokerAdminUsingTestBase
     @SpecificationTest(section = "10.exchange.bind",
             description = " Bindings between durable queues and durable exchanges are automatically durable and"
                           + "  the server MUST restore such bindings after a server restart.")
-    public void exchangeBindMultipleBindings() throws Exception
+    public void exchangeBindMultipleBindings(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        assumeTrue(getBrokerAdmin().supportsRestart());
+        assumeTrue(brokerAdmin.supportsRestart());
 
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            interaction.negotiateOpen()
+            interaction.negotiateOpen(testInfo.virtualHostName())
                        .channelId(1)
                        .attachSession(SESSION_NAME)
                        .queue()
@@ -558,12 +563,12 @@ public class ExchangeTest extends BrokerAdminUsingTestBase
                        .consumeResponse(SessionCompleted.class);
         }
 
-        getBrokerAdmin().restart();
+        brokerAdmin.restart();
 
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            ExecutionResult execResult = interaction.negotiateOpen()
+            ExecutionResult execResult = interaction.negotiateOpen(testInfo.virtualHostName())
                                                     .channelId(1)
                                                     .attachSession(SESSION_NAME)
                                                     .exchange()
@@ -590,14 +595,14 @@ public class ExchangeTest extends BrokerAdminUsingTestBase
     @Test
     @SpecificationTest(section = "11.exchange.unbind",
             description = "This command unbinds a queue from an exchange.")
-    public void exchangeUnbind() throws Exception
+    public void exchangeUnbind(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        getBrokerAdmin().createQueue(BrokerAdmin.TEST_QUEUE_NAME);
+        brokerAdmin.createQueue(BrokerAdmin.TEST_QUEUE_NAME);
 
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            interaction.negotiateOpen()
+            interaction.negotiateOpen(testInfo.virtualHostName())
                        .channelId(1)
                        .attachSession(SESSION_NAME)
                        .exchange()
@@ -645,14 +650,14 @@ public class ExchangeTest extends BrokerAdminUsingTestBase
     @Test
     @SpecificationTest(section = "11.exchange.unbind",
             description = "This command unbinds a queue from an exchange.")
-    public void exchangeUnbindWithoutBindingKey() throws Exception
+    public void exchangeUnbindWithoutBindingKey(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        getBrokerAdmin().createQueue(BrokerAdmin.TEST_QUEUE_NAME);
+        brokerAdmin.createQueue(BrokerAdmin.TEST_QUEUE_NAME);
 
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            final ExecutionException response = interaction.negotiateOpen()
+            final ExecutionException response = interaction.negotiateOpen(testInfo.virtualHostName())
                                                            .channelId(1)
                                                            .attachSession(SESSION_NAME)
                                                            .exchange()
@@ -684,14 +689,14 @@ public class ExchangeTest extends BrokerAdminUsingTestBase
     @Test
     @SpecificationTest(section = "11.exchange.unbind",
             description = "If the queue does not exist the server MUST raise an exception.")
-    public void exchangeUnbindNonExistingQueue() throws Exception
+    public void exchangeUnbindNonExistingQueue(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        getBrokerAdmin().createQueue(BrokerAdmin.TEST_QUEUE_NAME);
+        brokerAdmin.createQueue(BrokerAdmin.TEST_QUEUE_NAME);
 
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            final ExecutionException response = interaction.negotiateOpen()
+            final ExecutionException response = interaction.negotiateOpen(testInfo.virtualHostName())
                                                            .channelId(1)
                                                            .attachSession(SESSION_NAME)
                                                            .exchange()
@@ -724,14 +729,14 @@ public class ExchangeTest extends BrokerAdminUsingTestBase
     @Test
     @SpecificationTest(section = "11.exchange.unbind",
             description = "If the exchange does not exist the server MUST raise an exception.")
-    public void exchangeUnbindNonExistingExchange() throws Exception
+    public void exchangeUnbindNonExistingExchange(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        getBrokerAdmin().createQueue(BrokerAdmin.TEST_QUEUE_NAME);
+        brokerAdmin.createQueue(BrokerAdmin.TEST_QUEUE_NAME);
 
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            final ExecutionException response = interaction.negotiateOpen()
+            final ExecutionException response = interaction.negotiateOpen(testInfo.virtualHostName())
                                                            .channelId(1)
                                                            .attachSession(SESSION_NAME)
                                                            .exchange()

@@ -42,12 +42,12 @@ import javax.jms.MessageProducer;
 import javax.jms.Session;
 import javax.jms.TextMessage;
 
+import org.apache.qpid.server.model.ConfiguredObjectJacksonModule;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import tools.jackson.core.type.TypeReference;
-import tools.jackson.databind.ObjectMapper;
 
 import org.apache.qpid.server.model.Protocol;
 import org.apache.qpid.tests.http.HttpRequestConfig;
@@ -162,7 +162,8 @@ public class CompressedMessageContentTest extends HttpTestBase
         connection.connect();
 
         String content = decompressInputStream(connection);
-        Map<String, Object> mapContent = new ObjectMapper().readValue(content, new TypeReference<Map<String, Object>>() {});
+        Map<String, Object> mapContent = ConfiguredObjectJacksonModule.newObjectMapper(false)
+                .readValue(content, new TypeReference<Map<String, Object>>() {});
 
         assertThat("Unexpected message content ", new HashMap<>(mapContent), is(equalTo(new HashMap<>(mapToSend))));
     }

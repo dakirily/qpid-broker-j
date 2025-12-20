@@ -35,6 +35,9 @@ import static org.hamcrest.Matchers.in;
 
 import java.util.Map;
 
+import org.apache.qpid.tests.utils.QpidTestInfo;
+import org.apache.qpid.tests.utils.QpidTestInfoExtension;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.Test;
 
 import org.apache.qpid.server.protocol.v1_0.type.UnsignedInteger;
@@ -43,15 +46,17 @@ import org.apache.qpid.server.protocol.v1_0.type.transport.Close;
 import org.apache.qpid.server.protocol.v1_0.type.transport.Open;
 import org.apache.qpid.tests.protocol.v1_0.FrameTransport;
 import org.apache.qpid.tests.protocol.v1_0.Interaction;
-import org.apache.qpid.tests.utils.BrokerAdminUsingTestBase;
+import org.apache.qpid.tests.utils.BrokerAdmin;
+import org.apache.qpid.tests.utils.BrokerAdminExtension;
 
-public class RefuseConnectionPolicyTest extends BrokerAdminUsingTestBase
+@ExtendWith({ BrokerAdminExtension.class, QpidTestInfoExtension.class })
+public class RefuseConnectionPolicyTest
 {
 
     @Test
-    public void basicNegotiation() throws Exception
+    public void basicNegotiation(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
             final Open responseOpen = interaction.openContainerId("testContainerId")
@@ -59,6 +64,7 @@ public class RefuseConnectionPolicyTest extends BrokerAdminUsingTestBase
                                                  .openProperties(Map.of(
                                                          SOLE_CONNECTION_ENFORCEMENT_POLICY,
                                                          REFUSE_CONNECTION))
+                                                 .openHostname(testInfo.virtualHostName())
                                                  .negotiateOpen()
                                                  .getLatestResponse(Open.class);
 
@@ -75,21 +81,22 @@ public class RefuseConnectionPolicyTest extends BrokerAdminUsingTestBase
     }
 
     @Test
-    public void newConnectionRefused() throws Exception
+    public void newConnectionRefused(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport1 = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport1 = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction1 = transport1.newInteraction();
             interaction1.openContainerId("testContainerId")
                         .openDesiredCapabilities(SOLE_CONNECTION_FOR_CONTAINER)
                         .openProperties(Map.of(SOLE_CONNECTION_ENFORCEMENT_POLICY, REFUSE_CONNECTION))
+                        .openHostname(testInfo.virtualHostName())
                         .negotiateOpen();
 
             final Open responseOpen = interaction1.getLatestResponse(Open.class);
             assumeSoleConnectionCapability(responseOpen);
             assumeEnforcementPolicyRefuse(responseOpen);
 
-            try (FrameTransport transport2 = new FrameTransport(getBrokerAdmin()).connect())
+            try (FrameTransport transport2 = new FrameTransport(brokerAdmin).connect())
             {
                 final Interaction interaction2 = transport2.newInteraction();
                 final Open responseOpen2 = interaction2.openContainerId("testContainerId")
@@ -97,6 +104,7 @@ public class RefuseConnectionPolicyTest extends BrokerAdminUsingTestBase
                                                        .openProperties(Map.of(
                                                                SOLE_CONNECTION_ENFORCEMENT_POLICY,
                                                                REFUSE_CONNECTION))
+                                                        .openHostname(testInfo.virtualHostName())
                                                        .negotiateOpen()
                                                        .getLatestResponse(Open.class);
 
@@ -108,20 +116,22 @@ public class RefuseConnectionPolicyTest extends BrokerAdminUsingTestBase
 
 
     @Test
-    public void strongDetectionWhenConnectionWithoutSoleConnectionCapabilityOpened() throws Exception
+    public void strongDetectionWhenConnectionWithoutSoleConnectionCapabilityOpened(final BrokerAdmin brokerAdmin,
+                                                                                   final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport1 = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport1 = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction1 = transport1.newInteraction();
             // Omit setting the desired capability to test weak detection
             interaction1.openContainerId("testContainerId")
+                        .openHostname(testInfo.virtualHostName())
                         .negotiateOpen();
 
             final Open responseOpen = interaction1.getLatestResponse(Open.class);
             assumeSoleConnectionCapability(responseOpen);
             assumeDetectionPolicyStrong(responseOpen);
 
-            try (FrameTransport transport2 = new FrameTransport(getBrokerAdmin()).connect())
+            try (FrameTransport transport2 = new FrameTransport(brokerAdmin).connect())
             {
                 final Interaction interaction2 = transport2.newInteraction();
                 final Open responseOpen2 = interaction2.openContainerId("testContainerId")
@@ -129,6 +139,7 @@ public class RefuseConnectionPolicyTest extends BrokerAdminUsingTestBase
                                                        .openProperties(Map.of(
                                                                SOLE_CONNECTION_ENFORCEMENT_POLICY,
                                                                REFUSE_CONNECTION))
+                                                       .openHostname(testInfo.virtualHostName())
                                                        .negotiateOpen()
                                                        .getLatestResponse(Open.class);
 
@@ -139,9 +150,9 @@ public class RefuseConnectionPolicyTest extends BrokerAdminUsingTestBase
     }
 
     @Test
-    public void strongDetection() throws Exception
+    public void strongDetection(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport1 = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport1 = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction1 = transport1.newInteraction();
             final Open responseOpen = interaction1.openContainerId("testContainerId")
@@ -149,6 +160,7 @@ public class RefuseConnectionPolicyTest extends BrokerAdminUsingTestBase
                                                   .openProperties(Map.of(
                                                           SOLE_CONNECTION_ENFORCEMENT_POLICY,
                                                           REFUSE_CONNECTION.getValue()))
+                                                  .openHostname(testInfo.virtualHostName())
                                                   .negotiateOpen()
                                                   .getLatestResponse(Open.class);
 
@@ -156,11 +168,12 @@ public class RefuseConnectionPolicyTest extends BrokerAdminUsingTestBase
             assumeEnforcementPolicyRefuse(responseOpen);
             assumeDetectionPolicyStrong(responseOpen);
 
-            try (FrameTransport transport2 = new FrameTransport(getBrokerAdmin()).connect())
+            try (FrameTransport transport2 = new FrameTransport(brokerAdmin).connect())
             {
                 final Interaction interaction2 = transport2.newInteraction();
                 // Omit setting the desired capability to test strong detection
                 final Open responseOpen2 = interaction2.openContainerId("testContainerId")
+                                                       .openHostname(testInfo.virtualHostName())
                                                        .negotiateOpen()
                                                        .getLatestResponse(Open.class);
 
@@ -171,26 +184,28 @@ public class RefuseConnectionPolicyTest extends BrokerAdminUsingTestBase
     }
 
     @Test
-    public void refuseIsDefault() throws Exception
+    public void refuseIsDefault(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try (FrameTransport transport1 = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport1 = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction1 = transport1.newInteraction();
             // Omit setting the enforcement policy explicitly. The default is refuse.
             interaction1.openContainerId("testContainerId")
                         .openDesiredCapabilities(SOLE_CONNECTION_FOR_CONTAINER)
+                        .openHostname(testInfo.virtualHostName())
                         .negotiateOpen();
 
             final Open responseOpen = interaction1.getLatestResponse(Open.class);
             assumeSoleConnectionCapability(responseOpen);
             assumeEnforcementPolicyRefuse(responseOpen);
 
-            try (FrameTransport transport2 = new FrameTransport(getBrokerAdmin()).connect())
+            try (FrameTransport transport2 = new FrameTransport(brokerAdmin).connect())
             {
                 final Interaction interaction2 = transport2.newInteraction();
                 // Omit setting the enforcement policy explicitly. The default is refuse.
                 final Open responseOpen2 = interaction2.openContainerId("testContainerId")
                                                        .openDesiredCapabilities(SOLE_CONNECTION_FOR_CONTAINER)
+                                                       .openHostname(testInfo.virtualHostName())
                                                        .negotiateOpen()
                                                        .getLatestResponse(Open.class);
 

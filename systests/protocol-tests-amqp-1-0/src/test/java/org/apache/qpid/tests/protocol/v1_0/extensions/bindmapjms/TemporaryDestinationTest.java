@@ -29,7 +29,10 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.util.Map;
 
+import org.apache.qpid.tests.utils.QpidTestInfo;
+import org.apache.qpid.tests.utils.QpidTestInfoExtension;
 import org.hamcrest.Matchers;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.Test;
 
 import org.apache.qpid.server.protocol.v1_0.Session_1_0;
@@ -50,9 +53,11 @@ import org.apache.qpid.tests.protocol.SpecificationTest;
 import org.apache.qpid.tests.protocol.v1_0.FrameTransport;
 import org.apache.qpid.tests.protocol.v1_0.Interaction;
 import org.apache.qpid.tests.protocol.v1_0.Utils;
-import org.apache.qpid.tests.utils.BrokerAdminUsingTestBase;
+import org.apache.qpid.tests.utils.BrokerAdmin;
+import org.apache.qpid.tests.utils.BrokerAdminExtension;
 
-public class TemporaryDestinationTest extends BrokerAdminUsingTestBase
+@ExtendWith({ BrokerAdminExtension.class, QpidTestInfoExtension.class })
+public class TemporaryDestinationTest
 {
     private static final Symbol TEMPORARY_QUEUE = Symbol.valueOf("temporary-queue");
     private static final Symbol TEMPORARY_TOPIC = Symbol.valueOf("temporary-topic");
@@ -62,9 +67,9 @@ public class TemporaryDestinationTest extends BrokerAdminUsingTestBase
             description = "To create a node with the required lifecycle properties, establish a uniquely named sending link with "
                           + "the dynamic field of target set true, the expiry-policy field of target set to symbol “link-detach”, and the "
                           + "dynamic-node-properties field of target containing the “lifetime-policy” symbol key mapped to delete-on-close.")
-    public void deleteOnCloseWithConnectionCloseForQueue() throws Exception
+    public void deleteOnCloseWithConnectionCloseForQueue(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        deleteOnCloseWithConnectionClose(new Symbol[]{TEMPORARY_QUEUE});
+        deleteOnCloseWithConnectionClose(new Symbol[]{TEMPORARY_QUEUE}, brokerAdmin, testInfo);
     }
 
     @Test
@@ -72,21 +77,21 @@ public class TemporaryDestinationTest extends BrokerAdminUsingTestBase
             description = "To create a node with the required lifecycle properties, establish a uniquely named sending link with "
                           + "the dynamic field of target set true, the expiry-policy field of target set to symbol “link-detach”, and the "
                           + "dynamic-node-properties field of target containing the “lifetime-policy” symbol key mapped to delete-on-close.")
-    public void deleteOnCloseWithConnectionCloseForTopic() throws Exception
+    public void deleteOnCloseWithConnectionCloseForTopic(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        deleteOnCloseWithConnectionClose(new Symbol[]{TEMPORARY_TOPIC});
+        deleteOnCloseWithConnectionClose(new Symbol[]{TEMPORARY_TOPIC}, brokerAdmin, testInfo);
     }
 
-    private void deleteOnCloseWithConnectionClose(final Symbol[] targetCapabilities) throws Exception
+    private void deleteOnCloseWithConnectionClose(final Symbol[] targetCapabilities, final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
         String newTemporaryNodeAddress;
 
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             Target target = createTarget(targetCapabilities);
 
             final Interaction interaction = transport.newInteraction();
-            final Attach attachResponse = interaction.negotiateOpen()
+            final Attach attachResponse = interaction.openHostname(testInfo.virtualHostName()).negotiateOpen()
                                                      .begin().consumeResponse(Begin.class)
                                                      .attachRole(Role.SENDER)
                                                      .attachTarget(target)
@@ -105,7 +110,7 @@ public class TemporaryDestinationTest extends BrokerAdminUsingTestBase
             interaction.doCloseConnection();
         }
 
-        assertThat(Utils.doesNodeExist(getBrokerAdmin(), newTemporaryNodeAddress), is(false));
+        assertThat(Utils.doesNodeExist(brokerAdmin, testInfo, newTemporaryNodeAddress), is(false));
     }
 
 
@@ -127,16 +132,16 @@ public class TemporaryDestinationTest extends BrokerAdminUsingTestBase
                           + " for the application by supplying a terminus capability for the particular Destination"
                           + " type to which the client expects to attach [...]"
                           + "TemporaryQueue Terminus capability : 'temporary-queue'")
-    public void createTemporaryQueueReceivingLink() throws Exception
+    public void createTemporaryQueueReceivingLink(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
         final Symbol[] capabilities = new Symbol[]{TEMPORARY_QUEUE};
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             Target target = createTarget(capabilities);
 
             final Interaction interaction = transport.newInteraction();
             final UnsignedInteger senderHandle = UnsignedInteger.ONE;
-            final Attach senderAttachResponse = interaction.negotiateOpen()
+            final Attach senderAttachResponse = interaction.openHostname(testInfo.virtualHostName()).negotiateOpen()
                                                            .begin().consumeResponse(Begin.class)
                                                            .attachRole(Role.SENDER)
                                                            .attachHandle(senderHandle)
@@ -187,16 +192,16 @@ public class TemporaryDestinationTest extends BrokerAdminUsingTestBase
                           + " for the application by supplying a terminus capability for the particular Destination"
                           + " type to which the client expects to attach [...]"
                           + "TemporaryQueue Terminus capability : 'temporary-queue'")
-    public void createTemporaryQueueReceivingLinkFromOtherConnectionDisallowed() throws Exception
+    public void createTemporaryQueueReceivingLinkFromOtherConnectionDisallowed(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
         final Symbol[] capabilities = new Symbol[]{TEMPORARY_QUEUE};
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             Target target = createTarget(capabilities);
 
             final Interaction interaction = transport.newInteraction();
             final UnsignedInteger senderHandle = UnsignedInteger.ONE;
-            final Attach senderAttachResponse = interaction.negotiateOpen()
+            final Attach senderAttachResponse = interaction.openHostname(testInfo.virtualHostName()).negotiateOpen()
                                                            .begin().consumeResponse(Begin.class)
                                                            .attachRole(Role.SENDER)
                                                            .attachHandle(senderHandle)
@@ -213,7 +218,7 @@ public class TemporaryDestinationTest extends BrokerAdminUsingTestBase
 
             interaction.consumeResponse().getLatestResponse(Flow.class);
 
-            assertReceivingLinkFails(createSource(newTemporaryNodeAddress, capabilities), AmqpError.RESOURCE_LOCKED);
+            assertReceivingLinkFails(brokerAdmin, testInfo, createSource(newTemporaryNodeAddress, capabilities), AmqpError.RESOURCE_LOCKED);
 
             interaction.doCloseConnection();
         }
@@ -226,16 +231,16 @@ public class TemporaryDestinationTest extends BrokerAdminUsingTestBase
                           + "Temporary destinations ( TemporaryQueue or  TemporaryTopic objects) are destinations"
                           + " that are system - generated uniquely for their connection.  Only their own connection"
                           + " is allowed to create consumer objects for them.")
-    public void createTemporaryQueueSendingLinkFromOtherConnectionAllowed() throws Exception
+    public void createTemporaryQueueSendingLinkFromOtherConnectionAllowed(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
         final Symbol[] capabilities = new Symbol[]{TEMPORARY_QUEUE};
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             Target target = createTarget(capabilities);
 
             final Interaction interaction = transport.newInteraction();
             final UnsignedInteger senderHandle = UnsignedInteger.ONE;
-            final Attach senderAttachResponse = interaction.negotiateOpen()
+            final Attach senderAttachResponse = interaction.openHostname(testInfo.virtualHostName()).negotiateOpen()
                                                            .begin().consumeResponse(Begin.class)
                                                            .attachRole(Role.SENDER)
                                                            .attachHandle(senderHandle)
@@ -252,7 +257,7 @@ public class TemporaryDestinationTest extends BrokerAdminUsingTestBase
 
             interaction.consumeResponse().getLatestResponse(Flow.class);
 
-            assertSendingLinkSucceeds(newTemporaryNodeAddress);
+            assertSendingLinkSucceeds(brokerAdmin, testInfo, newTemporaryNodeAddress);
 
             interaction.doCloseConnection();
         }
@@ -277,10 +282,10 @@ public class TemporaryDestinationTest extends BrokerAdminUsingTestBase
                           + " for the application by supplying a terminus capability for the particular Destination"
                           + " type to which the client expects to attach"
                           + "TemporaryTopic Terminus capability : 'temporary-topic'")
-    public void createTemporaryTopicSubscriptionReceivingLink() throws Exception
+    public void createTemporaryTopicSubscriptionReceivingLink(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
         final Symbol[] capabilities = new Symbol[]{TEMPORARY_TOPIC};
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Source source = new Source();
             source.setDynamicNodeProperties(Map.of(Session_1_0.LIFETIME_POLICY, new DeleteOnClose()));
@@ -290,7 +295,7 @@ public class TemporaryDestinationTest extends BrokerAdminUsingTestBase
 
             final Interaction interaction = transport.newInteraction();
             final UnsignedInteger receiverHandle = UnsignedInteger.ONE;
-            final Attach receiverAttachResponse = interaction.negotiateOpen()
+            final Attach receiverAttachResponse = interaction.openHostname(testInfo.virtualHostName()).negotiateOpen()
                                                              .begin().consumeResponse(Begin.class)
                                                              .attachRole(Role.RECEIVER)
                                                              .attachSource(source)
@@ -341,10 +346,10 @@ public class TemporaryDestinationTest extends BrokerAdminUsingTestBase
                           + " for the application by supplying a terminus capability for the particular Destination"
                           + " type to which the client expects to attach"
                           + "TemporaryTopic Terminus capability : 'temporary-topic'")
-    public void createTemporaryTopicSubscriptionReceivingLinkFromOtherConnectionDisallowed() throws Exception
+    public void createTemporaryTopicSubscriptionReceivingLinkFromOtherConnectionDisallowed(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
         final Symbol[] capabilities = new Symbol[]{TEMPORARY_TOPIC};
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Source source = new Source();
             source.setDynamicNodeProperties(Map.of(Session_1_0.LIFETIME_POLICY, new DeleteOnClose()));
@@ -354,7 +359,7 @@ public class TemporaryDestinationTest extends BrokerAdminUsingTestBase
 
             final Interaction interaction = transport.newInteraction();
             final UnsignedInteger receiverHandle = UnsignedInteger.ONE;
-            final Attach receiverAttachResponse = interaction.negotiateOpen()
+            final Attach receiverAttachResponse = interaction.openHostname(testInfo.virtualHostName()).negotiateOpen()
                                                              .begin().consumeResponse(Begin.class)
                                                              .attachRole(Role.RECEIVER)
                                                              .attachSource(source)
@@ -369,7 +374,7 @@ public class TemporaryDestinationTest extends BrokerAdminUsingTestBase
             String newTemporaryNodeAddress = ((Source) receiverAttachResponse.getSource()).getAddress();
             assertThat(newTemporaryNodeAddress, is(notNullValue()));
 
-            assertReceivingLinkFails(createSource(newTemporaryNodeAddress, capabilities), AmqpError.RESOURCE_LOCKED);
+            assertReceivingLinkFails(brokerAdmin, testInfo, createSource(newTemporaryNodeAddress, capabilities), AmqpError.RESOURCE_LOCKED);
 
             interaction.doCloseConnection();
         }
@@ -382,10 +387,10 @@ public class TemporaryDestinationTest extends BrokerAdminUsingTestBase
                           + "Temporary destinations ( TemporaryQueue or  TemporaryTopic objects) are destinations"
                           + " that are system - generated uniquely for their connection.  Only their own connection"
                           + " is allowed to create consumer objects for them.")
-    public void createTemporaryTopicSendingLinkFromOtherConnectionAllowed() throws Exception
+    public void createTemporaryTopicSendingLinkFromOtherConnectionAllowed(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
         final Symbol[] capabilities = new Symbol[]{TEMPORARY_TOPIC};
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Source source = new Source();
             source.setDynamicNodeProperties(Map.of(Session_1_0.LIFETIME_POLICY, new DeleteOnClose()));
@@ -395,7 +400,7 @@ public class TemporaryDestinationTest extends BrokerAdminUsingTestBase
 
             final Interaction interaction = transport.newInteraction();
             final UnsignedInteger receiverHandle = UnsignedInteger.ONE;
-            final Attach receiverAttachResponse = interaction.negotiateOpen()
+            final Attach receiverAttachResponse = interaction.openHostname(testInfo.virtualHostName()).negotiateOpen()
                                                              .begin().consumeResponse(Begin.class)
                                                              .attachRole(Role.RECEIVER)
                                                              .attachSource(source)
@@ -409,18 +414,18 @@ public class TemporaryDestinationTest extends BrokerAdminUsingTestBase
             String newTemporaryNodeAddress = ((Source) receiverAttachResponse.getSource()).getAddress();
             assertThat(newTemporaryNodeAddress, is(notNullValue()));
 
-            assertSendingLinkSucceeds(newTemporaryNodeAddress);
+            assertSendingLinkSucceeds(brokerAdmin, testInfo, newTemporaryNodeAddress);
 
             interaction.doCloseConnection();
         }
     }
 
-    private void assertReceivingLinkFails(final Source source, final AmqpError expectedError) throws Exception
+    private void assertReceivingLinkFails(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo, final Source source, final AmqpError expectedError) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            final Detach responseDetach = interaction.negotiateOpen()
+            final Detach responseDetach = interaction.openHostname(testInfo.virtualHostName()).negotiateOpen()
                                                      .begin()
                                                      .consumeResponse(Begin.class)
                                                      .attachRole(Role.RECEIVER)
@@ -436,15 +441,15 @@ public class TemporaryDestinationTest extends BrokerAdminUsingTestBase
         }
     }
 
-    private void assertSendingLinkSucceeds(final String address) throws Exception
+    private void assertSendingLinkSucceeds(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo, final String address) throws Exception
     {
-        try (FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try (FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             Target target = new Target();
             target.setAddress(address);
 
             final Interaction interaction = transport.newInteraction();
-            interaction.negotiateOpen()
+            interaction.openHostname(testInfo.virtualHostName()).negotiateOpen()
                         .begin()
                         .consumeResponse(Begin.class)
                         .attachRole(Role.SENDER)

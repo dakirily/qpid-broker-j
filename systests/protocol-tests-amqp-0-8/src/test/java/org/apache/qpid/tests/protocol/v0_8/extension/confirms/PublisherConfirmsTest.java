@@ -18,6 +18,7 @@
  * under the License.
  *
  */
+
 package org.apache.qpid.tests.protocol.v0_8.extension.confirms;
 
 import static org.hamcrest.CoreMatchers.equalTo;
@@ -27,7 +28,10 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import java.util.HashSet;
 import java.util.Set;
 
+import org.apache.qpid.tests.utils.QpidTestInfo;
+import org.apache.qpid.tests.utils.QpidTestInfoExtension;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.Test;
 
 import org.apache.qpid.server.protocol.v0_8.transport.BasicAckBody;
@@ -43,17 +47,18 @@ import org.apache.qpid.tests.protocol.SpecificationTest;
 import org.apache.qpid.tests.protocol.v0_8.FrameTransport;
 import org.apache.qpid.tests.protocol.v0_8.Interaction;
 import org.apache.qpid.tests.utils.BrokerAdmin;
-import org.apache.qpid.tests.utils.BrokerAdminUsingTestBase;
+import org.apache.qpid.tests.utils.BrokerAdminExtension;
 
 /**
  * The specification for publisher confirms is:  https://www.rabbitmq.com/confirms.html
  */
-public class PublisherConfirmsTest extends BrokerAdminUsingTestBase
+@ExtendWith({ BrokerAdminExtension.class, QpidTestInfoExtension.class })
+public class PublisherConfirmsTest
 {
     @BeforeEach
-    public void setUp()
+    public void setUp(final BrokerAdmin brokerAdmin)
     {
-        getBrokerAdmin().createQueue(BrokerAdmin.TEST_QUEUE_NAME);
+        brokerAdmin.createQueue(BrokerAdmin.TEST_QUEUE_NAME);
     }
 
     @Test
@@ -62,12 +67,12 @@ public class PublisherConfirmsTest extends BrokerAdminUsingTestBase
                           + "(counting starts at 1 on the first confirm.select)The broker then confirms messages as "
                           + "it handles them by sending a basic.ack on the same channel. The delivery-tag field "
                           + "contains the sequence number of the confirmed message." )
-    public void publishMessage() throws Exception
+    public void publishMessage(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try(FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try(FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            BasicAckBody ackBody = interaction.negotiateOpen()
+            BasicAckBody ackBody = interaction.negotiateOpen(testInfo.virtualHostName())
                                               .channel().open().consumeResponse(ChannelOpenOkBody.class)
                                               .basic().confirmSelect().consumeResponse(ConfirmSelectOkBody.class)
                                               .basic().publishExchange("")
@@ -77,7 +82,7 @@ public class PublisherConfirmsTest extends BrokerAdminUsingTestBase
                                               .consumeResponse().getLatestResponse(BasicAckBody.class);
 
             assertThat(ackBody.getDeliveryTag(), is(equalTo(1L)));
-            assertThat(getBrokerAdmin().getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(1)));
+            assertThat(brokerAdmin.getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(1)));
         }
     }
 
@@ -85,12 +90,12 @@ public class PublisherConfirmsTest extends BrokerAdminUsingTestBase
     @SpecificationTest(section = "https://www.rabbitmq.com/confirms.html",
             description = "[...] when the broker is unable to handle messages successfully, instead of a basic.ack,"
                           + "the broker will send a basic.nack.")
-    public void publishUnrouteableMandatoryMessage() throws Exception
+    public void publishUnrouteableMandatoryMessage(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try(FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try(FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            BasicNackBody nackBody = interaction.negotiateOpen()
+            BasicNackBody nackBody = interaction.negotiateOpen(testInfo.virtualHostName())
                                                       .channel()
                                                       .open()
                                                       .consumeResponse(ChannelOpenOkBody.class)
@@ -113,12 +118,12 @@ public class PublisherConfirmsTest extends BrokerAdminUsingTestBase
     @SpecificationTest(section = "https://www.rabbitmq.com/confirms.html",
             description = "After a channel is put into confirm mode, all subsequently published messages will be "
                           + "confirmed or nack'd once")
-    public void publishUnrouteableMessage() throws Exception
+    public void publishUnrouteableMessage(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try(FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try(FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            interaction.negotiateOpen()
+            interaction.negotiateOpen(testInfo.virtualHostName())
                        .channel().open().consumeResponse(ChannelOpenOkBody.class)
                        .basic().confirmSelect().consumeResponse(ConfirmSelectOkBody.class)
                        .basic().publishExchange("")
@@ -132,12 +137,12 @@ public class PublisherConfirmsTest extends BrokerAdminUsingTestBase
 
     /** Qpid allows publisher confirms to be used with transactions.  This is beyond what RabbitMQ supports.  */
     @Test
-    public void publishWithTransactionalConfirms() throws Exception
+    public void publishWithTransactionalConfirms(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try(FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try(FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            final BasicAckBody ackBody = interaction.negotiateOpen()
+            final BasicAckBody ackBody = interaction.negotiateOpen(testInfo.virtualHostName())
                                                     .channel().open().consumeResponse(ChannelOpenOkBody.class)
                                                     .tx().select()
                                                     .consumeResponse(TxSelectOkBody.class)
@@ -151,22 +156,22 @@ public class PublisherConfirmsTest extends BrokerAdminUsingTestBase
                                                     .consumeResponse().getLatestResponse(BasicAckBody.class);
 
             assertThat(ackBody.getDeliveryTag(), is(equalTo(1L)));
-            assertThat(getBrokerAdmin().getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(0)));
+            assertThat(brokerAdmin.getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(0)));
 
             interaction.tx().commit().consumeResponse(TxCommitOkBody.class);
 
-            assertThat(getBrokerAdmin().getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(1)));
+            assertThat(brokerAdmin.getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(1)));
 
         }
     }
 
     @Test
-    public void publishUnroutableMessageWithTransactionalConfirms() throws Exception
+    public void publishUnroutableMessageWithTransactionalConfirms(final BrokerAdmin brokerAdmin, final QpidTestInfo testInfo) throws Exception
     {
-        try(FrameTransport transport = new FrameTransport(getBrokerAdmin()).connect())
+        try(FrameTransport transport = new FrameTransport(brokerAdmin).connect())
         {
             final Interaction interaction = transport.newInteraction();
-            interaction.negotiateOpen()
+            interaction.negotiateOpen(testInfo.virtualHostName())
                        .channel().open().consumeResponse(ChannelOpenOkBody.class)
                        .tx().select()
                        .consumeResponse(TxSelectOkBody.class)
@@ -188,7 +193,7 @@ public class PublisherConfirmsTest extends BrokerAdminUsingTestBase
             final BasicAckBody ackBody = interaction.consumeResponse().getLatestResponse(BasicAckBody.class);
             assertThat(ackBody.getDeliveryTag(), is(equalTo(2L)));
 
-            assertThat(getBrokerAdmin().getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(0)));
+            assertThat(brokerAdmin.getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(0)));
 
             interaction.tx().commit();
 
@@ -203,7 +208,7 @@ public class PublisherConfirmsTest extends BrokerAdminUsingTestBase
                 assertThat("" + response, remove, is(equalTo(true)));
             }
 
-            assertThat(getBrokerAdmin().getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(1)));
+            assertThat(brokerAdmin.getQueueDepthMessages(BrokerAdmin.TEST_QUEUE_NAME), is(equalTo(1)));
 
         }
     }
