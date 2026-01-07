@@ -44,7 +44,18 @@ public class FrameWriter
         final int payloadLength = payload == null ? 0 : payload.remaining();
         final T frameBody = frame.getFrameBody();
 
-        final ValueWriter<T> typeWriter = frameBody == null ? null : _registry.getValueWriter(frameBody);
+        final ValueWriter<T> typeWriter;
+
+        if (frameBody == null)
+        {
+            typeWriter = null;
+        }
+        else
+        {
+            final ValueWriter<T> cachedWriter = frame.getFrameBodyWriter();
+            typeWriter = cachedWriter == null ? _registry.getValueWriter(frameBody) : cachedWriter;
+        }
+
         int bodySize;
         if (typeWriter == null)
         {

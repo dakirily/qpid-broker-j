@@ -1180,10 +1180,10 @@ public class AMQPConnection_1_0Impl extends AbstractAMQPConnection<AMQPConnectio
     {
         if (!_closedForOutput)
         {
-            ValueWriter<FrameBody> writer = _describedTypeRegistry.getValueWriter(body);
+            ValueWriter<FrameBody> writer = body == null ? null : _describedTypeRegistry.getValueWriter(body);
             if (payload == null)
             {
-                send(new TransportFrame(channel, body));
+                send(new TransportFrame(channel, body, writer));
                 return 0;
             }
             else
@@ -1193,7 +1193,7 @@ public class AMQPConnection_1_0Impl extends AbstractAMQPConnection<AMQPConnectio
                 long payloadLength = (long) payload.remaining();
                 if (payloadLength <= maxPayloadSize)
                 {
-                    send(new TransportFrame(channel, body, payload));
+                    send(new TransportFrame(channel, body, payload, writer));
                     return (int)payloadLength;
                 }
                 else
@@ -1207,7 +1207,7 @@ public class AMQPConnection_1_0Impl extends AbstractAMQPConnection<AMQPConnectio
                     try (QpidByteBuffer payloadDup = payload.view(0, maxPayloadSize))
                     {
                         payload.position(payload.position() + maxPayloadSize);
-                        send(new TransportFrame(channel, body, payloadDup));
+                        send(new TransportFrame(channel, body, payloadDup, writer));
                     }
 
                     return maxPayloadSize;

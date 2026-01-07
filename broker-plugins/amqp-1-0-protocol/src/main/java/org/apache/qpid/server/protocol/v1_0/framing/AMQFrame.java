@@ -22,21 +22,29 @@
 package org.apache.qpid.server.protocol.v1_0.framing;
 
 import org.apache.qpid.server.bytebuffer.QpidByteBuffer;
+import org.apache.qpid.server.protocol.v1_0.codec.ValueWriter;
 
 public abstract class AMQFrame<T>
 {
     private final T _frameBody;
     private final QpidByteBuffer _payload;
+    private final ValueWriter<T> _frameBodyWriter;
 
     AMQFrame(T frameBody)
     {
-        this(frameBody, null);
+        this(frameBody, null, null);
     }
 
     protected AMQFrame(T frameBody, QpidByteBuffer payload)
     {
+        this(frameBody, payload, null);
+    }
+
+    protected AMQFrame(T frameBody, QpidByteBuffer payload, ValueWriter<T> frameBodyWriter)
+    {
         _frameBody = frameBody;
         _payload = payload;
+        _frameBodyWriter = frameBodyWriter;
     }
 
     public QpidByteBuffer getPayload()
@@ -51,6 +59,11 @@ public abstract class AMQFrame<T>
     public T getFrameBody()
     {
         return _frameBody;
+    }
+
+    public ValueWriter<T> getFrameBodyWriter()
+    {
+        return _frameBodyWriter;
     }
 
     @Override
