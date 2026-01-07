@@ -22,6 +22,7 @@
 package org.apache.qpid.server.protocol.v1_0.framing;
 
 import org.apache.qpid.server.bytebuffer.QpidByteBuffer;
+import org.apache.qpid.server.protocol.v1_0.codec.FrameWriter;
 import org.apache.qpid.server.protocol.v1_0.codec.ValueWriter;
 
 public abstract class AMQFrame<T>
@@ -30,16 +31,46 @@ public abstract class AMQFrame<T>
     private final QpidByteBuffer _payload;
     private final ValueWriter<T> _frameBodyWriter;
 
+    /**
+     * Base AMQP frame.
+     * @param frameBody frame body (may be null for heartbeat-like frames)
+     */
     AMQFrame(T frameBody)
     {
         this(frameBody, null, null);
     }
 
+    /**
+     * Base AMQP frame.
+     * <br>
+     * {@code payload} (if present) is sent as-is using its current {@code position/limit}.
+     * Do not mutate the payload buffer concurrently. Ensure it remains valid/alive until the frame
+     * has been written to the transport.
+     * <br>
+     * @param frameBody frame body (may be null for heartbeat-like frames)
+     * @param payload optional payload; remaining bytes will be written
+     */
     protected AMQFrame(T frameBody, QpidByteBuffer payload)
     {
         this(frameBody, payload, null);
     }
 
+    /**
+     * Base AMQP frame.
+     * <br>
+     * IMPORTANT: Frames are expected to be effectively immutable after construction.
+     * {@link FrameWriter} may use a cached {@link ValueWriter} supplied at construction time and will
+     * not re-resolve it from the registry. If {@code frameBody} is mutated after the writer is cached,
+     * the encoded size / encoding may become inconsistent.
+     *<br>
+     * {@code payload} (if present) is sent as-is using its current {@code position/limit}.
+     * Do not mutate the payload buffer concurrently. Ensure it remains valid/alive until the frame
+     * has been written to the transport.
+     * <br>
+     * @param frameBody frame body (may be null for heartbeat-like frames)
+     * @param payload optional payload; remaining bytes will be written
+     * @param frameBodyWriter optional cache hint; must match {@code frameBody} in its current state
+     */
     protected AMQFrame(T frameBody, QpidByteBuffer payload, ValueWriter<T> frameBodyWriter)
     {
         _frameBody = frameBody;

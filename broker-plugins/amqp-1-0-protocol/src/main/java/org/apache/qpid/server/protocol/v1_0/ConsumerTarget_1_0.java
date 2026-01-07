@@ -20,7 +20,6 @@
  */
 package org.apache.qpid.server.protocol.v1_0;
 
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -266,9 +265,7 @@ class ConsumerTarget_1_0 extends AbstractConsumerTarget<ConsumerTarget_1_0>
                 payload.forEach(QpidByteBuffer::dispose);
             }
 
-            byte[] data = new byte[8];
-            ByteBuffer.wrap(data).putLong(_deliveryTag++);
-            final Binary tag = new Binary(data);
+            final Binary tag = Binary.ofDeliveryTag(_deliveryTag++);
 
             transfer.setDeliveryTag(tag);
 

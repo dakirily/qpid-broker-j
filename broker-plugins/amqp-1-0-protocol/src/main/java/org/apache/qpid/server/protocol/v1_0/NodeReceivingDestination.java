@@ -148,11 +148,13 @@ public class NodeReceivingDestination implements ReceivingDestination
         }
         else
         {
-            result.getRoutes()
-                  .stream()
-                  .filter(q -> q instanceof TransactionMonitor)
-                  .map(TransactionMonitor.class::cast)
-                  .forEach(tm -> tm.registerTransaction(txn));
+            for (final Object route : result.getRoutes())
+            {
+                if (route instanceof TransactionMonitor transactionMonitor)
+                {
+                    transactionMonitor.registerTransaction(txn);
+                }
+            }
         }
     }
 

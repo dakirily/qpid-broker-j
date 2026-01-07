@@ -316,9 +316,12 @@ public class Session_1_0 extends AbstractAMQPSession<Session_1_0, ConsumerTarget
     private SortedSet<UnsignedInteger> getDeliveryIds(final Set<Binary> deliveryTags, final LinkEndpoint<?, ?> linkEndpoint)
     {
         final DeliveryRegistry deliveryRegistry = getDeliveryRegistry(linkEndpoint.getRole());
-        return deliveryTags.stream()
-                           .map(deliveryTag -> getDeliveryId(deliveryRegistry, deliveryTag, linkEndpoint))
-                           .collect(Collectors.toCollection(TreeSet::new));
+        final SortedSet<UnsignedInteger> ids = new TreeSet<>();
+        for (final Binary tag : deliveryTags)
+        {
+            ids.add(getDeliveryId(deliveryRegistry, tag, linkEndpoint));
+        }
+        return ids;
     }
 
     private UnsignedInteger getDeliveryId(final Binary deliveryTag, final LinkEndpoint<?, ?> linkEndpoint)

@@ -1180,8 +1180,18 @@ public class AMQPConnection_1_0Impl extends AbstractAMQPConnection<AMQPConnectio
     {
         if (!_closedForOutput)
         {
+            final int payloadRemaining = payload == null ? 0 : payload.remaining();
+            final boolean hasPayload = payloadRemaining > 0;
+
+            if (hasPayload && !(body instanceof Transfer))
+            {
+                throw new ConnectionScopedRuntimeException("Non-empty payload is only supported for Transfer frames. " +
+                        "body=" + (body == null ? "null" : body.getClass().getName()) +
+                        ", payloadRemaining=" + payloadRemaining);
+            }
+
             ValueWriter<FrameBody> writer = body == null ? null : _describedTypeRegistry.getValueWriter(body);
-            if (payload == null)
+            if (!hasPayload)
             {
                 send(new TransportFrame(channel, body, writer));
                 return 0;
@@ -1190,11 +1200,10 @@ public class AMQPConnection_1_0Impl extends AbstractAMQPConnection<AMQPConnectio
             {
                 int size = writer.getEncodedSize();
                 int maxPayloadSize = _maxFrameSize - (size + 9);
-                long payloadLength = (long) payload.remaining();
-                if (payloadLength <= maxPayloadSize)
+                if (payloadRemaining <= maxPayloadSize)
                 {
                     send(new TransportFrame(channel, body, payload, writer));
-                    return (int)payloadLength;
+                    return payloadRemaining;
                 }
                 else
                 {
