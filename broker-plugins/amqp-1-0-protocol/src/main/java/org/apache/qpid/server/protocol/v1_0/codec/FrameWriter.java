@@ -30,7 +30,6 @@ public class FrameWriter
 {
     private final ByteBufferSender _sender;
     private final ValueWriter.Registry _registry;
-    private static final byte[] EMPTY_BYTE_ARRAY = new byte[] {};
 
     public FrameWriter(final ValueWriter.Registry registry, final ByteBufferSender sender)
     {

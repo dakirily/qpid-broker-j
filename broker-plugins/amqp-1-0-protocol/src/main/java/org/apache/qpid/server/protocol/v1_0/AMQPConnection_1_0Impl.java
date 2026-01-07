@@ -51,14 +51,13 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import org.apache.qpid.server.logging.EventLogger;
-import org.apache.qpid.server.logging.messages.ResourceLimitMessages;
-import org.apache.qpid.server.security.limit.ConnectionLimitException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import org.apache.qpid.server.bytebuffer.QpidByteBuffer;
+import org.apache.qpid.server.logging.EventLogger;
 import org.apache.qpid.server.logging.messages.ConnectionMessages;
+import org.apache.qpid.server.logging.messages.ResourceLimitMessages;
 import org.apache.qpid.server.model.AuthenticationProvider;
 import org.apache.qpid.server.model.Broker;
 import org.apache.qpid.server.model.Connection;
@@ -74,6 +73,7 @@ import org.apache.qpid.server.protocol.v1_0.codec.ProtocolHandler;
 import org.apache.qpid.server.protocol.v1_0.codec.SectionDecoderRegistry;
 import org.apache.qpid.server.protocol.v1_0.codec.ValueHandler;
 import org.apache.qpid.server.protocol.v1_0.codec.ValueWriter;
+import org.apache.qpid.server.protocol.v1_0.constants.Bytes;
 import org.apache.qpid.server.protocol.v1_0.framing.AMQFrame;
 import org.apache.qpid.server.protocol.v1_0.framing.FrameHandler;
 import org.apache.qpid.server.protocol.v1_0.framing.OversizeFrameException;
@@ -117,6 +117,7 @@ import org.apache.qpid.server.security.auth.SubjectAuthenticationResult;
 import org.apache.qpid.server.security.auth.manager.AnonymousAuthenticationManager;
 import org.apache.qpid.server.security.auth.manager.ExternalAuthenticationManagerImpl;
 import org.apache.qpid.server.security.auth.sasl.SaslNegotiator;
+import org.apache.qpid.server.security.limit.ConnectionLimitException;
 import org.apache.qpid.server.session.AMQPSession;
 import org.apache.qpid.server.transport.AbstractAMQPConnection;
 import org.apache.qpid.server.transport.AggregateTicker;
@@ -145,31 +146,6 @@ public class AMQPConnection_1_0Impl extends AbstractAMQPConnection<AMQPConnectio
 
     private final AtomicBoolean _stateChanged = new AtomicBoolean();
     private final AtomicReference<Action<ProtocolEngine>> _workListener = new AtomicReference<>();
-
-
-    private static final byte[] SASL_HEADER = new byte[]
-            {
-                    (byte) 'A',
-                    (byte) 'M',
-                    (byte) 'Q',
-                    (byte) 'P',
-                    (byte) 3,
-                    (byte) 1,
-                    (byte) 0,
-                    (byte) 0
-            };
-
-    private static final byte[] AMQP_HEADER = new byte[]
-            {
-                    (byte) 'A',
-                    (byte) 'M',
-                    (byte) 'Q',
-                    (byte) 'P',
-                    (byte) 0,
-                    (byte) 1,
-                    (byte) 0,
-                    (byte) 0
-            };
 
     private final FrameWriter _frameWriter;
     private ProtocolHandler _frameHandler;
@@ -286,7 +262,7 @@ public class AMQPConnection_1_0Impl extends AbstractAMQPConnection<AMQPConnectio
         }
         String mechanism = saslInit.getMechanism().toString();
         final Binary initialResponse = saslInit.getInitialResponse();
-        byte[] response = initialResponse == null ? new byte[0] : initialResponse.getArray();
+        byte[] response = initialResponse == null ? Bytes.EMPTY_BYTE_ARRAY : initialResponse.getArray();
 
         List<String> availableMechanisms =
                 _subjectCreator.getAuthenticationProvider().getAvailableMechanisms(getTransport().isSecure());
@@ -306,7 +282,7 @@ public class AMQPConnection_1_0Impl extends AbstractAMQPConnection<AMQPConnectio
     {
         assertState(ConnectionState.AWAIT_SASL_RESPONSE);
         final Binary responseBinary = saslResponse.getResponse();
-        byte[] response = responseBinary == null ? new byte[0] : responseBinary.getArray();
+        byte[] response = responseBinary == null ? Bytes.EMPTY_BYTE_ARRAY : responseBinary.getArray();
 
         processSaslResponse(response);
     }
@@ -338,7 +314,7 @@ public class AMQPConnection_1_0Impl extends AbstractAMQPConnection<AMQPConnectio
         SubjectAuthenticationResult authenticationResult = _successfulAuthenticationResult;
         if (authenticationResult == null)
         {
-            authenticationResult = _subjectCreator.authenticate(_saslNegotiator, response != null ? response : new byte[0]);
+            authenticationResult = _subjectCreator.authenticate(_saslNegotiator, response != null ? response : Bytes.EMPTY_BYTE_ARRAY);
             challenge = authenticationResult.getChallenge();
         }
 
@@ -1361,14 +1337,14 @@ public class AMQPConnection_1_0Impl extends AbstractAMQPConnection<AMQPConnectio
 
             final AuthenticationProvider<?> authenticationProvider = getPort().getAuthenticationProvider();
 
-            if(Arrays.equals(header, SASL_HEADER))
+            if(Arrays.equals(header, Bytes.saslHeader()))
             {
                 if(_saslComplete)
                 {
                     throw new ConnectionScopedRuntimeException("SASL Layer header received after SASL already established");
                 }
 
-                try (QpidByteBuffer protocolHeader = QpidByteBuffer.wrap(SASL_HEADER))
+                try (QpidByteBuffer protocolHeader = QpidByteBuffer.wrap(Bytes.saslHeader()))
                 {
                     getSender().send(protocolHeader);
                 }
@@ -1384,7 +1360,7 @@ public class AMQPConnection_1_0Impl extends AbstractAMQPConnection<AMQPConnectio
                 _connectionState = ConnectionState.AWAIT_SASL_INIT;
                 _frameHandler = getFrameHandler(true);
             }
-            else if(Arrays.equals(header, AMQP_HEADER))
+            else if(Arrays.equals(header, Bytes.amqpHeader()))
             {
                 if(!_saslComplete)
                 {
@@ -1406,7 +1382,7 @@ public class AMQPConnection_1_0Impl extends AbstractAMQPConnection<AMQPConnectio
                     }
 
                 }
-                try (QpidByteBuffer protocolHeader = QpidByteBuffer.wrap(AMQP_HEADER))
+                try (QpidByteBuffer protocolHeader = QpidByteBuffer.wrap(Bytes.amqpHeader()))
                 {
                     getSender().send(protocolHeader);
                 }

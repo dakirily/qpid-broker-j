@@ -45,6 +45,9 @@ import org.apache.qpid.server.txn.TransactionMonitor;
 
 public class NodeReceivingDestination implements ReceivingDestination
 {
+    private static final Symbol[] CAPS_DISCARD = { DISCARD_UNROUTABLE, DELAYED_DELIVERY };
+    private static final Symbol[] CAPS_REJECT = { REJECT_UNROUTABLE, DELAYED_DELIVERY };
+
     private final boolean _discardUnroutable;
     private final EventLogger _eventLogger;
 
@@ -204,9 +207,6 @@ public class NodeReceivingDestination implements ReceivingDestination
     @Override
     public Symbol[] getCapabilities()
     {
-        Symbol[] capabilities = new Symbol[2];
-        capabilities[0] = _discardUnroutable ? DISCARD_UNROUTABLE : REJECT_UNROUTABLE;
-        capabilities[1] = DELAYED_DELIVERY;
-        return capabilities;
+        return _discardUnroutable ? CAPS_DISCARD : CAPS_REJECT;
     }
 }

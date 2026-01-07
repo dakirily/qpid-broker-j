@@ -68,6 +68,8 @@ import org.apache.qpid.server.util.StateChangeListener;
 class ConsumerTarget_1_0 extends AbstractConsumerTarget<ConsumerTarget_1_0>
 {
     private static final Logger LOGGER = LoggerFactory.getLogger(ConsumerTarget_1_0.class);
+    private static final UnsettledAction DO_NOTHING_ACTION = new DoNothingAction();
+
     private final boolean _acquires;
 
     private long _deliveryTag = 0L;
@@ -249,7 +251,7 @@ class ConsumerTarget_1_0 extends AbstractConsumerTarget<ConsumerTarget_1_0>
                     transfer.setSettled(true);
                     if (_acquires && _transactionId == null)
                     {
-                        transfer.setState(new Accepted());
+                        transfer.setState(Accepted.INSTANCE);
                     }
                 }
                 else
@@ -262,7 +264,7 @@ class ConsumerTarget_1_0 extends AbstractConsumerTarget<ConsumerTarget_1_0>
                     }
                     else
                     {
-                        action = new DoNothingAction();
+                        action = DO_NOTHING_ACTION;
                     }
 
                     _linkEndpoint.addUnsettled(tag, action, entry);

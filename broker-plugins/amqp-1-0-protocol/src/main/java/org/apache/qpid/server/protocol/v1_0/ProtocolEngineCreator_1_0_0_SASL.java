@@ -20,30 +20,20 @@
  */
 package org.apache.qpid.server.protocol.v1_0;
 
-import org.apache.qpid.server.transport.ProtocolEngine;
 import org.apache.qpid.server.model.Broker;
 import org.apache.qpid.server.model.Protocol;
 import org.apache.qpid.server.model.Transport;
 import org.apache.qpid.server.model.port.AmqpPort;
 import org.apache.qpid.server.plugin.PluggableService;
 import org.apache.qpid.server.plugin.ProtocolEngineCreator;
-import org.apache.qpid.server.transport.ServerNetworkConnection;
+import org.apache.qpid.server.protocol.v1_0.constants.Bytes;
 import org.apache.qpid.server.transport.AggregateTicker;
+import org.apache.qpid.server.transport.ProtocolEngine;
+import org.apache.qpid.server.transport.ServerNetworkConnection;
 
 @PluggableService
 public class ProtocolEngineCreator_1_0_0_SASL implements ProtocolEngineCreator
 {
-    private static final byte[] AMQP_SASL_1_0_0_HEADER =
-            new byte[] { (byte) 'A',
-                         (byte) 'M',
-                         (byte) 'Q',
-                         (byte) 'P',
-                         (byte) 3,
-                         (byte) 1,
-                         (byte) 0,
-                         (byte) 0
-            };
-
     public ProtocolEngineCreator_1_0_0_SASL()
     {
     }
@@ -58,7 +48,7 @@ public class ProtocolEngineCreator_1_0_0_SASL implements ProtocolEngineCreator
     @Override
     public byte[] getHeaderIdentifier()
     {
-        return AMQP_SASL_1_0_0_HEADER;
+        return Bytes.saslHeader();
     }
 
     @Override

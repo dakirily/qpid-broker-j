@@ -37,6 +37,8 @@ import org.apache.qpid.server.txn.ServerTransaction;
 
 public class AnonymousRelayDestination implements ReceivingDestination
 {
+    private static final Symbol[] CAPABILITIES = { DELAYED_DELIVERY };
+
     private final Target _target;
     private final NamedAddressSpace _addressSpace;
     private final EventLogger _eventLogger;
@@ -56,7 +58,7 @@ public class AnonymousRelayDestination implements ReceivingDestination
     @Override
     public Symbol[] getCapabilities()
     {
-        return new Symbol[]{DELAYED_DELIVERY};
+        return CAPABILITIES;
     }
 
     @Override
