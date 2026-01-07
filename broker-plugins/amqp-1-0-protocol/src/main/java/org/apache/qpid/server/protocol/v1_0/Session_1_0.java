@@ -399,15 +399,12 @@ public class Session_1_0 extends AbstractAMQPSession<Session_1_0, ConsumerTarget
                     continuationTransfer.setHandle(xfr.getHandle());
                     continuationTransfer.setRcvSettleMode(xfr.getRcvSettleMode());
                     continuationTransfer.setState(xfr.getState());
-                    continuationTransfer.setPayload(payload);
 
                     _nextOutgoingId.incr();
                     _remoteIncomingWindow--;
 
-                    remaining = (long) payload.remaining();
+                    remaining = payload.remaining();
                     payloadSent = _connection.sendFrame(_sendingChannel, continuationTransfer, payload);
-
-                    continuationTransfer.dispose();
                 }
             }
         }
