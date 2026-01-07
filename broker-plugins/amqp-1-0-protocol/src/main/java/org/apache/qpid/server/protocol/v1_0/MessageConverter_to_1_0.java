@@ -68,10 +68,15 @@ import org.apache.qpid.server.util.GZIPUtils;
 
 public abstract class MessageConverter_to_1_0<M extends ServerMessage> implements MessageConverter<M, Message_1_0>
 {
+    /** Must be treated as immutable and must not be modified */
     private static final byte[] SERIALIZED_NULL = getObjectBytes(null);
+    /** Must be treated as immutable and must not be modified */
     private static final NonEncodingRetainingSection<?> AMQP_VALUE_NULL = new AmqpValue(null);
+    /** Must be treated as immutable and must not be modified */
     private static final NonEncodingRetainingSection<?> AMQP_VALUE_EMPTY_STRING = new AmqpValue("");
+    /** Must be treated as immutable and must not be modified */
     private static final NonEncodingRetainingSection<?> AMQP_VALUE_EMPTY_MAP = new AmqpValue(Collections.emptyMap());
+    /** Must be treated as immutable and must not be modified */
     private static final NonEncodingRetainingSection<?> DATA_SERIALIZED_NULL = new Data(new Binary(SERIALIZED_NULL.clone()));
 
     private final AMQPDescribedTypeRegistry _typeRegistry = AMQPDescribedTypeRegistry.newInstance()

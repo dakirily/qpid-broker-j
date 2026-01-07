@@ -390,15 +390,16 @@ public class Session_1_0 extends AbstractAMQPSession<Session_1_0, ConsumerTarget
         {
             long remaining = payload == null ? 0 : (long) payload.remaining();
             int payloadSent = _connection.sendFrame(_sendingChannel, xfr, payload);
-            if(payload != null)
+            if (payload != null)
             {
                 while (payloadSent < remaining && payloadSent >= 0)
                 {
-                    Transfer continuationTransfer = new Transfer();
-
+                    final Transfer continuationTransfer = new Transfer();
                     continuationTransfer.setHandle(xfr.getHandle());
                     continuationTransfer.setRcvSettleMode(xfr.getRcvSettleMode());
                     continuationTransfer.setState(xfr.getState());
+                    // no need to pass payload to continuationTransfer as AMQPConnection_1_0Impl#sendFrame()
+                    // takes payload as an argument
 
                     _nextOutgoingId.incr();
                     _remoteIncomingWindow--;

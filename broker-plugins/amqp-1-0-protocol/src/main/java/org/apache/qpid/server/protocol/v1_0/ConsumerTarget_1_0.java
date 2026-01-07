@@ -191,51 +191,80 @@ class ConsumerTarget_1_0 extends AbstractConsumerTarget<ConsumerTarget_1_0>
 
                 headerSection = header.createEncodingRetainingSection();
             }
-            List<QpidByteBuffer> payload = new ArrayList<>();
-            if(headerSection != null)
-            {
-                payload.add(headerSection.getEncodedForm());
-                headerSection.dispose();
-            }
-            EncodingRetainingSection<?> section;
-            if((section = message.getDeliveryAnnotationsSection()) != null)
-            {
-                payload.add(section.getEncodedForm());
-                section.dispose();
-            }
 
-            if((section = message.getMessageAnnotationsSection()) != null)
+            final EncodingRetainingSection<?> deliveryAnnotationsSection = message.getDeliveryAnnotationsSection();
+            final EncodingRetainingSection<?> messageAnnotationsSection = message.getMessageAnnotationsSection();
+            final EncodingRetainingSection<?> propertiesSection = message.getPropertiesSection();
+            final EncodingRetainingSection<?> applicationPropertiesSection = message.getApplicationPropertiesSection();
+            final EncodingRetainingSection<?> footerSection = message.getFooterSection();
+
+            final boolean bodyOnly = headerSection == null &&
+                    deliveryAnnotationsSection == null &&
+                    messageAnnotationsSection == null &&
+                    propertiesSection == null &&
+                    applicationPropertiesSection == null &&
+                    footerSection == null;
+
+            if (bodyOnly)
             {
-                payload.add(section.getEncodedForm());
-                section.dispose();
+                if (bodyContent != null)
+                {
+                    transfer.setPayload(bodyContent);
+                    bodyContent.dispose();
+                }
             }
-
-            if((section = message.getPropertiesSection()) != null)
+            else
             {
-                payload.add(section.getEncodedForm());
-                section.dispose();
+                final List<QpidByteBuffer> payload = new ArrayList<>();
+
+                if (headerSection != null)
+                {
+                    payload.add(headerSection.getEncodedForm());
+                    headerSection.dispose();
+                }
+
+                if (deliveryAnnotationsSection != null)
+                {
+                    payload.add(deliveryAnnotationsSection.getEncodedForm());
+                    deliveryAnnotationsSection.dispose();
+                }
+
+                if (messageAnnotationsSection != null)
+                {
+                    payload.add(messageAnnotationsSection.getEncodedForm());
+                    messageAnnotationsSection.dispose();
+                }
+
+                if (propertiesSection != null)
+                {
+                    payload.add(propertiesSection.getEncodedForm());
+                    propertiesSection.dispose();
+                }
+
+                if (applicationPropertiesSection != null)
+                {
+                    payload.add(applicationPropertiesSection.getEncodedForm());
+                    applicationPropertiesSection.dispose();
+                }
+
+                if (bodyContent != null)
+                {
+                    payload.add(bodyContent);
+                }
+
+                if (footerSection != null)
+                {
+                    payload.add(footerSection.getEncodedForm());
+                    footerSection.dispose();
+                }
+
+                try (QpidByteBuffer combined = QpidByteBuffer.concatenate(payload))
+                {
+                    transfer.setPayload(combined);
+                }
+
+                payload.forEach(QpidByteBuffer::dispose);
             }
-
-            if((section = message.getApplicationPropertiesSection()) != null)
-            {
-                payload.add(section.getEncodedForm());
-                section.dispose();
-            }
-
-            payload.add(bodyContent);
-
-            if((section = message.getFooterSection()) != null)
-            {
-                payload.add(section.getEncodedForm());
-                section.dispose();
-            }
-
-            try (QpidByteBuffer combined = QpidByteBuffer.concatenate(payload))
-            {
-                transfer.setPayload(combined);
-            }
-
-            payload.forEach(QpidByteBuffer::dispose);
 
             byte[] data = new byte[8];
             ByteBuffer.wrap(data).putLong(_deliveryTag++);

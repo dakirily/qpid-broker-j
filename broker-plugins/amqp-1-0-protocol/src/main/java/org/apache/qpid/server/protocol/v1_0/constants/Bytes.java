@@ -21,6 +21,7 @@
 
 package org.apache.qpid.server.protocol.v1_0.constants;
 
+/** Utility class holding frequently used byte arrays */
 public final class Bytes
 {
     private Bytes()
@@ -28,21 +29,34 @@ public final class Bytes
         // constructor is private for utility class
     }
 
+    /** AMQP header byte array representation  */
     private static final byte[] AMQP_HEADER_BYTES = { (byte) 'A', (byte) 'M', (byte) 'Q', (byte) 'P',
             (byte) 0, (byte) 1, (byte) 0, (byte) 0 };
 
+    /** Empty byte array  */
     public static final byte[] EMPTY_BYTE_ARRAY = { };
 
+    /** SASL header byte array representation  */
     private static final byte[] SASL_HEADER_BYTES = { (byte) 'A', (byte) 'M', (byte) 'Q', (byte) 'P',
             (byte) 3, (byte) 1, (byte) 0, (byte) 0 };
 
+    /**
+     * Returns a AMQP header shared array instance to avoid per-call allocation.
+     * The returned array must be treated as immutable and must not be modified by callers.
+     * @return AMQP header byte array
+     */
     public static byte[] amqpHeader()
     {
-        return AMQP_HEADER_BYTES.clone();
+        return AMQP_HEADER_BYTES;
     }
 
+    /**
+     * Returns a SASL header shared array instance to avoid per-call allocation.
+     * The returned array must be treated as immutable and must not be modified by callers.
+     * @return SASL header byte array
+     */
     public static byte[] saslHeader()
     {
-        return SASL_HEADER_BYTES.clone();
+        return SASL_HEADER_BYTES;
     }
 }

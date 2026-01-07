@@ -22,9 +22,11 @@ package org.apache.qpid.server.protocol.v1_0;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
@@ -42,6 +44,9 @@ import java.util.concurrent.CompletableFuture;
 
 import javax.security.auth.Subject;
 
+import org.apache.qpid.server.bytebuffer.QpidByteBuffer;
+import org.apache.qpid.server.protocol.v1_0.type.Binary;
+import org.apache.qpid.server.protocol.v1_0.type.transport.Transfer;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -555,6 +560,51 @@ class Session_1_0Test extends UnitTestBase
         _session.receiveAttach(attach);
 
         assertQueueDurability(getDynamicNodeAddressFromAttachResponse(), true);
+    }
+
+    @Test
+    void sendTransferDoesNotSetPayloadOnContinuationTransfers()
+    {
+        // Arrange: payload 25 bytes -> 3 sendFrame calls if "wire" writes 10 bytes per call
+        final byte[] bytes = new byte[25];
+        for (int i = 0; i < bytes.length; i++)
+        {
+            bytes[i] = (byte) i;
+        }
+
+        final Transfer xfr = new Transfer();
+        xfr.setSettled(true);
+        xfr.setHandle(UnsignedInteger.valueOf(0));
+        xfr.setDeliveryTag(new Binary(new byte[]{0x01}));
+        try (QpidByteBuffer buf = QpidByteBuffer.wrap(bytes))
+        {
+            xfr.setPayload(buf);
+        }
+
+        when(_connection.sendFrame(eq(0), any(), any(QpidByteBuffer.class))).thenAnswer(inv ->
+        {
+            final QpidByteBuffer payload = inv.getArgument(2);
+            if (payload == null)
+            {
+                return 0;
+            }
+            final int chunk = Math.min(10, payload.remaining());
+            payload.position(payload.position() + chunk);
+            return chunk;
+        });
+
+        final ArgumentCaptor<FrameBody> bodyCaptor = ArgumentCaptor.forClass(FrameBody.class);
+        final SendingLinkEndpoint endpoint = mock(SendingLinkEndpoint.class);
+
+        _session.sendTransfer(xfr, endpoint);
+
+        verify(_connection, times(3)).sendFrame(eq(0), bodyCaptor.capture(), any(QpidByteBuffer.class));
+        final List<FrameBody> bodies = bodyCaptor.getAllValues();
+        assertInstanceOf(Transfer.class, bodies.get(0));
+        assertNull(((Transfer) bodies.get(1)).getPayload(), "Continuation transfer must not carry payload");
+        assertNull(((Transfer) bodies.get(2)).getPayload(), "Continuation transfer must not carry payload");
+
+        xfr.dispose();
     }
 
     private Source createDynamicSource(final DeleteOnClose lifetimePolicy)

@@ -204,6 +204,13 @@ public class NodeReceivingDestination implements ReceivingDestination
         return _destination;
     }
 
+    /**
+     * Returns the supported outcome capabilities for this node.
+     * <br>
+     * Note: returns a shared array to avoid per-call allocations. The returned array must be treated as
+     * immutable and must not be modified by callers.
+     * @return {@link Symbol} array
+     */
     @Override
     public Symbol[] getCapabilities()
     {
