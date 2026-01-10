@@ -20,7 +20,6 @@
  */
 package org.apache.qpid.server.management.plugin;
 
-import java.security.AccessController;
 import java.security.Principal;
 import java.util.List;
 import java.util.Map;
@@ -44,6 +43,7 @@ import org.apache.qpid.server.model.IntegrityViolationException;
 import org.apache.qpid.server.model.OperationTimeoutException;
 import org.apache.qpid.server.util.ExternalServiceException;
 import org.apache.qpid.server.util.ExternalServiceTimeoutException;
+import org.apache.qpid.server.security.SubjectExecutionContext;
 
 public class ManagementException extends RuntimeException
 {
@@ -269,7 +269,7 @@ public class ManagementException extends RuntimeException
 
     private static String getRequestPrincipals()
     {
-        final Subject subject = Subject.getSubject(AccessController.getContext());
+        final Subject subject = SubjectExecutionContext.currentSubject();
         if (subject == null)
         {
             return null;

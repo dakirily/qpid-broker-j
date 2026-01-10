@@ -20,7 +20,6 @@
  */
 package org.apache.qpid.server.security;
 
-import java.security.AccessController;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -29,6 +28,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import javax.security.auth.Subject;
 
 import org.apache.qpid.server.model.PermissionedObject;
+import org.apache.qpid.server.security.SubjectExecutionContext;
 import org.apache.qpid.server.security.access.Operation;
 
 public class CompoundAccessControl implements AccessControl<CompoundSecurityToken>
@@ -66,7 +66,7 @@ public class CompoundAccessControl implements AccessControl<CompoundSecurityToke
     @Override
     public final CompoundSecurityToken newToken()
     {
-        return new CompoundSecurityToken(_underlyingControls.get(), Subject.getSubject(AccessController.getContext()));
+        return new CompoundSecurityToken(_underlyingControls.get(), SubjectExecutionContext.currentSubject());
     }
 
     @Override

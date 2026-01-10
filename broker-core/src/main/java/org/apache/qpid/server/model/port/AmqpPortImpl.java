@@ -22,7 +22,6 @@ package org.apache.qpid.server.model.port;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.net.SocketAddress;
-import java.security.PrivilegedAction;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -37,7 +36,6 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLSessionContext;
-import javax.security.auth.Subject;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -73,6 +71,7 @@ import org.apache.qpid.server.transport.PortBindFailureException;
 import org.apache.qpid.server.transport.TransportProvider;
 import org.apache.qpid.server.transport.network.security.ssl.SSLUtil;
 import org.apache.qpid.server.util.ServerScopedRuntimeException;
+import org.apache.qpid.server.security.SubjectExecutionContext;
 
 public class AmqpPortImpl extends AbstractPort<AmqpPortImpl> implements AmqpPort<AmqpPortImpl>
 {
@@ -168,12 +167,11 @@ public class AmqpPortImpl extends AbstractPort<AmqpPortImpl> implements AmqpPort
         hostnameAliasAttributes.put(VirtualHostAlias.TYPE, HostNameAlias.TYPE_NAME);
         hostnameAliasAttributes.put(VirtualHostAlias.DURABLE, true);
 
-        Subject.doAs(getSubjectWithAddedSystemRights(), (PrivilegedAction<Object>) () ->
+        SubjectExecutionContext.withSubject(getSubjectWithAddedSystemRights(), () ->
         {
             createChild(VirtualHostAlias.class, nameAliasAttributes);
             createChild(VirtualHostAlias.class, defaultAliasAttributes);
             createChild(VirtualHostAlias.class, hostnameAliasAttributes);
-            return null;
         });
     }
 

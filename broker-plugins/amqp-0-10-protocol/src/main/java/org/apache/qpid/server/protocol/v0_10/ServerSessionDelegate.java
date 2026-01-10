@@ -21,7 +21,7 @@
 package org.apache.qpid.server.protocol.v0_10;
 
 import java.nio.charset.StandardCharsets;
-import java.security.AccessControlException;
+import org.apache.qpid.server.security.AccessDeniedException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.EnumSet;
@@ -381,7 +381,7 @@ public class ServerSessionDelegate extends MethodDelegate<ServerSession> impleme
                     {
                         exception(session, method, ExecutionErrorCode.RESOURCE_LOCKED, "Queue has an existing consumer - can't subscribe exclusively");
                     }
-                    catch (AccessControlException e)
+                    catch (AccessDeniedException e)
                     {
                         exception(session, method, ExecutionErrorCode.UNAUTHORIZED_ACCESS, e.getMessage());
                     }
@@ -459,7 +459,7 @@ public class ServerSessionDelegate extends MethodDelegate<ServerSession> impleme
                             .getAMQPConnection().getLastReadTime());
 
                 }
-                catch (AccessControlException e)
+                catch (AccessDeniedException e)
                 {
                     ExecutionErrorCode errorCode = ExecutionErrorCode.UNAUTHORIZED_ACCESS;
                     exception(ssn, xfr, errorCode, e.getMessage());
@@ -980,7 +980,7 @@ public class ServerSessionDelegate extends MethodDelegate<ServerSession> impleme
                                   + " to " + alternateExchangeName + ".");
                     }
                 }
-                catch (AccessControlException e)
+                catch (AccessDeniedException e)
                 {
                     exception(session, method, ExecutionErrorCode.UNAUTHORIZED_ACCESS, e.getMessage());
                 }
@@ -1161,7 +1161,7 @@ public class ServerSessionDelegate extends MethodDelegate<ServerSession> impleme
                 {
                     exception(session, method, ExecutionErrorCode.NOT_ALLOWED, "Exchange '"+method.getExchange()+"' cannot be deleted");
                 }
-                catch (AccessControlException e)
+                catch (AccessDeniedException e)
                 {
                     exception(session, method, ExecutionErrorCode.UNAUTHORIZED_ACCESS, e.getMessage());
                 }
@@ -1260,7 +1260,7 @@ public class ServerSessionDelegate extends MethodDelegate<ServerSession> impleme
                         {
                             exchange.addBinding(method.getBindingKey(), queue, method.getArguments());
                         }
-                        catch (AccessControlException e)
+                        catch (AccessDeniedException e)
                         {
                             exception(session, method, ExecutionErrorCode.UNAUTHORIZED_ACCESS, e.getMessage());
                         }
@@ -1328,7 +1328,7 @@ public class ServerSessionDelegate extends MethodDelegate<ServerSession> impleme
                         exchange.deleteBinding(method.getBindingKey(), queue);
                     }
                 }
-                catch (AccessControlException e)
+                catch (AccessDeniedException e)
                 {
                     exception(session, method, ExecutionErrorCode.UNAUTHORIZED_ACCESS, e.getMessage());
                 }
@@ -1644,7 +1644,7 @@ public class ServerSessionDelegate extends MethodDelegate<ServerSession> impleme
                     exception(session, method, errorCode, description);
                 }
             }
-            catch (AccessControlException e)
+            catch (AccessDeniedException e)
             {
                 exception(session, method, ExecutionErrorCode.UNAUTHORIZED_ACCESS, e.getMessage());
             }
@@ -1712,7 +1712,7 @@ public class ServerSessionDelegate extends MethodDelegate<ServerSession> impleme
                     {
                         queue.delete();
                     }
-                    catch (AccessControlException e)
+                    catch (AccessDeniedException e)
                     {
                         exception(session, method, ExecutionErrorCode.UNAUTHORIZED_ACCESS, e.getMessage());
                     }
@@ -1743,7 +1743,7 @@ public class ServerSessionDelegate extends MethodDelegate<ServerSession> impleme
                 {
                     queue.clearQueue();
                 }
-                catch (AccessControlException e)
+                catch (AccessDeniedException e)
                 {
                     exception(session, method, ExecutionErrorCode.UNAUTHORIZED_ACCESS, e.getMessage());
                 }

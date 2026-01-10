@@ -36,10 +36,7 @@ import static org.apache.qpid.server.util.Serial.max;
 import static org.apache.qpid.server.util.Strings.toUTF8;
 
 import java.nio.ByteBuffer;
-import java.security.AccessControlContext;
-import java.security.AccessController;
 import java.security.Principal;
-import java.security.PrivilegedAction;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -80,6 +77,7 @@ import org.apache.qpid.server.model.Broker;
 import org.apache.qpid.server.model.NamedAddressSpace;
 import org.apache.qpid.server.model.Queue;
 import org.apache.qpid.server.protocol.v0_10.transport.*;
+import org.apache.qpid.server.security.SubjectExecutionContext;
 import org.apache.qpid.server.store.MessageStore;
 import org.apache.qpid.server.store.StoreException;
 import org.apache.qpid.server.transport.AMQPConnection;
@@ -873,11 +871,6 @@ public class ServerSession extends SessionInvoker
         return _modelObject.getSubject();
     }
 
-    public AccessControlContext getAccessControllerContext()
-    {
-        return _modelObject.getAccessControllerContext();
-    }
-
     protected void setState(final State state)
     {
         if(runningAsSubject())
@@ -905,14 +898,14 @@ public class ServerSession extends SessionInvoker
     }
 
 
-    private <T> T runAsSubject(final PrivilegedAction<T> privilegedAction)
-    {
-        return AccessController.doPrivileged(privilegedAction, getAccessControllerContext());
-    }
-
     private boolean runningAsSubject()
     {
-        return getAuthorizedSubject().equals(Subject.getSubject(AccessController.getContext()));
+        return getAuthorizedSubject().equals(SubjectExecutionContext.currentSubject());
+    }
+
+    private <T> T runAsSubject(final java.util.function.Supplier<T> action)
+    {
+        return SubjectExecutionContext.withSubjectUnchecked(getAuthorizedSubject(), action::get);
     }
 
     private void invokeBlock()

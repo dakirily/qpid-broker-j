@@ -38,6 +38,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 
+import javax.security.auth.Subject;
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLSocket;
@@ -220,11 +221,12 @@ public class SiteSpecificTrustStoreImpl
 
     private CompletableFuture<X509Certificate> downloadCertificate(final String url)
     {
+        final Subject subject = SubjectExecutionContext.currentSubject();
         final ExecutorService workerService = Executors.newSingleThreadExecutor(
                 getThreadFactory("download-certificate-worker-" + getName()));
         try
         {
-            return CompletableFuture.supplyAsync(() ->
+            return CompletableFuture.supplyAsync(() -> SubjectExecutionContext.withSubjectUnchecked(subject, () ->
             {
                 try
                 {
@@ -262,7 +264,7 @@ public class SiteSpecificTrustStoreImpl
                                                                           getName(),
                                                                           url), e);
                 }
-            }, workerService);
+            }), workerService);
         }
         finally
         {

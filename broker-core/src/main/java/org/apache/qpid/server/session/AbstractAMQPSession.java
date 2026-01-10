@@ -20,7 +20,6 @@
  */
 package org.apache.qpid.server.session;
 
-import java.security.AccessControlContext;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -32,8 +31,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
-
-import javax.security.auth.Subject;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -64,6 +61,7 @@ import org.apache.qpid.server.model.Session;
 import org.apache.qpid.server.model.State;
 import org.apache.qpid.server.protocol.PublishAuthorisationCache;
 import org.apache.qpid.server.security.SecurityToken;
+import javax.security.auth.Subject;
 import org.apache.qpid.server.transport.AMQPConnection;
 import org.apache.qpid.server.transport.network.Ticker;
 import org.apache.qpid.server.util.Action;
@@ -79,7 +77,6 @@ public abstract class AbstractAMQPSession<S extends AbstractAMQPSession<S, X>,
     private final AMQPConnection<?> _connection;
     private final int _sessionId;
 
-    protected final AccessControlContext _accessControllerContext;
     protected final Subject _subject;
     protected final SecurityToken _token;
     protected final PublishAuthorisationCache _publishAuthCache;
@@ -134,8 +131,6 @@ public abstract class AbstractAMQPSession<S extends AbstractAMQPSession<S, X>,
             final Broker<?> broker = (Broker<?>) _connection.getBroker();
             _token = broker.newToken(_subject);
         }
-
-        _accessControllerContext = _connection.getAccessControlContextFromSubject(_subject);
 
         final long authCacheTimeout = _connection.getContextValue(Long.class, Session.PRODUCER_AUTH_CACHE_TIMEOUT);
         final int authCacheSize = _connection.getContextValue(Integer.class, Session.PRODUCER_AUTH_CACHE_SIZE);

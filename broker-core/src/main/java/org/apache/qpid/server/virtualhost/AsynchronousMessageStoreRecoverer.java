@@ -35,6 +35,8 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import javax.security.auth.Subject;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -60,6 +62,7 @@ import org.apache.qpid.server.txn.DtxRegistry;
 import org.apache.qpid.server.txn.ServerTransaction;
 import org.apache.qpid.server.txn.Xid;
 import org.apache.qpid.server.util.ServerScopedRuntimeException;
+import org.apache.qpid.server.security.SubjectExecutionContext;
 
 public class AsynchronousMessageStoreRecoverer implements MessageStoreRecoverer
 {
@@ -103,6 +106,7 @@ public class AsynchronousMessageStoreRecoverer implements MessageStoreRecoverer
 
         private final MessageStore.MessageStoreReader _storeReader;
         private final AtomicBoolean _continueRecovery = new AtomicBoolean(true);
+        private final Subject _subject;
 
         private AsynchronousRecoverer(final QueueManagingVirtualHost<?> virtualHost)
         {
@@ -111,6 +115,7 @@ public class AsynchronousMessageStoreRecoverer implements MessageStoreRecoverer
             _store = virtualHost.getMessageStore();
             _storeReader = _store.newMessageStoreReader();
             _logSubject = new MessageStoreLogSubject(virtualHost.getName(), _store.getClass().getSimpleName());
+            _subject = SubjectExecutionContext.currentSubject();
 
             _maxMessageId = _store.getNextMessageId();
             Collection children = _virtualHost.getChildren(Queue.class);
@@ -125,13 +130,14 @@ public class AsynchronousMessageStoreRecoverer implements MessageStoreRecoverer
             List<CompletableFuture<Void>> queueRecoveryFutures = new ArrayList<>();
             if (_recoveringQueues.isEmpty())
             {
-                return CompletableFuture.runAsync(new RemoveOrphanedMessagesTask(), _queueRecoveryExecutor);
+                return CompletableFuture.runAsync(withSubject(new RemoveOrphanedMessagesTask()), _queueRecoveryExecutor);
             }
             else
             {
                 for (Queue<?> queue : _recoveringQueues)
                 {
-                    CompletableFuture<Void> result = CompletableFuture.runAsync(new QueueRecoveringTask(queue), _queueRecoveryExecutor);
+                    CompletableFuture<Void> result =
+                            CompletableFuture.runAsync(withSubject(new QueueRecoveringTask(queue)), _queueRecoveryExecutor);
                     queueRecoveryFutures.add(result);
                 }
                 CompletableFuture<Void> combinedFuture = CompletableFuture.allOf(queueRecoveryFutures.toArray(CompletableFuture[]::new));
@@ -157,6 +163,11 @@ public class AsynchronousMessageStoreRecoverer implements MessageStoreRecoverer
         public MessageStoreLogSubject getLogSubject()
         {
             return _logSubject;
+        }
+
+        private Runnable withSubject(final Runnable task)
+        {
+            return () -> SubjectExecutionContext.withSubject(_subject, task);
         }
 
         private boolean isRecovering(Queue<?> queue)

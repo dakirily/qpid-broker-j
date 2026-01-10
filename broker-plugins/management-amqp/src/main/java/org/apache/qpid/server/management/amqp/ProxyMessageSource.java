@@ -20,8 +20,6 @@
  */
 package org.apache.qpid.server.management.amqp;
 
-import java.security.AccessControlException;
-import java.security.AccessController;
 import java.util.Collection;
 import java.util.EnumSet;
 import java.util.Map;
@@ -53,7 +51,9 @@ import org.apache.qpid.server.model.ConfiguredObject;
 import org.apache.qpid.server.model.NamedAddressSpace;
 import org.apache.qpid.server.model.PublishingLink;
 import org.apache.qpid.server.model.Queue;
+import org.apache.qpid.server.security.AccessDeniedException;
 import org.apache.qpid.server.security.SecurityToken;
+import org.apache.qpid.server.security.SubjectExecutionContext;
 import org.apache.qpid.server.session.AMQPSession;
 import org.apache.qpid.server.store.MessageDurability;
 import org.apache.qpid.server.store.StorableMessageMetaData;
@@ -88,9 +88,9 @@ public class ProxyMessageSource implements MessageSource, MessageDestination
 
     @Override
     public void authorisePublish(final SecurityToken token, final Map<String, Object> arguments)
-            throws AccessControlException
+            throws AccessDeniedException
     {
-        throw new AccessControlException("Sending messages to temporary addresses in a management address space is not supported");
+        throw new AccessDeniedException("Sending messages to temporary addresses in a management address space is not supported");
     }
 
     @Override
@@ -159,7 +159,11 @@ public class ProxyMessageSource implements MessageSource, MessageDestination
     {
         if (_consumerSet.compareAndSet(false,true))
         {
-            final Subject currentSubject = Subject.getSubject(AccessController.getContext());
+            final Subject currentSubject = SubjectExecutionContext.currentSubject();
+            if (currentSubject == null)
+            {
+                return null;
+            }
             final Set<SessionPrincipal> sessionPrincipals = currentSubject.getPrincipals(SessionPrincipal.class);
             if (!sessionPrincipals.isEmpty())
             {

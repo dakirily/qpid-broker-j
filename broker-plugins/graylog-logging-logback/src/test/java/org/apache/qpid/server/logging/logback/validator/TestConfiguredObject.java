@@ -35,7 +35,7 @@ import org.apache.qpid.server.store.ConfiguredObjectRecord;
 
 import javax.security.auth.Subject;
 import java.lang.reflect.Type;
-import java.security.AccessControlException;
+import org.apache.qpid.server.security.AccessDeniedException;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
@@ -278,14 +278,14 @@ public class TestConfiguredObject implements ConfiguredObject<TestConfiguredObje
     }
 
     @Override
-    public void setAttributes(Map<String, Object> attributes) throws IllegalStateException, AccessControlException, IllegalArgumentException
+    public void setAttributes(Map<String, Object> attributes) throws IllegalStateException, AccessDeniedException, IllegalArgumentException
     {
         _attributes.clear();
         _attributes.putAll(attributes);
     }
 
     @Override
-    public CompletableFuture<Void> setAttributesAsync(Map<String, Object> attributes) throws IllegalStateException, AccessControlException, IllegalArgumentException
+    public CompletableFuture<Void> setAttributesAsync(Map<String, Object> attributes) throws IllegalStateException, AccessDeniedException, IllegalArgumentException
     {
         setAttributes(attributes);
 
@@ -427,17 +427,17 @@ public class TestConfiguredObject implements ConfiguredObject<TestConfiguredObje
     }
 
     @Override
-    public void authorise(Operation operation) throws AccessControlException
+    public void authorise(Operation operation) throws AccessDeniedException
     {
     }
 
     @Override
-    public void authorise(Operation operation, Map<String, Object> arguments) throws AccessControlException
+    public void authorise(Operation operation, Map<String, Object> arguments) throws AccessDeniedException
     {
     }
 
     @Override
-    public void authorise(SecurityToken token, Operation operation, Map<String, Object> arguments) throws AccessControlException
+    public void authorise(SecurityToken token, Operation operation, Map<String, Object> arguments) throws AccessDeniedException
     {
     }
 

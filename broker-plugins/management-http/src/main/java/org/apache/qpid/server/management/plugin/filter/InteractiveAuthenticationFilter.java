@@ -21,8 +21,6 @@
 package org.apache.qpid.server.management.plugin.filter;
 
 import java.io.IOException;
-import java.security.PrivilegedActionException;
-import java.security.PrivilegedExceptionAction;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -46,6 +44,7 @@ import org.apache.qpid.server.management.plugin.HttpManagementUtil;
 import org.apache.qpid.server.management.plugin.HttpRequestInteractiveAuthenticator;
 import org.apache.qpid.server.management.plugin.servlet.ServletConnectionPrincipal;
 import org.apache.qpid.server.plugin.QpidServiceLoader;
+import org.apache.qpid.server.security.SubjectExecutionContext;
 import org.apache.qpid.server.security.auth.AuthenticatedPrincipal;
 
 public class InteractiveAuthenticationFilter implements Filter
@@ -118,15 +117,15 @@ public class InteractiveAuthenticationFilter implements Filter
         final Subject tempSubject = new Subject(true, Set.of(new ServletConnectionPrincipal(httpRequest)), Set.of(), Set.of());
         try
         {
-            Subject.doAs(tempSubject, (PrivilegedExceptionAction<Void>) () ->
+            SubjectExecutionContext.withSubject(tempSubject, () ->
             {
                 handler.handleAuthentication(httpResponse);
                 return null;
             });
         }
-        catch (PrivilegedActionException e)
+        catch (Exception e)
         {
-            throw new ServletException(e);
+            throw SubjectExecutionContext.unwrapSubjectActionException(e, ServletException.class, ServletException::new);
         }
     }
 }
