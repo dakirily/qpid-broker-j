@@ -37,8 +37,6 @@ import static org.mockito.Mockito.when;
 
 import java.io.File;
 import java.security.Principal;
-import java.security.PrivilegedActionException;
-import java.security.PrivilegedExceptionAction;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
@@ -50,7 +48,6 @@ import javax.security.auth.login.LoginContext;
 import javax.security.sasl.Sasl;
 import javax.security.sasl.SaslClient;
 
-import org.apache.qpid.server.security.TokenCarryingPrincipal;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -60,6 +57,8 @@ import org.apache.qpid.server.configuration.IllegalConfigurationException;
 import org.apache.qpid.server.model.AuthenticationProvider;
 import org.apache.qpid.server.model.Broker;
 import org.apache.qpid.server.model.BrokerTestHelper;
+import org.apache.qpid.server.security.SubjectExecutionContext;
+import org.apache.qpid.server.security.TokenCarryingPrincipal;
 import org.apache.qpid.server.security.auth.AuthenticationResult;
 import org.apache.qpid.server.security.auth.sasl.SaslNegotiator;
 import org.apache.qpid.server.security.auth.sasl.SaslSettings;
@@ -292,7 +291,7 @@ public class KerberosAuthenticationManagerTest extends UnitTestBase
     private AuthenticationResult performNegotiation(final Subject clientSubject,
                                                     final SaslClient saslClient,
                                                     final SaslNegotiator negotiator)
-            throws PrivilegedActionException
+            throws Exception
     {
         AuthenticationResult result;
         byte[] response = null;
@@ -303,7 +302,7 @@ public class KerberosAuthenticationManagerTest extends UnitTestBase
             {
                 initiated = true;
                 debug("Sending initial challenge");
-                response = Subject.doAs(clientSubject, (PrivilegedExceptionAction<byte[]>) () ->
+                response = SubjectExecutionContext.withSubject(clientSubject, () ->
                 {
                     if (saslClient.hasInitialResponse())
                     {
@@ -322,7 +321,7 @@ public class KerberosAuthenticationManagerTest extends UnitTestBase
             if (challenge != null)
             {
                 debug("Challenge: {}", StringUtil.toHex(challenge));
-                response = Subject.doAs(clientSubject, (PrivilegedExceptionAction<byte[]>) () ->
+                response = SubjectExecutionContext.withSubject(clientSubject, () ->
                         saslClient.evaluateChallenge(challenge));
             }
         }
@@ -332,9 +331,9 @@ public class KerberosAuthenticationManagerTest extends UnitTestBase
         return result;
     }
 
-    private SaslClient createSaslClient(final Subject clientSubject) throws PrivilegedActionException
+    private SaslClient createSaslClient(final Subject clientSubject) throws Exception
     {
-        return Subject.doAs(clientSubject, (PrivilegedExceptionAction<SaslClient>) () ->
+        return SubjectExecutionContext.withSubject(clientSubject, () ->
         {
             final Map<String, String> props = Map.of("javax.security.sasl.server.authentication", "true");
             return Sasl.createSaslClient(new String[]{GSSAPI_MECHANISM}, null, SERVER_PROTOCOL, HOST_NAME, props, null);

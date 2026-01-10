@@ -27,7 +27,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.Mockito.mock;
 
-import java.security.PrivilegedAction;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Date;
@@ -54,6 +53,7 @@ import org.apache.qpid.server.model.preferences.Preference;
 import org.apache.qpid.server.model.preferences.PreferenceFactory;
 import org.apache.qpid.server.model.preferences.PreferenceTestHelper;
 import org.apache.qpid.server.model.preferences.UserPreferencesImpl;
+import org.apache.qpid.server.security.SubjectExecutionContext;
 import org.apache.qpid.server.security.auth.TestPrincipalUtils;
 import org.apache.qpid.server.store.preferences.PreferenceStore;
 import org.apache.qpid.test.utils.UnitTestBase;
@@ -316,7 +316,7 @@ public class PreferencesTest extends UnitTestBase
 
 
         Subject user2Subject = TestPrincipalUtils.createTestSubject(TEST_USERNAME2, testGroupName);
-        Subject.doAs(user2Subject, (PrivilegedAction<Void>) () ->
+        SubjectExecutionContext.withSubject(user2Subject, () ->
         {
             final CompletableFuture<Set<Preference>>
                     visiblePreferencesFuture = _testObject.getUserPreferences().getVisiblePreferences();
@@ -340,7 +340,6 @@ public class PreferencesTest extends UnitTestBase
                 // pass
             }
 
-            return null;
         });
 
         assertPreferences(user1Subject, originalPreference);
@@ -387,10 +386,9 @@ public class PreferencesTest extends UnitTestBase
 
         try
         {
-            Subject.doAs(user2Subject, (PrivilegedAction<Void>) () ->
+            SubjectExecutionContext.withSubject(user2Subject, () ->
             {
                 awaitPreferenceFuture(_testObject.getUserPreferences().replace(List.of(testUserPreference2)));
-                return null;
             });
             fail("duplicate id should be prohibited");
         }
@@ -401,11 +399,10 @@ public class PreferencesTest extends UnitTestBase
 
         try
         {
-            Subject.doAs(user2Subject, (PrivilegedAction<Void>) () ->
+            SubjectExecutionContext.withSubject(user2Subject, () ->
             {
                 awaitPreferenceFuture(_testObject.getUserPreferences().replaceByType(testUserPreference.getType(),
                                                                                      List.of(testUserPreference2)));
-                return null;
             });
             fail("duplicate id should be prohibited");
         }
@@ -417,10 +414,9 @@ public class PreferencesTest extends UnitTestBase
 
         try
         {
-            Subject.doAs(user2Subject, (PrivilegedAction<Void>) () ->
+            SubjectExecutionContext.withSubject(user2Subject, () ->
             {
                 awaitPreferenceFuture(_testObject.getUserPreferences().replaceByTypeAndName(testUserPreference.getType(), testUserPreference.getName(), testUserPreference2));
-                return null;
             });
             fail("duplicate id should be prohibited");
         }
@@ -470,10 +466,9 @@ public class PreferencesTest extends UnitTestBase
                 null,
                 Map.of()));
 
-        Subject.doAs(_testSubject, (PrivilegedAction<Void>) () ->
+        SubjectExecutionContext.withSubject(_testSubject, () ->
         {
             awaitPreferenceFuture(_testObject.getUserPreferences().replace(Set.of(p2)));
-            return null;
         });
 
         assertPreferences(_testSubject, p2);
@@ -503,12 +498,11 @@ public class PreferencesTest extends UnitTestBase
                 Map.of()));
         updateOrAppendAs(_testSubject, p1, p2);
 
-        Subject.doAs(_testSubject, (PrivilegedAction<Void>) () ->
+        SubjectExecutionContext.withSubject(_testSubject, () ->
         {
             awaitPreferenceFuture(_testObject.getUserPreferences().delete(null, null, null));
             Set<Preference> result = awaitPreferenceFuture(_testObject.getUserPreferences().getPreferences());
             assertEquals(0, (long) result.size(), "Unexpected number of preferences");
-            return null;
         });
     }
 
@@ -539,10 +533,9 @@ public class PreferencesTest extends UnitTestBase
                         Map.of()));
         updateOrAppendAs(_testSubject, deletePreference, unaffectedPreference);
 
-        Subject.doAs(_testSubject, (PrivilegedAction<Void>) () ->
+        SubjectExecutionContext.withSubject(_testSubject, () ->
         {
             awaitPreferenceFuture(_testObject.getUserPreferences().delete(deleteType, null, null));
-            return null;
         });
         assertPreferences(_testSubject, unaffectedPreference);
     }
@@ -585,10 +578,9 @@ public class PreferencesTest extends UnitTestBase
                         Map.of()));
         updateOrAppendAs(_testSubject, deletePreference, unaffectedPreference1, unaffectedPreference2);
 
-        Subject.doAs(_testSubject, (PrivilegedAction<Void>) () ->
+        SubjectExecutionContext.withSubject(_testSubject, () ->
         {
             awaitPreferenceFuture(_testObject.getUserPreferences().delete(deleteType, deletePropertyName, null));
-            return null;
         });
         assertPreferences(_testSubject, unaffectedPreference1, unaffectedPreference2);
     }
@@ -630,10 +622,9 @@ public class PreferencesTest extends UnitTestBase
                         Map.of()));
         updateOrAppendAs(_testSubject, deletePreference, unaffectedPreference1, unaffectedPreference2);
 
-        Subject.doAs(_testSubject, (PrivilegedAction<Void>) () ->
+        SubjectExecutionContext.withSubject(_testSubject, () ->
         {
             awaitPreferenceFuture(_testObject.getUserPreferences().delete(null, null, deletePreference.getId()));
-            return null;
         });
         assertPreferences(_testSubject, unaffectedPreference1, unaffectedPreference2);
     }
@@ -675,10 +666,9 @@ public class PreferencesTest extends UnitTestBase
                         Map.of()));
         updateOrAppendAs(_testSubject, deletePreference, unaffectedPreference1, unaffectedPreference2);
 
-        Subject.doAs(_testSubject, (PrivilegedAction<Void>) () ->
+        SubjectExecutionContext.withSubject(_testSubject, () ->
         {
             awaitPreferenceFuture(_testObject.getUserPreferences().delete(deleteType, null, deletePreference.getId()));
-            return null;
         });
         assertPreferences(_testSubject, unaffectedPreference1, unaffectedPreference2);
     }
@@ -721,10 +711,9 @@ public class PreferencesTest extends UnitTestBase
                         Map.of()));
         updateOrAppendAs(_testSubject, deletePreference, unaffectedPreference1, unaffectedPreference2);
 
-        Subject.doAs(_testSubject, (PrivilegedAction<Void>) () ->
+        SubjectExecutionContext.withSubject(_testSubject, () ->
         {
             awaitPreferenceFuture(_testObject.getUserPreferences().delete(deleteType, deletePropertyName, deletePreference.getId()));
-            return null;
         });
         assertPreferences(_testSubject, unaffectedPreference1, unaffectedPreference2);
     }
@@ -732,7 +721,7 @@ public class PreferencesTest extends UnitTestBase
     @Test
     public void testDeleteByNameWithoutType()
     {
-        Subject.doAs(_testSubject, (PrivilegedAction<Void>) () ->
+        SubjectExecutionContext.withSubject(_testSubject, () ->
         {
             try
             {
@@ -743,7 +732,6 @@ public class PreferencesTest extends UnitTestBase
             {
                 // pass
             }
-            return null;
         });
     }
 
@@ -775,10 +763,9 @@ public class PreferencesTest extends UnitTestBase
                 Map.of()));
         updateOrAppendAs(_testSubject, p1);
 
-        Subject.doAs(_testSubject, (PrivilegedAction<Void>) () ->
+        SubjectExecutionContext.withSubject(_testSubject, () ->
         {
             awaitPreferenceFuture(_testObject.getUserPreferences().replace(Set.of()));
-            return null;
         });
 
         assertPreferences(_testSubject);
@@ -824,10 +811,9 @@ public class PreferencesTest extends UnitTestBase
                 Map.of()));
 
         updateOrAppendAs(_testSubject, p1, p2);
-        Subject.doAs(_testSubject, (PrivilegedAction<Void>) () ->
+        SubjectExecutionContext.withSubject(_testSubject, () ->
         {
             awaitPreferenceFuture(_testObject.getUserPreferences().replaceByType(preferenceType, Set.of()));
-            return null;
         });
 
         assertPreferences(_testSubject, p2);
@@ -874,10 +860,9 @@ public class PreferencesTest extends UnitTestBase
                 Map.of()));
         updateOrAppendAs(_testSubject, p1, p2);
 
-        Subject.doAs(_testSubject, (PrivilegedAction<Void>) () ->
+        SubjectExecutionContext.withSubject(_testSubject, () ->
         {
             awaitPreferenceFuture(_testObject.getUserPreferences().replaceByTypeAndName(preferenceType, "propName", null));
-            return null;
         });
 
         assertPreferences(_testSubject, p2);
@@ -932,10 +917,9 @@ public class PreferencesTest extends UnitTestBase
                 Map.of()));
         updateOrAppendAs(_testSubject, p1, p2);
 
-        Subject.doAs(_testSubject, (PrivilegedAction<Void>) () ->
+        SubjectExecutionContext.withSubject(_testSubject, () ->
         {
             awaitPreferenceFuture(_testObject.getUserPreferences().replaceByType(replaceType, Set.of(p3)));
-            return null;
         });
 
         assertPreferences(_testSubject, p2, p3);
@@ -1001,10 +985,9 @@ public class PreferencesTest extends UnitTestBase
                 Map.of()));
         updateOrAppendAs(_testSubject, p1, p1b, p2);
 
-        Subject.doAs(_testSubject, (PrivilegedAction<Void>) () ->
+        SubjectExecutionContext.withSubject(_testSubject, () ->
         {
             awaitPreferenceFuture(_testObject.getUserPreferences().replaceByTypeAndName(replaceType, "propName", p3));
-            return null;
         });
 
         assertPreferences(_testSubject, p1b, p2, p3);
@@ -1053,7 +1036,7 @@ public class PreferencesTest extends UnitTestBase
 
         updateOrAppendAs(nonSharer, nonSharersPrivatePref);
 
-        Subject.doAs(nonSharer, (PrivilegedAction<Void>) () ->
+        SubjectExecutionContext.withSubject(nonSharer, () ->
         {
             Set<Preference> retrievedPreferences =
                     awaitPreferenceFuture(_testObject.getUserPreferences().getVisiblePreferences());
@@ -1066,8 +1049,6 @@ public class PreferencesTest extends UnitTestBase
             }
             assertTrue(visibleIds.contains(nonSharersPrivatePref.getId()), "Owned preference not visible");
             assertTrue(visibleIds.contains(sharedPreference.getId()), "Shared preference not visible");
-
-            return null;
         });
     }
 
@@ -1103,7 +1084,7 @@ public class PreferencesTest extends UnitTestBase
                         Map.of()));
         updateOrAppendAs(testSubjectWithGroup, testUserPreference);
 
-        Subject.doAs(testSubjectWithGroup, (PrivilegedAction<Void>) () ->
+        SubjectExecutionContext.withSubject(testSubjectWithGroup, () ->
         {
             Set<Preference> retrievedPreferences =
                     awaitPreferenceFuture(_testObject.getUserPreferences().getVisiblePreferences());
@@ -1111,7 +1092,6 @@ public class PreferencesTest extends UnitTestBase
             assertTrue(retrievedPreferences.contains(sharedPreference),
                        "Preference of my peer did not exist in visible set");
             assertTrue(retrievedPreferences.contains(testUserPreference), "My preference did not exist in visible set");
-            return null;
         });
     }
 
@@ -1182,16 +1162,13 @@ public class PreferencesTest extends UnitTestBase
 
     private void updateOrAppendAs(final Subject testSubject, final Preference... testUserPreference)
     {
-        Subject.doAs(testSubject, (PrivilegedAction<Void>) () ->
-        {
-            awaitPreferenceFuture(_testObject.getUserPreferences().updateOrAppend(Arrays.asList(testUserPreference)));
-            return null;
-        });
+        SubjectExecutionContext.withSubjectUnchecked(testSubject, () ->
+                awaitPreferenceFuture(_testObject.getUserPreferences().updateOrAppend(Arrays.asList(testUserPreference))));
     }
 
     private void assertPreferences(final Subject subject, final Preference... expectedPreferences)
     {
-        Subject.doAs(subject, (PrivilegedAction<Void>) () ->
+        SubjectExecutionContext.withSubject(subject, () ->
         {
             final Collection<Preference> retrievedPreferences =
                     awaitPreferenceFuture(_testObject.getUserPreferences().getPreferences());
@@ -1208,7 +1185,6 @@ public class PreferencesTest extends UnitTestBase
                 assertEquals(expectedPreference.getType(), retrievedPreference.getType(), "Unexpected type");
                 assertEquals(expectedPreference.getDescription(), retrievedPreference.getDescription(), "Unexpected description");
             }
-            return null;
         });
     }
 }

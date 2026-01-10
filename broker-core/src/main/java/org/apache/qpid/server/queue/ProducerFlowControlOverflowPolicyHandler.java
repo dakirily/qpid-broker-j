@@ -19,7 +19,6 @@
 
 package org.apache.qpid.server.queue;
 
-import java.security.AccessController;
 import java.util.Collections;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -171,7 +170,11 @@ public class ProducerFlowControlOverflowPolicyHandler implements OverflowPolicyH
             if ((maximumQueueDepthBytes >= 0L && queueDepthBytes > maximumQueueDepthBytes) ||
                 (maximumQueueDepthMessages >= 0L && queueDepthMessages > maximumQueueDepthMessages))
             {
-                Subject subject = Subject.getSubject(AccessController.getContext());
+                Subject subject = Subject.current();
+                if (subject == null)
+                {
+                    return;
+                }
                 Set<SessionPrincipal> sessionPrincipals = subject.getPrincipals(SessionPrincipal.class);
                 if (!sessionPrincipals.isEmpty())
                 {
@@ -213,4 +216,3 @@ public class ProducerFlowControlOverflowPolicyHandler implements OverflowPolicyH
     }
 
 }
-
