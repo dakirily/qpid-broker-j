@@ -21,7 +21,7 @@
   <parent>
     <groupId>org.apache</groupId>
     <artifactId>apache</artifactId>
-    <version>35</version>
+    <version>36</version>
   </parent>
 
   <groupId>org.apache.qpid</groupId>
@@ -78,6 +78,7 @@
   <properties>
     <minimum-maven-version>3.0.0</minimum-maven-version>
     <minimum-java-version>17</minimum-java-version>
+    <javaVersion>${minimum-java-version}</javaVersion>
     <maven.compiler.source>${minimum-java-version}</maven.compiler.source>
     <maven.compiler.target>${minimum-java-version}</maven.compiler.target>
     <skipTests>false</skipTests>
@@ -974,6 +975,13 @@
           <artifactId>maven-compiler-plugin</artifactId>
           <version>${maven-compiler-plugin-version}</version>
           <configuration>
+            <annotationProcessorPaths>
+              <path>
+                <groupId>org.apache.qpid</groupId>
+                <artifactId>qpid-broker-codegen</artifactId>
+              </path>
+            </annotationProcessorPaths>
+            <proc>full</proc>
             <showDeprecation>true</showDeprecation>
             <showWarnings>true</showWarnings>
             <useIncrementalCompilation>false</useIncrementalCompilation>
