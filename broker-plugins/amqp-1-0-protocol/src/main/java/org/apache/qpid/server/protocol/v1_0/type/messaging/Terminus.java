@@ -22,10 +22,11 @@ package org.apache.qpid.server.protocol.v1_0.type.messaging;
 
 import java.util.Map;
 
+import org.apache.qpid.server.protocol.v1_0.CapabilitiesAware;
 import org.apache.qpid.server.protocol.v1_0.type.Symbol;
 import org.apache.qpid.server.protocol.v1_0.type.UnsignedInteger;
 
-public interface Terminus
+public interface Terminus extends CapabilitiesAware
 {
     String getAddress();
 

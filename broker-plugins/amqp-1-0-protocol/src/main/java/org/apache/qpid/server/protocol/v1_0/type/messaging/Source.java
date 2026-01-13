@@ -1,4 +1,3 @@
-
 /*
 *
 * Licensed to the Apache Software Foundation (ASF) under one
@@ -20,24 +19,25 @@
 *
 */
 
-
 package org.apache.qpid.server.protocol.v1_0.type.messaging;
-
 
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+import org.apache.qpid.server.protocol.v1_0.CapabilitiesAware;
 import org.apache.qpid.server.protocol.v1_0.CompositeType;
 import org.apache.qpid.server.protocol.v1_0.CompositeTypeField;
+import org.apache.qpid.server.protocol.v1_0.OutcomesAware;
+import org.apache.qpid.server.protocol.v1_0.constants.SymbolTexts;
 import org.apache.qpid.server.protocol.v1_0.type.BaseSource;
 import org.apache.qpid.server.protocol.v1_0.type.DistributionMode;
 import org.apache.qpid.server.protocol.v1_0.type.Outcome;
 import org.apache.qpid.server.protocol.v1_0.type.Symbol;
 import org.apache.qpid.server.protocol.v1_0.type.UnsignedInteger;
 
-@CompositeType( symbolicDescriptor = "amqp:source:list", numericDescriptor = 0x0000000000000028L)
-public class Source implements BaseSource, Terminus
+@CompositeType(symbolicDescriptor = SymbolTexts.AMQP_SOURCE, numericDescriptor = 0x0000000000000028L)
+public class Source implements BaseSource, Terminus, CapabilitiesAware, OutcomesAware
 {
     @CompositeTypeField(index = 0)
     private String _address;
@@ -92,7 +92,7 @@ public class Source implements BaseSource, Terminus
         _filter = filter == null ? null : new LinkedHashMap<>(filter);
         _defaultOutcome = source.getDefaultOutcome();
         Symbol[] outcomes = source.getOutcomes();
-        _outcomes = outcomes == null ? null : Arrays.copyOf(outcomes, outcomes.length);;
+        _outcomes = outcomes == null ? null : Arrays.copyOf(outcomes, outcomes.length);
         Symbol[] capabilities = source.getCapabilities();
         _capabilities = capabilities == null ? null : Arrays.copyOf(capabilities, capabilities.length);
     }
@@ -213,99 +213,99 @@ public class Source implements BaseSource, Terminus
         StringBuilder builder = new StringBuilder("Source{");
         final int origLength = builder.length();
 
-        if(_address != null)
+        if (_address != null)
         {
-            if(builder.length() != origLength)
+            if (builder.length() != origLength)
             {
                 builder.append(',');
             }
             builder.append("address=").append(_address);
         }
 
-        if(_durable != null)
+        if (_durable != null)
         {
-            if(builder.length() != origLength)
+            if (builder.length() != origLength)
             {
                 builder.append(',');
             }
             builder.append("durable=").append(_durable);
         }
 
-        if(_expiryPolicy != null)
+        if (_expiryPolicy != null)
         {
-            if(builder.length() != origLength)
+            if (builder.length() != origLength)
             {
                 builder.append(',');
             }
             builder.append("expiryPolicy=").append(_expiryPolicy);
         }
 
-        if(_timeout != null)
+        if (_timeout != null)
         {
-            if(builder.length() != origLength)
+            if (builder.length() != origLength)
             {
                 builder.append(',');
             }
             builder.append("timeout=").append(_timeout);
         }
 
-        if(_dynamic != null)
+        if (_dynamic != null)
         {
-            if(builder.length() != origLength)
+            if (builder.length() != origLength)
             {
                 builder.append(',');
             }
             builder.append("dynamic=").append(_dynamic);
         }
 
-        if(_dynamicNodeProperties != null)
+        if (_dynamicNodeProperties != null)
         {
-            if(builder.length() != origLength)
+            if (builder.length() != origLength)
             {
                 builder.append(',');
             }
             builder.append("dynamicNodeProperties=").append(_dynamicNodeProperties);
         }
 
-        if(_distributionMode != null)
+        if (_distributionMode != null)
         {
-            if(builder.length() != origLength)
+            if (builder.length() != origLength)
             {
                 builder.append(',');
             }
             builder.append("distributionMode=").append(_distributionMode);
         }
 
-        if(_filter != null)
+        if (_filter != null)
         {
-            if(builder.length() != origLength)
+            if (builder.length() != origLength)
             {
                 builder.append(',');
             }
             builder.append("filter=").append(_filter);
         }
 
-        if(_defaultOutcome != null)
+        if (_defaultOutcome != null)
         {
-            if(builder.length() != origLength)
+            if (builder.length() != origLength)
             {
                 builder.append(',');
             }
             builder.append("defaultOutcome=").append(_defaultOutcome);
         }
 
-        if(_outcomes != null)
+        if (_outcomes != null)
         {
-            if(builder.length() != origLength)
+            if (builder.length() != origLength)
             {
                 builder.append(',');
             }
             builder.append("outcomes=").append(Arrays.toString(_outcomes));
         }
 
-        if(_capabilities != null)
+        if (_capabilities != null)
         {
-            if(builder.length() != origLength)
+            if (builder.length() != origLength)
             {
                 builder.append(',');
             }
@@ -368,7 +368,7 @@ public class Source implements BaseSource, Terminus
         }
         if (_defaultOutcome != null)
         {
-            if  (source._defaultOutcome == null)
+            if (source._defaultOutcome == null)
             {
                 return false;
             }

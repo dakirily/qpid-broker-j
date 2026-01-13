@@ -1,4 +1,4 @@
-package org.apache.qpid.server.protocol.v1_0;/*
+/*
  *
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
@@ -19,9 +19,7 @@ package org.apache.qpid.server.protocol.v1_0;/*
  *
  */
 
-import static org.apache.qpid.server.protocol.v1_0.Session_1_0.DELAYED_DELIVERY;
-
-import java.util.Arrays;
+package org.apache.qpid.server.protocol.v1_0;
 
 import org.apache.qpid.server.logging.EventLogger;
 import org.apache.qpid.server.logging.messages.ExchangeMessages;
@@ -29,6 +27,7 @@ import org.apache.qpid.server.message.MessageDestination;
 import org.apache.qpid.server.message.ServerMessage;
 import org.apache.qpid.server.model.DestinationAddress;
 import org.apache.qpid.server.model.NamedAddressSpace;
+import org.apache.qpid.server.protocol.v1_0.constants.Symbols;
 import org.apache.qpid.server.protocol.v1_0.type.Symbol;
 import org.apache.qpid.server.protocol.v1_0.type.messaging.Target;
 import org.apache.qpid.server.protocol.v1_0.type.transport.AmqpError;
@@ -43,20 +42,19 @@ public class AnonymousRelayDestination implements ReceivingDestination
     private final boolean _discardUnroutable;
 
     AnonymousRelayDestination(final NamedAddressSpace addressSpace,
-                                     final Target target,
-                                     final EventLogger eventLogger)
+                              final Target target,
+                              final EventLogger eventLogger)
     {
         _addressSpace = addressSpace;
         _target = target;
         _eventLogger = eventLogger;
-        _discardUnroutable = target.getCapabilities() != null && Arrays.asList(target.getCapabilities())
-                                                                       .contains(DISCARD_UNROUTABLE);
+        _discardUnroutable = target.hasCapability(Symbols.DISCARD_UNROUTABLE);
     }
 
     @Override
     public Symbol[] getCapabilities()
     {
-        return new Symbol[]{DELAYED_DELIVERY};
+        return new Symbol[] { Symbols.DELAYED_DELIVERY };
     }
 
     @Override
@@ -95,9 +93,7 @@ public class AnonymousRelayDestination implements ReceivingDestination
         }
         else
         {
-            destination.send(message,
-                             txn,
-                             securityToken);
+            destination.send(message, txn, securityToken);
         }
     }
 

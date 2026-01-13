@@ -21,12 +21,9 @@
 
 package org.apache.qpid.server.protocol.v1_0;
 
-import java.util.Arrays;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 
 import org.slf4j.Logger;
@@ -579,14 +576,9 @@ public abstract class AbstractLinkEndpoint<S extends BaseSource, T extends BaseT
         return _receivingSettlementMode;
     }
 
-    public List<Symbol> getCapabilities()
+    public void setCapabilities(Symbol[] capabilities)
     {
-        return _capabilities == null ? null : Collections.unmodifiableList(Arrays.asList(_capabilities));
-    }
-
-    public void setCapabilities(Collection<Symbol> capabilities)
-    {
-        _capabilities = capabilities == null ? null : capabilities.toArray(new Symbol[capabilities.size()]);
+        _capabilities = capabilities;
     }
 
     public boolean isErrored()

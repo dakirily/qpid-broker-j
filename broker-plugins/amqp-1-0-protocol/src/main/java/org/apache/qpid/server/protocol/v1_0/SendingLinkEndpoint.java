@@ -23,7 +23,6 @@ package org.apache.qpid.server.protocol.v1_0;
 
 import java.security.AccessControlException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashMap;
@@ -49,6 +48,7 @@ import org.apache.qpid.server.message.MessageSource;
 import org.apache.qpid.server.model.NamedAddressSpace;
 import org.apache.qpid.server.model.NotFoundException;
 import org.apache.qpid.server.model.Queue;
+import org.apache.qpid.server.protocol.v1_0.constants.Symbols;
 import org.apache.qpid.server.protocol.v1_0.type.AmqpErrorException;
 import org.apache.qpid.server.protocol.v1_0.type.Binary;
 import org.apache.qpid.server.protocol.v1_0.type.DeliveryState;
@@ -59,7 +59,6 @@ import org.apache.qpid.server.protocol.v1_0.type.messaging.Accepted;
 import org.apache.qpid.server.protocol.v1_0.type.messaging.Filter;
 import org.apache.qpid.server.protocol.v1_0.type.messaging.Modified;
 import org.apache.qpid.server.protocol.v1_0.type.messaging.NoLocalFilter;
-import org.apache.qpid.server.protocol.v1_0.type.messaging.Rejected;
 import org.apache.qpid.server.protocol.v1_0.type.messaging.Released;
 import org.apache.qpid.server.protocol.v1_0.type.messaging.Source;
 import org.apache.qpid.server.protocol.v1_0.type.messaging.StdDistMode;
@@ -87,8 +86,8 @@ public class SendingLinkEndpoint extends AbstractLinkEndpoint<Source, Target>
         implements AsyncAutoCommitTransaction.FutureRecorder
 {
     private static final Logger LOGGER = LoggerFactory.getLogger(SendingLinkEndpoint.class);
-    private static final Symbol PRIORITY = Symbol.valueOf("priority");
     private static final Pattern ANY_CONTAINER_ID = Pattern.compile(".*");
+    private static final Symbol[] CAPABILITIES_SHARED_SUBSCRIPTIONS = { Symbols.SHARED_SUBSCRIPTIONS };
 
     private final List<Binary> _resumeAcceptedTransfers = new ArrayList<>();
     private final List<MessageInstance> _resumeFullTransfers = new ArrayList<>();
@@ -113,7 +112,7 @@ public class SendingLinkEndpoint extends AbstractLinkEndpoint<Source, Target>
         super(session, link);
         setDeliveryCount(new SequenceNumber(0));
         setAvailable(UnsignedInteger.valueOf(0));
-        setCapabilities(Collections.singletonList(AMQPConnection_1_0.SHARED_SUBSCRIPTIONS));
+        setCapabilities(CAPABILITIES_SHARED_SUBSCRIPTIONS);
         _asyncAutoCommitTransaction =
                 new AsyncAutoCommitTransaction(getSession().getConnection().getAddressSpace().getMessageStore(), this);
     }
@@ -176,7 +175,7 @@ public class SendingLinkEndpoint extends AbstractLinkEndpoint<Source, Target>
                             Error error = new Error();
                             error.setCondition(AmqpError.INVALID_FIELD);
                             error.setDescription("Invalid JMS Selector: " + selectorFilter.getValue());
-                            error.setInfo(Collections.singletonMap(Symbol.valueOf("field"), Symbol.valueOf("filter")));
+                            error.setInfo(Collections.singletonMap(Symbols.FIELD, Symbols.FILTER));
                             throw new AmqpErrorException(error);
                         }
 
@@ -187,7 +186,7 @@ public class SendingLinkEndpoint extends AbstractLinkEndpoint<Source, Target>
                         Error error = new Error();
                         error.setCondition(AmqpError.NOT_IMPLEMENTED);
                         error.setDescription("Unsupported filter type: " + ((Filter.InvalidFilter)entry.getValue()).getDescriptor());
-                        error.setInfo(Collections.singletonMap(Symbol.valueOf("field"), Symbol.valueOf("filter")));
+                        error.setInfo(Collections.singletonMap(Symbols.FIELD, Symbols.FILTER));
                         throw new AmqpErrorException(error);
                     }
                 }
@@ -272,9 +271,9 @@ public class SendingLinkEndpoint extends AbstractLinkEndpoint<Source, Target>
         if(peerProperties != null)
         {
             Map<Symbol, Object> actualProperties = new HashMap<>();
-            if(peerProperties.containsKey(PRIORITY))
+            if(peerProperties.containsKey(Symbols.PRIORITY))
             {
-                Object value = peerProperties.get(PRIORITY);
+                Object value = peerProperties.get(Symbols.PRIORITY);
                 if(value instanceof Number)
                 {
                     _priority = ((Number)value).intValue();
@@ -292,7 +291,7 @@ public class SendingLinkEndpoint extends AbstractLinkEndpoint<Source, Target>
                 }
                 if(_priority != null)
                 {
-                    actualProperties.put(PRIORITY, _priority);
+                    actualProperties.put(Symbols.PRIORITY, _priority);
                 }
             }
             return actualProperties;
@@ -383,9 +382,7 @@ public class SendingLinkEndpoint extends AbstractLinkEndpoint<Source, Target>
         Source source = getSource();
         if (source == null && attach.getDesiredCapabilities() != null)
         {
-            List<Symbol> capabilities = Arrays.asList(attach.getDesiredCapabilities());
-            if (capabilities.contains(Session_1_0.GLOBAL_CAPABILITY)
-                && capabilities.contains(Session_1_0.SHARED_CAPABILITY)
+            if (attach.contains(attach.getDesiredCapabilities(), Symbols.GLOBAL_CAPABILITY, Symbols.SHARED_CAPABILITY)
                 && getLinkName().endsWith("|global"))
             {
                 final NamedAddressSpace namedAddressSpace = getSession().getConnection().getAddressSpace();
@@ -467,7 +464,7 @@ public class SendingLinkEndpoint extends AbstractLinkEndpoint<Source, Target>
         Map<Symbol, Object> properties = flow.getProperties();
         if (properties != null)
         {
-            final Binary transactionId = (Binary) properties.get(Symbol.valueOf("txn-id"));
+            final Binary transactionId = (Binary) properties.get(Symbols.TXN_ID);
             if (transactionId != null)
             {
                 try
@@ -668,16 +665,16 @@ public class SendingLinkEndpoint extends AbstractLinkEndpoint<Source, Target>
             final Modified defaultOutcome = new Modified();
             defaultOutcome.setDeliveryFailed(true);
             source.setDefaultOutcome(defaultOutcome);
-            source.setOutcomes(Accepted.ACCEPTED_SYMBOL, Released.RELEASED_SYMBOL, Rejected.REJECTED_SYMBOL);
+            source.setOutcomes(Symbols.AMQP_ACCEPTED, Symbols.AMQP_RELEASED, Symbols.AMQP_REJECTED);
             source.setAddress(attachSource.getAddress());
             source.setDynamic(attachSource.getDynamic());
             if (Boolean.TRUE.equals(attachSource.getDynamic()) && attachSource.getDynamicNodeProperties() != null)
             {
                 Map<Symbol, Object> dynamicNodeProperties = new HashMap<>();
-                if (attachSource.getDynamicNodeProperties().containsKey(Session_1_0.LIFETIME_POLICY))
+                if (attachSource.getDynamicNodeProperties().containsKey(Symbols.LIFETIME_POLICY))
                 {
-                    dynamicNodeProperties.put(Session_1_0.LIFETIME_POLICY,
-                                              attachSource.getDynamicNodeProperties().get(Session_1_0.LIFETIME_POLICY));
+                    dynamicNodeProperties.put(Symbols.LIFETIME_POLICY,
+                                              attachSource.getDynamicNodeProperties().get(Symbols.LIFETIME_POLICY));
                 }
                 source.setDynamicNodeProperties(dynamicNodeProperties);
             }
@@ -829,7 +826,6 @@ public class SendingLinkEndpoint extends AbstractLinkEndpoint<Source, Target>
         Source source = getSource();
         TerminusExpiryPolicy expiryPolicy = source.getExpiryPolicy();
         NamedAddressSpace addressSpace = getSession().getConnection().getAddressSpace();
-        List<Symbol> sourceCapabilities = source.getCapabilities() == null ? Collections.emptyList() : Arrays.asList(source.getCapabilities());
 
         if (close
             || TerminusExpiryPolicy.LINK_DETACH.equals(expiryPolicy)
@@ -853,10 +849,9 @@ public class SendingLinkEndpoint extends AbstractLinkEndpoint<Source, Target>
                     TerminusDurability sourceDurability = source.getDurable();
                     if (sourceDurability != null
                         && !TerminusDurability.NONE.equals(sourceDurability)
-                        && sourceCapabilities.contains(Session_1_0.SHARED_CAPABILITY)
-                        && sourceCapabilities.contains(ExchangeSendingDestination.TOPIC_CAPABILITY))
+                        && source.hasCapabilities(Symbols.SHARED_CAPABILITY, Symbols.TOPIC))
                     {
-                        final Pattern containerIdPattern = sourceCapabilities.contains(Session_1_0.GLOBAL_CAPABILITY)
+                        final Pattern containerIdPattern = source.hasCapability(Symbols.GLOBAL_CAPABILITY)
                                 ? ANY_CONTAINER_ID
                                 : Pattern.compile("^" + Pattern.quote(getSession().getConnection().getRemoteContainerId()) + "$");
                         final Pattern linkNamePattern = Pattern.compile("^" + Pattern.quote(getLinkName()) + "\\|?\\d*$");
@@ -879,8 +874,7 @@ public class SendingLinkEndpoint extends AbstractLinkEndpoint<Source, Target>
                 catch (IllegalStateException e)
                 {
                     String message;
-                    if(sourceCapabilities.contains(Session_1_0.SHARED_CAPABILITY)
-                       && sourceCapabilities.contains(ExchangeSendingDestination.TOPIC_CAPABILITY))
+                    if(source.hasCapabilities(Symbols.SHARED_CAPABILITY, Symbols.TOPIC))
                     {
                         String subscriptionName = getLinkName();
                         int separator = subscriptionName.indexOf("|");
@@ -912,9 +906,7 @@ public class SendingLinkEndpoint extends AbstractLinkEndpoint<Source, Target>
         }
         else if (addressSpace instanceof QueueManagingVirtualHost
                  && ((QueueManagingVirtualHost) addressSpace).isDiscardGlobalSharedSubscriptionLinksOnDetach()
-                 && sourceCapabilities.contains(Session_1_0.SHARED_CAPABILITY)
-                 && sourceCapabilities.contains(Session_1_0.GLOBAL_CAPABILITY)
-                 && sourceCapabilities.contains(ExchangeSendingDestination.TOPIC_CAPABILITY)
+                 && source.hasCapabilities(Symbols.SHARED_CAPABILITY, Symbols.GLOBAL_CAPABILITY, Symbols.TOPIC)
                  && !getLinkName().endsWith("|global"))
         {
             // For JMS 2.0 global shared subscriptions we do not want to keep the links hanging around.

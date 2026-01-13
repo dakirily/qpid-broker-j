@@ -24,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anySet;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
@@ -41,6 +42,7 @@ import org.junit.jupiter.api.Test;
 
 import org.apache.qpid.server.bytebuffer.QpidByteBuffer;
 import org.apache.qpid.server.model.Session;
+import org.apache.qpid.server.protocol.v1_0.constants.Symbols;
 import org.apache.qpid.server.protocol.v1_0.type.Binary;
 import org.apache.qpid.server.protocol.v1_0.type.Symbol;
 import org.apache.qpid.server.protocol.v1_0.type.UnsignedInteger;
@@ -159,7 +161,8 @@ class TxnCoordinatorReceivingLinkEndpointTest
         when(delivery.getDeliveryTag()).thenReturn(new Binary("1".getBytes(StandardCharsets.UTF_8)));
 
         final Source source = mock(Source.class);
-        when(source.getOutcomes()).thenReturn(new Symbol[] { Rejected.REJECTED_SYMBOL });
+        when(source.hasOutcome(eq(Symbols.AMQP_REJECTED))).thenReturn(true);
+        when(source.getOutcomes()).thenReturn(new Symbol[] { Symbols.AMQP_REJECTED });
 
         final Link_1_0<Source, Coordinator> link = mock(Link_1_0.class);
         when(link.getSource()).thenReturn(source);
@@ -173,7 +176,7 @@ class TxnCoordinatorReceivingLinkEndpointTest
         verify(txnCoordinatorReceivingLinkEndpoint, times(1))
                 .updateDispositions(anySet(), any(Rejected.class), anyBoolean());
         verify(link, times(1)).getSource();
-        verify(source, times(1)).getOutcomes();
+        verify(source, times(1)).hasOutcome(Symbols.AMQP_REJECTED);
 
         assertNull(error);
     }
@@ -186,7 +189,7 @@ class TxnCoordinatorReceivingLinkEndpointTest
         when(delivery.getPayload()).thenReturn(qpidByteBuffer);
 
         final Source source = mock(Source.class);
-        when(source.getOutcomes()).thenReturn(new Symbol[] { Rejected.REJECTED_SYMBOL });
+        when(source.getOutcomes()).thenReturn(new Symbol[] { Symbols.AMQP_REJECTED });
 
         final Link_1_0<Source, Coordinator> link = mock(Link_1_0.class);
         when(link.getSource()).thenReturn(source);
@@ -209,7 +212,7 @@ class TxnCoordinatorReceivingLinkEndpointTest
         when(delivery.getPayload()).thenReturn(qpidByteBuffer);
 
         final Source source = mock(Source.class);
-        when(source.getOutcomes()).thenReturn(new Symbol[] { Rejected.REJECTED_SYMBOL });
+        when(source.getOutcomes()).thenReturn(new Symbol[] { Symbols.AMQP_REJECTED });
 
         final Link_1_0<Source, Coordinator> link = mock(Link_1_0.class);
         when(link.getSource()).thenReturn(source);
@@ -231,7 +234,7 @@ class TxnCoordinatorReceivingLinkEndpointTest
         when(delivery.getPayload()).thenReturn(qpidByteBuffer);
 
         final Source source = mock(Source.class);
-        when(source.getOutcomes()).thenReturn(new Symbol[] { Rejected.REJECTED_SYMBOL });
+        when(source.getOutcomes()).thenReturn(new Symbol[] { Symbols.AMQP_REJECTED });
 
         final Link_1_0<Source, Coordinator> link = mock(Link_1_0.class);
         when(link.getSource()).thenReturn(source);
