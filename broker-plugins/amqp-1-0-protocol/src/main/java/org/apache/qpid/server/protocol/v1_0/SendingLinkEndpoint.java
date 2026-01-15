@@ -173,9 +173,7 @@ public class SendingLinkEndpoint extends AbstractLinkEndpoint<Source, Target>
                         }
                         catch (ParseException | SelectorParsingException | TokenMgrError e)
                         {
-                            Error error = new Error();
-                            error.setCondition(AmqpError.INVALID_FIELD);
-                            error.setDescription("Invalid JMS Selector: " + selectorFilter.getValue());
+                            Error error = Error.Amqp.invalidField("Invalid JMS Selector: " + selectorFilter.getValue());
                             error.setInfo(Collections.singletonMap(Symbol.valueOf("field"), Symbol.valueOf("filter")));
                             throw new AmqpErrorException(error);
                         }
@@ -184,9 +182,8 @@ public class SendingLinkEndpoint extends AbstractLinkEndpoint<Source, Target>
                     }
                     else if (entry.getValue() instanceof Filter.InvalidFilter)
                     {
-                        Error error = new Error();
-                        error.setCondition(AmqpError.NOT_IMPLEMENTED);
-                        error.setDescription("Unsupported filter type: " + ((Filter.InvalidFilter)entry.getValue()).getDescriptor());
+                        Error error = Error.Amqp.notImplemented("Unsupported filter type: " +
+                                ((Filter.InvalidFilter)entry.getValue()).getDescriptor());
                         error.setInfo(Collections.singletonMap(Symbol.valueOf("field"), Symbol.valueOf("filter")));
                         throw new AmqpErrorException(error);
                     }
@@ -240,17 +237,17 @@ public class SendingLinkEndpoint extends AbstractLinkEndpoint<Source, Target>
         catch (MessageSource.ExistingExclusiveConsumer e)
         {
             String msg = "Cannot add a consumer to the destination as there is already an exclusive consumer";
-            throw new AmqpErrorException(new Error(AmqpError.RESOURCE_LOCKED, msg), e);
+            throw AmqpErrorException.resourceLocked(msg, e);
         }
         catch (MessageSource.ExistingConsumerPreventsExclusive e)
         {
             String msg = "Cannot add an exclusive consumer to the destination as there is already a consumer";
-            throw new AmqpErrorException(new Error(AmqpError.RESOURCE_LOCKED, msg), e);
+            throw AmqpErrorException.resourceLocked(msg, e);
         }
         catch (MessageSource.ConsumerAccessRefused e)
         {
             String msg = "Cannot add an exclusive consumer to the destination as there is an incompatible exclusivity policy";
-            throw new AmqpErrorException(new Error(AmqpError.RESOURCE_LOCKED, msg), e);
+            throw AmqpErrorException.resourceLocked(msg, e);
         }
         catch (MessageSource.QueueDeleted e)
         {
@@ -406,7 +403,7 @@ public class SendingLinkEndpoint extends AbstractLinkEndpoint<Source, Target>
         source = getSource();
         if (source == null)
         {
-            throw new AmqpErrorException(new Error(AmqpError.NOT_FOUND, "Link not found"));
+            throw new AmqpErrorException(Error.Amqp.linkNotFound());
         }
 
         attach.setSource(source);
@@ -476,7 +473,7 @@ public class SendingLinkEndpoint extends AbstractLinkEndpoint<Source, Target>
                 }
                 catch (UnknownTransactionException e)
                 {
-                    close(new Error(TransactionError.UNKNOWN_ID, e.getMessage()));
+                    close(Error.Transaction.unknownId(transactionId));
                     return;
                 }
             }
@@ -874,7 +871,7 @@ public class SendingLinkEndpoint extends AbstractLinkEndpoint<Source, Target>
                 catch (AccessControlException e)
                 {
                     LOGGER.error("Error unregistering subscription", e);
-                    closingError = new Error(AmqpError.NOT_ALLOWED, "Error unregistering subscription");
+                    closingError = Error.Amqp.notAllowed("Error unregistering subscription");
                 }
                 catch (IllegalStateException e)
                 {
@@ -894,11 +891,11 @@ public class SendingLinkEndpoint extends AbstractLinkEndpoint<Source, Target>
                     {
                         message = e.getMessage();
                     }
-                    closingError = new Error(AmqpError.RESOURCE_LOCKED, message);
+                    closingError = Error.Amqp.resourceLocked(message);
                 }
                 catch (NotFoundException e)
                 {
-                    closingError = new Error(AmqpError.NOT_FOUND, e.getMessage());
+                    closingError = Error.Amqp.notFound(e.getMessage());
                 }
             }
             if (error == null)

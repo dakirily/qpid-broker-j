@@ -129,10 +129,7 @@ public abstract class AbstractReceivingLinkEndpoint<T extends BaseTarget> extend
 
             if (_currentDelivery.getTotalPayloadSize() > getSession().getConnection().getMaxMessageSize())
             {
-                error = new Error(LinkError.MESSAGE_SIZE_EXCEEDED,
-                                  String.format("delivery '%s' exceeds max-message-size %d",
-                                                _currentDelivery.getDeliveryTag(),
-                                                getSession().getConnection().getMaxMessageSize()));
+                error = Error.Link.messageSizeExceeded(_currentDelivery.getDeliveryTag(), getSession().getConnection().getMaxMessageSize());
                 _currentDelivery.discard();
                 _currentDelivery = null;
                 close(error);
@@ -181,9 +178,7 @@ public abstract class AbstractReceivingLinkEndpoint<T extends BaseTarget> extend
         else
         {
             End end = new End();
-            end.setError(new Error(SessionError.ERRANT_LINK,
-                                   String.format("Received TRANSFER for link handle %s which is in errored state.",
-                                                 transfer.getHandle())));
+            end.setError(Error.Session.errantLink(transfer.getHandle()));
             getSession().end(end);
         }
     }
@@ -194,8 +189,7 @@ public abstract class AbstractReceivingLinkEndpoint<T extends BaseTarget> extend
         if (!ReceiverSettleMode.SECOND.equals(getReceivingSettlementMode())
             && ReceiverSettleMode.SECOND.equals(transfer.getRcvSettleMode()))
         {
-            error = new Error(AmqpError.INVALID_FIELD,
-                              "Transfer \"rcv-settle-mode\" cannot be \"first\" when link \"rcv-settle-mode\" is set to \"second\".");
+            error = Error.Amqp.invalidField("Transfer \"rcv-settle-mode\" cannot be \"first\" when link \"rcv-settle-mode\" is set to \"second\".");
         }
         else if (transfer.getState() instanceof TransactionalState)
         {
@@ -206,8 +200,7 @@ public abstract class AbstractReceivingLinkEndpoint<T extends BaseTarget> extend
             }
             catch (UnknownTransactionException e)
             {
-                error = new Error(TransactionError.UNKNOWN_ID,
-                                  String.format("Transfer has an unknown transaction-id '%s'.", txnId));
+                error = Error.Transaction.unknownId(txnId);
             }
         }
         return error;
@@ -218,28 +211,24 @@ public abstract class AbstractReceivingLinkEndpoint<T extends BaseTarget> extend
         Error error = null;
         if (transfer.getDeliveryId() == null)
         {
-            error = new Error(AmqpError.INVALID_FIELD,
-                                    "Transfer \"delivery-id\" is required for a new delivery.");
+            error = Error.Amqp.invalidField("Transfer \"delivery-id\" is required for a new delivery.");
         }
         else if (transfer.getDeliveryTag() == null)
         {
-            error = new Error(AmqpError.INVALID_FIELD,
-                                    "Transfer \"delivery-tag\" is required for a new delivery.");
+            error = Error.Amqp.invalidField("Transfer \"delivery-tag\" is required for a new delivery.");
         }
         else if (!Boolean.TRUE.equals(transfer.getResume()))
         {
             if (_unsettled.containsKey(transfer.getDeliveryTag()))
             {
-                error = new Error(AmqpError.ILLEGAL_STATE,
-                                  String.format("Delivery-tag '%s' is used by another unsettled delivery."
-                                                + " The delivery-tag MUST be unique amongst all deliveries that"
-                                                + " could be considered unsettled by either end of the link.",
-                                                transfer.getDeliveryTag()));
+                error = Error.Amqp.illegalState(("Delivery-tag '%s' is used by another unsettled delivery." +
+                        " The delivery-tag MUST be unique amongst all deliveries that" +
+                        " could be considered unsettled by either end of the link.")
+                        .formatted(transfer.getDeliveryTag()));
             }
             else if (_localIncompleteUnsettled || _remoteIncompleteUnsettled)
             {
-                error = new Error(AmqpError.ILLEGAL_STATE,
-                                  "Cannot accept new deliveries while incomplete-unsettled is true.");
+                error = Error.Amqp.illegalState("Cannot accept new deliveries while incomplete-unsettled is true.");
             }
         }
 
@@ -249,35 +238,26 @@ public abstract class AbstractReceivingLinkEndpoint<T extends BaseTarget> extend
     private Error validateSubsequentTransfer(final Transfer transfer)
     {
         Error error = null;
-        if (transfer.getDeliveryId() != null && !_currentDelivery.getDeliveryId()
-                                                                 .equals(transfer.getDeliveryId()))
+        if (transfer.getDeliveryId() != null && !_currentDelivery.getDeliveryId().equals(transfer.getDeliveryId()))
         {
-            error = new Error(AmqpError.INVALID_FIELD,
-                              String.format(
-                                      "Unexpected transfer \"delivery-id\" for multi-transfer delivery: found '%s', expected '%s'.",
-                                      transfer.getDeliveryId(),
-                                      _currentDelivery.getDeliveryId()));
+            error = Error.Amqp.invalidField("Unexpected transfer \"delivery-id\" for multi-transfer delivery: found '%s', expected '%s'."
+                    .formatted(transfer.getDeliveryId(), _currentDelivery.getDeliveryId()));
         }
         else if (transfer.getDeliveryTag() != null && !_currentDelivery.getDeliveryTag()
                                                                        .equals(transfer.getDeliveryTag()))
         {
-            error = new Error(AmqpError.INVALID_FIELD,
-                              String.format(
-                                      "Unexpected transfer \"delivery-tag\" for multi-transfer delivery: found '%s', expected '%s'.",
-                                      transfer.getDeliveryTag(),
-                                      _currentDelivery.getDeliveryTag()));
+            error = Error.Amqp.invalidField("Unexpected transfer \"delivery-tag\" for multi-transfer delivery: found '%s', expected '%s'."
+                    .formatted(transfer.getDeliveryTag(), _currentDelivery.getDeliveryTag()));
         }
         else if (_currentDelivery.getReceiverSettleMode() != null && transfer.getRcvSettleMode() != null
                  && !_currentDelivery.getReceiverSettleMode().equals(transfer.getRcvSettleMode()))
         {
-            error = new Error(AmqpError.INVALID_FIELD,
-                              "Transfer \"rcv-settle-mode\" is set to different value than on previous transfer.");
+            error = Error.Amqp.invalidField("Transfer \"rcv-settle-mode\" is set to different value than on previous transfer.");
         }
         else if (transfer.getMessageFormat() != null && !_currentDelivery.getMessageFormat()
                                                                          .equals(transfer.getMessageFormat()))
         {
-            error = new Error(AmqpError.INVALID_FIELD,
-                              "Transfer \"message-format\" is set to different value than on previous transfer.");
+            error = Error.Amqp.invalidField("Transfer \"message-format\" is set to different value than on previous transfer.");
         }
 
         return error;

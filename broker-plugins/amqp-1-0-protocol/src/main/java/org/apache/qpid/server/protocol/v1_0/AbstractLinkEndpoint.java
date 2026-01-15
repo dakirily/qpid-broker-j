@@ -134,7 +134,7 @@ public abstract class AbstractLinkEndpoint<S extends BaseSource, T extends BaseT
             }
             else
             {
-                throw new AmqpErrorException(new Error(AmqpError.NOT_IMPLEMENTED, "Resuming link is not implemented."));
+                throw AmqpErrorException.notImplemented("Resuming link is not implemented.");
             }
         }
         else
@@ -414,7 +414,7 @@ public abstract class AbstractLinkEndpoint<S extends BaseSource, T extends BaseT
             if (unsettledMap == null || unsettledMap.isEmpty())
             {
                 final End endWithError = new End();
-                endWithError.setError(new Error(AmqpError.FRAME_SIZE_TOO_SMALL, "Cannot fit a single unsettled delivery into Attach frame."));
+                endWithError.setError(Error.Amqp.frameSizeTooSmall());
                 getSession().end(endWithError);
             }
 

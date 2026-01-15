@@ -121,9 +121,7 @@ public class StandardReceivingLinkEndpoint extends AbstractReceivingLinkEndpoint
         public void destinationRemoved(final MessageDestination destination)
         {
             getSession().getConnection()
-                        .doOnIOThreadAsync(() -> close(new Error(AmqpError.RESOURCE_DELETED,
-                                                                 String.format("Destination '%s' has been removed.",
-                                                                               destination.getName()))));
+                        .doOnIOThreadAsync(() -> close(Error.Amqp.resourceDeleted(destination.getName())));
         }
 
         @Override
@@ -182,7 +180,7 @@ public class StandardReceivingLinkEndpoint extends AbstractReceivingLinkEndpoint
             {
                 if (delivery.getTotalPayloadSize() == 0)
                 {
-                    return new Error(AmqpError.NOT_IMPLEMENTED, "Delivery without payload is not supported");
+                    return Error.Amqp.notImplemented("Delivery without payload is not supported");
                 }
                 try (QpidByteBuffer payload = delivery.getPayload())
                 {
@@ -197,10 +195,7 @@ public class StandardReceivingLinkEndpoint extends AbstractReceivingLinkEndpoint
             }
             else
             {
-                final Error err = new Error();
-                err.setCondition(AmqpError.NOT_IMPLEMENTED);
-                err.setDescription("Unknown message format: " + messageFormat);
-                return err;
+                return Error.Amqp.notImplemented("Unknown message format: " + messageFormat);
             }
 
 
@@ -226,8 +221,7 @@ public class StandardReceivingLinkEndpoint extends AbstractReceivingLinkEndpoint
                     }
                     catch (UnknownTransactionException e)
                     {
-                        return new Error(TransactionError.UNKNOWN_ID,
-                                         String.format("transaction-id '%s' is unknown.", transactionId));
+                        return Error.Transaction.unknownId(transactionId);
                     }
                     if (!(transaction instanceof AutoCommitTransaction))
                     {
@@ -262,8 +256,8 @@ public class StandardReceivingLinkEndpoint extends AbstractReceivingLinkEndpoint
                     Outcome outcome;
                     if (serverMessage.isPersistent() && !getAddressSpace().getMessageStore().isPersistent())
                     {
-                        final Error preconditionFailedError = new Error(AmqpError.PRECONDITION_FAILED,
-                                                                        "Non-durable message store cannot accept durable message.");
+                        final Error preconditionFailedError = Error.Amqp
+                                .preconditionFailed("Non-durable message store cannot accept durable message.");
                         if (_rejectedOutcomeSupportedBySource)
                         {
                             final Rejected rejected = new Rejected();
@@ -370,10 +364,7 @@ public class StandardReceivingLinkEndpoint extends AbstractReceivingLinkEndpoint
                 }
                 catch (AccessControlException e)
                 {
-                    final Error err = new Error();
-                    err.setCondition(AmqpError.NOT_ALLOWED);
-                    err.setDescription(e.getMessage());
-                    return err;
+                    return Error.Amqp.notAllowed(e.getMessage());
                 }
                 finally
                 {
@@ -572,8 +563,7 @@ public class StandardReceivingLinkEndpoint extends AbstractReceivingLinkEndpoint
     {
         if (getTarget() == null)
         {
-            throw new AmqpErrorException(new Error(AmqpError.NOT_FOUND,
-                                                   String.format("Link '%s' not found", getLinkName())));
+            throw new AmqpErrorException(Error.Amqp.linkNotFound(getLinkName()));
         }
 
         attach.setTarget(getTarget());
@@ -586,7 +576,8 @@ public class StandardReceivingLinkEndpoint extends AbstractReceivingLinkEndpoint
     {
         if (attach.getTarget() instanceof Coordinator)
         {
-            throw new AmqpErrorException(new Error(AmqpError.PRECONDITION_FAILED, "Cannot reattach standard receiving Link as a transaction coordinator"));
+            final Error error = Error.Amqp.preconditionFailed("Cannot reattach standard receiving Link as a transaction coordinator");
+            throw new AmqpErrorException(error);
         }
 
         attachReceived(attach);
@@ -605,7 +596,7 @@ public class StandardReceivingLinkEndpoint extends AbstractReceivingLinkEndpoint
         }
         if (attach.getTarget() instanceof Coordinator)
         {
-            throw new AmqpErrorException(new Error(AmqpError.PRECONDITION_FAILED, "Cannot resume standard receiving Link as a transaction coordinator"));
+            throw AmqpErrorException.preconditionFailed("Cannot resume standard receiving Link as a transaction coordinator");
         }
 
         attachReceived(attach);

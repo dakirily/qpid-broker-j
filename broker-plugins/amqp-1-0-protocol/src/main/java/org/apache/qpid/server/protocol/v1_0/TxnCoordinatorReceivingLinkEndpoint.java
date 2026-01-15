@@ -42,8 +42,6 @@ import org.apache.qpid.server.protocol.v1_0.type.transaction.Coordinator;
 import org.apache.qpid.server.protocol.v1_0.type.transaction.Declare;
 import org.apache.qpid.server.protocol.v1_0.type.transaction.Declared;
 import org.apache.qpid.server.protocol.v1_0.type.transaction.Discharge;
-import org.apache.qpid.server.protocol.v1_0.type.transaction.TransactionError;
-import org.apache.qpid.server.protocol.v1_0.type.transport.AmqpError;
 import org.apache.qpid.server.protocol.v1_0.type.transport.Attach;
 import org.apache.qpid.server.protocol.v1_0.type.transport.Detach;
 import org.apache.qpid.server.protocol.v1_0.type.transport.Error;
@@ -221,9 +219,7 @@ public class TxnCoordinatorReceivingLinkEndpoint extends AbstractReceivingLinkEn
         }
         else
         {
-            error = new Error();
-            error.setCondition(TransactionError.UNKNOWN_ID);
-            error.setDescription("Unknown transactionId " + transactionIdAsBinary.toString());
+            error = Error.Transaction.unknownId(transactionIdAsBinary);
         }
         return error;
     }
@@ -232,10 +228,7 @@ public class TxnCoordinatorReceivingLinkEndpoint extends AbstractReceivingLinkEn
     {
         txn.rollback();
         connection.incrementTransactionRollbackCounter();
-        final Error error = new Error();
-        error.setCondition(TransactionError.TRANSACTION_ROLLBACK);
-        error.setDescription("The transaction was rolled back due to an earlier issue (e.g. a published message was sent settled but could not be enqueued)");
-        return error;
+        return Error.Transaction.txRollback();
     }
 
     @Override
@@ -255,13 +248,13 @@ public class TxnCoordinatorReceivingLinkEndpoint extends AbstractReceivingLinkEn
     @Override
     protected void reattachLink(final Attach attach) throws AmqpErrorException
     {
-        throw new AmqpErrorException(new Error(AmqpError.NOT_IMPLEMENTED, "Cannot reattach a Coordinator Link."));
+        throw AmqpErrorException.notImplemented("Cannot reattach a Coordinator Link.");
     }
 
     @Override
     protected void resumeLink(final Attach attach) throws AmqpErrorException
     {
-        throw new AmqpErrorException(new Error(AmqpError.NOT_IMPLEMENTED, "Cannot resume a Coordinator Link."));
+        throw AmqpErrorException.notImplemented("Cannot resume a Coordinator Link.");
     }
 
     @Override
@@ -282,7 +275,7 @@ public class TxnCoordinatorReceivingLinkEndpoint extends AbstractReceivingLinkEn
     @Override
     protected void recoverLink(final Attach attach) throws AmqpErrorException
     {
-        throw new AmqpErrorException(new Error(AmqpError.NOT_IMPLEMENTED, "Cannot recover a Coordinator Link."));
+        throw AmqpErrorException.notImplemented("Cannot recover a Coordinator Link.");
     }
 
     @Override
@@ -301,7 +294,7 @@ public class TxnCoordinatorReceivingLinkEndpoint extends AbstractReceivingLinkEn
     private void doTimeoutAction(final String message)
     {
         rollbackOpenTransactions();
-        Error error = new Error(TransactionError.TRANSACTION_TIMEOUT, message);
+        Error error = Error.Transaction.txTimeout(message);
         getSession().getConnection().close(error);
     }
 

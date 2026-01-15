@@ -508,8 +508,7 @@ public class AMQPConnection_1_0Impl extends AbstractAMQPConnection<AMQPConnectio
     {
         if (channel > getChannelMax())
         {
-            Error error = new Error(ConnectionError.FRAMING_ERROR,
-                    String.format("specified channel %d larger than maximum channel %d", channel, getChannelMax()));
+            Error error = Error.Connection.channelLargerThanMax(channel, getChannelMax());
             handleError(error);
             return;
         }
@@ -980,8 +979,8 @@ public class AMQPConnection_1_0Impl extends AbstractAMQPConnection<AMQPConnectio
         {
             LOGGER.debug("Closing newly open connection: {}", e.getMessage());
             _properties.put(Symbol.valueOf("amqp:connection-establishment-failed"), true);
-            final Error error = new Error(AmqpError.INVALID_FIELD,
-                    String.format("Connection closed due to sole-connection-enforcement-policy '%s'", e.getPolicy()));
+            final Error error = Error.Amqp.invalidField("Connection closed due to sole-connection-enforcement-policy '%s'"
+                    .formatted(e.getPolicy()));
             error.setInfo(Map.of(Symbol.valueOf("invalid-field"), Symbol.valueOf("container-id")));
             closeConnection(error);
             getEventLogger().message(ResourceLimitMessages.REJECTED(
@@ -989,8 +988,8 @@ public class AMQPConnection_1_0Impl extends AbstractAMQPConnection<AMQPConnectio
         }
         else if (e.getPolicy() == SoleConnectionEnforcementPolicy.CLOSE_EXISTING)
         {
-            final Error error = new Error(AmqpError.RESOURCE_LOCKED,
-                    String.format("Connection closed due to sole-connection-enforcement-policy '%s'", e.getPolicy()));
+            final Error error = Error.Amqp.resourceLocked("Connection closed due to sole-connection-enforcement-policy '%s'"
+                    .formatted(e.getPolicy()));
             error.setInfo(Map.of(Symbol.valueOf("sole-connection-enforcement"), true));
 
             final EventLogger logger = getEventLogger();
@@ -1745,9 +1744,7 @@ public class AMQPConnection_1_0Impl extends AbstractAMQPConnection<AMQPConnectio
         Session_1_0 session = _receivingSessions[channel];
         if (session == null)
         {
-            Error error = new Error();
-            error.setCondition(ConnectionError.FRAMING_ERROR);
-            error.setDescription("Frame received on channel " + channel + " which is not known as a begun session.");
+            Error error = Error.Connection.unknownChannel(channel);
             handleError(error);
         }
 

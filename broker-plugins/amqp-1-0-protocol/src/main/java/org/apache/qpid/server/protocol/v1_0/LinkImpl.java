@@ -87,7 +87,7 @@ public class LinkImpl<S extends BaseSource, T extends BaseTarget> implements Lin
         {
             if (_role == attach.getRole())
             {
-                throw new AmqpErrorException(new Error(AmqpError.ILLEGAL_STATE, "Cannot switch SendingLink to ReceivingLink and vice versa"));
+                throw new AmqpErrorException(Error.Amqp.illegalState("Cannot switch SendingLink to ReceivingLink and vice versa"));
             }
 
             if (_linkEndpoint != null && !session.equals(_linkEndpoint.getSession()))
@@ -230,8 +230,7 @@ public class LinkImpl<S extends BaseSource, T extends BaseTarget> implements Lin
         }
         else
         {
-            _linkEndpoint =
-                    new ErrantLinkEndpoint<>(this, session, new Error(AmqpError.INTERNAL_ERROR, t.getMessage()));
+            _linkEndpoint = new ErrantLinkEndpoint<>(this, session, Error.Amqp.internalError(t.getMessage()));
         }
         return CompletableFuture.completedFuture(_linkEndpoint);
     }
@@ -286,9 +285,7 @@ public class LinkImpl<S extends BaseSource, T extends BaseTarget> implements Lin
                         LinkEndpoint<S, T> endpoint = _linkEndpoint;
                         if (endpoint != null)
                         {
-                            endpoint.close(new Error(LinkError.STOLEN,
-                                                          String.format("Link is being stolen by connection '%s'",
-                                                                        session.getConnection())));
+                            endpoint.close(Error.Link.stolen(String.valueOf(session.getConnection())));
                         }
                         doLinkStealAndHandleExceptions(session, attach, returnFuture);
                     });

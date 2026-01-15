@@ -152,8 +152,7 @@ public class ExchangeSendingDestination extends StandardSendingDestination
         }
         else
         {
-            throw new AmqpErrorException(new Error(AmqpError.INTERNAL_ERROR,
-                                                   "Address space of unexpected type"));
+            throw new AmqpErrorException(Error.Amqp.internalError("Address space of unexpected type"));
         }
 
         Queue<?> queue;
@@ -184,12 +183,11 @@ public class ExchangeSendingDestination extends StandardSendingDestination
         }
         catch (NotFoundException e)
         {
-            throw new AmqpErrorException(new Error(AmqpError.NOT_FOUND, e.getMessage()));
+            throw new AmqpErrorException(Error.Amqp.notFound(e.getMessage()));
         }
         catch(IllegalStateException e)
         {
-            throw new AmqpErrorException(new Error(AmqpError.RESOURCE_LOCKED,
-                                                   "Subscription is already in use"));
+            throw AmqpErrorException.resourceLocked("Subscription is already in use");
         }
         return queue;
     }
@@ -223,8 +221,7 @@ public class ExchangeSendingDestination extends StandardSendingDestination
         }
         else
         {
-            Error error = new Error(AmqpError.NOT_IMPLEMENTED,
-                                    String.format("unknown ExpiryPolicy '%s'", expiryPolicy.getValue()));
+            Error error = Error.Amqp.notImplemented("unknown ExpiryPolicy '%s'".formatted(expiryPolicy.getValue()));
             throw new AmqpErrorException(error);
         }
         return lifetimePolicy;
@@ -361,9 +358,7 @@ public class ExchangeSendingDestination extends StandardSendingDestination
                         }
                         catch (ParseException | SelectorParsingException | TokenMgrError e)
                         {
-                            Error error = new Error();
-                            error.setCondition(AmqpError.INVALID_FIELD);
-                            error.setDescription("Invalid JMS Selector: " + selectorFilter.getValue());
+                            Error error = Error.Amqp.invalidField("Invalid JMS Selector: " + selectorFilter.getValue());
                             error.setInfo(Collections.singletonMap(Symbol.valueOf("field"), Symbol.valueOf("filter")));
                             throw new AmqpErrorException(error);
                         }

@@ -303,7 +303,7 @@ class ConsumerTarget_1_0 extends AbstractConsumerTarget<ConsumerTarget_1_0>
                     catch (UnknownTransactionException e)
                     {
                         entry.release(consumer);
-                        getEndpoint().close(new Error(TransactionError.UNKNOWN_ID, e.getMessage()));
+                        getEndpoint().close(Error.Transaction.unknownId(_transactionId));
                         return;
                     }
 
@@ -370,9 +370,9 @@ class ConsumerTarget_1_0 extends AbstractConsumerTarget<ConsumerTarget_1_0>
     @Override
     public void queueDeleted(final Queue queue, final MessageInstanceConsumer sub)
     {
-        getSession().getConnection().doOnIOThreadAsync(() -> {
-            getEndpoint().close(new Error(AmqpError.RESOURCE_DELETED,
-                                          String.format("Destination '%s' has been removed.", queue.getName())));
+        getSession().getConnection().doOnIOThreadAsync(() ->
+        {
+            getEndpoint().close(Error.Amqp.resourceDeleted(queue.getName()));
             consumerRemoved(sub);
         });
     }
@@ -469,7 +469,7 @@ class ConsumerTarget_1_0 extends AbstractConsumerTarget<ConsumerTarget_1_0>
                 }
                 catch (UnknownTransactionException e)
                 {
-                    getEndpoint().close(new Error(TransactionError.UNKNOWN_ID, e.getMessage()));
+                    getEndpoint().close(Error.Transaction.unknownId(transactionId));
                     applyModifiedOutcome();
                     return false;
                 }

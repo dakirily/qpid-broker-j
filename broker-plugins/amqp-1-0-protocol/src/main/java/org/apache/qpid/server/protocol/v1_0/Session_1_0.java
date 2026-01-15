@@ -93,9 +93,7 @@ import org.apache.qpid.server.protocol.v1_0.type.transport.Disposition;
 import org.apache.qpid.server.protocol.v1_0.type.transport.End;
 import org.apache.qpid.server.protocol.v1_0.type.transport.Error;
 import org.apache.qpid.server.protocol.v1_0.type.transport.Flow;
-import org.apache.qpid.server.protocol.v1_0.type.transport.LinkError;
 import org.apache.qpid.server.protocol.v1_0.type.transport.Role;
-import org.apache.qpid.server.protocol.v1_0.type.transport.SessionError;
 import org.apache.qpid.server.protocol.v1_0.type.transport.Transfer;
 import org.apache.qpid.server.queue.CreatingLinkInfo;
 import org.apache.qpid.server.queue.CreatingLinkInfoImpl;
@@ -144,9 +142,7 @@ public class Session_1_0 extends AbstractAMQPSession<Session_1_0, ConsumerTarget
     private final DeliveryRegistry _outgoingDeliveryRegistry = new DeliveryRegistryImpl();
     private final DeliveryRegistry _incomingDeliveryRegistry = new DeliveryRegistryImpl();
 
-    private final Error _sessionEndedLinkError =
-            new Error(LinkError.DETACH_FORCED,
-                      "Force detach the link because the session is remotely ended.");
+    private final Error _sessionEndedLinkError = Error.Link.detachForced();
 
     private final String _primaryDomain;
     private final Set<Object> _blockingEntities = Collections.newSetFromMap(new ConcurrentHashMap<>());
@@ -185,9 +181,9 @@ public class Session_1_0 extends AbstractAMQPSession<Session_1_0, ConsumerTarget
             UnsignedInteger inputHandle = attach.getHandle();
             if (_inputHandleToEndpoint.containsKey(inputHandle))
             {
-                String errorMessage = String.format("Input Handle '%d' already in use", inputHandle.intValue());
-                getConnection().close(new Error(SessionError.HANDLE_IN_USE, errorMessage));
-                throw new ConnectionScopedRuntimeException(errorMessage);
+                Error error = Error.Session.handleInUse(inputHandle.intValue());
+                getConnection().close(error);
+                throw new ConnectionScopedRuntimeException(error.getDescription());
             }
             else
             {
@@ -220,11 +216,7 @@ public class Session_1_0 extends AbstractAMQPSession<Session_1_0, ConsumerTarget
                             UnsignedInteger nextAvailableOutputHandle = findNextAvailableOutputHandle();
                             if (nextAvailableOutputHandle == null)
                             {
-                                endpoint.close(new Error(AmqpError.RESOURCE_LIMIT_EXCEEDED,
-                                                         String.format(
-                                                                 "Cannot find free handle for endpoint '%s' on session '%s'",
-                                                                 attach.getName(),
-                                                                 endpoint.getSession().toLogString())));
+                                endpoint.close(Error.Amqp.resourceLimitExceeded(attach.getName(), endpoint.getSession().toLogString()));
                             }
                             else
                             {
@@ -247,8 +239,7 @@ public class Session_1_0 extends AbstractAMQPSession<Session_1_0, ConsumerTarget
                                     else
                                     {
                                         final End end = new End();
-                                        end.setError(new Error(AmqpError.INTERNAL_ERROR,
-                                                               "Endpoint is already registered with session."));
+                                        end.setError(Error.Amqp.internalError("Endpoint is already registered with session."));
                                         endpoint.getSession().end(end);
                                     }
                                 }
@@ -440,9 +431,7 @@ public class Session_1_0 extends AbstractAMQPSession<Session_1_0, ConsumerTarget
                 break;
             default:
                 End reply = new End();
-                Error error = new Error();
-                error.setCondition(AmqpError.ILLEGAL_STATE);
-                error.setDescription("END called on Session which has not been opened");
+                Error error = Error.Amqp.illegalState("END called on Session which has not been opened");
                 reply.setError(error);
                 _connection.sendEnd(_sendingChannel, reply, true);
                 break;
@@ -485,10 +474,7 @@ public class Session_1_0 extends AbstractAMQPSession<Session_1_0, ConsumerTarget
         if (flowNextIncomingId.compareTo(_nextOutgoingId) > 0)
         {
             final End end = new End();
-            end.setError(new Error(SessionError.WINDOW_VIOLATION,
-                                   String.format("Next incoming id '%d' exceeds next outgoing id '%d'",
-                                                 flowNextIncomingId.longValue(),
-                                                 _nextOutgoingId.longValue())));
+            end.setError(Error.Session.windowViolation(flowNextIncomingId.longValue(), _nextOutgoingId.longValue()));
             end(end);
         }
         else
@@ -506,8 +492,7 @@ public class Session_1_0 extends AbstractAMQPSession<Session_1_0, ConsumerTarget
                 if (endpoint == null)
                 {
                     End end = new End();
-                    end.setError(new Error(SessionError.UNATTACHED_HANDLE,
-                                           String.format("Received Flow with unknown handle %d", handle.intValue())));
+                    end.setError(Error.Session.unattachedFlowHandle(handle.intValue()));
                     end(end);
                 }
                 else
@@ -637,9 +622,7 @@ public class Session_1_0 extends AbstractAMQPSession<Session_1_0, ConsumerTarget
                 break;
             default:
                 End reply = new End();
-                Error error = new Error();
-                error.setCondition(AmqpError.ILLEGAL_STATE);
-                error.setDescription("END called on Session which has not been opened");
+                Error error = Error.Amqp.illegalState("END called on Session which has not been opened");
                 reply.setError(error);
                 _connection.sendEnd(_sendingChannel, reply, true);
                 break;
@@ -658,18 +641,14 @@ public class Session_1_0 extends AbstractAMQPSession<Session_1_0, ConsumerTarget
 
         if (linkEndpoint == null)
         {
-            Error error = new Error();
-            error.setCondition(SessionError.UNATTACHED_HANDLE);
-            error.setDescription("TRANSFER called on Session for link handle " + inputHandle + " which is not attached.");
+            Error error = Error.Session.unattachedTransferHandle(inputHandle.intValue());
             _connection.close(error);
 
         }
         else if(!(linkEndpoint instanceof AbstractReceivingLinkEndpoint))
         {
-
-            Error error = new Error();
-            error.setCondition(AmqpError.PRECONDITION_FAILED);
-            error.setDescription("Received TRANSFER for link handle " + inputHandle + " which is a sending link not a receiving link.");
+            Error error = Error.Amqp.preconditionFailed("Received TRANSFER for link handle " +
+                    inputHandle + " which is a sending link not a receiving link.");
             _connection.close(error);
 
         }
@@ -850,7 +829,7 @@ public class Session_1_0 extends AbstractAMQPSession<Session_1_0, ConsumerTarget
             else
             {
                 // TODO
-                throw new AmqpErrorException(new Error(AmqpError.NOT_IMPLEMENTED, "Temporary subscription is not implemented"));
+                throw AmqpErrorException.notImplemented("Temporary subscription is not implemented");
             }
         }
         return exchangeDestination;

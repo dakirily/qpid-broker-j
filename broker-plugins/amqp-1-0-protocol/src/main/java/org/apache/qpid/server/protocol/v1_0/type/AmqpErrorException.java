@@ -53,6 +53,26 @@ public class AmqpErrorException extends Exception
         _error.setDescription((new Formatter()).format(format, args).toString());
     }
 
+    public static AmqpErrorException notImplemented(final String description)
+    {
+        return new AmqpErrorException(Error.Amqp.notImplemented(description));
+    }
+
+    public static AmqpErrorException preconditionFailed(final String description)
+    {
+        return new AmqpErrorException(Error.Amqp.preconditionFailed(description));
+    }
+
+    public static AmqpErrorException resourceLocked(final String description)
+    {
+        return new AmqpErrorException(Error.Amqp.resourceLocked(description));
+    }
+
+    public static AmqpErrorException resourceLocked(final String description, final Throwable throwable)
+    {
+        return new AmqpErrorException(Error.Amqp.resourceLocked(description), throwable);
+    }
+
     public Error getError()
     {
         return _error;

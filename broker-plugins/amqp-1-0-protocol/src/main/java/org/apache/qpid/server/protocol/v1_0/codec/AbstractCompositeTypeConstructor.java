@@ -275,8 +275,7 @@ public abstract class AbstractCompositeTypeConstructor<T> implements DescribedTy
                         }
                         catch (RuntimeException e)
                         {
-                            Error error = new Error(AmqpError.DECODE_ERROR,
-                                                    String.format("Could not decode value field '%s' of '%s'", fieldName, getTypeName()));
+                            Error error = Error.Amqp.decode(fieldName, getTypeName());
                             throw new AmqpErrorException(error, e);
                         }
                         return array;
@@ -299,8 +298,7 @@ public abstract class AbstractCompositeTypeConstructor<T> implements DescribedTy
                     }
                     catch (RuntimeException e)
                     {
-                        Error error = new Error(AmqpError.DECODE_ERROR,
-                                                String.format("Could not decode value field '%s' of '%s'", fieldName, getTypeName()));
+                        Error error = Error.Amqp.decode(fieldName, getTypeName());
                         throw new AmqpErrorException(error, e);
                     }
                 }
