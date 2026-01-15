@@ -165,7 +165,7 @@ public class FlowTest extends BrokerAdminUsingTestBase
                        .dispositionRole(Role.RECEIVER)
                        .dispositionFirstFromLatestDelivery()
                        .dispositionLast(interaction.getLatestDeliveryId())
-                       .dispositionState(new Accepted())
+                       .dispositionState(Accepted.INSTANCE)
                        .disposition()
                        .sync();
             final Object data = interaction.getDecodedLatestDelivery();
@@ -342,7 +342,7 @@ public class FlowTest extends BrokerAdminUsingTestBase
             interaction.dispositionSettled(true)
                        .dispositionRole(Role.RECEIVER)
                        .dispositionFirst(interaction.getLatestDeliveryId())
-                       .dispositionState(new Accepted())
+                       .dispositionState(Accepted.INSTANCE)
                        .disposition()
                        .sync();
         }
@@ -409,7 +409,7 @@ public class FlowTest extends BrokerAdminUsingTestBase
                        .dispositionRole(Role.RECEIVER)
                        .dispositionFirst(firstDeliveryId)
                        .dispositionLast(secondDeliveryId)
-                       .dispositionState(new Accepted())
+                       .dispositionState(Accepted.INSTANCE)
                        .disposition();
 
             // detach link and consume detach to verify that no transfer was delivered
@@ -499,7 +499,7 @@ public class FlowTest extends BrokerAdminUsingTestBase
                 interaction.dispositionSettled(true)
                            .dispositionRole(Role.RECEIVER)
                            .dispositionFirst(interaction.getLatestDeliveryId())
-                           .dispositionState(new Accepted())
+                           .dispositionState(Accepted.INSTANCE)
                            .disposition()
                            .sync();
             }
@@ -548,7 +548,7 @@ public class FlowTest extends BrokerAdminUsingTestBase
             interaction.dispositionSettled(true)
                        .dispositionRole(Role.RECEIVER)
                        .dispositionFirstFromLatestDelivery()
-                       .dispositionState(new Accepted())
+                       .dispositionState(Accepted.INSTANCE)
                        .disposition()
                        .sync();
         }

@@ -90,7 +90,7 @@ public class Utils
                        .dispositionRole(Role.RECEIVER)
                        .dispositionFirst(interaction.getLatestDeliveryId())
                        .dispositionLast(interaction.getLatestDeliveryId())
-                       .dispositionState(new Accepted())
+                       .dispositionState(Accepted.INSTANCE)
                        .disposition()
                        .detachEndCloseUnconditionally();
             return interaction.getDecodedLatestDelivery();

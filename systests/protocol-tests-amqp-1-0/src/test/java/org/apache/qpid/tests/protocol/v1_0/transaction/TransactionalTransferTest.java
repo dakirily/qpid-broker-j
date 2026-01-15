@@ -202,7 +202,7 @@ public class TransactionalTransferTest extends BrokerAdminUsingTestBase
 
             interaction.dispositionRole(Role.SENDER)
                        .dispositionSettled(true)
-                       .dispositionTransactionalStateFromCurrentTransaction(new Accepted())
+                       .dispositionTransactionalStateFromCurrentTransaction(Accepted.INSTANCE)
                        .disposition();
 
             interaction.txnDischarge(false);
@@ -291,7 +291,7 @@ public class TransactionalTransferTest extends BrokerAdminUsingTestBase
 
             interaction.dispositionSettled(true)
                        .dispositionRole(Role.RECEIVER)
-                       .dispositionTransactionalStateFromCurrentTransaction(new Accepted())
+                       .dispositionTransactionalStateFromCurrentTransaction(Accepted.INSTANCE)
                        .disposition().txnDischarge(false);
 
             assertThat(interaction.getCoordinatorLatestDeliveryState(), is(instanceOf(Accepted.class)));
@@ -337,7 +337,7 @@ public class TransactionalTransferTest extends BrokerAdminUsingTestBase
 
             interaction.dispositionSettled(true)
                        .dispositionRole(Role.RECEIVER)
-                       .dispositionTransactionalStateFromCurrentTransaction(new Accepted())
+                       .dispositionTransactionalStateFromCurrentTransaction(Accepted.INSTANCE)
                        .disposition().txnDischarge(true);
 
             assertThat(interaction.getCoordinatorLatestDeliveryState(), is(instanceOf(Accepted.class)));
@@ -392,7 +392,7 @@ public class TransactionalTransferTest extends BrokerAdminUsingTestBase
             ErrorCarryingFrameBody response = interaction.dispositionSettled(true)
                                               .dispositionRole(Role.RECEIVER)
                                               .dispositionTransactionalState(integerToBinary(Integer.MAX_VALUE),
-                                                                             new Accepted())
+                                                                             Accepted.INSTANCE)
                                               .dispositionFirst(deliveryId)
                                               .disposition()
                                               .consume(ErrorCarryingFrameBody.class, Flow.class);
@@ -448,7 +448,7 @@ public class TransactionalTransferTest extends BrokerAdminUsingTestBase
 
             Disposition settledDisposition = interaction.dispositionSettled(false)
                                                     .dispositionRole(Role.RECEIVER)
-                                                    .dispositionTransactionalStateFromCurrentTransaction(new Accepted())
+                                                    .dispositionTransactionalStateFromCurrentTransaction(Accepted.INSTANCE)
                                                     .disposition()
                                                     .consumeResponse(Disposition.class)
                                                     .getLatestResponse(Disposition.class);
@@ -508,7 +508,7 @@ public class TransactionalTransferTest extends BrokerAdminUsingTestBase
 
             interaction.dispositionSettled(true)
                        .dispositionRole(Role.RECEIVER)
-                       .dispositionTransactionalStateFromCurrentTransaction(new Accepted())
+                       .dispositionTransactionalStateFromCurrentTransaction(Accepted.INSTANCE)
                        .dispositionFirstFromLatestDelivery()
                        .disposition().txnDischarge(false);
 
@@ -570,7 +570,7 @@ public class TransactionalTransferTest extends BrokerAdminUsingTestBase
 
             interaction.dispositionSettled(true)
                        .dispositionRole(Role.RECEIVER)
-                       .dispositionTransactionalState(interaction.getCurrentTransactionId(), new Accepted())
+                       .dispositionTransactionalState(interaction.getCurrentTransactionId(), Accepted.INSTANCE)
                        .disposition().txnDischarge(true);
 
             assertThat(interaction.getCoordinatorLatestDeliveryState(), is(instanceOf(Accepted.class)));

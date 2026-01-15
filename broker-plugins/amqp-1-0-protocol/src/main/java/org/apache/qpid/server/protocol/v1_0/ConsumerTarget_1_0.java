@@ -249,7 +249,7 @@ class ConsumerTarget_1_0 extends AbstractConsumerTarget<ConsumerTarget_1_0>
                     transfer.setSettled(true);
                     if (_acquires && _transactionId == null)
                     {
-                        transfer.setState(new Accepted());
+                        transfer.setState(Accepted.INSTANCE);
                     }
                 }
                 else

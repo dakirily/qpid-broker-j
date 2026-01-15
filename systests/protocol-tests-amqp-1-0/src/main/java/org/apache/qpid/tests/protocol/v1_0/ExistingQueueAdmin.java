@@ -176,7 +176,7 @@ public class ExistingQueueAdmin implements QueueAdmin
                     interaction.dispositionSettled(true)
                                .dispositionRole(Role.RECEIVER)
                                .dispositionFirstFromLatestDelivery()
-                               .dispositionState(new Accepted())
+                               .dispositionState(Accepted.INSTANCE)
                                .disposition();
                 }
 

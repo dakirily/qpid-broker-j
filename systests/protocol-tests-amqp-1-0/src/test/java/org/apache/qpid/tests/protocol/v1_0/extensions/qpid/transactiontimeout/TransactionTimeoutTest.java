@@ -135,7 +135,7 @@ public class TransactionTimeoutTest extends BrokerAdminUsingTestBase
 
             interaction.dispositionSettled(true)
                        .dispositionRole(Role.RECEIVER)
-                       .dispositionTransactionalStateFromCurrentTransaction(new Accepted())
+                       .dispositionTransactionalStateFromCurrentTransaction(Accepted.INSTANCE)
                        .disposition()
                        .sync();
 

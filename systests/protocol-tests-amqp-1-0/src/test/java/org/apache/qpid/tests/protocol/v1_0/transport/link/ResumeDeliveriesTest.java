@@ -468,7 +468,7 @@ public class ResumeDeliveriesTest extends BrokerAdminUsingTestBase
             assertThat(data, is(equalTo(getTestName())));
 
             interaction.dispositionSettled(true)
-                       .dispositionState(new Accepted())
+                       .dispositionState(Accepted.INSTANCE)
                        .dispositionFirstFromLatestDelivery()
                        .dispositionRole(Role.RECEIVER)
                        .disposition();
@@ -532,7 +532,7 @@ public class ResumeDeliveriesTest extends BrokerAdminUsingTestBase
             Detach detach = interaction.detach().consumeResponse().getLatestResponse(Detach.class);
             assertThat(detach.getClosed(), anyOf(nullValue(), equalTo(false)));
 
-            interaction.attachUnsettled(Map.of(deliveryTag, new Accepted()))
+            interaction.attachUnsettled(Map.of(deliveryTag, Accepted.INSTANCE))
                        .attach()
                        .consumeResponse(Attach.class);
 
@@ -561,7 +561,7 @@ public class ResumeDeliveriesTest extends BrokerAdminUsingTestBase
             if (!Boolean.TRUE.equals(resumeTransfer.getSettled()))
             {
                 interaction.dispositionSettled(true)
-                           .dispositionState(new Accepted())
+                           .dispositionState(Accepted.INSTANCE)
                            .dispositionRole(Role.RECEIVER)
                            .disposition();
             }
@@ -643,7 +643,7 @@ public class ResumeDeliveriesTest extends BrokerAdminUsingTestBase
             assertThat(resumeTransfer.getPayload(), is(notNullValue()));
 
             interaction.dispositionSettled(true)
-                       .dispositionState(new Accepted())
+                       .dispositionState(Accepted.INSTANCE)
                        .dispositionRole(Role.RECEIVER)
                        .disposition();
 

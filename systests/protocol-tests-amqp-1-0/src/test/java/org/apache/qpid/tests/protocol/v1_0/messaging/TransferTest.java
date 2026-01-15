@@ -583,7 +583,7 @@ public class TransferTest extends BrokerAdminUsingTestBase
             assertThat(data, is(equalTo(getTestName())));
 
             interaction.dispositionSettled(true)
-                       .dispositionState(new Accepted())
+                       .dispositionState(Accepted.INSTANCE)
                        .dispositionRole(Role.RECEIVER)
                        .disposition();
 
@@ -624,7 +624,7 @@ public class TransferTest extends BrokerAdminUsingTestBase
             Disposition disposition = interaction.dispositionSettled(false)
                                                  .dispositionFirstFromLatestDelivery()
                                                  .dispositionRole(Role.RECEIVER)
-                                                 .dispositionState(new Accepted())
+                                                 .dispositionState(Accepted.INSTANCE)
                                                  .disposition()
                                                  .consume(Disposition.class, Flow.class);
             assertThat(disposition.getSettled(), is(true));
@@ -632,7 +632,7 @@ public class TransferTest extends BrokerAdminUsingTestBase
             interaction.dispositionSettled(true)
                        .dispositionFirstFromLatestDelivery()
                        .dispositionRole(Role.RECEIVER)
-                       .dispositionState(new Accepted())
+                       .dispositionState(Accepted.INSTANCE)
                        .disposition();
         }
     }
@@ -802,7 +802,7 @@ public class TransferTest extends BrokerAdminUsingTestBase
 
             interaction.dispositionSettled(true)
                        .dispositionRole(Role.RECEIVER)
-                       .dispositionState(new Accepted())
+                       .dispositionState(Accepted.INSTANCE)
                        .disposition().sync();
         }
     }
@@ -1146,7 +1146,7 @@ public class TransferTest extends BrokerAdminUsingTestBase
                        .dispositionRole(Role.RECEIVER)
                        .dispositionFirst(firstDeliveryId)
                        .dispositionLast(interaction.getLatestDeliveryId())
-                       .dispositionState(new Accepted())
+                       .dispositionState(Accepted.INSTANCE)
                        .disposition();
             interaction.detachEndCloseUnconditionally();
         }
@@ -1200,13 +1200,13 @@ public class TransferTest extends BrokerAdminUsingTestBase
                        .dispositionRole(Role.RECEIVER)
                        .dispositionFirst(deliveryIds.get(0))
                        .dispositionLast(deliveryIds.get(1))
-                       .dispositionState(new Accepted())
+                       .dispositionState(Accepted.INSTANCE)
                        .disposition()
                        .dispositionSettled(true)
                        .dispositionRole(Role.RECEIVER)
                        .dispositionFirst(deliveryIds.get(2))
                        .dispositionLast(deliveryIds.get(3))
-                       .dispositionTransactionalStateFromCurrentTransaction(new Accepted())
+                       .dispositionTransactionalStateFromCurrentTransaction(Accepted.INSTANCE)
                        .disposition();
 
             interaction.txnDischarge(false);

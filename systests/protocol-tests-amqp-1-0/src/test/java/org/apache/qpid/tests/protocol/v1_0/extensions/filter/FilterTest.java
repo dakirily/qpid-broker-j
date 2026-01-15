@@ -125,7 +125,7 @@ public class FilterTest extends BrokerAdminUsingTestBase
 
             interaction.dispositionSettled(true)
                        .dispositionRole(Role.RECEIVER)
-                       .dispositionState(new Accepted())
+                       .dispositionState(Accepted.INSTANCE)
                        .disposition();
             interaction.close().sync();
         }

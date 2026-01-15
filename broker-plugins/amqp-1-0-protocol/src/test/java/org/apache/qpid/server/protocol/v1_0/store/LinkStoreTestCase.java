@@ -72,7 +72,7 @@ public abstract class LinkStoreTestCase extends UnitTestBase
         _source.setDynamic(Boolean.TRUE);
         _source.setExpiryPolicy(TerminusExpiryPolicy.CONNECTION_CLOSE);
         _source.setFilter(Map.of(Symbol.valueOf("foo"), NoLocalFilter.INSTANCE));
-        _source.setOutcomes(new Accepted().getSymbol());
+        _source.setOutcomes(Accepted.INSTANCE.getSymbol());
         _source.setDynamicNodeProperties(Map.of(Symbol.valueOf("dynamicProperty"), "dynamicPropertyValue"));
         _source.setTimeout(new UnsignedInteger(1));
 

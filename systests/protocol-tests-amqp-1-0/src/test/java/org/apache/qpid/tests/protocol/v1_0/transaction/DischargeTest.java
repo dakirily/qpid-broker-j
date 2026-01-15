@@ -170,7 +170,7 @@ public class DischargeTest extends BrokerAdminUsingTestBase
             final UnsignedInteger deliveryId = transfers.get(0).getDeliveryId();
             interaction.detach().consumeResponse(Detach.class)
                        .dispositionFirst(deliveryId)
-                       .dispositionTransactionalStateFromCurrentTransaction(new Accepted())
+                       .dispositionTransactionalStateFromCurrentTransaction(Accepted.INSTANCE)
                        .dispositionRole(Role.RECEIVER)
                        .disposition().txnDischarge(false);
 
