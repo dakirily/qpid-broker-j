@@ -298,7 +298,7 @@ public class ReplicatedEnvironmentFacade implements EnvironmentFacade, StateChan
         }
         else
         {
-            LOGGER.debug("Environment at path " + _environmentDirectory + " already exists.");
+            LOGGER.debug("Environment at path {} already exists.", _environmentDirectory);
         }
 
         _configuration = configuration;
@@ -442,7 +442,7 @@ public class ReplicatedEnvironmentFacade implements EnvironmentFacade, StateChan
             {
                 if (LOGGER.isDebugEnabled())
                 {
-                    LOGGER.debug("Closing replicated environment facade for " + _prettyGroupNodeName + " current state is " + _state.get());
+                    LOGGER.debug("Closing replicated environment facade for {} current state is {}", _prettyGroupNodeName, _state.get());
                 }
 
                 long timeout = Math.max(_executorShutdownTimeout, _envSetupTimeoutMillis);
@@ -476,7 +476,7 @@ public class ReplicatedEnvironmentFacade implements EnvironmentFacade, StateChan
                     {
                         if (LOGGER.isDebugEnabled())
                         {
-                            LOGGER.debug("Deregistering environment home " + _environmentDirectory);
+                            LOGGER.debug("Deregistering environment home {}", _environmentDirectory);
                         }
 
                         EnvHomeRegistry.getInstance().deregisterHome(_environmentDirectory);
@@ -498,15 +498,13 @@ public class ReplicatedEnvironmentFacade implements EnvironmentFacade, StateChan
             boolean wasShutdown = executorService.awaitTermination(executorShutdownTimeout, timeUnit);
             if (!wasShutdown)
             {
-                LOGGER.warn("Executor service " + executorService +
-                            " did not shutdown within allowed time period " + _executorShutdownTimeout
-                            + " " + timeUnit + ", ignoring");
+                LOGGER.warn("Executor service {} did not shutdown within allowed time period {} {}, ignoring", executorService, _executorShutdownTimeout, timeUnit);
             }
         }
         catch (InterruptedException e)
         {
             Thread.currentThread().interrupt();
-            LOGGER.warn("Shutdown of executor service " + executorService + " was interrupted");
+            LOGGER.warn("Shutdown of executor service {} was interrupted", executorService);
         }
     }
 
@@ -656,7 +654,7 @@ public class ReplicatedEnvironmentFacade implements EnvironmentFacade, StateChan
     {
         if (LOGGER.isDebugEnabled())
         {
-            LOGGER.debug("openDatabase " + name + " for " + _prettyGroupNodeName);
+            LOGGER.debug("openDatabase {} for {}", name, _prettyGroupNodeName);
         }
         if (_state.get() != State.OPEN)
         {
@@ -674,7 +672,7 @@ public class ReplicatedEnvironmentFacade implements EnvironmentFacade, StateChan
             {
                 if (LOGGER.isDebugEnabled())
                 {
-                    LOGGER.debug("openDatabase " + name + " new handle");
+                    LOGGER.debug("openDatabase {} new handle", name);
                 }
 
                 cachedHandle = handle;
@@ -683,7 +681,7 @@ public class ReplicatedEnvironmentFacade implements EnvironmentFacade, StateChan
             {
                 if (LOGGER.isDebugEnabled())
                 {
-                    LOGGER.debug("openDatabase " + name + " existing handle");
+                    LOGGER.debug("openDatabase {} existing handle", name);
                 }
                 cachedHandle = existingHandle;
                 handle.close();
@@ -708,7 +706,7 @@ public class ReplicatedEnvironmentFacade implements EnvironmentFacade, StateChan
         {
             if (LOGGER.isDebugEnabled())
             {
-                LOGGER.debug("Closing " + databaseName + " on " + _prettyGroupNodeName);
+                LOGGER.debug("Closing {} on {}", databaseName, _prettyGroupNodeName);
             }
             if (cachedHandle.getEnvironment().isValid())
             {
@@ -754,7 +752,7 @@ public class ReplicatedEnvironmentFacade implements EnvironmentFacade, StateChan
     {
         if (LOGGER.isInfoEnabled())
         {
-            LOGGER.info("The node '" + _prettyGroupNodeName + "' state is " + stateChangeEvent.getState());
+            LOGGER.info("The node '{}' state is {}", _prettyGroupNodeName, stateChangeEvent.getState());
         }
 
         if (_state.get() != State.CLOSING && _state.get() != State.CLOSED)
@@ -775,10 +773,7 @@ public class ReplicatedEnvironmentFacade implements EnvironmentFacade, StateChan
         {
             if (LOGGER.isDebugEnabled())
             {
-                LOGGER.debug("Ignoring the state environment change event as the environment facade for node '"
-                             + _prettyGroupNodeName
-                             + "' is in state "
-                             + _state.get());
+                LOGGER.debug("Ignoring the state environment change event as the environment facade for node '{}' is in state {}", _prettyGroupNodeName, _state.get());
             }
         }
     }
@@ -998,7 +993,7 @@ public class ReplicatedEnvironmentFacade implements EnvironmentFacade, StateChan
     {
         if (LOGGER.isDebugEnabled())
         {
-            LOGGER.debug("Received BDB event, new BDB state " + stateChangeEvent.getState() + " Facade state : " + _state.get());
+            LOGGER.debug("Received BDB event, new BDB state {} Facade state : {}", stateChangeEvent.getState(), _state.get());
         }
         ReplicatedEnvironment.State state = stateChangeEvent.getState();
 
@@ -1008,7 +1003,7 @@ public class ReplicatedEnvironmentFacade implements EnvironmentFacade, StateChan
             {
                 if (_state.compareAndSet(State.OPENING, State.OPEN) || _state.compareAndSet(State.RESTARTING, State.OPEN))
                 {
-                    LOGGER.info("The environment facade is in open state for node " + _prettyGroupNodeName);
+                    LOGGER.info("The environment facade is in open state for node {}", _prettyGroupNodeName);
                     _joinTime = System.currentTimeMillis();
                 }
                 if (state == ReplicatedEnvironment.State.MASTER)
@@ -1205,7 +1200,7 @@ public class ReplicatedEnvironmentFacade implements EnvironmentFacade, StateChan
                                                         _masterTransferTimeout, TimeUnit.MILLISECONDS, true);
                 if (LOGGER.isDebugEnabled())
                 {
-                    LOGGER.debug("The mastership has been transferred to " + newMaster);
+                    LOGGER.debug("The mastership has been transferred to {}", newMaster);
                 }
             }
             catch (RuntimeException e)
@@ -1268,10 +1263,9 @@ public class ReplicatedEnvironmentFacade implements EnvironmentFacade, StateChan
 
     private ReplicationGroupAdmin createReplicationGroupAdmin()
     {
-        final Set<InetSocketAddress> helpers = new HashSet<>();
         final ReplicationConfig repConfig = getEnvironment().getRepConfig();
 
-        helpers.addAll(repConfig.getHelperSockets());
+        final Set<InetSocketAddress> helpers = new HashSet<>(repConfig.getHelperSockets());
         helpers.add(HostPortPair.getSocket(HostPortPair.getString(repConfig.getNodeHostname(), repConfig.getNodePort())));
 
         return new ReplicationGroupAdmin(_configuration.getGroupName(), helpers);
@@ -1325,7 +1319,7 @@ public class ReplicatedEnvironmentFacade implements EnvironmentFacade, StateChan
     {
         if (LOGGER.isDebugEnabled())
         {
-            LOGGER.debug("Closing JE environment for " + _prettyGroupNodeName);
+            LOGGER.debug("Closing JE environment for {}", _prettyGroupNodeName);
         }
 
         // Clean the log before closing. This makes sure it doesn't contain
@@ -1446,7 +1440,7 @@ public class ReplicatedEnvironmentFacade implements EnvironmentFacade, StateChan
                 }
                 catch(RuntimeException e)
                 {
-                    LOGGER.error("Failed to close database " + databaseName + " on " + _prettyGroupNodeName, e);
+                    LOGGER.error("Failed to close database {} on {}", databaseName, _prettyGroupNodeName, e);
                     if (firstThrownException == null)
                     {
                         firstThrownException = e;
@@ -1475,17 +1469,17 @@ public class ReplicatedEnvironmentFacade implements EnvironmentFacade, StateChan
         if (LOGGER.isInfoEnabled())
         {
             LOGGER.info("Creating environment");
-            LOGGER.info("Environment path " + _environmentDirectory.getAbsolutePath());
-            LOGGER.info("Group name " + groupName);
-            LOGGER.info("Node name " + nodeName);
-            LOGGER.info("Node host port " + hostPort);
-            LOGGER.info("Helper host port " + helperHostPort);
-            LOGGER.info("Helper node name " + helperNodeName);
-            LOGGER.info("Durability " + _defaultDurability);
-            LOGGER.info("Designated primary (applicable to 2 node case only) " + designatedPrimary);
-            LOGGER.info("Node priority " + priority);
-            LOGGER.info("Quorum override " + quorumOverride);
-            LOGGER.info("Permitted node list " + _permittedNodes);
+            LOGGER.info("Environment path {}", _environmentDirectory.getAbsolutePath());
+            LOGGER.info("Group name {}", groupName);
+            LOGGER.info("Node name {}", nodeName);
+            LOGGER.info("Node host port {}", hostPort);
+            LOGGER.info("Helper host port {}", helperHostPort);
+            LOGGER.info("Helper node name {}", helperNodeName);
+            LOGGER.info("Durability {}", _defaultDurability);
+            LOGGER.info("Designated primary (applicable to 2 node case only) {}", designatedPrimary);
+            LOGGER.info("Node priority {}", priority);
+            LOGGER.info("Quorum override {}", quorumOverride);
+            LOGGER.info("Permitted node list {}", _permittedNodes);
 
         }
 
@@ -1502,7 +1496,7 @@ public class ReplicatedEnvironmentFacade implements EnvironmentFacade, StateChan
         {
             if (LOGGER.isInfoEnabled())
             {
-                LOGGER.info("Setting ReplicationConfig key " + configItem.getKey() + " to '" + configItem.getValue() + "'");
+                LOGGER.info("Setting ReplicationConfig key {} to '{}'", configItem.getKey(), configItem.getValue());
             }
             replicationConfig.setConfigParam(configItem.getKey(), configItem.getValue());
         }
@@ -1526,7 +1520,7 @@ public class ReplicatedEnvironmentFacade implements EnvironmentFacade, StateChan
         {
             if (LOGGER.isInfoEnabled())
             {
-                LOGGER.info("Setting EnvironmentConfig key " + configItem.getKey() + " to '" + configItem.getValue() + "'");
+                LOGGER.info("Setting EnvironmentConfig key {} to '{}'", configItem.getKey(), configItem.getValue());
             }
             envConfig.setConfigParam(configItem.getKey(), configItem.getValue());
         }
@@ -1536,7 +1530,7 @@ public class ReplicatedEnvironmentFacade implements EnvironmentFacade, StateChan
         File propsFile = new File(_environmentDirectory, "je.properties");
         if(propsFile.exists())
         {
-            LOGGER.warn("The BDB configuration file at '" + _environmentDirectory + File.separator +  "je.properties' will NOT be loaded.  Configure BDB using Qpid context variables instead.");
+            LOGGER.warn("The BDB configuration file at '{}{}je.properties' will NOT be loaded.  Configure BDB using Qpid context variables instead.", _environmentDirectory, File.separator);
         }
 
 
@@ -1572,9 +1566,7 @@ public class ReplicatedEnvironmentFacade implements EnvironmentFacade, StateChan
             {
                 if (remainingTimeOutMillis > 0)
                 {
-                    LOGGER.warn("Slow replicated environment creation for " + _prettyGroupNodeName
-                                + ". Will continue to wait for further " + remainingTimeOutMillis
-                                + "ms. for environment creation to complete.");
+                    LOGGER.warn("Slow replicated environment creation for {}. Will continue to wait for further {}ms. for environment creation to complete.", _prettyGroupNodeName, remainingTimeOutMillis);
                     environmentFuture.get(remainingTimeOutMillis, TimeUnit.MILLISECONDS);
                 }
                 else
@@ -1638,7 +1630,7 @@ public class ReplicatedEnvironmentFacade implements EnvironmentFacade, StateChan
         }
         if (LOGGER.isInfoEnabled())
         {
-            LOGGER.info("Environment is created for node " + _prettyGroupNodeName);
+            LOGGER.info("Environment is created for node {}", _prettyGroupNodeName);
         }
     }
 
@@ -1719,7 +1711,7 @@ public class ReplicatedEnvironmentFacade implements EnvironmentFacade, StateChan
     {
         if (LOGGER.isDebugEnabled())
         {
-            LOGGER.debug(_prettyGroupNodeName + " permitted nodes set to " + permittedNodes);
+            LOGGER.debug("{} permitted nodes set to {}", _prettyGroupNodeName, permittedNodes);
         }
 
         _permittedNodes.clear();
@@ -1743,7 +1735,7 @@ public class ReplicatedEnvironmentFacade implements EnvironmentFacade, StateChan
             }
             if (LOGGER.isDebugEnabled())
             {
-                LOGGER.debug(_prettyGroupNodeName + " checked  " + count + " node(s)");
+                LOGGER.debug("{} checked {} node(s)", _prettyGroupNodeName, count);
             }
         }
     }
@@ -1797,7 +1789,7 @@ public class ReplicatedEnvironmentFacade implements EnvironmentFacade, StateChan
 
                 if (LOGGER.isDebugEnabled())
                 {
-                    LOGGER.debug(String.format("Node '%s' permits nodes: '%s'", helperNodeName, String.valueOf(permittedNodes)));
+                    LOGGER.debug("Node '{}' permits nodes: '{}'", helperNodeName, String.valueOf(permittedNodes));
                 }
 
                 if (permittedNodes == null || !permittedNodes.contains(hostPort))
@@ -1847,10 +1839,10 @@ public class ReplicatedEnvironmentFacade implements EnvironmentFacade, StateChan
     {
         if (LOGGER.isDebugEnabled())
         {
-            LOGGER.debug(String.format("Requesting state of the node '%s' at '%s'", helperNodeName, helperHostPort));
+            LOGGER.debug("Requesting state of the node '{}' at '{}'", helperNodeName, helperHostPort);
         }
 
-        if (helperNodeName == null || "".equals(helperNodeName))
+        if (helperNodeName == null || helperNodeName.isEmpty())
         {
             throw new IllegalConfigurationException(String.format("A helper node is not specified for node '%s'"
                                                                   + " joining the group '%s'", nodeName, groupName));
@@ -1929,11 +1921,7 @@ public class ReplicatedEnvironmentFacade implements EnvironmentFacade, StateChan
         }
         else
         {
-            LOGGER.warn(String.format(
-                    "Found an intruder node '%s' from ''%s' . The node is not listed in permitted list: %s",
-                    replicationNode.getName(),
-                    getHostPort(replicationNode),
-                    String.valueOf(_permittedNodes)));
+            LOGGER.warn("Found an intruder node '{}' from ''{}' . The node is not listed in permitted list: {}", replicationNode.getName(), getHostPort(replicationNode), String.valueOf(_permittedNodes));
             return true;
         }
     }
@@ -2091,7 +2079,7 @@ public class ReplicatedEnvironmentFacade implements EnvironmentFacade, StateChan
                 {
                     if (LOGGER.isDebugEnabled())
                     {
-                        LOGGER.debug("Monitoring task is not scheduled:  state " + state + ", continue monitoring flag " + continueMonitoring);
+                        LOGGER.debug("Monitoring task is not scheduled:  state {}, continue monitoring flag {}", state, continueMonitoring);
                     }
                 }
             }
@@ -2102,7 +2090,7 @@ public class ReplicatedEnvironmentFacade implements EnvironmentFacade, StateChan
         {
             if (LOGGER.isDebugEnabled())
             {
-                LOGGER.debug("Checking for changes in the group " + _configuration.getGroupName() + " on node " + _configuration.getName());
+                LOGGER.debug("Checking for changes in the group {} on node {}", _configuration.getGroupName(), _configuration.getName());
             }
             boolean shouldContinue = true;
             String groupName = _configuration.getGroupName();
@@ -2127,7 +2115,7 @@ public class ReplicatedEnvironmentFacade implements EnvironmentFacade, StateChan
                         {
                             if (LOGGER.isDebugEnabled())
                             {
-                                LOGGER.debug("Remote replication node added '" + replicationNode + "' to '" + groupName + "'");
+                                LOGGER.debug("Remote replication node added '{}' to '{}'", replicationNode, groupName);
                             }
 
                             _remoteReplicationNodes.put(discoveredNodeName, replicationNode);
@@ -2161,7 +2149,7 @@ public class ReplicatedEnvironmentFacade implements EnvironmentFacade, StateChan
                         String replicationNodeName = replicationNodeEntry.getKey();
                         if (LOGGER.isDebugEnabled())
                         {
-                            LOGGER.debug("Remote replication node removed '" + replicationNodeName + "' from '" + groupName + "'");
+                            LOGGER.debug("Remote replication node removed '{}' from '{}'", replicationNodeName, groupName);
                         }
                         _remoteReplicationNodes.remove(replicationNodeName);
                         if (replicationGroupListener != null)
@@ -2220,8 +2208,7 @@ public class ReplicatedEnvironmentFacade implements EnvironmentFacade, StateChan
                     future.get(_remoteNodeMonitorTimeout, TimeUnit.MILLISECONDS);
                     if (_currentlyTimedOutNodes.remove(node) != null)
                     {
-                        LOGGER.warn("Node '" + nodeName + "' from group " + _configuration.getGroupName()
-                                    + " is responding again.");
+                        LOGGER.warn("Node '{}' from group {} is responding again.", nodeName, _configuration.getGroupName());
                     }
                 }
                 catch (InterruptedException e)
@@ -2231,8 +2218,7 @@ public class ReplicatedEnvironmentFacade implements EnvironmentFacade, StateChan
                 catch (ExecutionException e)
                 {
                     Throwable cause = e.getCause();
-                    LOGGER.warn("Cannot determine state for node '" + nodeName + "' from group "
-                            + _configuration.getGroupName(), cause);
+                    LOGGER.warn("Cannot determine state for node '{}' from group {}", nodeName, _configuration.getGroupName(), cause);
 
                     if (cause instanceof Error)
                     {
@@ -2252,15 +2238,13 @@ public class ReplicatedEnvironmentFacade implements EnvironmentFacade, StateChan
                     atLeastOneNodeTimesOut = true;
                     if (! _currentlyTimedOutNodes.containsKey(node))
                     {
-                        LOGGER.warn("Timeout whilst determining state for node '" + nodeName + "' from group "
-                                    + _configuration.getGroupName());
+                        LOGGER.warn("Timeout whilst determining state for node '{}' from group {}",
+                                nodeName, _configuration.getGroupName());
                         _currentlyTimedOutNodes.put(node, System.currentTimeMillis());
                     }
                     else if (_currentlyTimedOutNodes.get(node) > (System.currentTimeMillis() + TIMEOUT_WARN_GAP))
                     {
-                        LOGGER.warn("Node '" + nodeName + "' from group "
-                                    + _configuration.getGroupName()
-                                    + " is still timing out.");
+                        LOGGER.warn("Node '{}' from group {} is still timing out.", nodeName, _configuration.getGroupName());
                         _currentlyTimedOutNodes.put(node, System.currentTimeMillis());
                     }
 
@@ -2433,21 +2417,18 @@ public class ReplicatedEnvironmentFacade implements EnvironmentFacade, StateChan
                 onException(exception);
             }
 
-            if (exception instanceof RollbackException)
+            if (exception instanceof RollbackException re)
             {
                 // Usually caused use of weak durability options: node priority zero,
                 // designated primary, electable group override.
-                RollbackException re = (RollbackException) exception;
 
-                LOGGER.warn(_prettyGroupNodeName + " has transaction(s) ahead of the current master. These"
-                            + " must be discarded to allow this node to rejoin the group."
-                           + " This condition is normally caused by the use of weak durability options.");
+                LOGGER.warn("{} has transaction(s) ahead of the current master. These must be discarded to allow this node to rejoin the group. This condition is normally caused by the use of weak durability options.", _prettyGroupNodeName);
                 _nodeRolledback = true;
                 tryToRestartEnvironment(re);
             }
             else
             {
-                LOGGER.error("Asynchronous exception thrown by BDB thread '" + event.getThreadName() + "'", event.getException());
+                LOGGER.error("Asynchronous exception thrown by BDB thread '{}'", event.getThreadName(), event.getException());
             }
         }
     }

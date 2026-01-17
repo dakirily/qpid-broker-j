@@ -22,6 +22,8 @@ package org.apache.qpid.server.store;
 
 
 import java.io.File;
+import java.util.function.Consumer;
+import java.util.function.Predicate;
 
 import org.apache.qpid.server.model.ConfiguredObject;
 import org.apache.qpid.server.store.handler.DistributedTransactionHandler;
@@ -95,6 +97,38 @@ public interface MessageStore
 
         void visitMessageInstances(MessageInstanceHandler handler) throws StoreException;
         void visitMessageInstances(TransactionLogResource queue, MessageInstanceHandler handler) throws StoreException;
+
+
+        default void visitMessageInstances(final MessageInstanceHandler validHandler,
+                                           final Predicate<MessageEnqueueRecord> predicate,
+                                           final Consumer<MessageEnqueueRecord> invalidCollector) throws StoreException
+        {
+            visitMessageInstances(record ->
+            {
+                if (predicate.test(record))
+                {
+                    return validHandler.handle(record);
+                }
+                invalidCollector.accept(record);
+                return true;
+            });
+        }
+
+        default void visitMessageInstances(final TransactionLogResource queue,
+                                           final MessageInstanceHandler validHandler,
+                                           final Predicate<MessageEnqueueRecord> predicate,
+                                           final Consumer<MessageEnqueueRecord> invalidCollector) throws StoreException
+        {
+            visitMessageInstances(queue, record ->
+            {
+                if (predicate.test(record))
+                {
+                    return validHandler.handle(record);
+                }
+                invalidCollector.accept(record);
+                return true;
+            });
+        }
 
         void visitDistributedTransactions(DistributedTransactionHandler handler) throws StoreException;
 

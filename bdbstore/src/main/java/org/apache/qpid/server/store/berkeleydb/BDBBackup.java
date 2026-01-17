@@ -130,7 +130,7 @@ public class BDBBackup
             if (log.isInfoEnabled())
             {
                 log.info("BDBBackup Utility: Hot Backup Completed.");
-                log.info(backedUpFiles.length + " file(s) backed-up:");
+                log.info("{} file(s) backed-up:", backedUpFiles.length);
                 for(String backedUpFile : backedUpFiles)
                 {
                     log.info(backedUpFile);
@@ -139,8 +139,8 @@ public class BDBBackup
         }
         catch (Exception e)
         {
-            console.info("Backup script encountered an error and has failed: " + e.getMessage());
-            log.error("Backup script got exception: " + e.getMessage(), e);
+            console.info("Backup script encountered an error and has failed: {}", e.getMessage());
+            log.error("Backup script got exception: {}", e.getMessage(), e);
             System.exit(1);
         }
     }
@@ -197,8 +197,7 @@ public class BDBBackup
     {
         if (log.isDebugEnabled())
         {
-            log.debug("public void takeBackupNoLock(String fromdir = " + fromdir + ", String todir = " + todir
-                + "): called");
+            log.debug("public void takeBackupNoLock(String fromdir = {}, String todir = {}): called", fromdir, todir);
         }
 
         File fromDirFile = new File(fromdir);
@@ -218,7 +217,7 @@ public class BDBBackup
 
             if (log.isDebugEnabled())
             {
-                log.debug("Created backup directory:" + toDirFile);
+                log.debug("Created backup directory:{}", toDirFile);
             }
         }
 
@@ -323,7 +322,7 @@ public class BDBBackup
             }
         }
 
-        return backedUpFileNames.toArray(new String[backedUpFileNames.size()]);
+        return backedUpFileNames.toArray(new String[0]);
     }
 
     /*

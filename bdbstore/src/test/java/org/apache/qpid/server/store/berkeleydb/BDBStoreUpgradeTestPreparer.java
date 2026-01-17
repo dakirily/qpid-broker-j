@@ -157,12 +157,12 @@ public class BDBStoreUpgradeTestPreparer
         // Publish 5 persistent messages, 256k chars to ensure they are multi-frame
         sendMessages(session, messageProducer, queue, DeliveryMode.PERSISTENT, 256*1024, 5);
         // Publish 5 persistent messages, 1k chars to ensure they are single-frame
-        sendMessages(session, messageProducer, queue, DeliveryMode.PERSISTENT, 1*1024, 5);
+        sendMessages(session, messageProducer, queue, DeliveryMode.PERSISTENT, 1024, 5);
 
         session.commit();
 
         // Publish 5 persistent messages which will NOT be committed and so should be 'lost'
-        sendMessages(session, messageProducer, queue, DeliveryMode.PERSISTENT, 1*1024, 5);
+        sendMessages(session, messageProducer, queue, DeliveryMode.PERSISTENT, 1024, 5);
         messageProducer.close();
         session.close();
 
@@ -192,7 +192,7 @@ public class BDBStoreUpgradeTestPreparer
         // Send message to the DLQ
         Queue dlq = session.createQueue("BURL:fanout://" + QUEUE_WITH_DLQ_NAME + "_DLE//does-not-matter");
         MessageProducer dlqMessageProducer = session.createProducer(dlq);
-        sendMessages(session, dlqMessageProducer, dlq, DeliveryMode.PERSISTENT, 1*1024, 1);
+        sendMessages(session, dlqMessageProducer, dlq, DeliveryMode.PERSISTENT, 1024, 1);
         session.commit();
 
         session.createProducer(session.createTopic(
@@ -204,7 +204,7 @@ public class BDBStoreUpgradeTestPreparer
                                                        TEST_EXCHANGE_NAME
                                                       );
         MessageProducer customQueueMessageProducer = session.createProducer(customQueue);
-        sendMessages(session, customQueueMessageProducer, customQueue, DeliveryMode.PERSISTENT, 1*1024, 1);
+        sendMessages(session, customQueueMessageProducer, customQueue, DeliveryMode.PERSISTENT, 1024, 1);
         session.commit();
         customQueueMessageProducer.close();
 
@@ -229,13 +229,12 @@ public class BDBStoreUpgradeTestPreparer
                                             .map(entry -> String.format("'%s' : %s", entry.getKey(), entry.getValue()))
                                             .collect(Collectors.joining(",", "{", "}"));
 
-        Queue queue = session.createQueue(String.format(
+        return session.createQueue(String.format(
                 "ADDR: %s; {create:always, node: {type: queue, x-bindings:[{exchange: '%s', key: %s}], x-declare: {arguments:%s}}}",
                 queueName,
                 exchangeName,
                 queueName,
                 declareArgs));
-        return queue;
     }
 
     private void prepareSortedQueue(Session session, String queueName, String sortKey) throws Exception
@@ -289,10 +288,10 @@ public class BDBStoreUpgradeTestPreparer
         TopicSession pubSession = connection.createTopicSession(true, Session.SESSION_TRANSACTED);
         TopicPublisher publisher = pubSession.createPublisher(topic);
 
-        publishMessages(pubSession, publisher, topic, DeliveryMode.PERSISTENT, 1*1024, 1, "true");
-        publishMessages(pubSession, publisher, topic, DeliveryMode.PERSISTENT, 1*1024, 1, "false");
+        publishMessages(pubSession, publisher, topic, DeliveryMode.PERSISTENT, 1024, 1, "true");
+        publishMessages(pubSession, publisher, topic, DeliveryMode.PERSISTENT, 1024, 1, "false");
         pubSession.commit();
-        publishMessages(pubSession, publisher, topic, DeliveryMode.PERSISTENT, 1*1024, 1, "true");
+        publishMessages(pubSession, publisher, topic, DeliveryMode.PERSISTENT, 1024, 1, "true");
 
         publisher.close();
         pubSession.close();
@@ -326,7 +325,7 @@ public class BDBStoreUpgradeTestPreparer
         TopicSession pubSession = connection.createTopicSession(true, Session.SESSION_TRANSACTED);
         TopicPublisher publisher = pubSession.createPublisher(topic);
 
-        publishMessages(pubSession, publisher, topic, DeliveryMode.PERSISTENT, 1*1024, 1, "indifferent");
+        publishMessages(pubSession, publisher, topic, DeliveryMode.PERSISTENT, 1024, 1, "indifferent");
         pubSession.commit();
 
         publisher.close();

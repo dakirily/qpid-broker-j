@@ -52,9 +52,9 @@ public class HierarchyKeyBinding extends TupleBinding<HierarchyKey>
     @Override
     public void objectToEntry(HierarchyKey hk, TupleOutput tupleOutput)
     {
-        UUID uuid = hk.getChildId();
+        UUID uuid = hk.childId();
         tupleOutput.writeLong(uuid.getMostSignificantBits());
         tupleOutput.writeLong(uuid.getLeastSignificantBits());
-        tupleOutput.writeString(hk.getParentType());
+        tupleOutput.writeString(hk.parentType());
     }
 }

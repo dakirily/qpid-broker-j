@@ -105,6 +105,49 @@ public class SynchronousMessageStoreRecovererTest extends UnitTestBase
         final ServerMessage<?> message = storedMessage.getMetaData().getType().createMessage(storedMessage);
         verify(queue, times(1)).recover(eq(message), any(MessageEnqueueRecord.class));
     }
+    @SuppressWarnings("unchecked")
+    @Test
+    public void testRecoveryOfMixedValidAndInvalidMessageInstances()
+    {
+        final Queue<?> queue = createRegisteredMockQueue();
+        final long validMessageId = 1;
+        final long invalidMessageId = 2;
+        final StoredMessage<StorableMessageMetaData> storedMessage = createMockStoredMessage(validMessageId);
+        final Transaction transaction = mock(Transaction.class);
+
+        final MessageStore store = new NullMessageStore()
+        {
+            @Override
+            public void visitMessages(final MessageHandler handler) throws StoreException
+            {
+                handler.handle(storedMessage);
+            }
+
+            @Override
+            public void visitMessageInstances(final MessageInstanceHandler handler) throws StoreException
+            {
+                handler.handle(new TestMessageEnqueueRecord(queue.getId(), validMessageId));
+                handler.handle(new TestMessageEnqueueRecord(queue.getId(), invalidMessageId));
+            }
+
+            @Override
+            public Transaction newTransaction()
+            {
+                return transaction;
+            }
+        };
+
+        when(_virtualHost.getMessageStore()).thenReturn(store);
+
+        final SynchronousMessageStoreRecoverer recoverer = new SynchronousMessageStoreRecoverer();
+        recoverer.recover(_virtualHost);
+
+        final ServerMessage<?> message = storedMessage.getMetaData().getType().createMessage(storedMessage);
+        verify(queue, times(1)).recover(eq(message), any(MessageEnqueueRecord.class));
+
+        verify(transaction).dequeueMessage(argThat(new MessageEnqueueRecordMatcher(queue.getId(), invalidMessageId)));
+        verify(transaction, times(1)).commitTranAsync((Void) null);
+    }
 
     @SuppressWarnings("unchecked")
     @Test

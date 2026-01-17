@@ -144,7 +144,7 @@ public class ReplicatedEnvironmentFacadeTest extends UnitTestBase
         _defaultUncaughtExceptionHandler = Thread.getDefaultUncaughtExceptionHandler();
         Thread.setDefaultUncaughtExceptionHandler((t, e) ->
                                                   {
-                                                      LOGGER.error("Unhandled exception in thread " + t, e);
+                                                      LOGGER.error("Unhandled exception in thread {}", t, e);
                                                       _unhandledExceptions.add(e);
                                                   });
         _storePath = TestFileUtils.createTestDirectory("bdb", true);
@@ -1325,17 +1325,9 @@ public class ReplicatedEnvironmentFacadeTest extends UnitTestBase
         envConfig.setAllowCreate(true);
         envConfig.setTransactional(true);
         envConfig.setDurability(TEST_DURABILITY);
-        ReplicatedEnvironment intruder = null;
-        try
+        try (ReplicatedEnvironment intruder = new ReplicatedEnvironment(environmentPathFile, replicationConfig, envConfig))
         {
-            intruder = new ReplicatedEnvironment(environmentPathFile, replicationConfig, envConfig);
-        }
-        finally
-        {
-            if (intruder != null)
-            {
-                intruder.close();
-            }
+            // do nothing
         }
     }
 
@@ -1494,7 +1486,7 @@ public class ReplicatedEnvironmentFacadeTest extends UnitTestBase
         @Override
         public boolean onIntruderNode(ReplicationNode node)
         {
-            LOGGER.warn("Intruder node " + node);
+            LOGGER.warn("Intruder node {}", node);
             return true;
         }
 

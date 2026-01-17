@@ -18,9 +18,9 @@
  * under the License.
  *
  */
+
 package org.apache.qpid.server.store.berkeleydb.tuple;
 
-import java.io.StringWriter;
 import java.util.Map;
 import java.util.UUID;
 
@@ -39,6 +39,7 @@ import org.apache.qpid.server.store.berkeleydb.BDBConfiguredObjectRecord;
 public class ConfiguredObjectBinding extends TupleBinding<ConfiguredObjectRecord>
 {
     private static final ConfiguredObjectBinding INSTANCE = new ConfiguredObjectBinding(null);
+    private static final ObjectMapper MAPPER = ConfiguredObjectJacksonModule.newObjectMapper(true);
 
     private final UUID _uuid;
 
@@ -53,40 +54,33 @@ public class ConfiguredObjectBinding extends TupleBinding<ConfiguredObjectRecord
     }
 
     @Override
-    public BDBConfiguredObjectRecord entryToObject(TupleInput tupleInput)
+    public BDBConfiguredObjectRecord entryToObject(final TupleInput tupleInput)
     {
-        String type = tupleInput.readString();
-        String json = tupleInput.readString();
-        ObjectMapper mapper = new ObjectMapper();
+        final String type = tupleInput.readString();
+        final String json = tupleInput.readString();
         try
         {
-            Map<String,Object> value = mapper.readValue(json, Map.class);
-            BDBConfiguredObjectRecord configuredObject = new BDBConfiguredObjectRecord(_uuid, type, value);
-            return configuredObject;
+            final Map<String,Object> value = MAPPER.readValue(json, Map.class);
+            return new BDBConfiguredObjectRecord(_uuid, type, value);
         }
         catch (JacksonException e)
         {
             //should never happen
             throw new StoreException(e);
         }
-
     }
 
     @Override
-    public void objectToEntry(ConfiguredObjectRecord object, TupleOutput tupleOutput)
+    public void objectToEntry(final ConfiguredObjectRecord object, final TupleOutput tupleOutput)
     {
         try
         {
-            StringWriter writer = new StringWriter();
-            final ObjectMapper objectMapper = ConfiguredObjectJacksonModule.newObjectMapper(true);
-            objectMapper.writeValue(writer, object.getAttributes());
             tupleOutput.writeString(object.getType());
-            tupleOutput.writeString(writer.toString());
+            tupleOutput.writeString(MAPPER.writeValueAsString(object.getAttributes()));
         }
         catch (JacksonException e)
         {
             throw new StoreException(e);
         }
     }
-
 }

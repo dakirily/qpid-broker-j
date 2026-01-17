@@ -23,6 +23,7 @@ package org.apache.qpid.server.store.berkeleydb;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 
 import org.apache.qpid.server.store.ConfiguredObjectRecord;
@@ -84,15 +85,15 @@ public class BDBConfiguredObjectRecord implements ConfiguredObjectRecord
 
         final BDBConfiguredObjectRecord that = (BDBConfiguredObjectRecord) o;
 
-        if (_attributes != null ? !_attributes.equals(that._attributes) : that._attributes != null)
+        if (!Objects.equals(_attributes, that._attributes))
         {
             return false;
         }
-        if (_id != null ? !_id.equals(that._id) : that._id != null)
+        if (!Objects.equals(_id, that._id))
         {
             return false;
         }
-        if (_type != null ? !_type.equals(that._type) : that._type != null)
+        if (!Objects.equals(_type, that._type))
         {
             return false;
         }

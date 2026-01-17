@@ -16,6 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+
 package org.apache.qpid.server.store.berkeleydb;
 
 import static org.apache.qpid.server.store.berkeleydb.BDBUtils.DEFAULT_DATABASE_CONFIG;
@@ -26,13 +27,15 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Consumer;
+import java.util.function.Predicate;
 
 import com.sleepycat.bind.tuple.LongBinding;
 import com.sleepycat.je.Cursor;
@@ -63,7 +66,6 @@ import org.apache.qpid.server.store.StoreException;
 import org.apache.qpid.server.store.StoredMessage;
 import org.apache.qpid.server.store.TransactionLogResource;
 import org.apache.qpid.server.store.berkeleydb.entry.PreparedTransaction;
-import org.apache.qpid.server.store.berkeleydb.entry.QueueEntryKey;
 import org.apache.qpid.server.store.berkeleydb.tuple.MessageMetaDataBinding;
 import org.apache.qpid.server.store.berkeleydb.tuple.PreparedTransactionBinding;
 import org.apache.qpid.server.store.berkeleydb.tuple.QueueEntryBinding;
@@ -75,10 +77,8 @@ import org.apache.qpid.server.txn.Xid;
 import org.apache.qpid.server.util.CachingUUIDFactory;
 import org.apache.qpid.server.util.ConnectionScopedRuntimeException;
 
-
 public abstract class AbstractBDBMessageStore implements MessageStore
 {
-
     private static final int LOCK_RETRY_ATTEMPTS = 5;
 
     private static final String MESSAGE_META_DATA_DB_NAME = "MESSAGE_METADATA";
@@ -90,12 +90,15 @@ public abstract class AbstractBDBMessageStore implements MessageStore
     private static final String BRIDGEDB_NAME = "BRIDGES";
     private static final String LINKDB_NAME = "LINKS";
     private static final String XID_DB_NAME = "XIDS";
+
+    private static final byte[] ENQUEUE_RECORD_VALUE = {};
+
     private final AtomicBoolean _messageStoreOpen = new AtomicBoolean();
 
     private final EventManager _eventManager = new EventManager();
 
-    private final DatabaseEntry MESSAGE_METADATA_SEQ_KEY = new DatabaseEntry("MESSAGE_METADATA_SEQ_KEY".getBytes(
-            StandardCharsets.UTF_8));
+    private final DatabaseEntry MESSAGE_METADATA_SEQ_KEY = new DatabaseEntry("MESSAGE_METADATA_SEQ_KEY"
+            .getBytes(StandardCharsets.UTF_8));
 
     private final SequenceConfig MESSAGE_METADATA_SEQ_CONFIG = SequenceConfig.DEFAULT.
             setAllowCreate(true).
@@ -108,11 +111,10 @@ public abstract class AbstractBDBMessageStore implements MessageStore
 
     private boolean _limitBusted;
     private long _totalStoreSize;
-    private final Random _lockConflictRandom = new Random();
     private final AtomicLong _inMemorySize = new AtomicLong();
     private final AtomicLong _bytesEvacuatedFromMemory = new AtomicLong();
-    private final Set<StoredBDBMessage<?>> _messages = Collections.newSetFromMap(new ConcurrentHashMap<>());
-    private final Set<MessageDeleteListener> _messageDeleteListeners = Collections.newSetFromMap(new ConcurrentHashMap<>());
+    private final Set<StoredBDBMessage<?>> _messages = ConcurrentHashMap.newKeySet();
+    private final Set<MessageDeleteListener> _messageDeleteListeners = ConcurrentHashMap.newKeySet();
 
     @Override
     public void openMessageStore(final ConfiguredObject<?> parent)
@@ -146,8 +148,8 @@ public abstract class AbstractBDBMessageStore implements MessageStore
                 message.clear(true);
             }
             _messages.clear();
-            _inMemorySize.set(0);
-            _bytesEvacuatedFromMemory.set(0);
+            _inMemorySize.set(0L);
+            _bytesEvacuatedFromMemory.set(0L);
             doClose();
         }
     }
@@ -164,7 +166,7 @@ public abstract class AbstractBDBMessageStore implements MessageStore
             // TODO this relies on the fact that the VH will call upgrade just before putting the VH into service.
             _totalStoreSize = getSizeOnDisk();
         }
-        catch(RuntimeException e)
+        catch (RuntimeException e)
         {
             throw getEnvironmentFacade().handleDatabaseException("Cannot upgrade store", e);
         }
@@ -174,11 +176,8 @@ public abstract class AbstractBDBMessageStore implements MessageStore
     {
         try
         {
-            for (String db : Arrays.asList(MESSAGE_META_DATA_DB_NAME,
-                                          MESSAGE_META_DATA_SEQ_DB_NAME,
-                                          MESSAGE_CONTENT_DB_NAME,
-                                          DELIVERY_DB_NAME,
-                                          XID_DB_NAME))
+            for (String db : List.of(MESSAGE_META_DATA_DB_NAME, MESSAGE_META_DATA_SEQ_DB_NAME, MESSAGE_CONTENT_DB_NAME,
+                    DELIVERY_DB_NAME, XID_DB_NAME))
             {
                 try
                 {
@@ -188,7 +187,6 @@ public abstract class AbstractBDBMessageStore implements MessageStore
                 catch (DatabaseNotFoundException ignore)
                 {
                 }
-
             }
         }
         catch (IllegalStateException e)
@@ -204,9 +202,7 @@ public abstract class AbstractBDBMessageStore implements MessageStore
     @Override
     public <T extends StorableMessageMetaData> MessageHandle<T> addMessage(T metaData)
     {
-
         long newMessageId = getNextMessageId();
-
         return createStoredBDBMessage(newMessageId, metaData, false);
     }
 
@@ -227,13 +223,11 @@ public abstract class AbstractBDBMessageStore implements MessageStore
         {
             // The implementations of sequences mean that there is only a transaction
             // after every n sequence values, where n is the MESSAGE_METADATA_SEQ_CONFIG.getCacheSize()
-
-            Sequence mmdSeq = getEnvironmentFacade().openSequence(getMessageMetaDataSeqDb(),
-                                                              MESSAGE_METADATA_SEQ_KEY,
-                                                              MESSAGE_METADATA_SEQ_CONFIG);
+            Sequence mmdSeq = getEnvironmentFacade().openSequence(getMessageMetaDataSeqDb(), MESSAGE_METADATA_SEQ_KEY,
+                    MESSAGE_METADATA_SEQ_CONFIG);
             newMessageId = mmdSeq.get(null, 1);
         }
-        catch(LockTimeoutException le)
+        catch (LockTimeoutException le)
         {
            throw new ConnectionScopedRuntimeException("Unexpected exception on BDB sequence", le);
         }
@@ -272,7 +266,6 @@ public abstract class AbstractBDBMessageStore implements MessageStore
     public org.apache.qpid.server.store.Transaction newTransaction()
     {
         checkMessageStoreOpen();
-
         return new BDBTransaction();
     }
 
@@ -304,7 +297,6 @@ public abstract class AbstractBDBMessageStore implements MessageStore
         DatabaseEntry key = new DatabaseEntry();
         LongBinding.longToEntry(messageId, key);
         DatabaseEntry value = new DatabaseEntry();
-        MessageMetaDataBinding messageBinding = MessageMetaDataBinding.getInstance();
 
         try
         {
@@ -313,17 +305,12 @@ public abstract class AbstractBDBMessageStore implements MessageStore
             {
                 throw new StoreException("Metadata not found for message with id " + messageId);
             }
-
-            StorableMessageMetaData mdd = messageBinding.entryToObject(value);
-
-            return mdd;
+            return MessageMetaDataBinding.getInstance().entryToObject(value);
         }
         catch (RuntimeException e)
         {
-            throw getEnvironmentFacade().handleDatabaseException("Error reading message metadata for message with id "
-                                                                 + messageId
-                                                                 + ": "
-                                                                 + e.getMessage(), e);
+            throw getEnvironmentFacade().handleDatabaseException("Error reading message metadata for message with id " +
+                    messageId + ": " + e.getMessage(), e);
         }
     }
 
@@ -334,6 +321,8 @@ public abstract class AbstractBDBMessageStore implements MessageStore
         int attempts = 0;
         try
         {
+            DatabaseEntry key = new DatabaseEntry();
+            DatabaseEntry contentKeyEntry = new DatabaseEntry();
             do
             {
                 tx = null;
@@ -342,11 +331,9 @@ public abstract class AbstractBDBMessageStore implements MessageStore
                     tx = getEnvironmentFacade().beginTransaction(null);
 
                     //remove the message meta data from the store
-                    DatabaseEntry key = new DatabaseEntry();
                     LongBinding.longToEntry(messageId, key);
 
                     getLogger().debug("Removing message id {}", messageId);
-
 
                     OperationStatus status = getMessageMetaDataDb().delete(tx, key);
                     if (status == OperationStatus.NOTFOUND)
@@ -357,7 +344,6 @@ public abstract class AbstractBDBMessageStore implements MessageStore
                     getLogger().debug("Deleted metadata for message {}", messageId);
 
                     //now remove the content data from the store if there is any.
-                    DatabaseEntry contentKeyEntry = new DatabaseEntry();
                     LongBinding.longToEntry(messageId, contentKeyEntry);
                     getMessageContentDb().delete(tx, contentKeyEntry);
 
@@ -372,25 +358,23 @@ public abstract class AbstractBDBMessageStore implements MessageStore
                 {
                     try
                     {
-                        if(tx != null)
+                        if (tx != null)
                         {
                             tx.abort();
                         }
                     }
-                    catch(RuntimeException e2)
+                    catch (RuntimeException e2)
                     {
-                        getLogger().warn("Unable to abort transaction after LockConflictException on removal of message with id {}", messageId,
-                                e2);
+                        getLogger().warn("Unable to abort transaction after LockConflictException on removal of message with id {}", messageId, e2);
                         // rethrow the original log conflict exception, the secondary exception should already have
                         // been logged.
-                        throw getEnvironmentFacade().handleDatabaseException("Cannot remove message with id "
-                                                                             + messageId, e);
+                        throw getEnvironmentFacade().handleDatabaseException("Cannot remove message with id " + messageId, e);
                     }
 
                     sleepOrThrowOnLockConflict(attempts++, "Cannot remove messages", e);
                 }
             }
-            while(!complete);
+            while (!complete);
         }
         catch (RuntimeException e)
         {
@@ -401,25 +385,21 @@ public abstract class AbstractBDBMessageStore implements MessageStore
 
             try
             {
-                abortTransactionSafely(tx,
-                                       getEnvironmentFacade());
+                abortTransactionSafely(tx, getEnvironmentFacade());
             }
             finally
             {
                 tx = null;
             }
 
-            throw getEnvironmentFacade().handleDatabaseException("Error removing message with id "
-                                                                 + messageId
-                                                                 + " from database: "
-                                                                 + e.getMessage(), e);
+            throw getEnvironmentFacade().handleDatabaseException("Error removing message with id " + messageId +
+                    " from database: " + e.getMessage(), e);
         }
         finally
         {
             try
             {
-                abortTransactionSafely(tx,
-                                       getEnvironmentFacade());
+                abortTransactionSafely(tx, getEnvironmentFacade());
             }
             finally
             {
@@ -454,14 +434,11 @@ public abstract class AbstractBDBMessageStore implements MessageStore
             {
                 throw new StoreException("Unable to find message with id " + messageId);
             }
-
         }
         catch (RuntimeException e)
         {
-            throw getEnvironmentFacade().handleDatabaseException("Error getting AMQMessage with id "
-                                                                 + messageId
-                                                                 + " to database: "
-                                                                 + e.getMessage(), e);
+            throw getEnvironmentFacade().handleDatabaseException("Error getting AMQMessage with id " + messageId +
+                    " to database: " + e.getMessage(), e);
         }
     }
 
@@ -471,7 +448,7 @@ public abstract class AbstractBDBMessageStore implements MessageStore
         DatabaseEntry value = new DatabaseEntry();
         MessageMetaDataBinding valueBinding = MessageMetaDataBinding.getInstance();
 
-        try(Cursor cursor = getMessageMetaDataDb().openCursor(null, null))
+        try (Cursor cursor = getMessageMetaDataDb().openCursor(null, null))
         {
             while (cursor.getNext(key, value, LockMode.READ_UNCOMMITTED) == OperationStatus.SUCCESS)
             {
@@ -497,7 +474,7 @@ public abstract class AbstractBDBMessageStore implements MessageStore
             getLogger().info("Lock conflict exception. Retrying (attempt {} of {})", attempts, LOCK_RETRY_ATTEMPTS);
             try
             {
-                Thread.sleep(500L + (long)(500L * _lockConflictRandom.nextDouble()));
+                Thread.sleep(500L + (long) (500L * ThreadLocalRandom.current().nextDouble()));
             }
             catch (InterruptedException ie)
             {
@@ -520,17 +497,12 @@ public abstract class AbstractBDBMessageStore implements MessageStore
             DatabaseEntry value = new DatabaseEntry();
             MessageMetaDataBinding valueBinding = MessageMetaDataBinding.getInstance();
             LongBinding.longToEntry(messageId, key);
-            if(getMessageMetaDataDb().get(null, key, value, LockMode.READ_COMMITTED) == OperationStatus.SUCCESS)
+            if (getMessageMetaDataDb().get(null, key, value, LockMode.READ_COMMITTED) == OperationStatus.SUCCESS)
             {
                 StorableMessageMetaData metaData = valueBinding.entryToObject(value);
-                StoredBDBMessage message = createStoredBDBMessage(messageId, metaData, true);
-                return message;
+                return createStoredBDBMessage(messageId, metaData, true);
             }
-            else
-            {
-                return null;
-            }
-
+            return null;
         }
         catch (RuntimeException e)
         {
@@ -569,10 +541,8 @@ public abstract class AbstractBDBMessageStore implements MessageStore
         }
         catch (RuntimeException e)
         {
-            throw getEnvironmentFacade().handleDatabaseException("Error writing AMQMessage with id "
-                                                                 + messageId
-                                                                 + " to database: "
-                                                                 + e.getMessage(), e);
+            throw getEnvironmentFacade().handleDatabaseException("Error writing AMQMessage with id " + messageId +
+                    " to database: " + e.getMessage(), e);
         }
     }
 
@@ -588,8 +558,7 @@ public abstract class AbstractBDBMessageStore implements MessageStore
     private void storeMetaData(final Transaction tx, long messageId, StorableMessageMetaData messageMetaData)
             throws StoreException
     {
-        getLogger().debug("storeMetaData called for transaction {}, messageId {}, messageMetaData {} ",
-                tx, messageId, messageMetaData);
+        getLogger().debug("storeMetaData called for transaction {}, messageId {}, messageMetaData {} ", tx, messageId, messageMetaData);
 
         DatabaseEntry key = new DatabaseEntry();
         LongBinding.longToEntry(messageId, key);
@@ -616,17 +585,13 @@ public abstract class AbstractBDBMessageStore implements MessageStore
             }
             catch (RuntimeException e)
             {
-                throw getEnvironmentFacade().handleDatabaseException("Error writing message metadata with id "
-                        + messageId
-                        + " to database: "
-                        + e.getMessage(), e);
+                throw getEnvironmentFacade().handleDatabaseException("Error writing message metadata with id " + messageId +
+                        " to database: " + e.getMessage(), e);
             }
         }
         while(!complete);
     }
 
-
-    private static final byte[] ENQUEUE_RECORD_VALUE = new byte[] {};
     /**
      * Places a message onto a specified queue, in a given transaction.
      *
@@ -636,24 +601,22 @@ public abstract class AbstractBDBMessageStore implements MessageStore
      *
      * @throws org.apache.qpid.server.store.StoreException If the operation fails for any reason.
      */
-    private void enqueueMessage(final Transaction tx, final TransactionLogResource queue,
-                                long messageId) throws StoreException
+    private void enqueueMessage(final Transaction tx, final TransactionLogResource queue, final long messageId)
+            throws StoreException
     {
-
         DatabaseEntry key = new DatabaseEntry();
-        QueueEntryKey queueEntryKey = new QueueEntryKey(queue.getId(), messageId);
-        QueueEntryBinding.objectToEntry(queueEntryKey, key);
-        DatabaseEntry value = new DatabaseEntry();
-        value.setData(ENQUEUE_RECORD_VALUE, 0, ENQUEUE_RECORD_VALUE.length);
+        QueueEntryBinding.objectToEntry(queue.getId(), messageId, key);
 
         try
         {
             if (getLogger().isDebugEnabled())
             {
-                getLogger().debug("Enqueuing message {} on queue {} with id {} in transaction {}",
-                                  messageId, queue.getName(), queue.getId(), tx);
+                getLogger().debug("Enqueuing message {} on queue {} with id {} in transaction {}", messageId,
+                        queue.getName(), queue.getId(), tx);
             }
-            getDeliveryDb().put(tx, key, value);
+            final DatabaseEntry databaseEntry = new DatabaseEntry();
+            databaseEntry.setData(ENQUEUE_RECORD_VALUE, 0, ENQUEUE_RECORD_VALUE.length);
+            getDeliveryDb().put(tx, key, databaseEntry);
         }
         catch (RuntimeException e)
         {
@@ -661,13 +624,8 @@ public abstract class AbstractBDBMessageStore implements MessageStore
             {
                 getLogger().debug("Failed to enqueue: {}", e.getMessage(), e);
             }
-            throw getEnvironmentFacade().handleDatabaseException("Error writing enqueued message with id "
-                                                                 + messageId
-                                                                 + " for queue "
-                                                                 + queue.getName()
-                                                                 + " with id "
-                                                                 + queue.getId()
-                                                                 + " to database", e);
+            throw getEnvironmentFacade().handleDatabaseException("Error writing enqueued message with id " + messageId +
+                    " for queue " + queue.getName() + " with id " + queue.getId() + " to database", e);
         }
     }
 
@@ -680,31 +638,26 @@ public abstract class AbstractBDBMessageStore implements MessageStore
      *
      * @throws org.apache.qpid.server.store.StoreException If the operation fails for any reason, or if the specified message does not exist.
      */
-    private void dequeueMessage(final Transaction tx, final UUID queueId,
-                                long messageId) throws StoreException
+    private void dequeueMessage(final Transaction tx, final UUID queueId, final long messageId) throws StoreException
     {
-
         DatabaseEntry key = new DatabaseEntry();
-        QueueEntryKey queueEntryKey = new QueueEntryKey(queueId, messageId);
-        UUID id = queueId;
-        QueueEntryBinding.objectToEntry(queueEntryKey, key);
+        QueueEntryBinding.objectToEntry(queueId, messageId, key);
 
-        getLogger().debug("Dequeue message id {} from queue with id {}", messageId, id);
+        getLogger().debug("Dequeue message id {} from queue with id {}", messageId, queueId);
 
         try
         {
-
             OperationStatus status = getDeliveryDb().delete(tx, key);
             if (status == OperationStatus.NOTFOUND)
             {
-                throw new StoreException("Unable to find message with id " + messageId + " on queue with id "  + id);
+                throw new StoreException("Unable to find message with id " + messageId + " on queue with id "  + queueId);
             }
             else if (status != OperationStatus.SUCCESS)
             {
-                throw new StoreException("Unable to remove message with id " + messageId + " on queue with id " + id);
+                throw new StoreException("Unable to remove message with id " + messageId + " on queue with id " + queueId);
             }
 
-            getLogger().debug("Removed message {} on queue with id {}", messageId, id);
+            getLogger().debug("Removed message {} on queue with id {}", messageId, queueId);
 
         }
         catch (RuntimeException e)
@@ -715,7 +668,7 @@ public abstract class AbstractBDBMessageStore implements MessageStore
             }
 
             throw getEnvironmentFacade().handleDatabaseException("Error accessing database while dequeuing message: "
-                                                                 + e.getMessage(), e);
+                    + e.getMessage(), e);
         }
     }
 
@@ -734,10 +687,10 @@ public abstract class AbstractBDBMessageStore implements MessageStore
         DatabaseEntry value = new DatabaseEntry();
         PreparedTransaction preparedTransaction = new PreparedTransaction(enqueues, dequeues);
         PreparedTransactionBinding.objectToEntry(preparedTransaction, value);
-        for(org.apache.qpid.server.store.Transaction.EnqueueRecord enqueue : enqueues)
+        for (org.apache.qpid.server.store.Transaction.EnqueueRecord enqueue : enqueues)
         {
             StoredMessage storedMessage = enqueue.getMessage().getStoredMessage();
-            if(storedMessage instanceof StoredBDBMessage)
+            if (storedMessage instanceof StoredBDBMessage)
             {
                 ((StoredBDBMessage) storedMessage).store(txn);
             }
@@ -767,10 +720,8 @@ public abstract class AbstractBDBMessageStore implements MessageStore
 
         keyBinding.objectToEntry(xid, key);
 
-
         try
         {
-
             OperationStatus status = getXidDb().delete(txn, key);
             if (status == OperationStatus.NOTFOUND)
             {
@@ -790,7 +741,7 @@ public abstract class AbstractBDBMessageStore implements MessageStore
             }
 
             throw getEnvironmentFacade().handleDatabaseException("Error accessing database while removing xid: "
-                                                                 + e.getMessage(), e);
+                    + e.getMessage(), e);
         }
     }
 
@@ -807,12 +758,8 @@ public abstract class AbstractBDBMessageStore implements MessageStore
         {
             throw new StoreException("Fatal internal error: transactional is null at commitTran");
         }
-
         getEnvironmentFacade().commit(tx);
-
         getLogger().debug("commitTranImpl completed {} transaction synchronous", tx);
-
-
     }
 
     private <X> CompletableFuture<X> commitTranAsyncImpl(final Transaction tx, X val) throws StoreException
@@ -821,14 +768,10 @@ public abstract class AbstractBDBMessageStore implements MessageStore
         {
             throw new StoreException("Fatal internal error: transactional is null at commitTran");
         }
-
         CompletableFuture<X> result = getEnvironmentFacade().commitAsync(tx, val);
-
         getLogger().debug("commitTranAsynImpl completed transaction {}", tx);
-
         return result;
     }
-
 
     /**
      * Abandons all operations performed within a given transaction.
@@ -865,37 +808,34 @@ public abstract class AbstractBDBMessageStore implements MessageStore
 
     private void storedSizeChange(final int delta)
     {
-        if(getPersistentSizeHighThreshold() > 0)
+        if (getPersistentSizeHighThreshold() > 0)
         {
             synchronized (this)
             {
                 // the delta supplied is an approximation of a store size change. we don;t want to check the statistic every
                 // time, so we do so only when there's been enough change that it is worth looking again. We do this by
                 // assuming the total size will change by less than twice the amount of the message data change.
-                long newSize = _totalStoreSize += 2*delta;
+                long newSize = _totalStoreSize += 2L * delta;
 
-                if(!_limitBusted &&  newSize > getPersistentSizeHighThreshold())
+                if (!_limitBusted &&  newSize > getPersistentSizeHighThreshold())
                 {
                     _totalStoreSize = getSizeOnDisk();
 
-                    if(_totalStoreSize > getPersistentSizeHighThreshold())
+                    if (_totalStoreSize > getPersistentSizeHighThreshold())
                     {
                         _limitBusted = true;
                         _eventManager.notifyEvent(Event.PERSISTENT_MESSAGE_SIZE_OVERFULL);
                     }
                 }
-                else if(_limitBusted && newSize < getPersistentSizeLowThreshold())
+                else if (_limitBusted && newSize < getPersistentSizeLowThreshold())
                 {
                     long oldSize = _totalStoreSize;
                     _totalStoreSize = getSizeOnDisk();
 
-                    if(oldSize <= _totalStoreSize)
+                    if (oldSize <= _totalStoreSize)
                     {
-
                         reduceSizeOnDisk();
-
                         _totalStoreSize = getSizeOnDisk();
-
                     }
 
                     if(_totalStoreSize < getPersistentSizeLowThreshold())
@@ -903,8 +843,6 @@ public abstract class AbstractBDBMessageStore implements MessageStore
                         _limitBusted = false;
                         _eventManager.notifyEvent(Event.PERSISTENT_MESSAGE_SIZE_UNDERFULL);
                     }
-
-
                 }
             }
         }
@@ -1032,9 +970,9 @@ public abstract class AbstractBDBMessageStore implements MessageStore
         public long clear(boolean close)
         {
             long bytesCleared = 0;
-            if(_data != null)
+            if (_data != null)
             {
-                if(_data != null)
+                if (_data != null)
                 {
                     bytesCleared += _data.remaining();
                     _data.dispose();
@@ -1066,18 +1004,16 @@ public abstract class AbstractBDBMessageStore implements MessageStore
 
     final class StoredBDBMessage<T extends StorableMessageMetaData> implements StoredMessage<T>, MessageHandle<T>
     {
-
         private final long _messageId;
         private final int _contentSize;
         private final int _metadataSize;
         private MessageDataRef<T> _messageDataRef;
+        private List<QpidByteBuffer> _contentFragments;
 
         StoredBDBMessage(long messageId, T metaData, boolean isRecovered)
         {
             _messageId = messageId;
-
             _messageDataRef = new MessageDataRef<>(metaData, !isRecovered);
-
             _contentSize = metaData.getContentSize();
             _metadataSize = metaData.getStorableSize();
             _inMemorySize.addAndGet(_metadataSize);
@@ -1090,19 +1026,17 @@ public abstract class AbstractBDBMessageStore implements MessageStore
             {
                 return null;
             }
-            else
-            {
-                T metaData = _messageDataRef.getMetaData();
 
-                if (metaData == null)
-                {
-                    checkMessageStoreOpen();
-                    metaData = (T) getMessageMetaData(_messageId);
-                    _messageDataRef = new MessageDataRef<>(metaData, _messageDataRef.getData(), false);
-                    _inMemorySize.addAndGet(getMetadataSize());
-                }
-                return metaData;
+            T metaData = _messageDataRef.getMetaData();
+
+            if (metaData == null)
+            {
+                checkMessageStoreOpen();
+                metaData = (T) getMessageMetaData(_messageId);
+                _messageDataRef = new MessageDataRef<>(metaData, _messageDataRef.getData(), false);
+                _inMemorySize.addAndGet(getMetadataSize());
             }
+            return metaData;
         }
 
         @Override
@@ -1114,22 +1048,30 @@ public abstract class AbstractBDBMessageStore implements MessageStore
         @Override
         public synchronized void addContent(QpidByteBuffer src)
         {
-            try(QpidByteBuffer data = _messageDataRef.getData())
+            // accumulate content fragments and consolidate lazily
+            if (_messageDataRef == null)
             {
-                if(data == null)
+                return;
+            }
+
+            if (_contentFragments == null)
+            {
+                _contentFragments = new ArrayList<>();
+
+                final QpidByteBuffer existingData = _messageDataRef.getData();
+                if (existingData != null)
                 {
-                    _messageDataRef.setData(src.slice());
-                }
-                else
-                {
-                    _messageDataRef.setData(QpidByteBuffer.concatenate(Arrays.asList(data, src)));
+                    _contentFragments.add(existingData);
+                    _messageDataRef.setData(null);
                 }
             }
+            _contentFragments.add(src.slice());
         }
 
         @Override
-        public StoredMessage<T> allContentAdded()
+        public synchronized StoredMessage<T> allContentAdded()
         {
+            consolidateContentFragmentsIfNecessary();
             _inMemorySize.addAndGet(getContentSize());
             return this;
         }
@@ -1140,9 +1082,13 @@ public abstract class AbstractBDBMessageStore implements MessageStore
         private QpidByteBuffer getContentAsByteBuffer()
         {
             QpidByteBuffer data = _messageDataRef == null ? QpidByteBuffer.emptyQpidByteBuffer() : _messageDataRef.getData();
-            if(data == null)
+            if (data == null)
             {
-                if(stored())
+                if (_contentFragments != null && !_contentFragments.isEmpty())
+                {
+                    data = consolidateContentFragmentsIfNecessary();
+                }
+                else if (stored())
                 {
                     checkMessageStoreOpen();
                     data = AbstractBDBMessageStore.this.getAllContent(_messageId);
@@ -1157,6 +1103,38 @@ public abstract class AbstractBDBMessageStore implements MessageStore
             return data;
         }
 
+        private QpidByteBuffer consolidateContentFragmentsIfNecessary()
+        {
+            if (_messageDataRef == null)
+            {
+                return QpidByteBuffer.emptyQpidByteBuffer();
+            }
+
+            final QpidByteBuffer existingData = _messageDataRef.getData();
+            if (_contentFragments == null || _contentFragments.isEmpty())
+            {
+                return existingData;
+            }
+
+            final List<QpidByteBuffer> fragments = _contentFragments;
+            _contentFragments = null;
+
+            if (fragments.size() == 1)
+            {
+                final QpidByteBuffer single = fragments.get(0);
+                _messageDataRef.setData(single);
+                return single;
+            }
+
+            final QpidByteBuffer consolidated = QpidByteBuffer.concatenate(fragments);
+            for (QpidByteBuffer fragment : fragments)
+            {
+                fragment.dispose();
+            }
+
+            _messageDataRef.setData(consolidated);
+            return consolidated;
+        }
 
         @Override
         public synchronized QpidByteBuffer getContent(int offset, int length)
@@ -1185,11 +1163,10 @@ public abstract class AbstractBDBMessageStore implements MessageStore
         {
             if (!stored())
             {
+                consolidateContentFragmentsIfNecessary();
                 AbstractBDBMessageStore.this.storeMetaData(txn, _messageId, _messageDataRef.getMetaData());
-                AbstractBDBMessageStore.this.addContent(txn, _messageId,
-                                                        _messageDataRef.getData() == null
-                                                                ? QpidByteBuffer.emptyQpidByteBuffer()
-                                                                : _messageDataRef.getData());
+                AbstractBDBMessageStore.this.addContent(txn, _messageId, _messageDataRef.getData() == null
+                        ? QpidByteBuffer.emptyQpidByteBuffer() : _messageDataRef.getData());
                 _messageDataRef.setSoft();
             }
         }
@@ -1213,7 +1190,6 @@ public abstract class AbstractBDBMessageStore implements MessageStore
                     }
                     store(txn);
                     getEnvironmentFacade().commitAsync(txn, false);
-
                 }
             }
         }
@@ -1223,7 +1199,7 @@ public abstract class AbstractBDBMessageStore implements MessageStore
         {
             checkMessageStoreOpen();
             _messages.remove(this);
-            if(stored())
+            if (stored())
             {
                 removeMessage(_messageId);
                 storedSizeChangeOccurred(-getContentSize());
@@ -1244,6 +1220,8 @@ public abstract class AbstractBDBMessageStore implements MessageStore
                 metaData.dispose();
             }
 
+            bytesCleared += clearContentFragments();
+
             try (QpidByteBuffer data = _messageDataRef.getData())
             {
                 if (data != null)
@@ -1256,10 +1234,28 @@ public abstract class AbstractBDBMessageStore implements MessageStore
             _inMemorySize.addAndGet(-bytesCleared);
         }
 
+        private long clearContentFragments()
+        {
+            long bytesCleared = 0;
+            if (_contentFragments != null)
+            {
+                for (QpidByteBuffer fragment : _contentFragments)
+                {
+                    bytesCleared += fragment.remaining();
+                    fragment.dispose();
+                }
+                _contentFragments = null;
+            }
+            return bytesCleared;
+        }
+
         @Override
         public synchronized boolean isInContentInMemory()
         {
-            return _messageDataRef != null && (_messageDataRef.isHardRef() || _messageDataRef.getData() != null);
+            return _messageDataRef != null
+                    && (_messageDataRef.isHardRef()
+                    || _messageDataRef.getData() != null
+                    || (_contentFragments != null && !_contentFragments.isEmpty()));
         }
 
         @Override
@@ -1278,7 +1274,7 @@ public abstract class AbstractBDBMessageStore implements MessageStore
                     {
                         size += getMetadataSize();
                     }
-                    if (_messageDataRef.getData() != null)
+                    if (_messageDataRef.getData() != null || (_contentFragments != null && !_contentFragments.isEmpty()))
                     {
                         size += getContentSize();
                     }
@@ -1295,11 +1291,10 @@ public abstract class AbstractBDBMessageStore implements MessageStore
         @Override
         public synchronized boolean flowToDisk()
         {
-
             flushToStore();
-            if(_messageDataRef != null && !_messageDataRef.isHardRef())
+            if (_messageDataRef != null && !_messageDataRef.isHardRef())
             {
-                final long bytesCleared = _messageDataRef.clear(false);
+                final long bytesCleared = _messageDataRef.clear(false) + clearContentFragments();
                 _inMemorySize.addAndGet(-bytesCleared);
                 _bytesEvacuatedFromMemory.addAndGet(bytesCleared);
             }
@@ -1315,8 +1310,9 @@ public abstract class AbstractBDBMessageStore implements MessageStore
         @Override
         public synchronized void reallocate()
         {
-            if(_messageDataRef != null)
+            if (_messageDataRef != null)
             {
+                consolidateContentFragmentsIfNecessary();
                 _messageDataRef.reallocate();
             }
         }
@@ -1326,10 +1322,10 @@ public abstract class AbstractBDBMessageStore implements MessageStore
             if (_messageDataRef != null)
             {
                 _messageDataRef.clear(close);
+                clearContentFragments();
             }
         }
     }
-
 
     private class BDBTransaction implements org.apache.qpid.server.store.Transaction
     {
@@ -1356,16 +1352,14 @@ public abstract class AbstractBDBMessageStore implements MessageStore
         {
             checkMessageStoreOpen();
 
-            if(message.getStoredMessage() instanceof StoredBDBMessage)
+            if (message.getStoredMessage() instanceof StoredBDBMessage storedMessage)
             {
-                final StoredBDBMessage storedMessage = (StoredBDBMessage) message.getStoredMessage();
                 final long contentSize = storedMessage.getContentSize();
                 _preCommitActions.add(() ->
                 {
                     storedMessage.store(_txn);
                     _storeSizeIncrease += contentSize;
                 });
-
             }
 
             AbstractBDBMessageStore.this.enqueueMessage(_txn, queue, message.getMessageNumber());
@@ -1376,9 +1370,7 @@ public abstract class AbstractBDBMessageStore implements MessageStore
         public void dequeueMessage(final MessageEnqueueRecord enqueueRecord)
         {
             checkMessageStoreOpen();
-
-            AbstractBDBMessageStore.this.dequeueMessage(_txn, enqueueRecord.getQueueId(),
-                                                        enqueueRecord.getMessageNumber());
+            AbstractBDBMessageStore.this.dequeueMessage(_txn, enqueueRecord.getQueueId(), enqueueRecord.getMessageNumber());
         }
 
         @Override
@@ -1393,7 +1385,7 @@ public abstract class AbstractBDBMessageStore implements MessageStore
 
         private void doPreCommitActions()
         {
-            for(Runnable action : _preCommitActions)
+            for (Runnable action : _preCommitActions)
             {
                 action.run();
             }
@@ -1437,7 +1429,6 @@ public abstract class AbstractBDBMessageStore implements MessageStore
         public void removeXid(final StoredXidRecord record)
         {
             checkMessageStoreOpen();
-
             AbstractBDBMessageStore.this.removeXid(_txn, record.getFormat(), record.getGlobalId(), record.getBranchId());
         }
 
@@ -1446,11 +1437,9 @@ public abstract class AbstractBDBMessageStore implements MessageStore
                                          final DequeueRecord[] dequeues) throws StoreException
         {
             checkMessageStoreOpen();
-
             _postCommitActions.addAll(AbstractBDBMessageStore.this.recordXid(_txn, format, globalId, branchId, enqueues, dequeues));
             return new BDBStoredXidRecord(format, globalId, branchId);
         }
-
     }
 
     @Override
@@ -1513,7 +1502,6 @@ public abstract class AbstractBDBMessageStore implements MessageStore
             return _format == that._format
                    && Arrays.equals(_globalId, that._globalId)
                    && Arrays.equals(_branchId, that._branchId);
-
         }
 
         @Override
@@ -1525,30 +1513,20 @@ public abstract class AbstractBDBMessageStore implements MessageStore
             return result;
         }
     }
-    public static class BDBEnqueueRecord implements MessageEnqueueRecord
+
+    public record BDBEnqueueRecord(UUID queueId, long messageNumber) implements MessageEnqueueRecord
     {
-        private final UUID _queueId;
-
-        private final long _messageNumber;
-
-        public BDBEnqueueRecord(final UUID queueid, final long messageNumber)
+        @Override
+        public UUID getQueueId()
         {
-            _queueId = queueid;
-            _messageNumber = messageNumber;
+            return queueId;
         }
 
         @Override
         public long getMessageNumber()
         {
-            return _messageNumber;
+            return messageNumber;
         }
-
-        @Override
-        public UUID getQueueId()
-        {
-            return _queueId;
-        }
-
     }
 
     private class BDBMessageStoreReader implements MessageStoreReader
@@ -1578,24 +1556,23 @@ public abstract class AbstractBDBMessageStore implements MessageStore
         {
             checkMessageStoreOpen();
 
-            final List<QueueEntryKey> entries = new ArrayList<>();
-            try(Cursor cursor = getDeliveryDb().openCursor(null, null))
+            final List<long[]> entries = new ArrayList<>();
+            final CachingUUIDFactory uuidFactory = new CachingUUIDFactory();
+            try (final Cursor cursor = getDeliveryDb().openCursor(null, null))
             {
-                DatabaseEntry key = new DatabaseEntry();
-                DatabaseEntry value = new DatabaseEntry();
+                final DatabaseEntry key = new DatabaseEntry();
+                final DatabaseEntry value = new DatabaseEntry();
                 value.setPartial(0, 0, true);
 
-                CachingUUIDFactory uuidFactory = new CachingUUIDFactory();
-                QueueEntryBinding.objectToEntry(new QueueEntryKey(queue.getId(), 0L), key);
+                QueueEntryBinding.objectToEntry(queue.getId(), 0L, key);
 
                 if (cursor.getSearchKeyRange(key, value, LockMode.READ_UNCOMMITTED) == OperationStatus.SUCCESS)
                 {
                     do
                     {
-                        QueueEntryKey entry = QueueEntryBinding.entryToObject(uuidFactory, key);
-                        if (entry.getQueueId().equals(queue.getId()))
+                        if (QueueEntryBinding.matchesQueueId(key, queue.getId()))
                         {
-                            entries.add(entry);
+                            entries.add(QueueEntryBinding.readIds(key));
                         }
                         else
                         {
@@ -1610,37 +1587,127 @@ public abstract class AbstractBDBMessageStore implements MessageStore
                 throw getEnvironmentFacade().handleDatabaseException("Cannot visit message instances", e);
             }
 
-            for(QueueEntryKey entry : entries)
+            for (final long[] entry : entries)
             {
-                UUID queueId = entry.getQueueId();
-                long messageId = entry.getMessageId();
+                final UUID queueId = uuidFactory.createUuidFromBits(entry[0], entry[1]);
+                final long messageId = entry[2];
                 if (!handler.handle(new BDBEnqueueRecord(queueId, messageId)))
                 {
                     break;
                 }
             }
-
         }
 
+        @Override
+        public void visitMessageInstances(final MessageInstanceHandler validHandler,
+                                          final Predicate<MessageEnqueueRecord> predicate,
+                                          final Consumer<MessageEnqueueRecord> invalidCollector) throws StoreException
+        {
+            checkMessageStoreOpen();
 
+            final CachingUUIDFactory uuidFactory = new CachingUUIDFactory();
+            final long[] ids = new long[3];
+
+            try (final Cursor cursor = getDeliveryDb().openCursor(null, null))
+            {
+                final DatabaseEntry key = new DatabaseEntry();
+                final DatabaseEntry value = new DatabaseEntry();
+                value.setPartial(0, 0, true);
+
+                while (cursor.getNext(key, value, LockMode.READ_UNCOMMITTED) == OperationStatus.SUCCESS)
+                {
+                    QueueEntryBinding.readIdsInto(key, ids);
+                    final UUID queueId = uuidFactory.createUuidFromBits(ids[0], ids[1]);
+                    final long messageId = ids[2];
+                    final MessageEnqueueRecord record = new BDBEnqueueRecord(queueId, messageId);
+
+                    if (predicate.test(record))
+                    {
+                        if (!validHandler.handle(record))
+                        {
+                            break;
+                        }
+                    }
+                    else
+                    {
+                        invalidCollector.accept(record);
+                    }
+                }
+            }
+            catch (RuntimeException e)
+            {
+                throw getEnvironmentFacade().handleDatabaseException("Cannot visit message instances", e);
+            }
+        }
+
+        @Override
+        public void visitMessageInstances(final TransactionLogResource queue,
+                                          final MessageInstanceHandler validHandler,
+                                          final Predicate<MessageEnqueueRecord> predicate,
+                                          final Consumer<MessageEnqueueRecord> invalidCollector) throws StoreException
+        {
+            checkMessageStoreOpen();
+
+            final UUID queueId = queue.getId();
+            try (final Cursor cursor = getDeliveryDb().openCursor(null, null))
+            {
+                final DatabaseEntry key = new DatabaseEntry();
+                final DatabaseEntry value = new DatabaseEntry();
+                value.setPartial(0, 0, true);
+
+                QueueEntryBinding.objectToEntry(queueId, 0L, key);
+
+                if (cursor.getSearchKeyRange(key, value, LockMode.READ_UNCOMMITTED) == OperationStatus.SUCCESS)
+                {
+                    do
+                    {
+                        if (QueueEntryBinding.matchesQueueId(key, queueId))
+                        {
+                            final long messageId = QueueEntryBinding.readMessageId(key);
+                            final MessageEnqueueRecord record = new BDBEnqueueRecord(queueId, messageId);
+
+                            if (predicate.test(record))
+                            {
+                                if (!validHandler.handle(record))
+                                {
+                                    break;
+                                }
+                            }
+                            else
+                            {
+                                invalidCollector.accept(record);
+                            }
+                        }
+                        else
+                        {
+                            break;
+                        }
+                    }
+                    while (cursor.getNext(key, value, LockMode.READ_UNCOMMITTED) == OperationStatus.SUCCESS);
+                }
+            }
+            catch (RuntimeException e)
+            {
+                throw getEnvironmentFacade().handleDatabaseException("Cannot visit message instances", e);
+            }
+        }
 
         @Override
         public void visitMessageInstances(final MessageInstanceHandler handler) throws StoreException
         {
             checkMessageStoreOpen();
 
-            List<QueueEntryKey> entries = new ArrayList<>();
-            try(Cursor cursor = getDeliveryDb().openCursor(null, null))
+            final CachingUUIDFactory uuidFactory = new CachingUUIDFactory();
+            final List<long[]> entries = new ArrayList<>();
+            try (final Cursor cursor = getDeliveryDb().openCursor(null, null))
             {
-                DatabaseEntry key = new DatabaseEntry();
-                CachingUUIDFactory uuidFactory = new CachingUUIDFactory();
-
-                DatabaseEntry value = new DatabaseEntry();
+                final DatabaseEntry key = new DatabaseEntry();
+                final DatabaseEntry value = new DatabaseEntry();
                 value.setPartial(0, 0, true);
+
                 while (cursor.getNext(key, value, LockMode.READ_UNCOMMITTED) == OperationStatus.SUCCESS)
                 {
-                    QueueEntryKey entry = QueueEntryBinding.entryToObject(uuidFactory, key);
-                    entries.add(entry);
+                    entries.add(QueueEntryBinding.readIds(key));
                 }
             }
             catch (RuntimeException e)
@@ -1648,16 +1715,15 @@ public abstract class AbstractBDBMessageStore implements MessageStore
                 throw getEnvironmentFacade().handleDatabaseException("Cannot visit message instances", e);
             }
 
-            for(QueueEntryKey entry : entries)
+            for (final long[] entry : entries)
             {
-                UUID queueId = entry.getQueueId();
-                long messageId = entry.getMessageId();
+                final UUID queueId = uuidFactory.createUuidFromBits(entry[0], entry[1]);
+                final long messageId = entry[2];
                 if (!handler.handle(new BDBEnqueueRecord(queueId, messageId)))
                 {
                     break;
                 }
             }
-
         }
 
         @Override
@@ -1665,19 +1731,19 @@ public abstract class AbstractBDBMessageStore implements MessageStore
         {
             checkMessageStoreOpen();
 
-            try(Cursor cursor = getXidDb().openCursor(null, null))
+            try (final Cursor cursor = getXidDb().openCursor(null, null))
             {
-                CachingUUIDFactory uuidFactory = new CachingUUIDFactory();
-                DatabaseEntry key = new DatabaseEntry();
-                XidBinding keyBinding = XidBinding.getInstance();
-                DatabaseEntry value = new DatabaseEntry();
+                final CachingUUIDFactory uuidFactory = new CachingUUIDFactory();
+                final DatabaseEntry key = new DatabaseEntry();
+                final XidBinding keyBinding = XidBinding.getInstance();
+                final DatabaseEntry value = new DatabaseEntry();
 
                 while (cursor.getNext(key, value, LockMode.READ_UNCOMMITTED) == OperationStatus.SUCCESS)
                 {
-                    Xid xid = keyBinding.entryToObject(key);
-                    PreparedTransaction preparedTransaction = PreparedTransactionBinding.entryToObject(uuidFactory, value);
+                    final Xid xid = keyBinding.entryToObject(key);
+                    final PreparedTransaction preparedTransaction = PreparedTransactionBinding.entryToObject(uuidFactory, value);
                     if (!handler.handle(new BDBStoredXidRecord(xid.getFormat(), xid.getGlobalId(), xid.getBranchId()),
-                                        preparedTransaction.getEnqueues(), preparedTransaction.getDequeues()))
+                                        preparedTransaction.enqueues(), preparedTransaction.dequeues()))
                     {
                         break;
                     }
@@ -1688,7 +1754,5 @@ public abstract class AbstractBDBMessageStore implements MessageStore
                 throw getEnvironmentFacade().handleDatabaseException("Cannot recover distributed transactions", e);
             }
         }
-
-
     }
 }

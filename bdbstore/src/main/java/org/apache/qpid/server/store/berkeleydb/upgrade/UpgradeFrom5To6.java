@@ -128,7 +128,7 @@ public class UpgradeFrom5To6 extends AbstractStoreUpgrade
 
     private void upgradeConfiguredObjectsAndDependencies(Environment environment, UpgradeInteractionHandler handler, String virtualHostName)
     {
-        Transaction transaction = null;
+        Transaction transaction;
         transaction = environment.beginTransaction(null, null);
         upgradeConfiguredObjects(environment, handler, transaction, virtualHostName);
         upgradeQueueEntries(environment, transaction, virtualHostName);
@@ -138,7 +138,7 @@ public class UpgradeFrom5To6 extends AbstractStoreUpgrade
 
     private void upgradeMessages(final Environment environment, final UpgradeInteractionHandler handler)
     {
-        Transaction transaction = null;
+        Transaction transaction;
         transaction = environment.beginTransaction(null, null);
         upgradeMessages(environment, handler, transaction);
         transaction.commit();
@@ -156,7 +156,7 @@ public class UpgradeFrom5To6 extends AbstractStoreUpgrade
             String newName = newDatabases[i];
             if (databases.contains(oldName))
             {
-                LOGGER.info("Renaming " + oldName + " into " + newName);
+                LOGGER.info("Renaming {} into {}", oldName, newName);
                 environment.renameDatabase(transaction, oldName, newName);
             }
         }
@@ -184,7 +184,7 @@ public class UpgradeFrom5To6 extends AbstractStoreUpgrade
                 };
                 new DatabaseTemplate(environment, OLD_META_DATA_DB_NAME, contentTransaction)
                         .run(metaDataDatabaseOperation);
-                LOGGER.info(metaDataDatabaseOperation.getRowCount() + " Message Content Entries");
+                LOGGER.info("{} Message Content Entries", metaDataDatabaseOperation.getRowCount());
             };
             new DatabaseTemplate(environment, OLD_CONTENT_DB_NAME, NEW_CONTENT_DB_NAME, transaction).run(contentOperation);
             environment.removeDatabase(transaction, OLD_CONTENT_DB_NAME);
@@ -268,8 +268,7 @@ public class UpgradeFrom5To6 extends AbstractStoreUpgrade
     {
         TreeMap<Integer, byte[]> data = new TreeMap<>();
 
-        Cursor cursor = oldDatabase.openCursor(null, CursorConfig.READ_COMMITTED);
-        try
+        try (Cursor cursor = oldDatabase.openCursor(null, CursorConfig.READ_COMMITTED))
         {
             DatabaseEntry contentKeyEntry = new DatabaseEntry();
             DatabaseEntry value = new DatabaseEntry();
@@ -296,10 +295,6 @@ public class UpgradeFrom5To6 extends AbstractStoreUpgrade
 
                 status = cursor.getNext(contentKeyEntry, value, LockMode.DEFAULT);
             }
-        }
-        finally
-        {
-            cursor.close();
         }
 
         return data;
@@ -359,7 +354,7 @@ public class UpgradeFrom5To6 extends AbstractStoreUpgrade
             };
             new DatabaseTemplate(environment, OLD_XID_DB_NAME, NEW_XID_DB_NAME, transaction).run(xidEntriesCursor);
             environment.removeDatabase(transaction, OLD_XID_DB_NAME);
-            LOGGER.info(xidEntriesCursor.getRowCount() + " Xid Entries");
+            LOGGER.info("{} Xid Entries", xidEntriesCursor.getRowCount());
         }
     }
 
@@ -388,7 +383,7 @@ public class UpgradeFrom5To6 extends AbstractStoreUpgrade
             new DatabaseTemplate(environment, OLD_DELIVERY_DB_NAME, NEW_DELIVERY_DB_NAME, transaction)
                     .run(queueEntriesCursor);
             environment.removeDatabase(transaction, OLD_DELIVERY_DB_NAME);
-            LOGGER.info(queueEntriesCursor.getRowCount() + " Queue Delivery Record Entries");
+            LOGGER.info("{} Queue Delivery Record Entries", queueEntriesCursor.getRowCount());
         }
     }
 
@@ -423,7 +418,7 @@ public class UpgradeFrom5To6 extends AbstractStoreUpgrade
             new DatabaseTemplate(environment, OLD_QUEUE_BINDINGS_DB_NAME, CONFIGURED_OBJECTS_DB_NAME, transaction)
                     .run(bindingCursor);
             environment.removeDatabase(transaction, OLD_QUEUE_BINDINGS_DB_NAME);
-            LOGGER.info(bindingCursor.getRowCount() + " Queue Binding Entries");
+            LOGGER.info("{} Queue Binding Entries", bindingCursor.getRowCount());
         }
     }
 
@@ -459,7 +454,7 @@ public class UpgradeFrom5To6 extends AbstractStoreUpgrade
             new DatabaseTemplate(environment, OLD_EXCHANGE_DB_NAME, CONFIGURED_OBJECTS_DB_NAME, transaction)
                     .run(exchangeCursor);
             environment.removeDatabase(transaction, OLD_EXCHANGE_DB_NAME);
-            LOGGER.info(exchangeCursor.getRowCount() + " Exchange Entries");
+            LOGGER.info("{} Exchange Entries", exchangeCursor.getRowCount());
         }
         return exchangeNames;
     }
@@ -492,7 +487,7 @@ public class UpgradeFrom5To6 extends AbstractStoreUpgrade
             };
             new DatabaseTemplate(environment, OLD_QUEUE_DB_NAME, CONFIGURED_OBJECTS_DB_NAME, transaction).run(queueCursor);
             environment.removeDatabase(transaction, OLD_QUEUE_DB_NAME);
-            LOGGER.info(queueCursor.getRowCount() + " Queue Entries");
+            LOGGER.info("{} Queue Entries", queueCursor.getRowCount());
         }
         return queueNames;
     }
@@ -515,8 +510,7 @@ public class UpgradeFrom5To6 extends AbstractStoreUpgrade
         Map<String, Object> attributesMap = buildQueueArgumentMap(queueName,
                 owner, exclusive, arguments);
         String json = serialiseMap(attributesMap);
-        UpgradeConfiguredObjectRecord configuredObject = new UpgradeConfiguredObjectRecord(Queue.class.getName(), json);
-        return configuredObject;
+        return new UpgradeConfiguredObjectRecord(Queue.class.getName(), json);
     }
 
     private Map<String, Object> buildQueueArgumentMap(String queueName,
@@ -535,7 +529,7 @@ public class UpgradeFrom5To6 extends AbstractStoreUpgrade
 
         if (moveNonExclusiveOwnerToDescription(owner, exclusive))
         {
-            LOGGER.info("Non-exclusive owner " + owner + " for queue " + queueName + " moved to " + QueueArgumentsConverter.X_QPID_DESCRIPTION);
+            LOGGER.info("Non-exclusive owner {} for queue {} moved to " + QueueArgumentsConverter.X_QPID_DESCRIPTION, owner, queueName);
 
             attributesMap.put(Queue.OWNER, null);
             argumentsCopy.put(QueueArgumentsConverter.X_QPID_DESCRIPTION, owner);
@@ -554,7 +548,7 @@ public class UpgradeFrom5To6 extends AbstractStoreUpgrade
     private boolean moveNonExclusiveOwnerToDescription(String owner,
             boolean exclusive)
     {
-        return exclusive == false && owner != null && MOVE_NON_EXCLUSIVE_QUEUE_OWNER_TO_DESCRIPTION;
+        return !exclusive && owner != null && MOVE_NON_EXCLUSIVE_QUEUE_OWNER_TO_DESCRIPTION;
     }
 
     private UpgradeConfiguredObjectRecord createExchangeConfiguredObjectRecord(String exchangeName, String exchangeType,
@@ -566,8 +560,7 @@ public class UpgradeFrom5To6 extends AbstractStoreUpgrade
         attributesMap.put(Exchange.LIFETIME_POLICY, autoDelete ? "AUTO_DELETE"
                 : LifetimePolicy.PERMANENT.name());
         String json = serialiseMap(attributesMap);
-        UpgradeConfiguredObjectRecord configuredObject = new UpgradeConfiguredObjectRecord(Exchange.class.getName(), json);
-        return configuredObject;
+        return new UpgradeConfiguredObjectRecord(Exchange.class.getName(), json);
     }
 
     private UpgradeConfiguredObjectRecord createBindingConfiguredObjectRecord(String exchangeName, String queueName,
@@ -582,8 +575,7 @@ public class UpgradeFrom5To6 extends AbstractStoreUpgrade
             attributesMap.put("arguments", FieldTable.convertToMap(arguments));
         }
         String json = serialiseMap(attributesMap);
-        UpgradeConfiguredObjectRecord configuredObject = new UpgradeConfiguredObjectRecord(Binding.class.getName(), json);
-        return configuredObject;
+        return new UpgradeConfiguredObjectRecord(Binding.class.getName(), json);
     }
 
     private void put(final Database database, Transaction txn, DatabaseEntry key, DatabaseEntry value)
@@ -818,8 +810,7 @@ public class UpgradeFrom5To6 extends AbstractStoreUpgrade
         {
             String type = tupleInput.readString();
             String json = tupleInput.readString();
-            UpgradeConfiguredObjectRecord configuredObject = new UpgradeConfiguredObjectRecord(type, json);
-            return configuredObject;
+            return new UpgradeConfiguredObjectRecord(type, json);
         }
 
         @Override

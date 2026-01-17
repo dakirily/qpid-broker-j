@@ -29,6 +29,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import com.sleepycat.je.Transaction;
 import org.slf4j.Logger;
@@ -137,6 +138,8 @@ public class CoalescingCommiter implements Committer
         private final long _commiterWaitTimeout;
         private final AtomicBoolean _stopped = new AtomicBoolean(false);
         private final Queue<CommitThreadJob> _jobQueue = new ConcurrentLinkedQueue<>();
+        /** {@link ConcurrentLinkedQueue#size()} requires an O(n) traversal, therefore separate size counter needed  */
+        private final AtomicInteger _jobQueueSize = new AtomicInteger();
         private final Object _lock = new Object();
         private final EnvironmentFacade _environmentFacade;
 
@@ -169,8 +172,7 @@ public class CoalescingCommiter implements Committer
                     {
                         try
                         {
-                            // Periodically wake up and check, just in case we
-                            // missed a notification. Don't want to lock the broker hard.
+                            // periodically wake up and check, just in case we missed a notification
                             _lock.wait(_commiterWaitTimeout);
                         }
                         catch (InterruptedException e)
@@ -187,7 +189,13 @@ public class CoalescingCommiter implements Committer
             CommitThreadJob job;
             while((job = _jobQueue.poll()) != null)
             {
+                _jobQueueSize.decrementAndGet();
                 _inProcessJobs.add(job);
+            }
+
+            if (_inProcessJobs.isEmpty())
+            {
+                return;
             }
 
             int completedJobsIndex = 0;
@@ -204,7 +212,7 @@ public class CoalescingCommiter implements Committer
                 if(LOGGER.isDebugEnabled())
                 {
                     long duration = System.currentTimeMillis() - startTime;
-                    LOGGER.debug("flushLog completed in " + duration  + " ms");
+                    LOGGER.debug("flushLog completed in {} ms", duration);
                 }
 
                 while(completedJobsIndex < _inProcessJobs.size())
@@ -239,7 +247,7 @@ public class CoalescingCommiter implements Committer
 
         private boolean hasJobs()
         {
-            return !_jobQueue.isEmpty();
+            return _jobQueueSize.get() > 0;
         }
 
         public void addJob(CommitThreadJob commit, final boolean sync)
@@ -249,7 +257,8 @@ public class CoalescingCommiter implements Committer
                 throw new IllegalStateException("Commit thread is stopped");
             }
             _jobQueue.add(commit);
-            if(sync || _jobQueue.size() >= _jobQueueNotifyThreshold)
+            int jobQueueSize = _jobQueueSize.incrementAndGet();
+            if(sync || jobQueueSize >= _jobQueueNotifyThreshold)
             {
                 synchronized (_lock)
                 {
@@ -263,28 +272,44 @@ public class CoalescingCommiter implements Committer
             synchronized (_lock)
             {
                 _stopped.set(true);
-                CommitThreadJob commit;
 
-                try
+                CommitThreadJob commit;
+                while ((commit = _jobQueue.poll()) != null)
                 {
-                    _environmentFacade.flushLog();
-                    while ((commit = _jobQueue.poll()) != null)
-                    {
-                        commit.complete();
-                    }
+                    _jobQueueSize.decrementAndGet();
+                    _inProcessJobs.add(commit);
                 }
-                catch(RuntimeException flushException)
+
+                if (!_inProcessJobs.isEmpty())
                 {
-                    RuntimeException e = new RuntimeException("Commit thread has been closed, transaction aborted");
-                    int abortedCommits = 0;
-                    while ((commit = _jobQueue.poll()) != null)
+                    int completedJobsIndex = 0;
+                    try
                     {
-                        abortedCommits++;
-                        commit.abort(e);
+                        _environmentFacade.flushLog();
+                        while (completedJobsIndex < _inProcessJobs.size())
+                        {
+                            _inProcessJobs.get(completedJobsIndex).complete();
+                            completedJobsIndex++;
+                        }
                     }
-                    if (LOGGER.isDebugEnabled() && abortedCommits > 0)
+                    catch (RuntimeException flushException)
                     {
-                        LOGGER.debug(abortedCommits + " commit(s) were aborted during close.");
+                        RuntimeException e =
+                                new RuntimeException("Commit thread has been closed, transaction aborted", flushException);
+                        int abortedCommits = 0;
+                        for (; completedJobsIndex < _inProcessJobs.size(); completedJobsIndex++)
+                        {
+                            abortedCommits++;
+                            _inProcessJobs.get(completedJobsIndex).abort(e);
+                        }
+                        if (LOGGER.isDebugEnabled() && abortedCommits > 0)
+                        {
+                            LOGGER.debug("{} commit(s) were aborted during close.", abortedCommits);
+                        }
+                    }
+                    finally
+                    {
+                        _inProcessJobs.clear();
                     }
                 }
 

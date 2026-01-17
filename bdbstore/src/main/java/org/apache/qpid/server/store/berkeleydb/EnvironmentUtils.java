@@ -20,9 +20,9 @@
  */
 package org.apache.qpid.server.store.berkeleydb;
 
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
@@ -124,9 +124,9 @@ final public class EnvironmentUtils
             results.put(BTREE_IN_COUNT.getName(), stats.getInternalNodeCount());
             results.put(BTREE_LN_COUNT.getName(), stats.getLeafNodeCount());
             results.put(BTREE_MAINTREE_MAXDEPTH.getName(), stats.getMainTreeMaxDepth());
-            results.put(BTREE_INS_BYLEVEL.getName(), Arrays.asList(stats.getINsByLevel()));
-            results.put(BTREE_BINS_BYLEVEL.getName(), Arrays.asList(stats.getBINsByLevel()));
-            results.put(BTREE_BIN_ENTRIES_HISTOGRAM.getName(), Arrays.asList(stats.getBINEntriesHistogram()));
+            results.put(BTREE_INS_BYLEVEL.getName(), List.of(stats.getINsByLevel()));
+            results.put(BTREE_BINS_BYLEVEL.getName(), List.of(stats.getBINsByLevel()));
+            results.put(BTREE_BIN_ENTRIES_HISTOGRAM.getName(), List.of(stats.getBINEntriesHistogram()));
             results.put(BTREE_RELATCHES_REQUIRED.getName(), stats.getRelatches());
             results.put(BTREE_ROOT_SPLITS.getName(), stats.getRootSplits());
 

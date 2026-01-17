@@ -36,6 +36,7 @@ import java.util.Objects;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.qpid.server.virtualhostnode.AbstractVirtualHostNode;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -116,8 +117,9 @@ public class BDBHAVirtualHostNodeOperationalLoggingTest extends UnitTestBase
         assertEquals("[grp(/group)] ", node1.getGroupLogSubject().getLogString(),
                      "Unexpected group log subject");
 
+        String blueprint = (String) node1Attributes.get(AbstractVirtualHostNode.VIRTUALHOST_INITIAL_CONFIGURATION);
         String attributes = String.format(
-                "{address=%s,context={je.rep.insufficientReplicasTimeout=2 s, je.rep.replicaAckTimeout=2 s},createdTime=%s,groupName=%s,helperAddress=%s,id=%s,lastUpdatedTime=%s,name=%s,permittedNodes=[%s],storePath=%s,type=%s,virtualHostInitialConfiguration={\n  \"type\" : \"BDB_HA\"\n}}",
+                "{address=%s,context={je.rep.replicaAckTimeout=2 s, je.rep.insufficientReplicasTimeout=2 s},createdTime=%s,groupName=%s,helperAddress=%s,id=%s,lastUpdatedTime=%s,name=%s,permittedNodes=[%s],storePath=%s,type=%s,virtualHostInitialConfiguration=%s}",
                 address,
                 createTime,
                 groupName,
@@ -127,12 +129,11 @@ public class BDBHAVirtualHostNodeOperationalLoggingTest extends UnitTestBase
                 nodeName,
                 address,
                 node1.getStorePath(),
-                node1.getType()
+                node1.getType(),
+                blueprint
                 );
 
-        String expectedMessage = HighAvailabilityMessages.CREATE(nodeName,
-                                                                 String.valueOf(Outcome.SUCCESS),
-                                                                 attributes).toString();
+        String expectedMessage = HighAvailabilityMessages.CREATE(nodeName, String.valueOf(Outcome.SUCCESS), attributes).toString();
         verify(_eventLogger).message(argThat(new LogSubjectMatcher(node1.getVirtualHostNodeLogSubject())),
                 argThat(new LogMessageMatcher(expectedMessage, HighAvailabilityMessages.CREATE_LOG_HIERARCHY)));
 

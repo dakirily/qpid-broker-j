@@ -19,7 +19,6 @@
 
 package org.apache.qpid.server.store.berkeleydb.tuple;
 
-import java.io.StringWriter;
 import java.util.Map;
 
 import com.sleepycat.bind.tuple.TupleBinding;
@@ -35,6 +34,7 @@ import org.apache.qpid.server.store.StoreException;
 public class MapBinding extends TupleBinding<Map<String, Object>>
 {
     private static final MapBinding INSTANCE = new MapBinding();
+    private static final ObjectMapper MAPPER = ConfiguredObjectJacksonModule.newObjectMapper(true);
 
     public static MapBinding getInstance()
     {
@@ -44,12 +44,9 @@ public class MapBinding extends TupleBinding<Map<String, Object>>
     @Override
     public Map<String, Object> entryToObject(final TupleInput input)
     {
-        String json = input.readString();
-        ObjectMapper mapper = ConfiguredObjectJacksonModule.newObjectMapper(true);
         try
         {
-            Map<String, Object> value = mapper.readValue(json, Map.class);
-            return value;
+            return MAPPER.readValue(input.readString(), Map.class);
         }
         catch (JacksonException e)
         {
@@ -63,10 +60,7 @@ public class MapBinding extends TupleBinding<Map<String, Object>>
     {
         try
         {
-            StringWriter writer = new StringWriter();
-            final ObjectMapper objectMapper = ConfiguredObjectJacksonModule.newObjectMapper(true);
-            objectMapper.writeValue(writer, map);
-            output.writeString(writer.toString());
+            output.writeString(MAPPER.writeValueAsString(map));
         }
         catch (JacksonException e)
         {
