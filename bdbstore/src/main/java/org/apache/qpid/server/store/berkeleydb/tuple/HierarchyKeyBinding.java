@@ -18,6 +18,7 @@
  * under the License.
  *
  */
+
 package org.apache.qpid.server.store.berkeleydb.tuple;
 
 import com.sleepycat.bind.tuple.TupleBinding;
@@ -29,7 +30,6 @@ import java.util.UUID;
 
 public class HierarchyKeyBinding extends TupleBinding<HierarchyKey>
 {
-
     private static final HierarchyKeyBinding INSTANCE = new HierarchyKeyBinding();
 
     public static HierarchyKeyBinding getInstance()
@@ -41,20 +41,19 @@ public class HierarchyKeyBinding extends TupleBinding<HierarchyKey>
     private HierarchyKeyBinding() { }
 
     @Override
-    public HierarchyKey entryToObject(TupleInput tupleInput)
+    public HierarchyKey entryToObject(final TupleInput tupleInput)
     {
-        UUID childId = new UUID(tupleInput.readLong(), tupleInput.readLong());
-        String parentType = tupleInput.readString();
-
+        final UUID childId = new UUID(tupleInput.readLong(), tupleInput.readLong());
+        final String parentType = tupleInput.readString();
         return new HierarchyKey(childId, parentType);
     }
 
     @Override
-    public void objectToEntry(HierarchyKey hk, TupleOutput tupleOutput)
+    public void objectToEntry(final HierarchyKey hk, final TupleOutput tupleOutput)
     {
-        UUID uuid = hk.getChildId();
+        final UUID uuid = hk.childId();
         tupleOutput.writeLong(uuid.getMostSignificantBits());
         tupleOutput.writeLong(uuid.getLeastSignificantBits());
-        tupleOutput.writeString(hk.getParentType());
+        tupleOutput.writeString(hk.parentType());
     }
 }

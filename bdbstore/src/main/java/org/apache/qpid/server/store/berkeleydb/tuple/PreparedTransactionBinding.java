@@ -77,8 +77,8 @@ public class PreparedTransactionBinding
     public static void objectToEntry(final PreparedTransaction preparedTransaction, final DatabaseEntry value)
     {
         TupleOutput tupleOutput = new TupleOutput();
-        writeRecords(preparedTransaction.getEnqueues(), tupleOutput);
-        writeRecords(preparedTransaction.getDequeues(), tupleOutput);
+        writeRecords(preparedTransaction.enqueues(), tupleOutput);
+        writeRecords(preparedTransaction.dequeues(), tupleOutput);
         TupleBinding.outputToEntry(tupleOutput, value);
     }
 

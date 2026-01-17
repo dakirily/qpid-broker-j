@@ -275,29 +275,18 @@ public class UpgradeFrom7To8Test extends AbstractUpgradeTestCase
         }
     }
 
-    private static class UpgradeConfiguredObjectRecord
+    private record UpgradeConfiguredObjectRecord(String _type, String _attributes)
     {
-        private final String _attributes;
-        private final String _type;
 
-        public UpgradeConfiguredObjectRecord(String type, String attributes)
-        {
-            super();
-            _attributes = attributes;
-            _type = type;
+        public String getAttributes() {
+                return _attributes;
+            }
+
+            public String getType() {
+                return _type;
+            }
+
         }
-
-        public String getAttributes()
-        {
-            return _attributes;
-        }
-
-        public String getType()
-        {
-            return _type;
-        }
-
-    }
 
     private static class UpgradeUUIDBinding extends TupleBinding<UUID>
     {
@@ -332,46 +321,8 @@ public class UpgradeFrom7To8Test extends AbstractUpgradeTestCase
         }
     }
 
-    private static class UpgradeHierarchyKey
+    private record UpgradeHierarchyKey(UUID _childId, String _parentType)
     {
-        private final UUID _childId;
-        private final String _parentType;
-
-        public UpgradeHierarchyKey(final UUID childId, final String parentType)
-        {
-            _childId = childId;
-            _parentType = parentType;
-        }
-
-        @Override
-        public boolean equals(final Object o)
-        {
-            if (this == o)
-            {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass())
-            {
-                return false;
-            }
-
-            final UpgradeHierarchyKey that = (UpgradeHierarchyKey) o;
-
-            if (!_childId.equals(that._childId))
-            {
-                return false;
-            }
-            return _parentType.equals(that._parentType);
-        }
-
-        @Override
-        public int hashCode()
-        {
-            int result = _childId.hashCode();
-            result = 31 * result + _parentType.hashCode();
-            return result;
-        }
 
     }
-
 }

@@ -46,21 +46,23 @@ import com.sleepycat.je.rep.ReplicationConfig;
 /**
  * Standalone tool to remove one or more configuration records from a BDB store.
  * Intended for exceptional use only.
- *
+ * <br>
  * If targeting a BDB HA store, then it is important to establish which node was
  * most recently master and perform the update there.
  */
 public class OrphanConfigurationRecordPurger
 {
     private static final String USAGE_STRING =
-            "usage: " + (String.format("java %s\n"
-                                       + "       -dryRun                   # Dry run mode\n"
-                                       + "       -parentRootCategory <dir> # Parent root category\n"
-                                       + "       -storePath <dir>          # Store path\n"
-                                       + "       [-ha                      # HA mode\n"
-                                       + "        -nodeName <nodename>     # HA node name\n"
-                                       + "        -nodeHost <nodehost>     # HA node host\n"
-                                       + "        -groupName <groupName>]  # HA group name\n",
+            "usage: " + (String.format("""
+                            java %s
+                                   -dryRun                   # Dry run mode
+                                   -parentRootCategory <dir> # Parent root category
+                                   -storePath <dir>          # Store path
+                                   [-ha                      # HA mode
+                                    -nodeName <nodename>     # HA node name
+                                    -nodeHost <nodehost>     # HA node host
+                                    -groupName <groupName>]  # HA group name
+                            """,
                                        OrphanConfigurationRecordPurger.class.getName()));
 
     private static final String VERSION_DB_NAME = "DB_VERSION";

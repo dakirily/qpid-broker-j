@@ -61,15 +61,13 @@ public class Upgrader
         dbConfig.setTransactional(true);
         dbConfig.setAllowCreate(true);
 
-        Database versionDb = null;
-        try
+        try (Database versionDb = _environment.openDatabase(null, VERSION_DB_NAME, dbConfig))
         {
-            versionDb = _environment.openDatabase(null, VERSION_DB_NAME, dbConfig);
 
-            if(versionDb.count() == 0L)
+            if (versionDb.count() == 0L)
             {
 
-                int sourceVersion = isEmpty ? BDBConfigurationStore.VERSION: identifyOldStoreVersion();
+                int sourceVersion = isEmpty ? BDBConfigurationStore.VERSION : identifyOldStoreVersion();
                 DatabaseEntry key = new DatabaseEntry();
                 IntegerBinding.intToEntry(sourceVersion, key);
                 DatabaseEntry value = new DatabaseEntry();
@@ -82,23 +80,16 @@ public class Upgrader
 
             if (LOGGER.isDebugEnabled())
             {
-                LOGGER.debug("Source message store version is " + version);
+                LOGGER.debug("Source message store version is {}", version);
             }
 
-            if(version > BDBConfigurationStore.VERSION)
+            if (version > BDBConfigurationStore.VERSION)
             {
                 throw new StoreException("Database version " + version
-                                            + " is higher than the most recent known version: "
-                                            + BDBConfigurationStore.VERSION);
+                        + " is higher than the most recent known version: "
+                        + BDBConfigurationStore.VERSION);
             }
             performUpgradeFromVersion(version, versionDb);
-        }
-        finally
-        {
-            if (versionDb != null)
-            {
-                versionDb.close();
-            }
         }
     }
 
@@ -106,32 +97,21 @@ public class Upgrader
     {
         int version = -1;
 
-        Cursor cursor = null;
-        try
+        try (Cursor cursor = versionDb.openCursor(null, null))
         {
-            cursor = versionDb.openCursor(null, null);
 
             DatabaseEntry key = new DatabaseEntry();
             DatabaseEntry value = new DatabaseEntry();
 
-            while(cursor.getNext(key, value, null) == OperationStatus.SUCCESS)
+            while (cursor.getNext(key, value, null) == OperationStatus.SUCCESS)
             {
                 int ver = IntegerBinding.entryToInt(key);
-                if(ver > version)
+                if (ver > version)
                 {
                     version = ver;
                 }
             }
         }
-        finally
-        {
-            if(cursor != null)
-            {
-                cursor.close();
-            }
-        }
-
-
         return version;
     }
 
@@ -161,30 +141,9 @@ public class Upgrader
             StoreUpgrade upgrade = ctr.newInstance();
             upgrade.performUpgrade(_environment, UpgradeInteractionHandler.DEFAULT_HANDLER, _parent);
         }
-        catch (ClassNotFoundException e)
+        catch (ReflectiveOperationException e)
         {
-            throw new StoreException("Unable to upgrade BDB data store from version " + fromVersion + " to version"
-                                        + toVersion, e);
-        }
-        catch (NoSuchMethodException e)
-        {
-            throw new StoreException("Unable to upgrade BDB data store from version " + fromVersion + " to version"
-                                        + toVersion, e);
-        }
-        catch (InvocationTargetException e)
-        {
-            throw new StoreException("Unable to upgrade BDB data store from version " + fromVersion + " to version"
-                                        + toVersion, e);
-        }
-        catch (InstantiationException e)
-        {
-            throw new StoreException("Unable to upgrade BDB data store from version " + fromVersion + " to version"
-                                        + toVersion, e);
-        }
-        catch (IllegalAccessException e)
-        {
-            throw new StoreException("Unable to upgrade BDB data store from version " + fromVersion + " to version"
-                                        + toVersion, e);
+            throw new StoreException("Unable to upgrade BDB data store from version " + fromVersion + " to version" + toVersion, e);
         }
     }
 

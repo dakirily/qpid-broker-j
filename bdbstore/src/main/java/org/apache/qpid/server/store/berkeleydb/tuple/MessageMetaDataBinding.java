@@ -18,11 +18,8 @@
  * under the License.
  *
  */
-package org.apache.qpid.server.store.berkeleydb.tuple;
 
-import java.io.ByteArrayInputStream;
-import java.io.DataInputStream;
-import java.io.IOException;
+package org.apache.qpid.server.store.berkeleydb.tuple;
 
 import com.sleepycat.bind.EntryBinding;
 import com.sleepycat.je.DatabaseEntry;
@@ -34,11 +31,30 @@ import org.apache.qpid.server.store.StorableMessageMetaData;
 import org.apache.qpid.server.store.StoreException;
 
 /**
- * Handles the mapping to and from message meta data
+ * Berkeley DB binding for {@link StorableMessageMetaData}.
+ *
+ * <p>Serialized format of the value:</p>
+ * <ol>
+ *   <li>
+ *     <b>Body size</b> (4 bytes, big-endian int): {@code (1 + metaData.getStorableSize()) ^ 0x80000000}.
+ *     This matches JE tuple integer encoding (sign bit flipped) and represents the number of bytes
+ *     that follow in the body (type byte + metadata payload).
+ *   </li>
+ *   <li>
+ *     <b>Meta-data type</b> (1 byte, unsigned): ordinal of a {@link MessageMetaDataType} registered in
+ *     {@link MessageMetaDataTypeRegistry}.
+ *   </li>
+ *   <li>
+ *     <b>Meta-data payload</b> ({@code metaData.getStorableSize()} bytes): bytes written by
+ *     {@link StorableMessageMetaData#writeToBuffer(org.apache.qpid.server.bytebuffer.QpidByteBuffer)}.
+ *   </li>
+ * </ol>
+ *
+ * <p>The reader currently derives payload length from {@link com.sleepycat.je.DatabaseEntry#getSize()};
+ * the size field is retained for compatibility and may be used for integrity checks.</p>
  */
 public class MessageMetaDataBinding implements EntryBinding<StorableMessageMetaData>
 {
-
     private static final MessageMetaDataBinding INSTANCE = new MessageMetaDataBinding();
 
     public static MessageMetaDataBinding getInstance()
@@ -47,44 +63,68 @@ public class MessageMetaDataBinding implements EntryBinding<StorableMessageMetaD
     }
 
     /** private constructor forces getInstance instead */
-    private MessageMetaDataBinding() { }
+    private MessageMetaDataBinding()
+    {
+
+    }
 
     @Override
-    public StorableMessageMetaData entryToObject(DatabaseEntry entry)
+    public StorableMessageMetaData entryToObject(final DatabaseEntry entry)
     {
-        try(DataInputStream stream = new DataInputStream(new ByteArrayInputStream(entry.getData(),
-                                                                                  entry.getOffset(),
-                                                                                  entry.getSize())))
-        {
-            final int bodySize = stream.readInt() ^ 0x80000000;
-            final int metaDataType = stream.readByte() & 0xff;
-            MessageMetaDataType type = MessageMetaDataTypeRegistry.fromOrdinal(metaDataType);
+        final byte[] data = entry.getData();
+        final int size = entry.getSize();
 
-            try (QpidByteBuffer buf = QpidByteBuffer.asQpidByteBuffer(stream))
-            {
-                return type.createMetaData(buf);
-            }
-        }
-        catch (IOException | RuntimeException e)
+        if (data == null)
         {
-            throw new StoreException(String.format("Unable to convert entry %s to metadata", entry));
+            throw new StoreException("Unable to convert entry '%s' to metadata, data is null".formatted(entry));
+        }
+
+        if (size < 5)
+        {
+            throw new StoreException("Unable to convert entry '%s' to metadata, entry too short".formatted(entry));
+        }
+
+        final int offset = entry.getOffset();
+
+        if (offset + size > data.length)
+        {
+            throw new StoreException("Unable to convert database entry to metadata, entry offset + size > data.length");
+        }
+
+        // read next byte for metaDataType
+        final int metaDataType = data[offset + 4] & 0xFF;
+        final MessageMetaDataType<?> type = MessageMetaDataTypeRegistry.fromOrdinal(metaDataType);
+
+        try (final QpidByteBuffer buf = QpidByteBuffer.wrap(data, offset + 5, size - 5))
+        {
+            return type.createMetaData(buf);
+        }
+        catch (RuntimeException e)
+        {
+            throw new StoreException("Unable to convert entry %s to metadata".formatted(entry), e);
         }
     }
 
     @Override
-    public void objectToEntry(StorableMessageMetaData metaData, DatabaseEntry entry)
+    public void objectToEntry(final StorableMessageMetaData metaData, final DatabaseEntry entry)
     {
         final int bodySize = 1 + metaData.getStorableSize();
-        byte[] underlying = new byte[4+bodySize];
+        final byte[] underlying = new byte[4 + bodySize];
+
+        // write bodySize ^ 0x80000000 as 4 bytes
+        int flippedSize = bodySize ^ 0x80000000;
+        underlying[0] = (byte) (flippedSize >>> 24);
+        underlying[1] = (byte) (flippedSize >>> 16);
+        underlying[2] = (byte) (flippedSize >>> 8);
+        underlying[3] = (byte) (flippedSize & 0xFF);
+
+        // write metaData type
         underlying[4] = (byte) metaData.getType().ordinal();
-        try (QpidByteBuffer buf = QpidByteBuffer.wrap(underlying))
+
+        // write rest of the metaData
+        try (final QpidByteBuffer buf = QpidByteBuffer.wrap(underlying, 5, bodySize - 1))
         {
-            buf.putInt(bodySize ^ 0x80000000);
-            buf.position(5);
-            try (QpidByteBuffer bufSlice = buf.slice())
-            {
-                metaData.writeToBuffer(bufSlice);
-            }
+            metaData.writeToBuffer(buf);
         }
         entry.setData(underlying);
     }

@@ -23,24 +23,7 @@ package org.apache.qpid.server.store.berkeleydb.entry;
 
 import org.apache.qpid.server.store.Transaction;
 
-public class PreparedTransaction
+public record PreparedTransaction(Transaction.EnqueueRecord[] enqueues, Transaction.DequeueRecord[] dequeues)
 {
-    private final Transaction.EnqueueRecord[] _enqueues;
-    private final Transaction.DequeueRecord[] _dequeues;
 
-    public PreparedTransaction(Transaction.EnqueueRecord[] enqueues, Transaction.DequeueRecord[] dequeues)
-    {
-        _enqueues = enqueues;
-        _dequeues = dequeues;
-    }
-
-    public Transaction.EnqueueRecord[] getEnqueues()
-    {
-        return _enqueues;
-    }
-
-    public Transaction.DequeueRecord[] getDequeues()
-    {
-        return _dequeues;
-    }
 }

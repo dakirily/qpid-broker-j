@@ -248,13 +248,13 @@ public class BDBConfigurationStore implements MessageStoreProvider, DurableConfi
                 {
                     HierarchyKey hk = HierarchyKeyBinding.getInstance().entryToObject(key);
                     UUID parentId = UUIDTupleBinding.getInstance().entryToObject(value);
-                    BDBConfiguredObjectRecord child = configuredObjects.get(hk.getChildId());
+                    BDBConfiguredObjectRecord child = configuredObjects.get(hk.childId());
                     if(child != null)
                     {
                         ConfiguredObjectRecord parent = configuredObjects.get(parentId);
                         if(parent != null)
                         {
-                            child.addParent(hk.getParentType(), parent);
+                            child.addParent(hk.parentType(), parent);
                         }
                     }
                 }
@@ -307,7 +307,7 @@ public class BDBConfigurationStore implements MessageStoreProvider, DurableConfi
 
         if (LOGGER.isDebugEnabled())
         {
-            LOGGER.debug("Create " + configuredObject);
+            LOGGER.debug("Create {}", configuredObject);
         }
 
         com.sleepycat.je.Transaction txn = null;
@@ -353,7 +353,7 @@ public class BDBConfigurationStore implements MessageStoreProvider, DurableConfi
 
             txn.commit();
             txn = null;
-            return removed.toArray(new UUID[removed.size()]);
+            return removed.toArray(new UUID[0]);
         }
         catch (RuntimeException e)
         {
@@ -401,7 +401,7 @@ public class BDBConfigurationStore implements MessageStoreProvider, DurableConfi
     {
         if (LOGGER.isDebugEnabled())
         {
-            LOGGER.debug("Updating, creating " + createIfNecessary + " : "  + record);
+            LOGGER.debug("Updating, creating {} : {}", createIfNecessary, record);
         }
 
         DatabaseEntry key = new DatabaseEntry();
@@ -439,7 +439,7 @@ public class BDBConfigurationStore implements MessageStoreProvider, DurableConfi
     {
         if (LOGGER.isDebugEnabled())
         {
-            LOGGER.debug("Storing configured object record: " + configuredObject);
+            LOGGER.debug("Storing configured object record: {}", configuredObject);
         }
         DatabaseEntry key = new DatabaseEntry();
         UUIDTupleBinding uuidBinding = UUIDTupleBinding.getInstance();
@@ -493,7 +493,7 @@ public class BDBConfigurationStore implements MessageStoreProvider, DurableConfi
 
         if (LOGGER.isDebugEnabled())
         {
-            LOGGER.debug("Removing configured object: " + id);
+            LOGGER.debug("Removing configured object: {}", id);
         }
         DatabaseEntry key = new DatabaseEntry();
 
@@ -534,13 +534,13 @@ public class BDBConfigurationStore implements MessageStoreProvider, DurableConfi
         {
             if (LOGGER.isDebugEnabled())
             {
-                LOGGER.debug("Deleting store " + storePath);
+                LOGGER.debug("Deleting store {}", storePath);
             }
 
             File configFile = new File(storePath);
             if (!FileUtils.delete(configFile, true))
             {
-                LOGGER.info("Failed to delete the store at location " + storePath);
+                LOGGER.info("Failed to delete the store at location {}", storePath);
             }
         }
     }

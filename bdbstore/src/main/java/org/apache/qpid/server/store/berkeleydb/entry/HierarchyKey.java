@@ -18,62 +18,11 @@
  * under the License.
  *
  */
+
 package org.apache.qpid.server.store.berkeleydb.entry;
 
 import java.util.UUID;
 
-public class HierarchyKey
+public record HierarchyKey(UUID childId, String parentType)
 {
-    private final UUID _childId;
-    private final String _parentType;
-
-    public HierarchyKey(final UUID childId, final String parentType)
-    {
-        _childId = childId;
-        _parentType = parentType;
-    }
-
-    public UUID getChildId()
-    {
-        return _childId;
-    }
-
-    public String getParentType()
-    {
-        return _parentType;
-    }
-
-    @Override
-    public boolean equals(final Object o)
-    {
-        if (this == o)
-        {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass())
-        {
-            return false;
-        }
-
-        final HierarchyKey that = (HierarchyKey) o;
-
-        if (!_childId.equals(that._childId))
-        {
-            return false;
-        }
-        if (!_parentType.equals(that._parentType))
-        {
-            return false;
-        }
-
-        return true;
-    }
-
-    @Override
-    public int hashCode()
-    {
-        int result = _childId.hashCode();
-        result = 31 * result + _parentType.hashCode();
-        return result;
-    }
 }

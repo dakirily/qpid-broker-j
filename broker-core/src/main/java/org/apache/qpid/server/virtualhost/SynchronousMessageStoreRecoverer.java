@@ -21,6 +21,10 @@
 package org.apache.qpid.server.virtualhost;
 
 import java.util.HashMap;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Consumer;
+import java.util.function.Predicate;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.UUID;
@@ -58,6 +62,9 @@ public class SynchronousMessageStoreRecoverer implements MessageStoreRecoverer
 {
     private static final Logger LOGGER = LoggerFactory.getLogger(SynchronousMessageStoreRecoverer.class);
 
+    /** Fixed-size batch used to remove invalid instances during recovery without creating a transaction per record */
+    private static final int INVALID_INSTANCE_DEQUEUE_BATCH_SIZE = 1000;
+
     @Override
     public CompletableFuture<Void> recover(QueueManagingVirtualHost<?> virtualHost)
     {
@@ -77,33 +84,41 @@ public class SynchronousMessageStoreRecoverer implements MessageStoreRecoverer
         storeReader.visitMessages(new MessageVisitor(recoveredMessages, unusedMessages));
 
         eventLogger.message(logSubject, TransactionLogMessages.RECOVERY_START(null, false));
+        // Some store implementations iterate using cursors/locks and cannot tolerate mutations during the visit.
+        // Collect invalid message instances first and dequeue them after the visit completes.
+        final List<MessageEnqueueRecord> invalidMessageInstances = new ArrayList<>();
         try
         {
-            storeReader.visitMessageInstances(new MessageInstanceVisitor(virtualHost,
-                                                                         store,
-                                                                         queueRecoveries,
-                                                                         recoveredMessages,
-                                                                         unusedMessages,
-                                                                         unknownQueuesWithMessages,
-                                                                         queuesWithUnknownMessages));
+
+            final MessageInstanceVisitor validHandler = new MessageInstanceVisitor(virtualHost,
+                                                                                 queueRecoveries,
+                                                                                 recoveredMessages,
+                                                                                 unusedMessages);
+            final Predicate<MessageEnqueueRecord> filter = new MessageInstanceFilter(virtualHost, recoveredMessages);
+            final Consumer<MessageEnqueueRecord> invalidCollector = new InvalidMessageInstanceCollector(virtualHost,
+                                                                                                      invalidMessageInstances,
+                                                                                                      unknownQueuesWithMessages,
+                                                                                                      queuesWithUnknownMessages);
+
+            storeReader.visitMessageInstances(validHandler, filter, invalidCollector);
         }
         finally
         {
+            // Dequeue after visitation to avoid cursor/lock reentrancy issues in the underlying store.
+            dequeueInvalidMessageInstances(store, invalidMessageInstances);
+
+
             if (!unknownQueuesWithMessages.isEmpty())
             {
-                unknownQueuesWithMessages.forEach((queueId, count) -> {
-                    LOGGER.info("Discarded {} entry(s) associated with queue id '{}' as a queue with this "
-                                 + "id does not appear in the configuration.",
-                                 count, queueId);
-                });
+                unknownQueuesWithMessages.forEach((queueId, count) ->
+                        LOGGER.info("Discarded {} entry(s) associated with queue id '{}' as a queue with this "
+                             + "id does not appear in the configuration.", count, queueId));
             }
             if (!queuesWithUnknownMessages.isEmpty())
             {
-                queuesWithUnknownMessages.forEach((queue, count) -> {
-                    LOGGER.info("Discarded {} entry(s) associated with queue '{}' as the referenced message "
-                                 + "does not exist.",
-                                 count, queue.getName());
-                });
+                queuesWithUnknownMessages.forEach((queue, count) ->
+                        LOGGER.info("Discarded {} entry(s) associated with queue '{}' as the referenced message "
+                             + "does not exist.", count, queue.getName()));
             }
         }
 
@@ -185,65 +200,89 @@ public class SynchronousMessageStoreRecoverer implements MessageStoreRecoverer
 
     }
 
-    private static class MessageInstanceVisitor implements MessageInstanceHandler
+    private static void dequeueInvalidMessageInstances(final MessageStore store,
+                                                       final List<MessageEnqueueRecord> invalidRecords)
+    {
+        // Batch removals to avoid a transaction per record while keeping transactions bounded in size.
+        if (invalidRecords.isEmpty())
+        {
+            return;
+        }
+
+        Transaction txn = store.newTransaction();
+        int inTxn = 0;
+
+        for (int i = 0; i < invalidRecords.size(); i++)
+        {
+            final MessageEnqueueRecord record = invalidRecords.get(i);
+            txn.dequeueMessage(record);
+            inTxn++;
+
+            if (inTxn == INVALID_INSTANCE_DEQUEUE_BATCH_SIZE && i + 1 < invalidRecords.size())
+            {
+                txn.commitTranAsync((Void) null);
+                txn = store.newTransaction();
+                inTxn = 0;
+            }
+        }
+
+        if (inTxn > 0)
+        {
+            txn.commitTranAsync((Void) null);
+        }
+    }
+
+    private static class MessageInstanceFilter implements Predicate<MessageEnqueueRecord>
     {
         private final QueueManagingVirtualHost<?> _virtualHost;
-        private final MessageStore _store;
-
-        private final Map<Queue<?>, Integer> _queueRecoveries;
         private final Map<Long, ServerMessage<?>> _recoveredMessages;
-        private final Map<Long, StoredMessage<?>> _unusedMessages;
+
+        private MessageInstanceFilter(final QueueManagingVirtualHost<?> virtualHost,
+                                      final Map<Long, ServerMessage<?>> recoveredMessages)
+        {
+            _virtualHost = virtualHost;
+            _recoveredMessages = recoveredMessages;
+        }
+
+        @Override
+        public boolean test(final MessageEnqueueRecord record)
+        {
+            return _virtualHost.getAttainedQueue(record.getQueueId()) != null
+                   && _recoveredMessages.containsKey(record.getMessageNumber());
+        }
+    }
+
+    private static class InvalidMessageInstanceCollector implements Consumer<MessageEnqueueRecord>
+    {
+        private final QueueManagingVirtualHost<?> _virtualHost;
+        private final List<MessageEnqueueRecord> _invalidRecords;
         private final Map<UUID, Integer> _unknownQueuesWithMessages;
         private final Map<Queue<?>, Integer> _queuesWithUnknownMessages;
 
-        private MessageInstanceVisitor(final QueueManagingVirtualHost<?> virtualHost,
-                                       final MessageStore store,
-                                       final Map<Queue<?>, Integer> queueRecoveries,
-                                       final Map<Long, ServerMessage<?>> recoveredMessages,
-                                       final Map<Long, StoredMessage<?>> unusedMessages,
-                                       final Map<UUID, Integer> unknownQueuesWithMessages,
-                                       final Map<Queue<?>, Integer> queuesWithUnknownMessages)
+        private InvalidMessageInstanceCollector(final QueueManagingVirtualHost<?> virtualHost,
+                                                final List<MessageEnqueueRecord> invalidRecords,
+                                                final Map<UUID, Integer> unknownQueuesWithMessages,
+                                                final Map<Queue<?>, Integer> queuesWithUnknownMessages)
         {
             _virtualHost = virtualHost;
-            _store = store;
-            _queueRecoveries = queueRecoveries;
-            _recoveredMessages = recoveredMessages;
-            _unusedMessages = unusedMessages;
+            _invalidRecords = invalidRecords;
             _unknownQueuesWithMessages = unknownQueuesWithMessages;
             _queuesWithUnknownMessages = queuesWithUnknownMessages;
         }
 
         @Override
-        public boolean handle(final MessageEnqueueRecord record)
+        public void accept(final MessageEnqueueRecord record)
         {
             final UUID queueId = record.getQueueId();
-            long messageId = record.getMessageNumber();
-            Queue<?> queue = _virtualHost.getAttainedQueue(queueId);
-            boolean dequeueMessageInstance = true;
-            if(queue != null)
+            final long messageId = record.getMessageNumber();
+            final Queue<?> queue = _virtualHost.getAttainedQueue(queueId);
+            if (queue != null)
             {
-                String queueName = queue.getName();
-                ServerMessage<?> message = _recoveredMessages.get(messageId);
-                _unusedMessages.remove(messageId);
+                LOGGER.debug(
+                        "Message id '{}' referenced in log as enqueued in queue '{}' is unknown, entry will be discarded",
+                        messageId, queue.getName());
 
-                if (message != null)
-                {
-                    LOGGER.debug("Delivering message id '{}' to queue '{}'", message.getMessageNumber(), queueName);
-
-                    _queueRecoveries.merge(queue, 1, (old, unused) -> old + 1);
-
-                    queue.recover(message, record);
-
-                    dequeueMessageInstance = false;
-                }
-                else
-                {
-                    LOGGER.debug("Message id '{}' referenced in log as enqueued in queue '{}' is unknown, entry will be discarded",
-                            messageId, queueName);
-
-                    _queuesWithUnknownMessages.merge(queue, 1, (old, unused) -> old + 1);
-
-                }
+                _queuesWithUnknownMessages.merge(queue, 1, (old, unused) -> old + 1);
             }
             else
             {
@@ -253,12 +292,55 @@ public class SynchronousMessageStoreRecoverer implements MessageStoreRecoverer
                 _unknownQueuesWithMessages.merge(queueId, 1, (old, unused) -> old + 1);
             }
 
-            if (dequeueMessageInstance)
+            _invalidRecords.add(record);
+        }
+    }
+
+    private static class MessageInstanceVisitor implements MessageInstanceHandler
+    {
+        private final QueueManagingVirtualHost<?> _virtualHost;
+
+        private final Map<Queue<?>, Integer> _queueRecoveries;
+        private final Map<Long, ServerMessage<?>> _recoveredMessages;
+        private final Map<Long, StoredMessage<?>> _unusedMessages;
+
+        private MessageInstanceVisitor(final QueueManagingVirtualHost<?> virtualHost,
+                                       final Map<Queue<?>, Integer> queueRecoveries,
+                                       final Map<Long, ServerMessage<?>> recoveredMessages,
+                                       final Map<Long, StoredMessage<?>> unusedMessages)
+        {
+            _virtualHost = virtualHost;
+            _queueRecoveries = queueRecoveries;
+            _recoveredMessages = recoveredMessages;
+            _unusedMessages = unusedMessages;
+        }
+
+        @Override
+        public boolean handle(final MessageEnqueueRecord record)
+        {
+            final UUID queueId = record.getQueueId();
+            final long messageId = record.getMessageNumber();
+            final Queue<?> queue = _virtualHost.getAttainedQueue(queueId);
+            if (queue == null)
             {
-                Transaction txn = _store.newTransaction();
-                txn.dequeueMessage(record);
-                txn.commitTranAsync((Void) null);
+                // The filter is expected to prevent unknown queues reaching this handler.
+                return true;
             }
+
+            final ServerMessage<?> message = _recoveredMessages.get(messageId);
+            _unusedMessages.remove(messageId);
+
+            if (message == null)
+            {
+                // The filter is expected to prevent unknown messages reaching this handler.
+                return true;
+            }
+
+            LOGGER.debug("Delivering message id '{}' to queue '{}'", message.getMessageNumber(), queue.getName());
+
+            _queueRecoveries.merge(queue, 1, (old, unused) -> old + 1);
+
+            queue.recover(message, record);
 
             return true;
         }

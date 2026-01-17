@@ -22,6 +22,8 @@ package org.apache.qpid.server.store;
 
 
 import java.io.File;
+import java.util.function.Consumer;
+import java.util.function.Predicate;
 
 import org.apache.qpid.server.model.ConfiguredObject;
 import org.apache.qpid.server.store.handler.DistributedTransactionHandler;
@@ -95,6 +97,57 @@ public interface MessageStore
 
         void visitMessageInstances(MessageInstanceHandler handler) throws StoreException;
         void visitMessageInstances(TransactionLogResource queue, MessageInstanceHandler handler) throws StoreException;
+
+        /**
+         * Visits message instances and classifies each enqueue record as valid or invalid.
+         *
+         * <p>Records accepted by {@code predicate} are passed to {@code validHandler}. Rejected records are
+         * forwarded to {@code invalidCollector}. Iteration stops only when {@code validHandler} returns
+         * {@code false}. The {@code invalidCollector} cannot stop iteration.
+         *
+         * <p>Implementations may invoke callbacks while holding store-internal resources (for example, cursors
+         * or locks). Callbacks must be fast and must not re-enter the store or block on external I/O.
+         */
+        default void visitMessageInstances(final MessageInstanceHandler validHandler,
+                                           final Predicate<MessageEnqueueRecord> predicate,
+                                           final Consumer<MessageEnqueueRecord> invalidCollector) throws StoreException
+        {
+            visitMessageInstances(record ->
+            {
+                if (predicate.test(record))
+                {
+                    return validHandler.handle(record);
+                }
+                invalidCollector.accept(record);
+                return true;
+            });
+        }
+
+        /**
+         * Visits message instances for a given {@code queue} and classifies each enqueue record as valid or invalid.
+         *
+         * <p>Records accepted by {@code predicate} are passed to {@code validHandler}. Rejected records are
+         * forwarded to {@code invalidCollector}. Iteration stops only when {@code validHandler} returns
+         * {@code false}. The {@code invalidCollector} cannot stop iteration.
+         *
+         * <p>Implementations may invoke callbacks while holding store-internal resources (for example, cursors
+         * or locks). Callbacks must be fast and must not re-enter the store or block on external I/O.
+         */
+        default void visitMessageInstances(final TransactionLogResource queue,
+                                           final MessageInstanceHandler validHandler,
+                                           final Predicate<MessageEnqueueRecord> predicate,
+                                           final Consumer<MessageEnqueueRecord> invalidCollector) throws StoreException
+        {
+            visitMessageInstances(queue, record ->
+            {
+                if (predicate.test(record))
+                {
+                    return validHandler.handle(record);
+                }
+                invalidCollector.accept(record);
+                return true;
+            });
+        }
 
         void visitDistributedTransactions(DistributedTransactionHandler handler) throws StoreException;
 

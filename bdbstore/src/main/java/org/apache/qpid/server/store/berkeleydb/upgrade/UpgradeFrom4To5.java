@@ -81,7 +81,7 @@ public class UpgradeFrom4To5 extends AbstractStoreUpgrade
     @Override
     public void performUpgrade(final Environment environment, final UpgradeInteractionHandler handler, ConfiguredObject<?> parent)
     {
-        Transaction transaction = null;
+        Transaction transaction;
         reportStarting(environment, 4);
 
         transaction = environment.beginTransaction(null, null);
@@ -124,9 +124,7 @@ public class UpgradeFrom4To5 extends AbstractStoreUpgrade
 
                     if (LOGGER.isDebugEnabled())
                     {
-                        LOGGER.debug(String.format(
-                                "Processing binding for queue %s, exchange %s, routingKey %s arguments %s", queueName,
-                                exchangeName, routingKey, arguments));
+                        LOGGER.debug("Processing binding for queue {}, exchange {}, routingKey {} arguments {}", queueName, exchangeName, routingKey, arguments);
                     }
 
                     // if the queue name is in the gathered list then inspect its binding arguments
@@ -145,8 +143,7 @@ public class UpgradeFrom4To5 extends AbstractStoreUpgrade
                         {
                             if (LOGGER.isDebugEnabled())
                             {
-                                LOGGER.info("adding the empty string (i.e. 'no selector') value for " + queueName
-                                        + " and exchange " + exchangeName);
+                                LOGGER.info("adding the empty string (i.e. 'no selector') value for {} and exchange {}", queueName, exchangeName);
                             }
                             argumentsMap.put(selectorFilterKey, "");
                         }
@@ -159,7 +156,7 @@ public class UpgradeFrom4To5 extends AbstractStoreUpgrade
             new DatabaseTemplate(environment, OLD_BINDINGS_DB_NAME, NEW_BINDINGS_DB_NAME, transaction)
                     .run(databaseOperation);
             environment.removeDatabase(transaction, OLD_BINDINGS_DB_NAME);
-            LOGGER.info(databaseOperation.getRowCount() + " Queue Binding entries");
+            LOGGER.info("{} Queue Binding entries", databaseOperation.getRowCount());
         }
     }
 
@@ -187,7 +184,7 @@ public class UpgradeFrom4To5 extends AbstractStoreUpgrade
             };
             new DatabaseTemplate(environment, OLD_QUEUE_DB_NAME, NEW_QUEUE_DB_NAME, transaction).run(databaseOperation);
             environment.removeDatabase(transaction, OLD_QUEUE_DB_NAME);
-            LOGGER.info(databaseOperation.getRowCount() + " Queue entries");
+            LOGGER.info("{} Queue entries", databaseOperation.getRowCount());
         }
         return existingQueues;
     }
@@ -296,7 +293,7 @@ public class UpgradeFrom4To5 extends AbstractStoreUpgrade
             };
             new DatabaseTemplate(environment, NEW_DELIVERY_DB, transaction).run(databaseOperation);
         }
-        LOGGER.info(databaseOperation.getRowCount() + " Delivery Records entries ");
+        LOGGER.info("{} Delivery Records entries ", databaseOperation.getRowCount());
         environment.removeDatabase(transaction, OLD_DELIVERY_DB);
 
         return messagesToDiscard;
@@ -394,7 +391,7 @@ public class UpgradeFrom4To5 extends AbstractStoreUpgrade
             new DatabaseTemplate(environment, OLD_METADATA_DB_NAME, NEW_METADATA_DB_NAME, transaction)
                     .run(databaseOperation);
             environment.removeDatabase(transaction, OLD_METADATA_DB_NAME);
-            LOGGER.info(databaseOperation.getRowCount() + " Message MetaData entries");
+            LOGGER.info("{} Message MetaData entries", databaseOperation.getRowCount());
         }
     }
 
@@ -450,7 +447,7 @@ public class UpgradeFrom4To5 extends AbstractStoreUpgrade
             };
             new DatabaseTemplate(environment, OLD_CONTENT_DB_NAME, NEW_CONTENT_DB_NAME, transaction).run(cursorOperation);
             environment.removeDatabase(transaction, OLD_CONTENT_DB_NAME);
-            LOGGER.info(cursorOperation.getRowCount() + " Message Content entries");
+            LOGGER.info("{} Message Content entries", cursorOperation.getRowCount());
         }
     }
 
@@ -466,7 +463,7 @@ public class UpgradeFrom4To5 extends AbstractStoreUpgrade
             if (dbName.endsWith("_v4"))
             {
                 String newName = dbName.substring(0, dbName.length() - 3) + "_v5";
-                LOGGER.info("Renaming " + dbName + " into " + newName);
+                LOGGER.info("Renaming {} into {}", dbName, newName);
                 environment.renameDatabase(transaction, dbName, newName);
             }
         }
@@ -651,7 +648,7 @@ public class UpgradeFrom4To5 extends AbstractStoreUpgrade
             }
             catch (Exception e)
             {
-                LOGGER.error("Error converting entry to object: " + e, e);
+                LOGGER.error("Error converting entry to object: {}", e, e);
                 // annoyingly just have to return null since we cannot throw
                 return null;
             }

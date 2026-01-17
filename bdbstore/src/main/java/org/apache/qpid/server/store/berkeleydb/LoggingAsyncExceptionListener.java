@@ -33,6 +33,6 @@ public class LoggingAsyncExceptionListener implements ExceptionListener
     @Override
     public void exceptionThrown(ExceptionEvent event)
     {
-        LOGGER.error("Asynchronous exception thrown by BDB thread '" + event.getThreadName() + "'", event.getException());
+        LOGGER.error("Asynchronous exception thrown by BDB thread '{}'",event.getThreadName(), event.getException());
     }
 }

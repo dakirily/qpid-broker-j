@@ -324,7 +324,7 @@ public class BDBHAVirtualHostNodeImpl extends AbstractVirtualHostNode<BDBHAVirtu
     {
         if (LOGGER.isDebugEnabled())
         {
-            LOGGER.debug("Activating virtualhost node " + this);
+            LOGGER.debug("Activating virtualhost node {}", this);
         }
 
         // activating the environment does not cause a state change.  Adjust the role
@@ -451,10 +451,8 @@ public class BDBHAVirtualHostNodeImpl extends AbstractVirtualHostNode<BDBHAVirtu
                 }
                 catch(DatabaseException e)
                 {
-                    LOGGER.warn(String.format(
-                            "The deletion of node %s on remote nodes failed due to: %s. To finish deletion a "
-                            + "removal of the node from any of remote nodes (%s) is required.",
-                            this, e.getMessage(), helpers));
+                    LOGGER.warn("The deletion of node {} on remote nodes failed due to: {}. To finish deletion a "
+                            + "removal of the node from any of remote nodes ({}) is required.", this, e.getMessage(), helpers);
                 }
             }
             onCloseOrDelete();
@@ -562,12 +560,12 @@ public class BDBHAVirtualHostNodeImpl extends AbstractVirtualHostNode<BDBHAVirtu
 
     private URI addressToURI(String address)
     {
-        if (address == null || "".equals(address))
+        if (address == null || address.isEmpty())
         {
             throw new IllegalConfigurationException("Node address is not set");
         }
 
-        URI uri = null;
+        URI uri;
         try
         {
             uri = new URI( "tcp://" + address);
@@ -613,7 +611,7 @@ public class BDBHAVirtualHostNodeImpl extends AbstractVirtualHostNode<BDBHAVirtu
             {
                 if (LOGGER.isDebugEnabled())
                 {
-                    LOGGER.debug("Creating new virtualhost with name : " + getGroupName());
+                    LOGGER.debug("Creating new virtualhost with name : {}", getGroupName());
                 }
                 Map<String, Object> hostAttributes = new HashMap<>();
 
@@ -627,7 +625,7 @@ public class BDBHAVirtualHostNodeImpl extends AbstractVirtualHostNode<BDBHAVirtu
             {
                 if (LOGGER.isDebugEnabled())
                 {
-                    LOGGER.debug("Recovered virtualhost with name : " +  getGroupName());
+                    LOGGER.debug("Recovered virtualhost with name : {}",  getGroupName());
                 }
 
                 final VirtualHost<?> recoveredHost = host;
@@ -796,7 +794,7 @@ public class BDBHAVirtualHostNodeImpl extends AbstractVirtualHostNode<BDBHAVirtu
                         closeVirtualHostIfExist().get();
                         break;
                     default:
-                        LOGGER.error("Unexpected state change: " + state);
+                        LOGGER.error("Unexpected state change: {}", state);
                 }
             }
             catch (InterruptedException | ExecutionException e)
@@ -1146,8 +1144,9 @@ public class BDBHAVirtualHostNodeImpl extends AbstractVirtualHostNode<BDBHAVirtu
                                     setAttributes(Collections.singletonMap(PERMITTED_NODES, new ArrayList<>(permittedNodes)));
                                 } else
                                 {
-                                    LOGGER.warn("Cannot accept the new permitted node list from the master as the master '" + remoteNode.getName()
-                                            + "' (" + remoteNode.getAddress() + ") was not in previous permitted list " + _permittedNodes);
+                                    LOGGER.warn("Cannot accept the new permitted node list from the master as the master " +
+                                            "'{}' ({}) was not in previous permitted list {}", remoteNode.getName(),
+                                            remoteNode.getAddress(), _permittedNodes);
                                 }
                             }
                         }
@@ -1155,7 +1154,7 @@ public class BDBHAVirtualHostNodeImpl extends AbstractVirtualHostNode<BDBHAVirtu
                         {
                             if (LOGGER.isDebugEnabled())
                             {
-                                LOGGER.debug(String.format("Application state returned by JE was 'null' so skipping permitted node handling: %s", nodeState));
+                                LOGGER.debug("Application state returned by JE was 'null' so skipping permitted node handling: {}", nodeState);
                             }
                         }
                     }
@@ -1195,13 +1194,10 @@ public class BDBHAVirtualHostNodeImpl extends AbstractVirtualHostNode<BDBHAVirtu
             }
             else
             {
-                LOGGER.error(String.format("Intruder node '%s' from '%s' detected. Shutting down virtual host node " +
-                                           "'%s' (last role %s) owing to the presence of a node not in permitted nodes '%s'",
-                                           node.getName(),
-                                           hostAndPort,
-                                           BDBHAVirtualHostNodeImpl.this.getName(),
-                                           _lastRole.get(),
-                                           String.valueOf(BDBHAVirtualHostNodeImpl.this.getPermittedNodes()) ));
+                LOGGER.error("Intruder node {}' from '{}' detected. Shutting down virtual host node " +
+                        "'{}' (last role {}) owing to the presence of a node not in permitted nodes '{}'",
+                        node.getName(), hostAndPort, BDBHAVirtualHostNodeImpl.this.getName(), _lastRole.get(),
+                        BDBHAVirtualHostNodeImpl.this.getPermittedNodes());
                 getTaskExecutor().submit(new Task<Void, RuntimeException>()
                 {
                     @Override
@@ -1280,7 +1276,7 @@ public class BDBHAVirtualHostNodeImpl extends AbstractVirtualHostNode<BDBHAVirtu
 
     protected void shutdownOnIntruder(String intruderHostAndPort)
     {
-        LOGGER.info("Intruder detected (" + intruderHostAndPort + "), stopping and setting state to ERRORED");
+        LOGGER.info("Intruder detected ({}), stopping and setting state to ERRORED", intruderHostAndPort);
 
         final State initialState = getState();
 

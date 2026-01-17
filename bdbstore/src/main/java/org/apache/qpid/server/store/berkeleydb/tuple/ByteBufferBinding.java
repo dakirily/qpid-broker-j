@@ -48,11 +48,11 @@ public class ByteBufferBinding extends TupleBinding<QpidByteBuffer>
     public QpidByteBuffer entryToObject(final TupleInput input)
     {
         int available = input.available();
-        QpidByteBuffer buf = QpidByteBuffer.allocateDirect(available);
-        byte[] copyBuf = COPY_BUFFER.get();
-        while(available > 0)
+        final QpidByteBuffer buf = QpidByteBuffer.allocateDirect(available);
+        final byte[] copyBuf = COPY_BUFFER.get();
+        while (available > 0)
         {
-            int read = input.read(copyBuf);
+            final int read = input.read(copyBuf);
             buf.put(copyBuf,0,read);
             available = input.available();
         }
@@ -61,14 +61,14 @@ public class ByteBufferBinding extends TupleBinding<QpidByteBuffer>
     }
 
     @Override
-    public void objectToEntry(QpidByteBuffer data, final TupleOutput output)
+    public void objectToEntry(final QpidByteBuffer data, final TupleOutput output)
     {
-        try (QpidByteBuffer dup = data.duplicate())
+        try (final QpidByteBuffer dup = data.duplicate())
         {
-            byte[] copyBuf = COPY_BUFFER.get();
+            final byte[] copyBuf = COPY_BUFFER.get();
             while (dup.hasRemaining())
             {
-                int length = Math.min(COPY_BUFFER_SIZE, dup.remaining());
+                final int length = Math.min(COPY_BUFFER_SIZE, dup.remaining());
                 dup.get(copyBuf, 0, length);
                 output.write(copyBuf, 0, length);
             }
@@ -77,11 +77,11 @@ public class ByteBufferBinding extends TupleBinding<QpidByteBuffer>
 
     public ByteBuffer readByteBuffer(final TupleInput input, int length)
     {
-        ByteBuffer buf = ByteBuffer.allocateDirect(length);
-        byte[] copyBuf = COPY_BUFFER.get();
-        while(length > 0)
+        final ByteBuffer buf = ByteBuffer.allocateDirect(length);
+        final byte[] copyBuf = COPY_BUFFER.get();
+        while (length > 0)
         {
-            int read = input.read(copyBuf, 0, Math.min(COPY_BUFFER_SIZE, length));
+            final int read = input.read(copyBuf, 0, Math.min(COPY_BUFFER_SIZE, length));
             buf.put(copyBuf,0,read);
             length -= read;
         }

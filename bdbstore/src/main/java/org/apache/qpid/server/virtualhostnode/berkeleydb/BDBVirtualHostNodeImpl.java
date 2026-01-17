@@ -18,6 +18,7 @@
  * under the License.
  *
  */
+
 package org.apache.qpid.server.virtualhostnode.berkeleydb;
 
 import java.util.Collection;
@@ -85,114 +86,72 @@ public class BDBVirtualHostNodeImpl extends AbstractStandardVirtualHostNode<BDBV
     @Override
     public void setBDBCacheSize(long cacheSize)
     {
-        BDBConfigurationStore bdbConfigurationStore = (BDBConfigurationStore) getConfigurationStore();
-        if (bdbConfigurationStore != null)
+        final EnvironmentFacade environmentFacade = getEnvironmentFacade();
+        if (environmentFacade != null)
         {
-            EnvironmentFacade environmentFacade = bdbConfigurationStore.getEnvironmentFacade();
-            if (environmentFacade != null)
-            {
-                environmentFacade.setCacheSize(cacheSize);
-            }
+            environmentFacade.setCacheSize(cacheSize);
         }
     }
 
     @Override
     public void updateMutableConfig()
     {
-        BDBConfigurationStore bdbConfigurationStore = (BDBConfigurationStore) getConfigurationStore();
-        if (bdbConfigurationStore != null)
+        final EnvironmentFacade environmentFacade = getEnvironmentFacade();
+        if (environmentFacade != null)
         {
-            EnvironmentFacade environmentFacade = bdbConfigurationStore.getEnvironmentFacade();
-            if (environmentFacade != null)
-            {
-                environmentFacade.updateMutableConfig(this);
-            }
+            environmentFacade.updateMutableConfig(this);
         }
     }
 
     @Override
     public int cleanLog()
     {
-        BDBConfigurationStore bdbConfigurationStore = (BDBConfigurationStore) getConfigurationStore();
-        if (bdbConfigurationStore != null)
-        {
-            EnvironmentFacade environmentFacade = bdbConfigurationStore.getEnvironmentFacade();
-            if (environmentFacade != null)
-            {
-                return environmentFacade.cleanLog();
-            }
-        }
-        return 0;
+        final EnvironmentFacade environmentFacade = getEnvironmentFacade();
+        return environmentFacade != null ? environmentFacade.cleanLog() : 0;
     }
 
     @Override
     public void checkpoint(final boolean force)
     {
-        BDBConfigurationStore bdbConfigurationStore = (BDBConfigurationStore) getConfigurationStore();
-        if (bdbConfigurationStore != null)
+        final EnvironmentFacade environmentFacade = getEnvironmentFacade();
+        if (environmentFacade != null)
         {
-            EnvironmentFacade environmentFacade = bdbConfigurationStore.getEnvironmentFacade();
-            if (environmentFacade != null)
-            {
-                environmentFacade.checkpoint(force);
-            }
+            environmentFacade.checkpoint(force);
         }
     }
 
     @Override
     public Map<String, Map<String, Object>> environmentStatistics(final boolean reset)
     {
-        BDBConfigurationStore bdbConfigurationStore = (BDBConfigurationStore) getConfigurationStore();
-        if (bdbConfigurationStore != null)
-        {
-            EnvironmentFacade environmentFacade = bdbConfigurationStore.getEnvironmentFacade();
-            if (environmentFacade != null)
-            {
-                return environmentFacade.getEnvironmentStatistics(reset);
-            }
-        }
-        return Collections.emptyMap();
+        final EnvironmentFacade environmentFacade = getEnvironmentFacade();
+        return environmentFacade != null
+                ? environmentFacade.getEnvironmentStatistics(reset)
+                : Collections.emptyMap();
     }
 
     @Override
     public Map<String, Object> transactionStatistics(final boolean reset)
     {
-        BDBConfigurationStore bdbConfigurationStore = (BDBConfigurationStore) getConfigurationStore();
-        if (bdbConfigurationStore != null)
-        {
-            EnvironmentFacade environmentFacade = bdbConfigurationStore.getEnvironmentFacade();
-            if (environmentFacade != null)
-            {
-                return environmentFacade.getTransactionStatistics(reset);
-            }
-        }
-        return Collections.emptyMap();
+        final EnvironmentFacade environmentFacade = getEnvironmentFacade();
+        return environmentFacade != null
+                ? environmentFacade.getTransactionStatistics(reset)
+                : Collections.emptyMap();
     }
 
     @Override
-    public Map<String, Object> databaseStatistics(String database, final boolean reset)
+    public Map<String, Object> databaseStatistics(final String database, final boolean reset)
     {
-        BDBConfigurationStore bdbConfigurationStore = (BDBConfigurationStore) getConfigurationStore();
-        if (bdbConfigurationStore != null)
-        {
-            EnvironmentFacade environmentFacade = bdbConfigurationStore.getEnvironmentFacade();
-            if (environmentFacade != null)
-            {
-                return environmentFacade.getDatabaseStatistics(database, reset);
-            }
-        }
-        return Collections.emptyMap();
+        final EnvironmentFacade environmentFacade = getEnvironmentFacade();
+        return environmentFacade != null
+                ? environmentFacade.getDatabaseStatistics(database, reset)
+                : Collections.emptyMap();
     }
 
     @Override
     public EnvironmentFacade getEnvironmentFacade()
     {
         BDBConfigurationStore bdbConfigurationStore = (BDBConfigurationStore) getConfigurationStore();
-        if (bdbConfigurationStore != null)
-        {
-            return bdbConfigurationStore.getEnvironmentFacade();
-        }
-        return null;
+        return bdbConfigurationStore != null ? bdbConfigurationStore.getEnvironmentFacade() : null;
     }
 
     @Override
