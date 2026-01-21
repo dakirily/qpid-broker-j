@@ -24,6 +24,7 @@ public enum VirtualHostNodeStoreType
 {
     DERBY(true),
     BDB(true),
+    ROCKSDB(true),
     JSON(true),
     MEMORY(false);
 

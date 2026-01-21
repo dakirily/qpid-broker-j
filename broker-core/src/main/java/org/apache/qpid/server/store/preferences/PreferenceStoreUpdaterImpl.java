@@ -22,6 +22,7 @@ package org.apache.qpid.server.store.preferences;
 import java.util.Collection;
 
 import org.apache.qpid.server.model.Broker;
+import org.apache.qpid.server.model.BrokerModel;
 
 public class PreferenceStoreUpdaterImpl implements PreferenceStoreUpdater
 {
@@ -35,6 +36,6 @@ public class PreferenceStoreUpdaterImpl implements PreferenceStoreUpdater
     @Override
     public String getLatestVersion()
     {
-        return Broker.MODEL_VERSION;
+        return BrokerModel.MODEL_VERSION;
     }
 }

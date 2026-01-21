@@ -79,6 +79,13 @@ From: 'Eclipse Foundation' (https://www.eclipse.org)
     License: GPL2 w/ CPE  (https://www.gnu.org/software/classpath/license.html)
 
 
+From: 'Facebook' (https://www.facebook.com)
+
+  - RocksDB JNI (https://rocksdb.org) org.rocksdb:rocksdbjni:jar:10.2.1
+    License: Apache License 2.0  (http://www.apache.org/licenses/LICENSE-2.0.html)
+    License: GNU General Public License, version 2  (http://www.gnu.org/licenses/gpl-2.0.html)
+
+
 From: 'FasterXML' (http://fasterxml.com/)
 
   - Jackson-annotations (https://github.com/FasterXML/jackson) com.fasterxml.jackson.core:jackson-annotations:jar:2.20
@@ -163,6 +170,9 @@ From: 'The Apache Software Foundation' (https://www.apache.org/)
   - Apache Qpid AMQP 1.0 JDBC Link Store Plug-in (http://qpid.apache.org/components/broker-plugins/qpid-broker-plugins-amqp-1-0-protocol-jdbc-link-store) org.apache.qpid:qpid-broker-plugins-amqp-1-0-protocol-jdbc-link-store:jar
     License: Apache-2.0  (https://www.apache.org/licenses/LICENSE-2.0.txt)
 
+  - Apache Qpid AMQP 1.0 RocksDB Link Store Plug-in (http://qpid.apache.org/components/broker-plugins/qpid-broker-plugins-amqp-1-0-protocol-rocksdb-link-store) org.apache.qpid:qpid-broker-plugins-amqp-1-0-protocol-rocksdb-link-store:jar
+    License: Apache-2.0  (https://www.apache.org/licenses/LICENSE-2.0.txt)
+
   - Apache Qpid Broker-J AMQP 0-10 to 1-0 Message Conversion Plug-in (http://qpid.apache.org/components/broker-plugins/qpid-broker-plugins-amqp-msg-conv-0-10-to-1-0) org.apache.qpid:qpid-broker-plugins-amqp-msg-conv-0-10-to-1-0:jar
     License: Apache-2.0  (https://www.apache.org/licenses/LICENSE-2.0.txt)
 
@@ -203,6 +213,9 @@ From: 'The Apache Software Foundation' (https://www.apache.org/)
     License: Apache-2.0  (https://www.apache.org/licenses/LICENSE-2.0.txt)
 
   - Apache Qpid Broker-J Query Engine Plug-In (http://qpid.apache.org/components/broker-plugins/qpid-broker-plugins-query-engine) org.apache.qpid:qpid-broker-plugins-query-engine:jar
+    License: Apache-2.0  (https://www.apache.org/licenses/LICENSE-2.0.txt)
+
+  - Apache Qpid Broker-J RocksDB Message Store Plug-in (http://qpid.apache.org/components/broker-plugins/qpid-broker-plugins-rocksdb-store) org.apache.qpid:qpid-broker-plugins-rocksdb-store:jar
     License: Apache-2.0  (https://www.apache.org/licenses/LICENSE-2.0.txt)
 
   - Apache Qpid Broker-J WebSocket Plug-in (http://qpid.apache.org/components/broker-plugins/qpid-broker-plugins-websocket) org.apache.qpid:qpid-broker-plugins-websocket:jar

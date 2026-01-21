@@ -82,6 +82,12 @@
 
         <dependency>
             <groupId>org.apache.qpid</groupId>
+            <artifactId>qpid-broker-plugins-rocksdb-store</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.qpid</groupId>
             <artifactId>qpid-bdbstore</artifactId>
             <scope>runtime</scope>
         </dependency>
@@ -89,6 +95,12 @@
         <dependency>
             <groupId>org.apache.qpid</groupId>
             <artifactId>qpid-broker-plugins-amqp-1-0-protocol-bdb-link-store</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.qpid</groupId>
+            <artifactId>qpid-broker-plugins-amqp-1-0-protocol-rocksdb-link-store</artifactId>
             <scope>runtime</scope>
         </dependency>
 
