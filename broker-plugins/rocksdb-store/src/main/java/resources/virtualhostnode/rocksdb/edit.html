@@ -1,0 +1,284 @@
+<!--
+ -
+ - Licensed to the Apache Software Foundation (ASF) under one
+ - or more contributor license agreements.  See the NOTICE file
+ - distributed with this work for additional information
+ - regarding copyright ownership.  The ASF licenses this file
+ - to you under the Apache License, Version 2.0 (the
+ - "License"); you may not use this file except in compliance
+ - with the License.  You may obtain a copy of the License at
+ -
+ -   http://www.apache.org/licenses/LICENSE-2.0
+ -
+ - Unless required by applicable law or agreed to in writing,
+ - software distributed under the License is distributed on an
+ - "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ - KIND, either express or implied.  See the License for the
+ - specific language governing permissions and limitations
+ - under the License.
+ -
+ -->
+<div>
+    <div class="clear">
+        <div class="formLabel-labelCell tableContainer-labelCell">Configuration store path:</div>
+        <div class="formLabel-controlCell tableContainer-valueCell">
+            <input type="text" id="editVirtualHostNode.storePath"
+                   data-dojo-type="dijit/form/ValidationTextBox"
+                   data-dojo-props="
+                              name: 'storePath',
+                              placeHolder: 'path/to/store',
+                              title: 'Enter configuration store path'"/>
+        </div>
+    </div>
+    <div class="clear">
+        <div class="formLabel-labelCell tableContainer-labelCell">Create if missing:</div>
+        <div class="formLabel-controlCell tableContainer-valueCell">
+            <input type="checkbox" id="editVirtualHostNode.createIfMissing"
+                   data-dojo-type="dijit/form/CheckBox"
+                   data-dojo-props="
+                              name: 'createIfMissing',
+                              required: false"/>
+        </div>
+    </div>
+    <div class="clear">
+        <div class="formLabel-labelCell tableContainer-labelCell">Create missing column families:</div>
+        <div class="formLabel-controlCell tableContainer-valueCell">
+            <input type="checkbox" id="editVirtualHostNode.createMissingColumnFamilies"
+                   data-dojo-type="dijit/form/CheckBox"
+                   data-dojo-props="
+                              name: 'createMissingColumnFamilies',
+                              required: false"/>
+        </div>
+    </div>
+    <div class="clear">
+        <div class="formLabel-labelCell tableContainer-labelCell">Max open files:</div>
+        <div class="formLabel-controlCell tableContainer-valueCell">
+            <input type="text" id="editVirtualHostNode.maxOpenFiles"
+                   data-dojo-type="dijit/form/ValidationTextBox"
+                   data-dojo-props="
+                              name: 'maxOpenFiles',
+                              placeHolder: '0'"/>
+        </div>
+    </div>
+    <div class="clear">
+        <div class="formLabel-labelCell tableContainer-labelCell">Max background jobs:</div>
+        <div class="formLabel-controlCell tableContainer-valueCell">
+            <input type="text" id="editVirtualHostNode.maxBackgroundJobs"
+                   data-dojo-type="dijit/form/ValidationTextBox"
+                   data-dojo-props="
+                              name: 'maxBackgroundJobs',
+                              placeHolder: '0'"/>
+        </div>
+    </div>
+    <div class="clear">
+        <div class="formLabel-labelCell tableContainer-labelCell">Max subcompactions:</div>
+        <div class="formLabel-controlCell tableContainer-valueCell">
+            <input type="text" id="editVirtualHostNode.maxSubcompactions"
+                   data-dojo-type="dijit/form/ValidationTextBox"
+                   data-dojo-props="
+                              name: 'maxSubcompactions',
+                              placeHolder: '0'"/>
+        </div>
+    </div>
+    <div class="clear">
+        <div class="formLabel-labelCell tableContainer-labelCell">WAL directory:</div>
+        <div class="formLabel-controlCell tableContainer-valueCell">
+            <input type="text" id="editVirtualHostNode.walDir"
+                   data-dojo-type="dijit/form/ValidationTextBox"
+                   data-dojo-props="
+                              name: 'walDir',
+                              placeHolder: 'optional path'"/>
+        </div>
+    </div>
+    <div class="clear">
+        <div class="formLabel-labelCell tableContainer-labelCell">Bytes per sync:</div>
+        <div class="formLabel-controlCell tableContainer-valueCell">
+            <input type="text" id="editVirtualHostNode.bytesPerSync"
+                   data-dojo-type="dijit/form/ValidationTextBox"
+                   data-dojo-props="
+                              name: 'bytesPerSync',
+                              placeHolder: '0'"/>
+        </div>
+    </div>
+    <div class="clear">
+        <div class="formLabel-labelCell tableContainer-labelCell">WAL bytes per sync:</div>
+        <div class="formLabel-controlCell tableContainer-valueCell">
+            <input type="text" id="editVirtualHostNode.walBytesPerSync"
+                   data-dojo-type="dijit/form/ValidationTextBox"
+                   data-dojo-props="
+                              name: 'walBytesPerSync',
+                              placeHolder: '0'"/>
+        </div>
+    </div>
+    <div class="clear">
+        <div class="formLabel-labelCell tableContainer-labelCell">Enable statistics:</div>
+        <div class="formLabel-controlCell tableContainer-valueCell">
+            <input type="checkbox" id="editVirtualHostNode.enableStatistics"
+                   data-dojo-type="dijit/form/CheckBox"
+                   data-dojo-props="
+                              name: 'enableStatistics',
+                              required: false"/>
+        </div>
+    </div>
+    <div class="clear">
+        <div class="formLabel-labelCell tableContainer-labelCell">Stats dump period (sec):</div>
+        <div class="formLabel-controlCell tableContainer-valueCell">
+            <input type="text" id="editVirtualHostNode.statsDumpPeriodSec"
+                   data-dojo-type="dijit/form/ValidationTextBox"
+                   data-dojo-props="
+                              name: 'statsDumpPeriodSec',
+                              placeHolder: '0'"/>
+        </div>
+    </div>
+    <div class="clear">
+        <div class="formLabel-labelCell tableContainer-labelCell">Max total WAL size:</div>
+        <div class="formLabel-controlCell tableContainer-valueCell">
+            <input type="text" id="editVirtualHostNode.maxTotalWalSize"
+                   data-dojo-type="dijit/form/ValidationTextBox"
+                   data-dojo-props="
+                              name: 'maxTotalWalSize',
+                              placeHolder: '0'"/>
+        </div>
+    </div>
+    <div class="clear">
+        <div class="formLabel-labelCell tableContainer-labelCell">WAL TTL (sec):</div>
+        <div class="formLabel-controlCell tableContainer-valueCell">
+            <input type="text" id="editVirtualHostNode.walTtlSeconds"
+                   data-dojo-type="dijit/form/ValidationTextBox"
+                   data-dojo-props="
+                              name: 'walTtlSeconds',
+                              placeHolder: '0'"/>
+        </div>
+    </div>
+    <div class="clear">
+        <div class="formLabel-labelCell tableContainer-labelCell">WAL size limit (MB):</div>
+        <div class="formLabel-controlCell tableContainer-valueCell">
+            <input type="text" id="editVirtualHostNode.walSizeLimitMb"
+                   data-dojo-type="dijit/form/ValidationTextBox"
+                   data-dojo-props="
+                              name: 'walSizeLimitMb',
+                              placeHolder: '0'"/>
+        </div>
+    </div>
+    <div class="clear">
+        <div class="formLabel-labelCell tableContainer-labelCell">Write buffer size:</div>
+        <div class="formLabel-controlCell tableContainer-valueCell">
+            <input type="text" id="editVirtualHostNode.writeBufferSize"
+                   data-dojo-type="dijit/form/ValidationTextBox"
+                   data-dojo-props="
+                              name: 'writeBufferSize',
+                              placeHolder: '0'"/>
+        </div>
+    </div>
+    <div class="clear">
+        <div class="formLabel-labelCell tableContainer-labelCell">Max write buffer number:</div>
+        <div class="formLabel-controlCell tableContainer-valueCell">
+            <input type="text" id="editVirtualHostNode.maxWriteBufferNumber"
+                   data-dojo-type="dijit/form/ValidationTextBox"
+                   data-dojo-props="
+                              name: 'maxWriteBufferNumber',
+                              placeHolder: '0'"/>
+        </div>
+    </div>
+    <div class="clear">
+        <div class="formLabel-labelCell tableContainer-labelCell">Min write buffer number to merge:</div>
+        <div class="formLabel-controlCell tableContainer-valueCell">
+            <input type="text" id="editVirtualHostNode.minWriteBufferNumberToMerge"
+                   data-dojo-type="dijit/form/ValidationTextBox"
+                   data-dojo-props="
+                              name: 'minWriteBufferNumberToMerge',
+                              placeHolder: '0'"/>
+        </div>
+    </div>
+    <div class="clear">
+        <div class="formLabel-labelCell tableContainer-labelCell">Target file size base:</div>
+        <div class="formLabel-controlCell tableContainer-valueCell">
+            <input type="text" id="editVirtualHostNode.targetFileSizeBase"
+                   data-dojo-type="dijit/form/ValidationTextBox"
+                   data-dojo-props="
+                              name: 'targetFileSizeBase',
+                              placeHolder: '0'"/>
+        </div>
+    </div>
+    <div class="clear">
+        <div class="formLabel-labelCell tableContainer-labelCell">Level compaction dynamic bytes:</div>
+        <div class="formLabel-controlCell tableContainer-valueCell">
+            <input type="checkbox" id="editVirtualHostNode.levelCompactionDynamicLevelBytes"
+                   data-dojo-type="dijit/form/CheckBox"
+                   data-dojo-props="
+                              name: 'levelCompactionDynamicLevelBytes',
+                              required: false"/>
+        </div>
+    </div>
+    <div class="clear">
+        <div class="formLabel-labelCell tableContainer-labelCell">Compaction style:</div>
+        <div class="formLabel-controlCell tableContainer-valueCell">
+            <input type="text" id="editVirtualHostNode.compactionStyle"
+                   data-dojo-type="dijit/form/ValidationTextBox"
+                   data-dojo-props="
+                              name: 'compactionStyle',
+                              placeHolder: 'default'"/>
+        </div>
+    </div>
+    <div class="clear">
+        <div class="formLabel-labelCell tableContainer-labelCell">Compression type:</div>
+        <div class="formLabel-controlCell tableContainer-valueCell">
+            <input type="text" id="editVirtualHostNode.compressionType"
+                   data-dojo-type="dijit/form/ValidationTextBox"
+                   data-dojo-props="
+                              name: 'compressionType',
+                              placeHolder: 'default'"/>
+        </div>
+    </div>
+    <div class="clear">
+        <div class="formLabel-labelCell tableContainer-labelCell">Block cache size:</div>
+        <div class="formLabel-controlCell tableContainer-valueCell">
+            <input type="text" id="editVirtualHostNode.blockCacheSize"
+                   data-dojo-type="dijit/form/ValidationTextBox"
+                   data-dojo-props="
+                              name: 'blockCacheSize',
+                              placeHolder: '0'"/>
+        </div>
+    </div>
+    <div class="clear">
+        <div class="formLabel-labelCell tableContainer-labelCell">Block size:</div>
+        <div class="formLabel-controlCell tableContainer-valueCell">
+            <input type="text" id="editVirtualHostNode.blockSize"
+                   data-dojo-type="dijit/form/ValidationTextBox"
+                   data-dojo-props="
+                              name: 'blockSize',
+                              placeHolder: '0'"/>
+        </div>
+    </div>
+    <div class="clear">
+        <div class="formLabel-labelCell tableContainer-labelCell">Bloom filter bits per key:</div>
+        <div class="formLabel-controlCell tableContainer-valueCell">
+            <input type="text" id="editVirtualHostNode.bloomFilterBitsPerKey"
+                   data-dojo-type="dijit/form/ValidationTextBox"
+                   data-dojo-props="
+                              name: 'bloomFilterBitsPerKey',
+                              placeHolder: '0'"/>
+        </div>
+    </div>
+    <div class="clear">
+        <div class="formLabel-labelCell tableContainer-labelCell">Cache index and filter blocks:</div>
+        <div class="formLabel-controlCell tableContainer-valueCell">
+            <input type="checkbox" id="editVirtualHostNode.cacheIndexAndFilterBlocks"
+                   data-dojo-type="dijit/form/CheckBox"
+                   data-dojo-props="
+                              name: 'cacheIndexAndFilterBlocks',
+                              required: false"/>
+        </div>
+    </div>
+    <div class="clear">
+        <div class="formLabel-labelCell tableContainer-labelCell">Pin L0 filter and index blocks in cache:</div>
+        <div class="formLabel-controlCell tableContainer-valueCell">
+            <input type="checkbox" id="editVirtualHostNode.pinL0FilterAndIndexBlocksInCache"
+                   data-dojo-type="dijit/form/CheckBox"
+                   data-dojo-props="
+                              name: 'pinL0FilterAndIndexBlocksInCache',
+                              required: false"/>
+        </div>
+    </div>
+    <div class="clear"></div>
+</div>

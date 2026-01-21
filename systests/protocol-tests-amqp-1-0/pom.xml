@@ -78,12 +78,26 @@
 
         <dependency>
             <groupId>org.apache.qpid</groupId>
+            <artifactId>qpid-broker-plugins-rocksdb-store</artifactId>
+            <optional>true</optional>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.qpid</groupId>
             <artifactId>qpid-broker-plugins-memory-store</artifactId>
         </dependency>
 
         <dependency>
             <groupId>org.apache.qpid</groupId>
             <artifactId>qpid-broker-plugins-amqp-1-0-protocol-jdbc-link-store</artifactId>
+            <optional>true</optional>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.qpid</groupId>
+            <artifactId>qpid-broker-plugins-amqp-1-0-protocol-rocksdb-link-store</artifactId>
             <optional>true</optional>
             <scope>test</scope>
         </dependency>

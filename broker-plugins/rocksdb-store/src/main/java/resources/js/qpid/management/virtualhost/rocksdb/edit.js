@@ -15,28 +15,16 @@
  * KIND, either express or implied.  See the License for the
  * specific language governing permissions and limitations
  * under the License.
- *
  */
-
-package org.apache.qpid.test.utils;
-
-public enum VirtualHostNodeStoreType
+define(["qpid/common/util", "dojo/domReady!"], function (util)
 {
-    DERBY(true),
-    BDB(true),
-    ROCKSDB(true),
-    JSON(true),
-    MEMORY(false);
-
-    private final boolean _persistent;
-
-    VirtualHostNodeStoreType(final boolean persistent)
-    {
-        _persistent = persistent;
-    }
-
-    public boolean isPersistent()
-    {
-        return _persistent;
-    }
-}
+    return {
+        show: function (data)
+        {
+            util.parseHtmlIntoDiv(data.containerNode, "virtualhost/rocksdb/edit.html", function ()
+            {
+                util.applyToWidgets(data.containerNode, "VirtualHost", data.data.type, data.data, data.metadata);
+            });
+        }
+    };
+});

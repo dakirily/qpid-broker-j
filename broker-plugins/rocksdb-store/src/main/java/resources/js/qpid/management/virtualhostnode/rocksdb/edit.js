@@ -1,4 +1,5 @@
 /*
+ *
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -17,26 +18,15 @@
  * under the License.
  *
  */
-
-package org.apache.qpid.test.utils;
-
-public enum VirtualHostNodeStoreType
+define(["qpid/common/util", "dojo/domReady!"], function (util)
 {
-    DERBY(true),
-    BDB(true),
-    ROCKSDB(true),
-    JSON(true),
-    MEMORY(false);
-
-    private final boolean _persistent;
-
-    VirtualHostNodeStoreType(final boolean persistent)
-    {
-        _persistent = persistent;
-    }
-
-    public boolean isPersistent()
-    {
-        return _persistent;
-    }
-}
+    return {
+        show: function (data)
+        {
+            util.parseHtmlIntoDiv(data.containerNode, "virtualhostnode/rocksdb/edit.html", function ()
+            {
+                util.applyToWidgets(data.containerNode, "VirtualHostNode", data.data.type, data.data, data.metadata);
+            });
+        }
+    };
+});

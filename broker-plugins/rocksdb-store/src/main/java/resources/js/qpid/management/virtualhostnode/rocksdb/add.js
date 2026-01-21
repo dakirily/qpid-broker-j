@@ -1,4 +1,5 @@
 /*
+ *
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -17,26 +18,26 @@
  * under the License.
  *
  */
-
-package org.apache.qpid.test.utils;
-
-public enum VirtualHostNodeStoreType
+define(["dojo/_base/xhr",
+        "dojo/parser",
+        "dojo/dom",
+        "dojo/dom-construct",
+        "dojo/json",
+        "dijit/registry",
+        "dojo/text!virtualhostnode/rocksdb/add.html",
+        "qpid/common/util",
+        "dijit/form/ValidationTextBox",
+        "dijit/form/CheckBox",
+        "dojo/domReady!"], function (xhr, parser, dom, domConstruct, json, registry, template, util)
 {
-    DERBY(true),
-    BDB(true),
-    ROCKSDB(true),
-    JSON(true),
-    MEMORY(false);
-
-    private final boolean _persistent;
-
-    VirtualHostNodeStoreType(final boolean persistent)
-    {
-        _persistent = persistent;
-    }
-
-    public boolean isPersistent()
-    {
-        return _persistent;
-    }
-}
+    return {
+        show: function (data)
+        {
+            this.containerNode = domConstruct.create("div", {innerHTML: template}, data.containerNode);
+            parser.parse(this.containerNode).then(function (instances)
+            {
+                util.applyMetadataToWidgets(data.containerNode, "VirtualHostNode", data.type, data.metadata);
+            });
+        }
+    };
+});

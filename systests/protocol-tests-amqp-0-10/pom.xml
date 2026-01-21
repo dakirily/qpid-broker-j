@@ -70,6 +70,13 @@
             <scope>test</scope>
         </dependency>
 
+        <dependency>
+            <groupId>org.apache.qpid</groupId>
+            <artifactId>qpid-broker-plugins-rocksdb-store</artifactId>
+            <optional>true</optional>
+            <scope>test</scope>
+        </dependency>
+
        <dependency>
             <groupId>org.apache.qpid</groupId>
             <artifactId>qpid-bdbstore</artifactId>
