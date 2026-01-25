@@ -23,6 +23,7 @@ package org.apache.qpid.server.security.auth.sasl;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -33,6 +34,8 @@ import org.apache.qpid.server.security.auth.sasl.crammd5.CramMd5Negotiator;
 
 public class SaslUtil
 {
+    private static final HexFormat HEX_LOWER = HexFormat.of();
+
     public static byte[] generatePlainClientResponse(final String userName, final String userPassword)
     {
         final byte[] password = userPassword.getBytes(StandardCharsets.UTF_8);
@@ -55,11 +58,12 @@ public class SaslUtil
         final String macAlgorithm = "HmacMD5";
         final byte[] digestedPasswordBytes = MessageDigest.getInstance("MD5")
                 .digest(userPassword.getBytes(StandardCharsets.UTF_8));
-        final byte[] hexEncodedDigestedPasswordBytes = toHex(digestedPasswordBytes).getBytes(StandardCharsets.UTF_8);
+        final byte[] hexEncodedDigestedPasswordBytes = HEX_LOWER.formatHex(digestedPasswordBytes)
+                .getBytes(StandardCharsets.UTF_8);
         final Mac mac = Mac.getInstance(macAlgorithm);
         mac.init(new SecretKeySpec(hexEncodedDigestedPasswordBytes, macAlgorithm));
         final byte[] messageAuthenticationCode = mac.doFinal(challengeBytes);
-        final String responseAsString = userName + " " + toHex(messageAuthenticationCode);
+        final String responseAsString = userName + " " + HEX_LOWER.formatHex(messageAuthenticationCode);
         return responseAsString.getBytes();
     }
 
@@ -93,7 +97,7 @@ public class SaslUtil
         final Mac mac = Mac.getInstance(macAlgorithm);
         mac.init(new SecretKeySpec(userPassword.getBytes(StandardCharsets.UTF_8), macAlgorithm));
         final byte[] messageAuthenticationCode = mac.doFinal(challengeBytes);
-        final String responseAsString = userName + " " + toHex(messageAuthenticationCode);
+        final String responseAsString = userName + " " + HEX_LOWER.formatHex(messageAuthenticationCode);
         return responseAsString.getBytes();
     }
 
@@ -115,20 +119,5 @@ public class SaslUtil
             return generateCramMD5HashedClientResponse(userName, userPassword, challengeBytes);
         }
         throw new IllegalArgumentException(String.format("Unsupported mechanism '%s'", mechanism));
-    }
-
-    public static String toHex(final byte[] data)
-    {
-        final StringBuilder hash = new StringBuilder();
-        for (final byte datum : data)
-        {
-            final String hex = Integer.toHexString(0xFF & datum);
-            if (hex.length() == 1)
-            {
-                hash.append('0');
-            }
-            hash.append(hex);
-        }
-        return hash.toString();
     }
 }

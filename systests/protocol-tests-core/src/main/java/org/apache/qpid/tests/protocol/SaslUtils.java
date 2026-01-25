@@ -20,23 +20,14 @@
 package org.apache.qpid.tests.protocol;
 
 import java.nio.charset.StandardCharsets;
+import java.util.HexFormat;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 
 public class SaslUtils
 {
-    private static final char[] HEX = "0123456789abcdef".toCharArray();
-
-    private static String toHex(byte[] bin)
-    {
-        final StringBuilder result = new StringBuilder(2 * bin.length);
-        for (byte b : bin) {
-            result.append(HEX[(b >> 4) & 0xF]);
-            result.append(HEX[(b & 0xF)]);
-        }
-        return result.toString();
-    }
+    private static final HexFormat HEX_LOWER = HexFormat.of();
 
     public static byte[] generateCramMD5ClientResponse(final String userName,
                                                        final String userPassword,
@@ -46,7 +37,7 @@ public class SaslUtils
         final Mac mac = Mac.getInstance(macAlgorithm);
         mac.init(new SecretKeySpec(userPassword.getBytes(StandardCharsets.UTF_8), macAlgorithm));
         final byte[] messageAuthenticationCode = mac.doFinal(challengeBytes);
-        final String responseAsString = userName + " " + toHex(messageAuthenticationCode);
+        final String responseAsString = userName + " " + HEX_LOWER.formatHex(messageAuthenticationCode);
         return responseAsString.getBytes();
     }
 }

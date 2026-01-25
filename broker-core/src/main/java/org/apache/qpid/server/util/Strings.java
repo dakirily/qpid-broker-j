@@ -27,6 +27,7 @@ import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -40,6 +41,8 @@ import java.util.regex.Pattern;
  */
 public final class Strings
 {
+    private static final HexFormat OD_BYTES = HexFormat.of().withPrefix("  ");
+
     /**
      * Utility class shouldn't be instantiated directly
      */
@@ -437,23 +440,24 @@ public final class Strings
     public static String hexDump(final ByteBuffer buf)
     {
         final StringBuilder builder = new StringBuilder();
-        int count = 0;
-        for (int p = buf.position(); p < buf.position() + buf.remaining(); p++)
-        {
-            if (count % 16 == 0)
-            {
-                if (count > 0)
-                {
-                    builder.append(String.format("%n"));
-                }
-                builder.append(String.format("%07x  ", count));
-            }
-            builder.append(String.format("  %02x", buf.get(p)));
+        final ByteBuffer dup = buf.duplicate();
 
-            count++;
+        final byte[] line = new byte[16];
+        int cnt = 0;
+
+        while (dup.hasRemaining())
+        {
+            final int len = Math.min(16, dup.remaining());
+            dup.get(line, 0, len);
+
+            builder.append(String.format("%07x  ", cnt));
+            builder.append(OD_BYTES.formatHex(line, 0, len));
+            builder.append(System.lineSeparator());
+
+            cnt += len;
         }
-        builder.append(String.format("%n"));
-        builder.append(String.format("%07x%n", count));
+
+        builder.append(String.format("%07x%n", cnt));
         return builder.toString();
     }
 

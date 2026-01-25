@@ -29,6 +29,7 @@ import java.security.NoSuchAlgorithmException;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.HexFormat;
 import java.util.Map;
 import java.util.Random;
 import java.security.SecureRandom;
@@ -40,7 +41,8 @@ public class StringUtil
     private static final String LETTERS = "abcdefghijklmnopqrstuvwxwy";
     private static final String OTHERS = "_-";
     private static final char[] CHARACTERS = (NUMBERS + LETTERS + LETTERS.toUpperCase() + OTHERS).toCharArray();
-    private static final char[] HEX = "0123456789ABCDEF".toCharArray();
+    private static final HexFormat HEX_UPPER = HexFormat.of().withUpperCase();
+    private static final HexFormat HEX_LOWER = HexFormat.of();
     private static final Map<CharSequence, CharSequence> HTML_ESCAPE = Map.of("\"", "&quot;",
             "&", "&amp;",
             "<", "&lt;",
@@ -65,12 +67,7 @@ public class StringUtil
 
     public static String toHex(byte[] bin)
     {
-        StringBuilder result = new StringBuilder(2 * bin.length);
-        for (byte b : bin) {
-            result.append(HEX[(b >> 4) & 0xF]);
-            result.append(HEX[(b & 0xF)]);
-        }
-        return result.toString();
+        return HEX_UPPER.formatHex(bin);
     }
 
     public String randomAlphaNumericString(int maxLength)
@@ -111,7 +108,7 @@ public class StringUtil
         try
         {
             final byte[] digest = MessageDigest.getInstance("MD5").digest(managerName.getBytes(StandardCharsets.UTF_8));
-            builder.append(toHex(digest).toLowerCase());
+            builder.append(HEX_LOWER.formatHex(digest));
         }
         catch (NoSuchAlgorithmException e)
         {

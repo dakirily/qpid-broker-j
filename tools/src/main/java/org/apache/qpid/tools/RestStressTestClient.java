@@ -38,6 +38,7 @@ import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.HexFormat;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -58,6 +59,7 @@ import org.apache.qpid.tools.util.ArgumentsParser;
 
 public class RestStressTestClient
 {
+    private static final HexFormat HEX_LOWER = HexFormat.of();
 
     public static void main(String[] args) throws Exception
     {
@@ -528,7 +530,7 @@ public class RestStressTestClient
                 Mac mac = Mac.getInstance(macAlgorithm);
                 mac.init(new SecretKeySpec(password.getBytes(UTF_8), macAlgorithm));
                 final byte[] messageAuthenticationCode = mac.doFinal(challengeBytes);
-                String responseAsString = username + " " + toHex(messageAuthenticationCode);
+                String responseAsString = username + " " + HEX_LOWER.formatHex(messageAuthenticationCode);
                 byte[] responseBytes = responseAsString.getBytes(UTF_8);
                 return Base64.getEncoder().encodeToString(responseBytes);
             }
@@ -547,21 +549,6 @@ public class RestStressTestClient
             }
 
             return Base64.getDecoder().decode(base64String);
-        }
-
-        private String toHex(byte[] data)
-        {
-            StringBuilder hash = new StringBuilder();
-            for (final byte aData : data)
-            {
-                String hex = Integer.toHexString(0xFF & aData);
-                if (hex.length() == 1)
-                {
-                    hash.append('0');
-                }
-                hash.append(hex);
-            }
-            return hash.toString();
         }
 
         private byte[] readConnectionInputStream(HttpURLConnection connection) throws IOException

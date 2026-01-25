@@ -27,6 +27,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Enumeration;
 import java.util.HashMap;
+import java.util.HexFormat;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -42,6 +43,8 @@ import javax.jms.TextMessage;
 
 public class MessageVerifier
 {
+    private static final HexFormat HEX_UPPER = HexFormat.of().withUpperCase();
+
     public static void verifyMessage(final MessageDescription messageDescription, final Message message)
             throws VerificationException
     {
@@ -343,23 +346,11 @@ public class MessageVerifier
 
     private static String encode(final byte[] expectedValueAsBytes)
     {
-        String expectedValueAsString = toHex(expectedValueAsBytes);
+        String expectedValueAsString = HEX_UPPER.formatHex(expectedValueAsBytes);
         if (expectedValueAsString.length() > 20)
         {
             expectedValueAsString = expectedValueAsString.substring(0, 20) + "...";
         }
         return expectedValueAsString;
-    }
-
-    private static final char[] HEX = "0123456789ABCDEF".toCharArray();
-
-    private static String toHex(byte[] bin)
-    {
-        StringBuilder result = new StringBuilder(2 * bin.length);
-        for (byte b : bin) {
-            result.append(HEX[(b >> 4) & 0xF]);
-            result.append(HEX[(b & 0xF)]);
-        }
-        return result.toString();
     }
 }
