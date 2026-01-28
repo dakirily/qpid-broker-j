@@ -23,6 +23,10 @@ package org.apache.qpid.server.store.rocksdb;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.concurrent.atomic.AtomicReference;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Provides availability checks for RocksDB.
@@ -31,6 +35,11 @@ import java.lang.reflect.Method;
  */
 public final class RocksDBUtils
 {
+    private static final Logger LOGGER = LoggerFactory.getLogger(RocksDBUtils.class);
+    private static final long DEFAULT_LOAD_TIMEOUT_MS = 10_000L;
+    private static final Object AVAILABILITY_LOCK = new Object();
+    private static volatile Boolean AVAILABLE;
+
     /**
      * Prevents instantiation.
      */
@@ -45,12 +54,35 @@ public final class RocksDBUtils
      */
     public static boolean isAvailable()
     {
+        Boolean available = AVAILABLE;
+        if (available != null)
+        {
+            return available.booleanValue();
+        }
+        synchronized (AVAILABILITY_LOCK)
+        {
+            if (AVAILABLE != null)
+            {
+                return AVAILABLE.booleanValue();
+            }
+            AVAILABLE = Boolean.valueOf(checkAvailability());
+            return AVAILABLE.booleanValue();
+        }
+    }
+
+    private static boolean checkAvailability()
+    {
         try
         {
             Class<?> rocksDbClass = Class.forName("org.rocksdb.RocksDB");
             Method loadLibrary = rocksDbClass.getMethod("loadLibrary");
-            loadLibrary.invoke(null);
-            return true;
+            long timeoutMs = Long.getLong("qpid.rocksdb.loadLibraryTimeoutMs", DEFAULT_LOAD_TIMEOUT_MS);
+            if (timeoutMs <= 0)
+            {
+                loadLibrary.invoke(null);
+                return true;
+            }
+            return invokeWithTimeout(loadLibrary, timeoutMs);
         }
         catch (ClassNotFoundException | NoSuchMethodException | IllegalAccessException e)
         {
@@ -64,5 +96,43 @@ public final class RocksDBUtils
         {
             return false;
         }
+    }
+
+    static boolean invokeWithTimeout(final Method loadLibrary, final long timeoutMs)
+    {
+        AtomicReference<Throwable> failure = new AtomicReference<>();
+        Thread loader = new Thread(() ->
+        {
+            try
+            {
+                loadLibrary.invoke(null);
+            }
+            catch (Throwable t)
+            {
+                failure.set(t);
+            }
+        }, "rocksdb-load-library");
+        loader.setDaemon(true);
+        loader.start();
+        try
+        {
+            loader.join(timeoutMs);
+        }
+        catch (InterruptedException e)
+        {
+            Thread.currentThread().interrupt();
+            return false;
+        }
+        if (loader.isAlive())
+        {
+            LOGGER.warn("RocksDB native library load did not complete within {} ms", timeoutMs);
+            return false;
+        }
+        if (failure.get() != null)
+        {
+            LOGGER.warn("RocksDB native library load failed", failure.get());
+            return false;
+        }
+        return true;
     }
 }

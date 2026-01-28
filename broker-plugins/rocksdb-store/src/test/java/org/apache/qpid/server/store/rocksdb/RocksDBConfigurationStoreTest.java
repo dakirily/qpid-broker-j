@@ -29,6 +29,7 @@ import java.util.Map;
 import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Assumptions;
 
 import org.apache.qpid.server.model.ConfiguredObjectFactory;
 import org.apache.qpid.server.model.VirtualHost;
@@ -99,6 +100,7 @@ public class RocksDBConfigurationStoreTest extends AbstractDurableConfigurationS
     @Override
     protected DurableConfigurationStore createConfigStore() throws Exception
     {
+        Assumptions.assumeTrue(RocksDBUtils.isAvailable(), "RocksDB is not available");
         return new RocksDBConfigurationStore(VirtualHost.class);
     }
 

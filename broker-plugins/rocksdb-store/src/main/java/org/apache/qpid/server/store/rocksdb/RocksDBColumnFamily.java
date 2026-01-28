@@ -55,6 +55,18 @@ public enum RocksDBColumnFamily
      */
     MESSAGE_CONTENT("message_content"),
     /**
+     * Message content chunks.
+     */
+    MESSAGE_CHUNKS("message_chunks"),
+    /**
+     * Queue segments.
+     */
+    Q_SEG("queue_segments"),
+    /**
+     * Queue segment state.
+     */
+    Q_STATE("queue_state"),
+    /**
      * Queue entry records.
      */
     QUEUE_ENTRIES("queue_entries"),

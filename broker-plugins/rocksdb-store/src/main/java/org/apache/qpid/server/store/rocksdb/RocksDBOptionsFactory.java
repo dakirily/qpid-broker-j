@@ -27,6 +27,9 @@ import org.rocksdb.ColumnFamilyOptions;
 import org.rocksdb.DBOptions;
 import org.rocksdb.LRUCache;
 import org.rocksdb.Statistics;
+import org.rocksdb.TransactionDBOptions;
+import org.rocksdb.TxnDBWritePolicy;
+import org.rocksdb.WriteOptions;
 
 /**
  * Builds RocksDB options from configured settings.
@@ -90,6 +93,39 @@ public final class RocksDBOptionsFactory
         applyCompactionStyle(settings.getCompactionStyle(), options);
         applyCompressionType(settings.getCompressionType(), options);
         applyBlockBasedTableConfig(settings, options);
+        return options;
+    }
+
+    /**
+     * Creates TransactionDB options from the provided settings.
+     *
+     * @param settings RocksDB settings.
+     *
+     * @return the transaction db options.
+     */
+    public static TransactionDBOptions createTransactionDbOptions(final RocksDBSettings settings)
+    {
+        TransactionDBOptions options = new TransactionDBOptions();
+        applyLong(settings.getDefaultLockTimeout(), options::setDefaultLockTimeout);
+        applyLong(settings.getTransactionLockTimeout(), options::setTransactionLockTimeout);
+        applyLong(settings.getMaxNumLocks(), options::setMaxNumLocks);
+        applyLong(settings.getNumStripes(), options::setNumStripes);
+        applyTxnWritePolicy(settings.getTxnWritePolicy(), options);
+        return options;
+    }
+
+    /**
+     * Creates write options from the provided settings.
+     *
+     * @param settings RocksDB settings.
+     *
+     * @return the write options.
+     */
+    public static WriteOptions createWriteOptions(final RocksDBSettings settings)
+    {
+        WriteOptions options = new WriteOptions();
+        applyBoolean(settings.getWriteSync(), options::setSync);
+        applyBoolean(settings.getDisableWAL(), options::setDisableWAL);
         return options;
     }
 
@@ -184,6 +220,22 @@ public final class RocksDBOptionsFactory
         }
 
         options.setCompressionType(RocksDBOptionValues.parseCompressionType(compressionType));
+    }
+
+    /**
+     * Applies the TransactionDB write policy.
+     *
+     * @param writePolicy write policy name.
+     * @param options transaction db options.
+     */
+    private static void applyTxnWritePolicy(final String writePolicy, final TransactionDBOptions options)
+    {
+        if (writePolicy == null || writePolicy.isEmpty())
+        {
+            return;
+        }
+        TxnDBWritePolicy policy = RocksDBOptionValues.parseTxnDbWritePolicy(writePolicy);
+        options.setWritePolicy(policy);
     }
 
     /**

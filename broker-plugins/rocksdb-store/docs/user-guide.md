@@ -21,6 +21,7 @@ It uses a single RocksDB database with dedicated column families for each data d
 - For broker configuration, `SystemConfig` can also use type `ROCKSDB`.
 - Set `storePath` and size monitoring attributes (`storeUnderfullSize`, `storeOverfullSize`) as required.
 - Override managed attributes to tune RocksDB options.
+- Configure message content chunking using `messageChunkSize` and `messageInlineThreshold` when needed.
 
 Example snippet:
 ```json
@@ -36,8 +37,13 @@ Example snippet:
 The following attributes are supported on RocksDB-backed configured objects:
 - `createIfMissing`, `createMissingColumnFamilies`
 - `maxOpenFiles`, `maxBackgroundJobs`, `maxSubcompactions`
-- `walDir`, `bytesPerSync`, `walBytesPerSync`
+- `walDir`, `bytesPerSync`, `walBytesPerSync`, `writeSync`, `disableWAL`
 - `enableStatistics`, `statsDumpPeriodSec`
+- `committerNotifyThreshold`, `committerWaitTimeoutMs`
+- `messageChunkSize`, `messageInlineThreshold`
+- `queueSegmentShift`
+- `defaultLockTimeout`, `transactionLockTimeout`, `maxNumLocks`, `numStripes`, `txnWritePolicy`
+- `txnRetryAttempts`, `txnRetryBaseSleepMs`
 - `maxTotalWalSize`, `walTtlSeconds`, `walSizeLimitMb`
 - `writeBufferSize`, `maxWriteBufferNumber`, `minWriteBufferNumberToMerge`
 - `targetFileSizeBase`, `levelCompactionDynamicLevelBytes`
@@ -46,6 +52,32 @@ The following attributes are supported on RocksDB-backed configured objects:
 - `bloomFilterBitsPerKey`, `cacheIndexAndFilterBlocks`, `pinL0FilterAndIndexBlocksInCache`
 
 Most options are immutable after startup. Use broker restart when changing immutable settings.
+
+## Message Content Chunking
+- `messageChunkSize` controls the chunk size in bytes for stored message bodies (default 65536).
+- `messageInlineThreshold` controls the size in bytes above which content is chunked (default equals `messageChunkSize`).
+- When the content size exceeds `messageInlineThreshold`, chunks are stored in a dedicated column family.
+
+## Queue Segments
+- `queueSegmentShift` controls the segment range using `segmentNo = messageId >>> queueSegmentShift` (default 16).
+- Larger values produce fewer, larger segments; smaller values produce more, smaller segments.
+
+## Write Durability
+- `writeSync` controls whether each write is synchronized to disk (default false).
+- `disableWAL` disables the write-ahead log (default false).
+- `bytesPerSync` and `walBytesPerSync` control background sync intervals for data and WAL.
+
+## Async Commit (Coalescing)
+- `committerNotifyThreshold` controls how many async commits trigger a flush batch (default 8).
+- `committerWaitTimeoutMs` controls max wait time before flushing pending async commits (default 500ms).
+- Async commits are coalesced to reduce flush overhead when `writeSync` is enabled.
+
+## Transaction Settings
+- `defaultLockTimeout` and `transactionLockTimeout` are in milliseconds (default 0, which uses RocksDB defaults).
+- `maxNumLocks` and `numStripes` control TransactionDB lock table sizing (default 0 uses RocksDB defaults).
+- `txnWritePolicy` controls TransactionDB write policy (default empty uses RocksDB defaults).
+- `txnRetryAttempts` defaults to 5 (0 uses the default).
+- `txnRetryBaseSleepMs` defaults to 25ms (0 uses the default); the backoff is exponential per attempt.
 
 ## Operations
 RocksDB-managed objects expose maintenance operations:

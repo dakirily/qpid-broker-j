@@ -21,20 +21,17 @@
 
 package org.apache.qpid.server.store.rocksdb;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
 import java.io.File;
-import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.BitSet;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -42,23 +39,31 @@ import org.rocksdb.ColumnFamilyHandle;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
+import org.rocksdb.ReadOptions;
+import org.rocksdb.Snapshot;
+import org.rocksdb.Status;
+import org.rocksdb.TransactionDB;
+import org.rocksdb.TransactionOptions;
 import org.rocksdb.WriteBatch;
 import org.rocksdb.WriteOptions;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import org.apache.qpid.server.bytebuffer.QpidByteBuffer;
-import org.apache.qpid.server.message.EnqueueableMessage;
 import org.apache.qpid.server.model.ConfiguredObject;
 import org.apache.qpid.server.model.VirtualHostNode;
 import org.apache.qpid.server.plugin.MessageMetaDataType;
 import org.apache.qpid.server.store.Event;
 import org.apache.qpid.server.store.EventListener;
+import org.apache.qpid.server.store.EventManager;
 import org.apache.qpid.server.store.FileBasedSettings;
-import org.apache.qpid.server.store.MessageDurability;
 import org.apache.qpid.server.store.MessageEnqueueRecord;
 import org.apache.qpid.server.store.MessageHandle;
 import org.apache.qpid.server.store.MessageMetaDataTypeRegistry;
 import org.apache.qpid.server.store.MessageStore;
 import org.apache.qpid.server.store.DurableConfigurationStore;
+import org.apache.qpid.server.store.SizeMonitoringSettings;
 import org.apache.qpid.server.store.StorableMessageMetaData;
 import org.apache.qpid.server.store.StoreException;
 import org.apache.qpid.server.store.StoredMessage;
@@ -77,22 +82,244 @@ import org.apache.qpid.server.util.FileUtils;
  */
 public class RocksDBMessageStore implements MessageStore
 {
+    private static final Logger LOGGER = LoggerFactory.getLogger(RocksDBMessageStore.class);
     private static final byte[] NEXT_MESSAGE_ID_KEY = "nextMessageId".getBytes(StandardCharsets.US_ASCII);
+    private static final byte[] MESSAGE_STORE_VERSION_KEY =
+            "rocksdb_message_store_version".getBytes(StandardCharsets.US_ASCII);
     private static final byte[] EMPTY_VALUE = new byte[0];
     private static final int LONG_BYTES = 8;
     private static final int UUID_BYTES = 16;
-    private static final byte ACTION_ENQUEUE = 'E';
-    private static final byte ACTION_DEQUEUE = 'D';
+    private static final int INT_BYTES = 4;
+    private static final byte METADATA_FORMAT_MARKER = (byte) 0x80;
+    private static final byte METADATA_FORMAT_VERSION = 1;
+    private static final int METADATA_HEADER_BYTES = 1 + 1 + 4;
+    private static final byte METADATA_FLAG_CHUNKED = 0x01;
+    private static final int DEFAULT_CHUNK_SIZE = 64 * 1024;
+    private static final int ORPHAN_CHUNK_DELETE_BATCH_SIZE = 10000;
+    private static final int DEFAULT_QUEUE_SEGMENT_SHIFT = 16;
+    private static final int ORPHAN_SEGMENT_DELETE_BATCH_SIZE = 10000;
+    private static final long MESSAGE_STORE_VERSION = 1L;
+    private static final int DEFAULT_TRANSACTION_RETRY_ATTEMPTS = 5;
+    private static final long DEFAULT_TRANSACTION_RETRY_BASE_SLEEP_MILLIS = 25L;
+    private static final int DEFAULT_COMMITTER_NOTIFY_THRESHOLD = 8;
+    private static final long DEFAULT_COMMITTER_WAIT_TIMEOUT_MS = 500L;
 
     private final AtomicLong _messageId = new AtomicLong(0);
     private final AtomicLong _inMemorySize = new AtomicLong(0);
     private final AtomicLong _bytesEvacuatedFromMemory = new AtomicLong(0);
     private final Set<MessageDeleteListener> _messageDeleteListeners = ConcurrentHashMap.newKeySet();
-    private final Object _transactionLock = new Object();
+    private final EventManager _eventManager = new EventManager();
 
     private RocksDBEnvironment _environment;
     private boolean _environmentOwned;
     private String _storePath;
+    private String _walDir;
+    private int _messageChunkSize = DEFAULT_CHUNK_SIZE;
+    private int _messageInlineThreshold = DEFAULT_CHUNK_SIZE;
+    private int _queueSegmentShift = DEFAULT_QUEUE_SEGMENT_SHIFT;
+    private int _transactionRetryAttempts = DEFAULT_TRANSACTION_RETRY_ATTEMPTS;
+    private long _transactionRetryBaseSleepMillis = DEFAULT_TRANSACTION_RETRY_BASE_SLEEP_MILLIS;
+    private long _transactionLockTimeoutMs;
+    private int _committerNotifyThreshold = DEFAULT_COMMITTER_NOTIFY_THRESHOLD;
+    private long _committerWaitTimeoutMs = DEFAULT_COMMITTER_WAIT_TIMEOUT_MS;
+    private Boolean _writeSync;
+    private Boolean _disableWAL;
+    private long _persistentSizeHighThreshold;
+    private long _persistentSizeLowThreshold;
+    private long _totalStoreSize;
+    private boolean _limitBusted;
+    private RocksDBCommitter _committer;
+    private final RocksDBStoredMessage.StoreAccess _storedMessageAccess = new RocksDBStoredMessage.StoreAccess()
+    {
+        @Override
+        public int getMessageChunkSize()
+        {
+            return _messageChunkSize;
+        }
+
+        @Override
+        public int getDefaultChunkSize()
+        {
+            return DEFAULT_CHUNK_SIZE;
+        }
+
+        @Override
+        public boolean shouldChunk(final int contentSize)
+        {
+            return RocksDBMessageStore.this.shouldChunk(contentSize);
+        }
+
+        @Override
+        public byte[] loadContent(final long messageId)
+        {
+            return RocksDBMessageStore.this.loadContent(messageId);
+        }
+
+        @Override
+        public MetaDataRecord loadMetaDataRecord(final long messageId)
+        {
+            return RocksDBMessageStore.this.loadMetaDataRecord(messageId);
+        }
+
+        @Override
+        public byte[] loadChunkedContentSlice(final long messageId,
+                                              final int contentSize,
+                                              final int chunkSize,
+                                              final int offset,
+                                              final int length)
+        {
+            return RocksDBMessageStore.this.loadChunkedContentSlice(messageId,
+                                                                   contentSize,
+                                                                   chunkSize,
+                                                                   offset,
+                                                                   length);
+        }
+
+        @Override
+        public void storeChunk(final org.rocksdb.Transaction txn,
+                               final long messageId,
+                               final int chunkIndex,
+                               final byte[] data)
+        {
+            RocksDBMessageStore.this.storeChunk(txn, messageId, chunkIndex, data);
+        }
+
+        @Override
+        public void storeMessageMetadata(final org.rocksdb.Transaction txn,
+                                         final long messageId,
+                                         final StorableMessageMetaData metaData,
+                                         final boolean chunked,
+                                         final int chunkSize)
+        {
+            RocksDBMessageStore.this.storeMessageMetadata(txn, messageId, metaData, chunked, chunkSize);
+        }
+
+        @Override
+        public void storeMessage(final org.rocksdb.Transaction txn,
+                                 final long messageId,
+                                 final StorableMessageMetaData metaData,
+                                 final byte[] content)
+        {
+            RocksDBMessageStore.this.storeMessage(txn, messageId, metaData, content);
+        }
+
+        @Override
+        public void deleteMessage(final long messageId)
+        {
+            RocksDBMessageStore.this.deleteMessage(messageId);
+        }
+
+        @Override
+        public void storedSizeChangeOccurred(final int delta)
+        {
+            RocksDBMessageStore.this.storedSizeChangeOccurred(delta);
+        }
+
+        @Override
+        public void notifyMessageDeleted(final StoredMessage<?> message)
+        {
+            RocksDBMessageStore.this.notifyMessageDeleted(message);
+        }
+
+        @Override
+        public AtomicLong getInMemorySize()
+        {
+            return _inMemorySize;
+        }
+
+        @Override
+        public AtomicLong getBytesEvacuatedFromMemory()
+        {
+            return _bytesEvacuatedFromMemory;
+        }
+
+        @Override
+        public byte[] emptyValue()
+        {
+            return EMPTY_VALUE;
+        }
+    };
+    private final RocksDBXidRecordMapper.RecordFactory _xidRecordFactory =
+            new RocksDBXidRecordMapper.RecordFactory()
+    {
+        @Override
+        public Transaction.EnqueueRecord createEnqueue(final UUID queueId, final long messageId)
+        {
+            return new RecordImpl(queueId, messageId);
+        }
+
+        @Override
+        public Transaction.DequeueRecord createDequeue(final UUID queueId, final long messageId)
+        {
+            return new RecordImpl(queueId, messageId);
+        }
+    };
+    private final RocksDBTransaction.StoreAccess _transactionAccess = new RocksDBTransaction.StoreAccess()
+    {
+        @Override
+        public TransactionDB getTransactionDb()
+        {
+            return RocksDBMessageStore.this.getTransactionDb();
+        }
+
+        @Override
+        public WriteOptions createWriteOptions(final boolean deferSync)
+        {
+            return RocksDBMessageStore.this.createWriteOptions(deferSync);
+        }
+
+        @Override
+        public void applyQueueEntriesToTransaction(final org.rocksdb.Transaction txn,
+                                                   final List<RocksDBEnqueueRecord> enqueues,
+                                                   final List<RocksDBEnqueueRecord> dequeues)
+        {
+            RocksDBMessageStore.this.applyQueueEntriesToTransaction(txn, enqueues, dequeues);
+        }
+
+        @Override
+        public void applyXidRecordsToTransaction(final org.rocksdb.Transaction txn,
+                                                 final List<XidRecord> xidRecords,
+                                                 final List<byte[]> xidRemovals)
+        {
+            RocksDBMessageStore.this.applyXidRecordsToTransaction(txn, xidRecords, xidRemovals);
+        }
+
+        @Override
+        public void storedSizeChangeOccurred(final int delta)
+        {
+            RocksDBMessageStore.this.storedSizeChangeOccurred(delta);
+        }
+
+        @Override
+        public boolean isRetryable(final RocksDBException exception)
+        {
+            return RocksDBMessageStore.this.isRetryable(exception);
+        }
+
+        @Override
+        public int getTransactionRetryAttempts()
+        {
+            return _transactionRetryAttempts;
+        }
+
+        @Override
+        public long getTransactionRetryBaseSleepMillis()
+        {
+            return _transactionRetryBaseSleepMillis;
+        }
+
+        @Override
+        public long getTransactionLockTimeoutMs()
+        {
+            return _transactionLockTimeoutMs;
+        }
+
+        @Override
+        public RocksDBCommitter getCommitter()
+        {
+            return _committer;
+        }
+    };
 
     /**
      * Creates a RocksDB message store instance.
@@ -143,9 +370,39 @@ public class RocksDBMessageStore implements MessageStore
     public long getNextMessageId()
     {
         checkOpen();
-        long id = _messageId.incrementAndGet();
-        storeNextMessageId(id);
-        return id;
+        TransactionDB database = getTransactionDb();
+        ColumnFamilyHandle versionHandle = _environment.getColumnFamilyHandle(RocksDBColumnFamily.VERSION);
+        for (int attempt = 0; attempt < _transactionRetryAttempts; attempt++)
+        {
+            try (WriteOptions writeOptions = createWriteOptions();
+                 TransactionOptions txnOptions = new TransactionOptions();
+                 ReadOptions readOptions = new ReadOptions())
+            {
+                if (_transactionLockTimeoutMs > 0L)
+                {
+                    txnOptions.setLockTimeout(_transactionLockTimeoutMs);
+                }
+                try (org.rocksdb.Transaction txn = database.beginTransaction(writeOptions, txnOptions))
+                {
+                    byte[] value = txn.getForUpdate(readOptions, versionHandle, NEXT_MESSAGE_ID_KEY, true);
+                    long current = value == null ? findMaxMessageId() : decodeLong(value);
+                    long next = current + 1;
+                    txn.put(versionHandle, NEXT_MESSAGE_ID_KEY, encodeLong(next));
+                    txn.commit();
+                    _messageId.set(next);
+                    return next;
+                }
+            }
+            catch (RocksDBException e)
+            {
+                if (!isRetryable(e) || attempt == _transactionRetryAttempts - 1)
+                {
+                    throw new StoreException("Failed to allocate next message id", e);
+                }
+                sleepBeforeRetry(attempt);
+            }
+        }
+        throw new StoreException("Failed to allocate next message id");
     }
 
     /**
@@ -186,6 +443,7 @@ public class RocksDBMessageStore implements MessageStore
     @Override
     public void addEventListener(final EventListener eventListener, final Event... events)
     {
+        _eventManager.addEventListener(eventListener, events);
     }
 
     /**
@@ -197,6 +455,7 @@ public class RocksDBMessageStore implements MessageStore
     @Override
     public void openMessageStore(final ConfiguredObject<?> parent)
     {
+        RocksDBSettings settings = parent instanceof RocksDBSettings ? (RocksDBSettings) parent : null;
         if (_environment == null)
         {
             RocksDBEnvironment environment = null;
@@ -234,7 +493,16 @@ public class RocksDBMessageStore implements MessageStore
         {
             _storePath = _environment.getStorePath();
         }
+        applyMessageChunkSettings(settings);
+        applyQueueSegmentSettings(settings);
+        applyTransactionSettings(settings);
+        applyCommitterSettings(settings);
+        applyWriteSettings(settings);
+        applySizeMonitoringSettings(parent);
+        _totalStoreSize = getSizeOnDisk();
+        ensureMessageStoreVersion();
         loadNextMessageId();
+        startAsyncCommitter();
     }
 
     /**
@@ -245,7 +513,9 @@ public class RocksDBMessageStore implements MessageStore
     @Override
     public void upgradeStoreStructure() throws StoreException
     {
-        // No-op for initial RocksDB implementation.
+        ensureMessageStoreVersion();
+        cleanupOrphanedMessageChunks();
+        cleanupOrphanedQueueSegments();
     }
 
     /**
@@ -262,7 +532,7 @@ public class RocksDBMessageStore implements MessageStore
     {
         checkOpen();
         long messageId = getNextMessageId();
-        return new RocksDBStoredMessage<>(messageId, metaData);
+        return new RocksDBStoredMessage<>(_storedMessageAccess, messageId, metaData);
     }
 
     /**
@@ -321,7 +591,7 @@ public class RocksDBMessageStore implements MessageStore
     public Transaction newTransaction()
     {
         checkOpen();
-        return new RocksDBTransaction();
+        return new RocksDBTransaction(_transactionAccess);
     }
 
     /**
@@ -331,6 +601,7 @@ public class RocksDBMessageStore implements MessageStore
     @Override
     public void closeMessageStore()
     {
+        stopAsyncCommitter();
         if (_environmentOwned && _environment != null)
         {
             _environment.close();
@@ -339,6 +610,8 @@ public class RocksDBMessageStore implements MessageStore
         _environmentOwned = false;
         _inMemorySize.set(0L);
         _bytesEvacuatedFromMemory.set(0L);
+        _totalStoreSize = 0L;
+        _limitBusted = false;
     }
 
     /**
@@ -417,7 +690,14 @@ public class RocksDBMessageStore implements MessageStore
             byte[] value = database.get(versionHandle, NEXT_MESSAGE_ID_KEY);
             if (value != null)
             {
-                _messageId.set(decodeLong(value));
+                long persisted = decodeLong(value);
+                long maxId = findMaxMessageId();
+                long nextId = Math.max(persisted, maxId);
+                _messageId.set(nextId);
+                if (nextId != persisted)
+                {
+                    storeNextMessageId(nextId);
+                }
             }
             else
             {
@@ -429,6 +709,35 @@ public class RocksDBMessageStore implements MessageStore
         catch (RocksDBException e)
         {
             throw new StoreException("Failed to load next message id", e);
+        }
+    }
+
+    private void ensureMessageStoreVersion()
+    {
+        RocksDB database = _environment.getDatabase();
+        ColumnFamilyHandle versionHandle = _environment.getColumnFamilyHandle(RocksDBColumnFamily.VERSION);
+        try
+        {
+            byte[] stored = database.get(versionHandle, MESSAGE_STORE_VERSION_KEY);
+            if (stored == null)
+            {
+                database.put(versionHandle, MESSAGE_STORE_VERSION_KEY, encodeLong(MESSAGE_STORE_VERSION));
+                return;
+            }
+            long version = decodeLong(stored);
+            if (version > MESSAGE_STORE_VERSION)
+            {
+                throw new StoreException("Unsupported RocksDB message store version " + version);
+            }
+            if (version < MESSAGE_STORE_VERSION)
+            {
+                throw new StoreException("RocksDB message store version " + version
+                                         + " requires upgrade to " + MESSAGE_STORE_VERSION);
+            }
+        }
+        catch (RocksDBException e)
+        {
+            throw new StoreException("Failed to read RocksDB message store version", e);
         }
     }
 
@@ -450,6 +759,117 @@ public class RocksDBMessageStore implements MessageStore
         catch (RocksDBException e)
         {
             throw new StoreException("Failed to persist next message id", e);
+        }
+    }
+
+    /**
+     * Removes message chunks without corresponding metadata.
+     */
+    private void cleanupOrphanedMessageChunks() throws StoreException
+    {
+        RocksDB database = _environment.getDatabase();
+        ColumnFamilyHandle metadataHandle = _environment.getColumnFamilyHandle(RocksDBColumnFamily.MESSAGE_METADATA);
+        ColumnFamilyHandle chunkHandle = _environment.getColumnFamilyHandle(RocksDBColumnFamily.MESSAGE_CHUNKS);
+        try (RocksIterator metadataIterator = database.newIterator(metadataHandle);
+             RocksIterator chunkIterator = database.newIterator(chunkHandle);
+             WriteBatch batch = new WriteBatch();
+             WriteOptions options = createWriteOptions())
+        {
+            metadataIterator.seekToFirst();
+            chunkIterator.seekToFirst();
+
+            long currentMetaId = metadataIterator.isValid()
+                    ? decodeMessageKey(metadataIterator.key())
+                    : Long.MAX_VALUE;
+            int deletesInBatch = 0;
+
+            while (chunkIterator.isValid())
+            {
+                byte[] chunkKey = chunkIterator.key();
+                long chunkMessageId = decodeChunkMessageId(chunkKey);
+
+                while (metadataIterator.isValid() && currentMetaId < chunkMessageId)
+                {
+                    metadataIterator.next();
+                    currentMetaId = metadataIterator.isValid()
+                            ? decodeMessageKey(metadataIterator.key())
+                            : Long.MAX_VALUE;
+                }
+
+                if (currentMetaId != chunkMessageId)
+                {
+                    batch.delete(chunkHandle, Arrays.copyOf(chunkKey, chunkKey.length));
+                    deletesInBatch++;
+                    if (deletesInBatch >= ORPHAN_CHUNK_DELETE_BATCH_SIZE)
+                    {
+                        database.write(options, batch);
+                        batch.clear();
+                        deletesInBatch = 0;
+                    }
+                }
+                chunkIterator.next();
+            }
+
+            if (deletesInBatch > 0)
+            {
+                database.write(options, batch);
+            }
+        }
+        catch (RocksDBException e)
+        {
+            throw new StoreException("Failed to remove orphaned message chunks", e);
+        }
+    }
+
+    /**
+     * Removes queue segments without corresponding queue state.
+     */
+    private void cleanupOrphanedQueueSegments() throws StoreException
+    {
+        RocksDB database = _environment.getDatabase();
+        ColumnFamilyHandle segmentHandle = _environment.getColumnFamilyHandle(RocksDBColumnFamily.Q_SEG);
+        ColumnFamilyHandle stateHandle = _environment.getColumnFamilyHandle(RocksDBColumnFamily.Q_STATE);
+        try (RocksIterator segmentIterator = database.newIterator(segmentHandle);
+             WriteBatch batch = new WriteBatch();
+             WriteOptions options = createWriteOptions())
+        {
+            segmentIterator.seekToFirst();
+            UUID currentQueueId = null;
+            boolean stateExists = false;
+            int deletesInBatch = 0;
+
+            while (segmentIterator.isValid())
+            {
+                byte[] key = segmentIterator.key();
+                UUID queueId = decodeQueueId(key);
+                if (!queueId.equals(currentQueueId))
+                {
+                    currentQueueId = queueId;
+                    byte[] state = database.get(stateHandle, encodeQueuePrefix(queueId));
+                    stateExists = state != null;
+                }
+                if (!stateExists)
+                {
+                    batch.delete(segmentHandle, Arrays.copyOf(key, key.length));
+                    deletesInBatch++;
+                    if (deletesInBatch >= ORPHAN_SEGMENT_DELETE_BATCH_SIZE)
+                    {
+                        database.write(options, batch);
+                        batch.clear();
+                        deletesInBatch = 0;
+                    }
+                }
+                segmentIterator.next();
+            }
+
+            if (deletesInBatch > 0)
+            {
+                database.write(options, batch);
+            }
+        }
+        catch (RocksDBException e)
+        {
+            throw new StoreException("Failed to remove orphaned queue segments", e);
         }
     }
 
@@ -488,9 +908,37 @@ public class RocksDBMessageStore implements MessageStore
      */
     private byte[] encodeMessageKey(final long messageId)
     {
-        ByteBuffer buffer = ByteBuffer.allocate(LONG_BYTES);
-        buffer.putLong(messageId);
-        return buffer.array();
+        byte[] key = new byte[LONG_BYTES];
+        writeLong(key, 0, messageId);
+        return key;
+    }
+
+    /**
+     * Encodes a chunk key.
+     *
+     * @param messageId message id.
+     * @param chunkIndex chunk index.
+     *
+     * @return the encoded key.
+     */
+    private byte[] encodeChunkKey(final long messageId, final int chunkIndex)
+    {
+        byte[] key = new byte[LONG_BYTES + INT_BYTES];
+        writeLong(key, 0, messageId);
+        writeInt(key, LONG_BYTES, chunkIndex);
+        return key;
+    }
+
+    /**
+     * Encodes a chunk prefix for iteration.
+     *
+     * @param messageId message id.
+     *
+     * @return the encoded prefix.
+     */
+    private byte[] encodeChunkPrefix(final long messageId)
+    {
+        return encodeMessageKey(messageId);
     }
 
     /**
@@ -506,7 +954,23 @@ public class RocksDBMessageStore implements MessageStore
         {
             throw new StoreException("Invalid message key length: " + key.length);
         }
-        return ByteBuffer.wrap(key).getLong();
+        return readLong(key, 0);
+    }
+
+    /**
+     * Decodes a message id from a chunk key.
+     *
+     * @param key the chunk key bytes.
+     *
+     * @return the message id.
+     */
+    private long decodeChunkMessageId(final byte[] key)
+    {
+        if (key.length < LONG_BYTES)
+        {
+            throw new StoreException("Invalid chunk key length: " + key.length);
+        }
+        return readLong(key, 0);
     }
 
     /**
@@ -519,11 +983,28 @@ public class RocksDBMessageStore implements MessageStore
      */
     private byte[] encodeQueueEntryKey(final UUID queueId, final long messageId)
     {
-        ByteBuffer buffer = ByteBuffer.allocate(UUID_BYTES + LONG_BYTES);
-        buffer.putLong(queueId.getMostSignificantBits());
-        buffer.putLong(queueId.getLeastSignificantBits());
-        buffer.putLong(messageId);
-        return buffer.array();
+        byte[] key = new byte[UUID_BYTES + LONG_BYTES];
+        writeLong(key, 0, queueId.getMostSignificantBits());
+        writeLong(key, LONG_BYTES, queueId.getLeastSignificantBits());
+        writeLong(key, UUID_BYTES, messageId);
+        return key;
+    }
+
+    /**
+     * Encodes a queue segment key.
+     *
+     * @param queueId queue id.
+     * @param segmentNo segment number.
+     *
+     * @return the encoded key.
+     */
+    private byte[] encodeQueueSegmentKey(final UUID queueId, final long segmentNo)
+    {
+        byte[] key = new byte[UUID_BYTES + LONG_BYTES];
+        writeLong(key, 0, queueId.getMostSignificantBits());
+        writeLong(key, LONG_BYTES, queueId.getLeastSignificantBits());
+        writeLong(key, UUID_BYTES, segmentNo);
+        return key;
     }
 
     /**
@@ -535,10 +1016,10 @@ public class RocksDBMessageStore implements MessageStore
      */
     private byte[] encodeQueuePrefix(final UUID queueId)
     {
-        ByteBuffer buffer = ByteBuffer.allocate(UUID_BYTES);
-        buffer.putLong(queueId.getMostSignificantBits());
-        buffer.putLong(queueId.getLeastSignificantBits());
-        return buffer.array();
+        byte[] key = new byte[UUID_BYTES];
+        writeLong(key, 0, queueId.getMostSignificantBits());
+        writeLong(key, LONG_BYTES, queueId.getLeastSignificantBits());
+        return key;
     }
 
     /**
@@ -554,10 +1035,7 @@ public class RocksDBMessageStore implements MessageStore
         {
             throw new StoreException("Invalid queue entry key length: " + key.length);
         }
-        ByteBuffer buffer = ByteBuffer.wrap(key);
-        long most = buffer.getLong();
-        long least = buffer.getLong();
-        return new UUID(most, least);
+        return new UUID(readLong(key, 0), readLong(key, LONG_BYTES));
     }
 
     /**
@@ -573,9 +1051,23 @@ public class RocksDBMessageStore implements MessageStore
         {
             throw new StoreException("Invalid queue entry key length: " + key.length);
         }
-        ByteBuffer buffer = ByteBuffer.wrap(key);
-        buffer.position(UUID_BYTES);
-        return buffer.getLong();
+        return readLong(key, UUID_BYTES);
+    }
+
+    /**
+     * Decodes a segment number from a queue segment key.
+     *
+     * @param key queue segment key.
+     *
+     * @return the segment number.
+     */
+    private long decodeQueueSegmentNo(final byte[] key)
+    {
+        if (key.length != UUID_BYTES + LONG_BYTES)
+        {
+            throw new StoreException("Invalid queue segment key length: " + key.length);
+        }
+        return readLong(key, UUID_BYTES);
     }
 
     /**
@@ -587,9 +1079,9 @@ public class RocksDBMessageStore implements MessageStore
      */
     private byte[] encodeLong(final long value)
     {
-        ByteBuffer buffer = ByteBuffer.allocate(LONG_BYTES);
-        buffer.putLong(value);
-        return buffer.array();
+        byte[] data = new byte[LONG_BYTES];
+        writeLong(data, 0, value);
+        return data;
     }
 
     /**
@@ -605,217 +1097,62 @@ public class RocksDBMessageStore implements MessageStore
         {
             throw new StoreException("Invalid long value length: " + data.length);
         }
-        return ByteBuffer.wrap(data).getLong();
+        return readLong(data, 0);
     }
 
     /**
-     * Encodes an XID key.
+     * Writes an int value into the array at the offset.
      *
-     * @param format XID format.
-     * @param globalId global id bytes.
-     * @param branchId branch id bytes.
-     *
-     * @return the encoded key.
+     * @param data data array.
+     * @param offset offset to write at.
+     * @param value value to write.
      */
-    private byte[] encodeXidKey(final long format, final byte[] globalId, final byte[] branchId)
+    private void writeInt(final byte[] data, final int offset, final int value)
     {
-        try
-        {
-            ByteArrayOutputStream stream = new ByteArrayOutputStream();
-            try (DataOutputStream output = new DataOutputStream(stream))
-            {
-                output.writeLong(format);
-                writeBytes(output, globalId);
-                writeBytes(output, branchId);
-            }
-            return stream.toByteArray();
-        }
-        catch (IOException e)
-        {
-            throw new StoreException("Failed to encode XID key", e);
-        }
+        data[offset] = (byte) (value >>> 24);
+        data[offset + 1] = (byte) (value >>> 16);
+        data[offset + 2] = (byte) (value >>> 8);
+        data[offset + 3] = (byte) value;
+    }
+
+    private void writeLong(final byte[] data, final int offset, final long value)
+    {
+        data[offset] = (byte) (value >>> 56);
+        data[offset + 1] = (byte) (value >>> 48);
+        data[offset + 2] = (byte) (value >>> 40);
+        data[offset + 3] = (byte) (value >>> 32);
+        data[offset + 4] = (byte) (value >>> 24);
+        data[offset + 5] = (byte) (value >>> 16);
+        data[offset + 6] = (byte) (value >>> 8);
+        data[offset + 7] = (byte) value;
     }
 
     /**
-     * Decodes an XID key.
+     * Reads an int value from the array at the offset.
      *
-     * @param key encoded key.
+     * @param data data array.
+     * @param offset offset to read from.
      *
-     * @return the stored XID record.
+     * @return the int value.
      */
-    private StoredXidRecord decodeXidKey(final byte[] key)
+    private int readInt(final byte[] data, final int offset)
     {
-        try (DataInputStream input = new DataInputStream(new ByteArrayInputStream(key)))
-        {
-            long format = input.readLong();
-            byte[] globalId = readBytes(input);
-            byte[] branchId = readBytes(input);
-            return new RocksDBStoredXidRecord(format, globalId, branchId);
-        }
-        catch (IOException e)
-        {
-            throw new StoreException("Failed to decode XID key", e);
-        }
+        return ((data[offset] & 0xff) << 24)
+               | ((data[offset + 1] & 0xff) << 16)
+               | ((data[offset + 2] & 0xff) << 8)
+               | (data[offset + 3] & 0xff);
     }
 
-    /**
-     * Encodes XID actions.
-     *
-     * @param enqueues enqueue records.
-     * @param dequeues dequeue records.
-     *
-     * @return the encoded actions.
-     */
-    private byte[] encodeXidValue(final Transaction.EnqueueRecord[] enqueues,
-                                  final Transaction.DequeueRecord[] dequeues)
+    private long readLong(final byte[] data, final int offset)
     {
-        int enqueueCount = enqueues == null ? 0 : enqueues.length;
-        int dequeueCount = dequeues == null ? 0 : dequeues.length;
-        try
-        {
-            ByteArrayOutputStream stream = new ByteArrayOutputStream();
-            try (DataOutputStream output = new DataOutputStream(stream))
-            {
-                output.writeInt(enqueueCount);
-                if (enqueueCount > 0)
-                {
-                    for (Transaction.EnqueueRecord record : enqueues)
-                    {
-                        writeAction(output, ACTION_ENQUEUE, record.getResource().getId(),
-                                    record.getMessage().getMessageNumber());
-                    }
-                }
-                output.writeInt(dequeueCount);
-                if (dequeueCount > 0)
-                {
-                    for (Transaction.DequeueRecord record : dequeues)
-                    {
-                        MessageEnqueueRecord enqueueRecord = record.getEnqueueRecord();
-                        writeAction(output, ACTION_DEQUEUE, enqueueRecord.getQueueId(),
-                                    enqueueRecord.getMessageNumber());
-                    }
-                }
-            }
-            return stream.toByteArray();
-        }
-        catch (IOException e)
-        {
-            throw new StoreException("Failed to encode XID actions", e);
-        }
-    }
-
-    /**
-     * Decodes XID actions.
-     *
-     * @param data encoded actions.
-     *
-     * @return decoded actions.
-     */
-    private XidActions decodeXidValue(final byte[] data)
-    {
-        try (DataInputStream input = new DataInputStream(new ByteArrayInputStream(data)))
-        {
-            int enqueueCount = input.readInt();
-            List<RecordImpl> enqueues = new ArrayList<>(enqueueCount);
-            for (int i = 0; i < enqueueCount; i++)
-            {
-                enqueues.add(readAction(input));
-            }
-            int dequeueCount = input.readInt();
-            List<RecordImpl> dequeues = new ArrayList<>(dequeueCount);
-            for (int i = 0; i < dequeueCount; i++)
-            {
-                dequeues.add(readAction(input));
-            }
-            return new XidActions(enqueues, dequeues);
-        }
-        catch (IOException e)
-        {
-            throw new StoreException("Failed to decode XID actions", e);
-        }
-    }
-
-    /**
-     * Writes an XID action record.
-     *
-     * @param output output stream.
-     * @param action action type.
-     * @param queueId queue id.
-     * @param messageId message id.
-     *
-     * @throws IOException on write errors.
-     */
-    private void writeAction(final DataOutputStream output,
-                             final byte action,
-                             final UUID queueId,
-                             final long messageId) throws IOException
-    {
-        output.writeByte(action);
-        output.writeLong(queueId.getMostSignificantBits());
-        output.writeLong(queueId.getLeastSignificantBits());
-        output.writeLong(messageId);
-    }
-
-    /**
-     * Reads an XID action record.
-     *
-     * @param input input stream.
-     *
-     * @return the action record.
-     *
-     * @throws IOException on read errors.
-     */
-    private RecordImpl readAction(final DataInputStream input) throws IOException
-    {
-        byte action = input.readByte();
-        long most = input.readLong();
-        long least = input.readLong();
-        long messageId = input.readLong();
-        if (action != ACTION_ENQUEUE && action != ACTION_DEQUEUE)
-        {
-            throw new StoreException("Unknown XID action: " + action);
-        }
-        return new RecordImpl(new UUID(most, least), messageId);
-    }
-
-    /**
-     * Writes a byte array with length.
-     *
-     * @param output output stream.
-     * @param data data bytes.
-     *
-     * @throws IOException on write errors.
-     */
-    private void writeBytes(final DataOutputStream output, final byte[] data) throws IOException
-    {
-        if (data == null)
-        {
-            output.writeInt(0);
-            return;
-        }
-        output.writeInt(data.length);
-        output.write(data);
-    }
-
-    /**
-     * Reads a byte array with length.
-     *
-     * @param input input stream.
-     *
-     * @return the read bytes.
-     *
-     * @throws IOException on read errors.
-     */
-    private byte[] readBytes(final DataInputStream input) throws IOException
-    {
-        int length = input.readInt();
-        if (length == 0)
-        {
-            return new byte[0];
-        }
-        byte[] data = new byte[length];
-        input.readFully(data);
-        return data;
+        return ((long) (data[offset] & 0xFF) << 56)
+               | ((long) (data[offset + 1] & 0xFF) << 48)
+               | ((long) (data[offset + 2] & 0xFF) << 40)
+               | ((long) (data[offset + 3] & 0xFF) << 32)
+               | ((long) (data[offset + 4] & 0xFF) << 24)
+               | ((long) (data[offset + 5] & 0xFF) << 16)
+               | ((long) (data[offset + 6] & 0xFF) << 8)
+               | ((long) (data[offset + 7] & 0xFF));
     }
 
     /**
@@ -853,6 +1190,598 @@ public class RocksDBMessageStore implements MessageStore
         }
     }
 
+    private TransactionDB getTransactionDb()
+    {
+        RocksDB database = _environment.getDatabase();
+        if (database instanceof TransactionDB)
+        {
+            return (TransactionDB) database;
+        }
+        throw new StoreException("RocksDB environment does not support transactions");
+    }
+
+    private boolean isRetryable(final RocksDBException exception)
+    {
+        Status status = exception.getStatus();
+        if (status == null)
+        {
+            return false;
+        }
+        Status.Code code = status.getCode();
+        return code == Status.Code.Busy
+               || code == Status.Code.TryAgain
+               || code == Status.Code.TimedOut
+               || code == Status.Code.Aborted;
+    }
+
+    private void sleepBeforeRetry(final int attempt)
+    {
+        long delay = _transactionRetryBaseSleepMillis * (1L << attempt);
+        try
+        {
+            Thread.sleep(delay);
+        }
+        catch (InterruptedException e)
+        {
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    /**
+     * Returns whether content should be stored in chunks.
+     *
+     * @param contentSize content size.
+     *
+     * @return true if chunking should be used.
+     */
+    private boolean shouldChunk(final int contentSize)
+    {
+        return contentSize > _messageInlineThreshold;
+    }
+
+    /**
+     * Returns the queue segment number for a message id.
+     *
+     * @param messageId message id.
+     *
+     * @return the segment number.
+     */
+    private long getQueueSegmentNo(final long messageId)
+    {
+        return messageId >>> _queueSegmentShift;
+    }
+
+    /**
+     * Applies queue segment settings.
+     *
+     * @param settings RocksDB settings or null.
+     */
+    private void applyQueueSegmentSettings(final RocksDBSettings settings)
+    {
+        int shift = DEFAULT_QUEUE_SEGMENT_SHIFT;
+        if (settings != null)
+        {
+            Integer configuredShift = settings.getQueueSegmentShift();
+            if (configuredShift != null && configuredShift > 0 && configuredShift < 32)
+            {
+                shift = configuredShift;
+            }
+        }
+        _queueSegmentShift = shift;
+    }
+
+    private void applyTransactionSettings(final RocksDBSettings settings)
+    {
+        int retryAttempts = DEFAULT_TRANSACTION_RETRY_ATTEMPTS;
+        long retryBaseSleep = DEFAULT_TRANSACTION_RETRY_BASE_SLEEP_MILLIS;
+        long lockTimeoutMs = -1L;
+        if (settings != null)
+        {
+            Integer configuredAttempts = settings.getTxnRetryAttempts();
+            if (configuredAttempts != null && configuredAttempts > 0)
+            {
+                retryAttempts = configuredAttempts;
+            }
+            Long configuredSleep = settings.getTxnRetryBaseSleepMs();
+            if (configuredSleep != null && configuredSleep > 0L)
+            {
+                retryBaseSleep = configuredSleep;
+            }
+            Long configuredLockTimeout = settings.getTransactionLockTimeout();
+            if (configuredLockTimeout != null && configuredLockTimeout > 0L)
+            {
+                lockTimeoutMs = configuredLockTimeout;
+            }
+        }
+        _transactionRetryAttempts = retryAttempts;
+        _transactionRetryBaseSleepMillis = retryBaseSleep;
+        _transactionLockTimeoutMs = lockTimeoutMs;
+    }
+
+    private void applyCommitterSettings(final RocksDBSettings settings)
+    {
+        int notifyThreshold = DEFAULT_COMMITTER_NOTIFY_THRESHOLD;
+        long waitTimeout = DEFAULT_COMMITTER_WAIT_TIMEOUT_MS;
+        if (settings != null)
+        {
+            Integer configuredThreshold = settings.getCommitterNotifyThreshold();
+            if (configuredThreshold != null && configuredThreshold > 0)
+            {
+                notifyThreshold = configuredThreshold;
+            }
+            Long configuredTimeout = settings.getCommitterWaitTimeoutMs();
+            if (configuredTimeout != null && configuredTimeout > 0L)
+            {
+                waitTimeout = configuredTimeout;
+            }
+        }
+        _committerNotifyThreshold = notifyThreshold;
+        _committerWaitTimeoutMs = waitTimeout;
+    }
+
+    private void applyWriteSettings(final RocksDBSettings settings)
+    {
+        if (settings == null)
+        {
+            _writeSync = null;
+            _disableWAL = null;
+            _walDir = null;
+            return;
+        }
+        _writeSync = settings.getWriteSync();
+        _disableWAL = settings.getDisableWAL();
+        _walDir = settings.getWalDir();
+    }
+
+    private void startAsyncCommitter()
+    {
+        if (_committer != null)
+        {
+            return;
+        }
+        _committer = new RocksDBCommitter(_committerNotifyThreshold,
+                                          _committerWaitTimeoutMs,
+                                          () -> Boolean.TRUE.equals(_writeSync) && !Boolean.TRUE.equals(_disableWAL),
+                                          () -> _environment.getDatabase().flushWal(true),
+                                          error ->
+                                          {
+                                              LOGGER.error("Closing RocksDB message store at {} due to WAL flush failure",
+                                                           _storePath, error);
+                                              closeMessageStore();
+                                          });
+        _committer.start();
+    }
+
+    private void stopAsyncCommitter()
+    {
+        if (_committer == null)
+        {
+            return;
+        }
+        _committer.stop();
+        _committer = null;
+    }
+
+    private void applySizeMonitoringSettings(final ConfiguredObject<?> parent)
+    {
+        if (parent instanceof SizeMonitoringSettings)
+        {
+            SizeMonitoringSettings settings = (SizeMonitoringSettings) parent;
+            _persistentSizeHighThreshold = settings.getStoreOverfullSize();
+            _persistentSizeLowThreshold = settings.getStoreUnderfullSize();
+            if (_persistentSizeLowThreshold > _persistentSizeHighThreshold || _persistentSizeLowThreshold < 0L)
+            {
+                _persistentSizeLowThreshold = _persistentSizeHighThreshold;
+            }
+        }
+        else
+        {
+            _persistentSizeHighThreshold = 0L;
+            _persistentSizeLowThreshold = 0L;
+        }
+    }
+
+    private void storedSizeChangeOccurred(final int delta) throws StoreException
+    {
+        try
+        {
+            storedSizeChange(delta);
+        }
+        catch (RuntimeException e)
+        {
+            throw new StoreException("Stored size change exception", e);
+        }
+    }
+
+    private void storedSizeChange(final int delta)
+    {
+        if (_persistentSizeHighThreshold <= 0L)
+        {
+            return;
+        }
+        synchronized (this)
+        {
+            long newSize = _totalStoreSize += 2L * delta;
+            if (!_limitBusted && newSize > _persistentSizeHighThreshold)
+            {
+                _totalStoreSize = getSizeOnDisk();
+                long effectiveSize = Math.max(_totalStoreSize, newSize);
+                if (effectiveSize > _persistentSizeHighThreshold)
+                {
+                    _limitBusted = true;
+                    _eventManager.notifyEvent(Event.PERSISTENT_MESSAGE_SIZE_OVERFULL);
+                }
+            }
+            else if (_limitBusted && newSize < _persistentSizeLowThreshold)
+            {
+                long oldSize = _totalStoreSize;
+                _totalStoreSize = getSizeOnDisk();
+                if (oldSize <= _totalStoreSize)
+                {
+                    reduceSizeOnDisk();
+                    _totalStoreSize = getSizeOnDisk();
+                }
+                long effectiveSize = Math.min(_totalStoreSize, newSize);
+                if (effectiveSize < _persistentSizeLowThreshold)
+                {
+                    _limitBusted = false;
+                    _eventManager.notifyEvent(Event.PERSISTENT_MESSAGE_SIZE_UNDERFULL);
+                }
+            }
+        }
+    }
+
+    private void reduceSizeOnDisk()
+    {
+        if (_environment != null)
+        {
+            RocksDBManagementSupport.compactRange(_environment, "");
+        }
+    }
+
+    private long getSizeOnDisk()
+    {
+        long estimated = getEstimatedStoreSize();
+        if (estimated >= 0L)
+        {
+            return estimated;
+        }
+        long total = sizeOnDisk(_storePath);
+        if (_walDir != null && !_walDir.isEmpty() && !_walDir.equals(_storePath))
+        {
+            total += sizeOnDisk(_walDir);
+        }
+        return total;
+    }
+
+    private long getEstimatedLiveDataSize()
+    {
+        return getDbPropertyLong("rocksdb.estimate-live-data-size");
+    }
+
+    private long getEstimatedStoreSize()
+    {
+        long memtables = getDbPropertyLong("rocksdb.cur-size-all-mem-tables");
+        long totalSst = getDbPropertyLong("rocksdb.total-sst-files-size");
+        long liveSst = getDbPropertyLong("rocksdb.live-sst-files-size");
+        long estimateLive = getEstimatedLiveDataSize();
+
+        long estimate = -1L;
+        if (memtables >= 0L && totalSst >= 0L)
+        {
+            estimate = memtables + totalSst;
+        }
+        else if (memtables >= 0L && liveSst >= 0L)
+        {
+            estimate = memtables + liveSst;
+        }
+        else if (estimateLive >= 0L)
+        {
+            estimate = estimateLive;
+        }
+        return estimate;
+    }
+
+    private long getDbPropertyLong(final String property)
+    {
+        if (_environment == null)
+        {
+            return -1L;
+        }
+        String value;
+        try
+        {
+            value = RocksDBManagementSupport.getDbProperty(_environment, property);
+        }
+        catch (StoreException e)
+        {
+            return -1L;
+        }
+        if (value == null || value.isEmpty())
+        {
+            return -1L;
+        }
+        try
+        {
+            return Long.parseLong(value.trim());
+        }
+        catch (NumberFormatException e)
+        {
+            return -1L;
+        }
+    }
+
+    private long sizeOnDisk(final String path)
+    {
+        if (path == null || path.isEmpty())
+        {
+            return 0L;
+        }
+        return sizeOnDisk(new File(path));
+    }
+
+    private long sizeOnDisk(final File root)
+    {
+        if (root == null || !root.exists())
+        {
+            return 0L;
+        }
+        if (root.isFile())
+        {
+            return root.length();
+        }
+        File[] files = root.listFiles();
+        if (files == null)
+        {
+            return 0L;
+        }
+        long total = 0L;
+        for (File file : files)
+        {
+            total += sizeOnDisk(file);
+        }
+        return total;
+    }
+
+    private WriteOptions createWriteOptions()
+    {
+        return createWriteOptions(false);
+    }
+
+    private WriteOptions createWriteOptions(final boolean deferSync)
+    {
+        WriteOptions options = new WriteOptions();
+        Boolean sync = _writeSync;
+        if (deferSync && Boolean.TRUE.equals(_writeSync) && !Boolean.TRUE.equals(_disableWAL))
+        {
+            sync = Boolean.FALSE;
+        }
+        if (sync != null)
+        {
+            options.setSync(sync.booleanValue());
+        }
+        if (_disableWAL != null)
+        {
+            options.setDisableWAL(_disableWAL.booleanValue());
+        }
+        return options;
+    }
+
+    /**
+     * Loads queue state.
+     *
+     * @param queueId queue id.
+     *
+     * @return queue state or null.
+     */
+    private QueueState loadQueueState(final UUID queueId)
+    {
+        RocksDB database = _environment.getDatabase();
+        ColumnFamilyHandle stateHandle = _environment.getColumnFamilyHandle(RocksDBColumnFamily.Q_STATE);
+        try
+        {
+            byte[] data = database.get(stateHandle, encodeQueuePrefix(queueId));
+            if (data == null)
+            {
+                return null;
+            }
+            return RocksDBQueueRecordMapper.decodeQueueState(data);
+        }
+        catch (RocksDBException e)
+        {
+            throw new StoreException("Failed to load queue state", e);
+        }
+    }
+
+    private QueueState loadQueueState(final org.rocksdb.Transaction txn, final UUID queueId)
+    {
+        ColumnFamilyHandle stateHandle = _environment.getColumnFamilyHandle(RocksDBColumnFamily.Q_STATE);
+        try (ReadOptions readOptions = new ReadOptions())
+        {
+            byte[] data = txn.getForUpdate(readOptions, stateHandle, encodeQueuePrefix(queueId), true);
+            if (data == null)
+            {
+                return null;
+            }
+            return RocksDBQueueRecordMapper.decodeQueueState(data);
+        }
+        catch (RocksDBException e)
+        {
+            throw new StoreException("Failed to load queue state", e);
+        }
+    }
+
+    private QueueState loadQueueState(final ReadOptions readOptions, final UUID queueId)
+    {
+        RocksDB database = _environment.getDatabase();
+        ColumnFamilyHandle stateHandle = _environment.getColumnFamilyHandle(RocksDBColumnFamily.Q_STATE);
+        try
+        {
+            byte[] data = database.get(stateHandle, readOptions, encodeQueuePrefix(queueId));
+            if (data == null)
+            {
+                return null;
+            }
+            return RocksDBQueueRecordMapper.decodeQueueState(data);
+        }
+        catch (RocksDBException e)
+        {
+            throw new StoreException("Failed to load queue state", e);
+        }
+    }
+
+    /**
+     * Loads a queue segment.
+     *
+     * @param queueId queue id.
+     * @param segmentNo segment number.
+     *
+     * @return queue segment or null.
+     */
+    private QueueSegment loadQueueSegment(final UUID queueId, final long segmentNo)
+    {
+        RocksDB database = _environment.getDatabase();
+        ColumnFamilyHandle segmentHandle = _environment.getColumnFamilyHandle(RocksDBColumnFamily.Q_SEG);
+        try
+        {
+            byte[] data = database.get(segmentHandle, encodeQueueSegmentKey(queueId, segmentNo));
+            if (data == null)
+            {
+                return null;
+            }
+            return RocksDBQueueRecordMapper.decodeQueueSegment(data);
+        }
+        catch (RocksDBException e)
+        {
+            throw new StoreException("Failed to load queue segment", e);
+        }
+    }
+
+    private QueueSegment loadQueueSegment(final org.rocksdb.Transaction txn,
+                                          final UUID queueId,
+                                          final long segmentNo)
+    {
+        ColumnFamilyHandle segmentHandle = _environment.getColumnFamilyHandle(RocksDBColumnFamily.Q_SEG);
+        try (ReadOptions readOptions = new ReadOptions())
+        {
+            byte[] data = txn.getForUpdate(readOptions,
+                                           segmentHandle,
+                                           encodeQueueSegmentKey(queueId, segmentNo),
+                                           true);
+            if (data == null)
+            {
+                return null;
+            }
+            return RocksDBQueueRecordMapper.decodeQueueSegment(data);
+        }
+        catch (RocksDBException e)
+        {
+            throw new StoreException("Failed to load queue segment", e);
+        }
+    }
+
+    private QueueSegment loadQueueSegment(final ReadOptions readOptions, final UUID queueId, final long segmentNo)
+    {
+        RocksDB database = _environment.getDatabase();
+        ColumnFamilyHandle segmentHandle = _environment.getColumnFamilyHandle(RocksDBColumnFamily.Q_SEG);
+        try
+        {
+            byte[] data = database.get(segmentHandle, readOptions, encodeQueueSegmentKey(queueId, segmentNo));
+            if (data == null)
+            {
+                return null;
+            }
+            return RocksDBQueueRecordMapper.decodeQueueSegment(data);
+        }
+        catch (RocksDBException e)
+        {
+            throw new StoreException("Failed to load queue segment", e);
+        }
+    }
+
+    /**
+     * Recomputes queue state by scanning existing segments.
+     *
+     * @param queueId queue id.
+     * @param updates pending segment updates.
+     * @param deletions pending segment deletions.
+     *
+     * @return queue state or null.
+     */
+    private QueueState recomputeQueueState(final UUID queueId,
+                                           final ReadOptions readOptions,
+                                           final Map<QueueSegmentKey, QueueSegment> updates,
+                                           final Set<QueueSegmentKey> deletions)
+    {
+        RocksDB database = _environment.getDatabase();
+        ColumnFamilyHandle segmentHandle = _environment.getColumnFamilyHandle(RocksDBColumnFamily.Q_SEG);
+        byte[] prefix = encodeQueuePrefix(queueId);
+        long head = Long.MAX_VALUE;
+        long tail = Long.MIN_VALUE;
+        try (RocksIterator iterator = database.newIterator(segmentHandle, readOptions))
+        {
+            for (iterator.seek(prefix); iterator.isValid(); iterator.next())
+            {
+                byte[] key = iterator.key();
+                if (!hasPrefix(key, prefix))
+                {
+                    break;
+                }
+                long segmentNo = decodeQueueSegmentNo(key);
+                QueueSegmentKey segmentKey = new QueueSegmentKey(queueId, segmentNo);
+                if (deletions.contains(segmentKey))
+                {
+                    continue;
+                }
+                head = Math.min(head, segmentNo);
+                tail = Math.max(tail, segmentNo);
+            }
+        }
+        for (QueueSegmentKey key : updates.keySet())
+        {
+            if (key._queueId.equals(queueId))
+            {
+                head = Math.min(head, key._segmentNo);
+                tail = Math.max(tail, key._segmentNo);
+            }
+        }
+        if (head == Long.MAX_VALUE)
+        {
+            return null;
+        }
+        return new QueueState(head, tail);
+    }
+
+    /**
+     * Applies message chunking settings.
+     *
+     * @param settings RocksDB settings or null.
+     */
+    private void applyMessageChunkSettings(final RocksDBSettings settings)
+    {
+        int chunkSize = DEFAULT_CHUNK_SIZE;
+        int inlineThreshold = DEFAULT_CHUNK_SIZE;
+        if (settings != null)
+        {
+            Integer configuredChunkSize = settings.getMessageChunkSize();
+            if (configuredChunkSize != null && configuredChunkSize > 0)
+            {
+                chunkSize = configuredChunkSize;
+            }
+            Integer configuredInlineThreshold = settings.getMessageInlineThreshold();
+            if (configuredInlineThreshold != null && configuredInlineThreshold > 0)
+            {
+                inlineThreshold = configuredInlineThreshold;
+            }
+            else
+            {
+                inlineThreshold = chunkSize;
+            }
+        }
+        _messageChunkSize = chunkSize;
+        _messageInlineThreshold = inlineThreshold;
+    }
+
     /**
      * Persists message metadata and content.
      *
@@ -862,7 +1791,8 @@ public class RocksDBMessageStore implements MessageStore
      *
      * @throws StoreException on write errors.
      */
-    private void storeMessage(final long messageId,
+    private void storeMessage(final org.rocksdb.Transaction txn,
+                              final long messageId,
                               final StorableMessageMetaData metaData,
                               final byte[] content) throws StoreException
     {
@@ -870,15 +1800,62 @@ public class RocksDBMessageStore implements MessageStore
         ColumnFamilyHandle metadataHandle = _environment.getColumnFamilyHandle(RocksDBColumnFamily.MESSAGE_METADATA);
         ColumnFamilyHandle contentHandle = _environment.getColumnFamilyHandle(RocksDBColumnFamily.MESSAGE_CONTENT);
         byte[] key = encodeMessageKey(messageId);
-        try (WriteBatch batch = new WriteBatch(); WriteOptions options = new WriteOptions())
+        try
         {
-            batch.put(metadataHandle, key, encodeMetaData(metaData));
-            batch.put(contentHandle, key, content == null ? EMPTY_VALUE : content);
-            database.write(options, batch);
+            if (txn != null)
+            {
+                txn.put(metadataHandle, key, encodeMetaData(metaData, false, 0));
+                txn.put(contentHandle, key, content == null ? EMPTY_VALUE : content);
+            }
+            else
+            {
+                try (WriteBatch batch = new WriteBatch(); WriteOptions options = createWriteOptions())
+                {
+                    batch.put(metadataHandle, key, encodeMetaData(metaData, false, 0));
+                    batch.put(contentHandle, key, content == null ? EMPTY_VALUE : content);
+                    database.write(options, batch);
+                }
+            }
         }
         catch (RocksDBException e)
         {
             throw new StoreException("Failed to store message " + messageId, e);
+        }
+    }
+
+    /**
+     * Persists message metadata only.
+     *
+     * @param messageId message id.
+     * @param metaData message metadata.
+     * @param chunked true when content is chunked.
+     * @param chunkSize chunk size.
+     *
+     * @throws StoreException on write errors.
+     */
+    private void storeMessageMetadata(final org.rocksdb.Transaction txn,
+                                      final long messageId,
+                                      final StorableMessageMetaData metaData,
+                                      final boolean chunked,
+                                      final int chunkSize) throws StoreException
+    {
+        RocksDB database = _environment.getDatabase();
+        ColumnFamilyHandle metadataHandle = _environment.getColumnFamilyHandle(RocksDBColumnFamily.MESSAGE_METADATA);
+        byte[] key = encodeMessageKey(messageId);
+        try
+        {
+            if (txn != null)
+            {
+                txn.put(metadataHandle, key, encodeMetaData(metaData, chunked, chunkSize));
+            }
+            else
+            {
+                database.put(metadataHandle, key, encodeMetaData(metaData, chunked, chunkSize));
+            }
+        }
+        catch (RocksDBException e)
+        {
+            throw new StoreException("Failed to store message metadata " + messageId, e);
         }
     }
 
@@ -894,11 +1871,24 @@ public class RocksDBMessageStore implements MessageStore
         RocksDB database = _environment.getDatabase();
         ColumnFamilyHandle metadataHandle = _environment.getColumnFamilyHandle(RocksDBColumnFamily.MESSAGE_METADATA);
         ColumnFamilyHandle contentHandle = _environment.getColumnFamilyHandle(RocksDBColumnFamily.MESSAGE_CONTENT);
+        ColumnFamilyHandle chunkHandle = _environment.getColumnFamilyHandle(RocksDBColumnFamily.MESSAGE_CHUNKS);
         byte[] key = encodeMessageKey(messageId);
-        try (WriteBatch batch = new WriteBatch(); WriteOptions options = new WriteOptions())
+        byte[] prefix = encodeChunkPrefix(messageId);
+        try (WriteBatch batch = new WriteBatch();
+             WriteOptions options = createWriteOptions();
+             RocksIterator iterator = database.newIterator(chunkHandle))
         {
             batch.delete(metadataHandle, key);
             batch.delete(contentHandle, key);
+            for (iterator.seek(prefix); iterator.isValid(); iterator.next())
+            {
+                byte[] chunkKey = iterator.key();
+                if (!hasPrefix(chunkKey, prefix))
+                {
+                    break;
+                }
+                batch.delete(chunkHandle, Arrays.copyOf(chunkKey, chunkKey.length));
+            }
             database.write(options, batch);
         }
         catch (RocksDBException e)
@@ -914,7 +1904,7 @@ public class RocksDBMessageStore implements MessageStore
      *
      * @return the metadata.
      */
-    private StorableMessageMetaData loadMetaData(final long messageId)
+    private MetaDataRecord loadMetaDataRecord(final long messageId)
     {
         RocksDB database = _environment.getDatabase();
         ColumnFamilyHandle metadataHandle = _environment.getColumnFamilyHandle(RocksDBColumnFamily.MESSAGE_METADATA);
@@ -925,7 +1915,26 @@ public class RocksDBMessageStore implements MessageStore
             {
                 return null;
             }
-            return decodeMetaData(data);
+            return decodeMetaDataRecord(data);
+        }
+        catch (RocksDBException e)
+        {
+            throw new StoreException("Failed to load message metadata " + messageId, e);
+        }
+    }
+
+    private MetaDataRecord loadMetaDataRecord(final ReadOptions readOptions, final long messageId)
+    {
+        RocksDB database = _environment.getDatabase();
+        ColumnFamilyHandle metadataHandle = _environment.getColumnFamilyHandle(RocksDBColumnFamily.MESSAGE_METADATA);
+        try
+        {
+            byte[] data = database.get(metadataHandle, readOptions, encodeMessageKey(messageId));
+            if (data == null)
+            {
+                return null;
+            }
+            return decodeMetaDataRecord(data);
         }
         catch (RocksDBException e)
         {
@@ -956,43 +1965,192 @@ public class RocksDBMessageStore implements MessageStore
     }
 
     /**
+     * Stores a message content chunk.
+     *
+     * @param messageId message id.
+     * @param chunkIndex chunk index.
+     * @param data chunk data.
+     */
+    private void storeChunk(final org.rocksdb.Transaction txn,
+                            final long messageId,
+                            final int chunkIndex,
+                            final byte[] data)
+    {
+        RocksDB database = _environment.getDatabase();
+        ColumnFamilyHandle chunkHandle = _environment.getColumnFamilyHandle(RocksDBColumnFamily.MESSAGE_CHUNKS);
+        try
+        {
+            if (txn != null)
+            {
+                txn.put(chunkHandle, encodeChunkKey(messageId, chunkIndex), data);
+            }
+            else
+            {
+                database.put(chunkHandle, encodeChunkKey(messageId, chunkIndex), data);
+            }
+        }
+        catch (RocksDBException e)
+        {
+            throw new StoreException("Failed to store message chunk " + messageId + ":" + chunkIndex, e);
+        }
+    }
+
+    /**
+     * Loads a message content chunk.
+     *
+     * @param messageId message id.
+     * @param chunkIndex chunk index.
+     *
+     * @return the chunk bytes.
+     */
+    private byte[] loadChunk(final long messageId, final int chunkIndex)
+    {
+        RocksDB database = _environment.getDatabase();
+        ColumnFamilyHandle chunkHandle = _environment.getColumnFamilyHandle(RocksDBColumnFamily.MESSAGE_CHUNKS);
+        try
+        {
+            byte[] data = database.get(chunkHandle, encodeChunkKey(messageId, chunkIndex));
+            return data == null ? EMPTY_VALUE : data;
+        }
+        catch (RocksDBException e)
+        {
+            throw new StoreException("Failed to load message chunk " + messageId + ":" + chunkIndex, e);
+        }
+    }
+
+    /**
+     * Loads chunked content slice.
+     *
+     * @param messageId message id.
+     * @param contentSize content size.
+     * @param chunkSize chunk size.
+     * @param offset offset in content.
+     * @param length requested length or Integer.MAX_VALUE.
+     *
+     * @return the content slice bytes.
+     */
+    private byte[] loadChunkedContentSlice(final long messageId,
+                                           final int contentSize,
+                                           final int chunkSize,
+                                           final int offset,
+                                           final int length)
+    {
+        if (chunkSize <= 0)
+        {
+            return EMPTY_VALUE;
+        }
+        if (offset >= contentSize)
+        {
+            return EMPTY_VALUE;
+        }
+        int available = contentSize - offset;
+        int size = length == Integer.MAX_VALUE ? available : Math.min(length, available);
+        if (size <= 0)
+        {
+            return EMPTY_VALUE;
+        }
+
+        int startChunk = offset / chunkSize;
+        int endChunk = (offset + size - 1) / chunkSize;
+        int maxChunkIndex = (contentSize - 1) / chunkSize;
+        int remaining = size;
+        byte[] result = new byte[size];
+        int destPos = 0;
+
+        for (int chunkIndex = startChunk; chunkIndex <= endChunk; chunkIndex++)
+        {
+            byte[] chunk = loadChunk(messageId, chunkIndex);
+            int expectedLength = chunkIndex == maxChunkIndex
+                    ? (contentSize - (chunkIndex * chunkSize))
+                    : chunkSize;
+            if (chunk.length < expectedLength)
+            {
+                throw new StoreException("Missing or truncated message chunk "
+                                         + messageId + ":" + chunkIndex
+                                         + " (expected at least " + expectedLength
+                                         + " bytes, got " + chunk.length + ")");
+            }
+            int chunkOffset = chunkIndex == startChunk ? (offset % chunkSize) : 0;
+            int chunkAvailable = chunk.length - chunkOffset;
+            int copySize = Math.min(remaining, chunkAvailable);
+            if (copySize > 0)
+            {
+                System.arraycopy(chunk, chunkOffset, result, destPos, copySize);
+                destPos += copySize;
+                remaining -= copySize;
+            }
+        }
+        return result;
+    }
+
+    /**
      * Encodes message metadata.
      *
      * @param metaData message metadata.
      *
      * @return encoded metadata bytes.
      */
-    private byte[] encodeMetaData(final StorableMessageMetaData metaData)
+    private byte[] encodeMetaData(final StorableMessageMetaData metaData,
+                                  final boolean chunked,
+                                  final int chunkSize)
     {
-        int bodySize = 1 + metaData.getStorableSize();
-        byte[] data = new byte[bodySize];
-        data[0] = (byte) metaData.getType().ordinal();
+        int payloadSize = 1 + metaData.getStorableSize();
+        byte[] data = new byte[METADATA_HEADER_BYTES + payloadSize];
+        data[0] = (byte) (METADATA_FORMAT_MARKER | METADATA_FORMAT_VERSION);
+        data[1] = chunked ? METADATA_FLAG_CHUNKED : 0;
+        writeInt(data, 2, chunkSize);
+        data[METADATA_HEADER_BYTES] = (byte) metaData.getType().ordinal();
         try (QpidByteBuffer buffer = QpidByteBuffer.wrap(data))
         {
-            buffer.position(1);
+            buffer.position(METADATA_HEADER_BYTES + 1);
             metaData.writeToBuffer(buffer);
         }
         return data;
     }
 
     /**
-     * Decodes message metadata.
+     * Decodes message metadata record.
      *
      * @param data encoded metadata bytes.
      *
-     * @return the decoded metadata.
+     * @return the decoded metadata record.
      */
-    private StorableMessageMetaData decodeMetaData(final byte[] data)
+    private MetaDataRecord decodeMetaDataRecord(final byte[] data)
     {
         if (data.length == 0)
         {
             throw new StoreException("Empty metadata record");
         }
-        int ordinal = data[0] & 0xff;
-        MessageMetaDataType type = MessageMetaDataTypeRegistry.fromOrdinal(ordinal);
-        try (QpidByteBuffer buffer = QpidByteBuffer.wrap(data, 1, data.length - 1))
+        int offset = 0;
+        boolean chunked = false;
+        int chunkSize = 0;
+        int first = data[0] & 0xff;
+        if ((first & 0x80) != 0)
         {
-            return type.createMetaData(buffer);
+            int version = first & 0x7f;
+            if (version != METADATA_FORMAT_VERSION)
+            {
+                throw new StoreException("Unsupported metadata version " + version);
+            }
+            if (data.length < METADATA_HEADER_BYTES + 1)
+            {
+                throw new StoreException("Invalid metadata record length: " + data.length);
+            }
+            chunked = (data[1] & METADATA_FLAG_CHUNKED) != 0;
+            chunkSize = readInt(data, 2);
+            offset = METADATA_HEADER_BYTES;
+        }
+        int ordinal = data[offset] & 0xff;
+        MessageMetaDataType type = MessageMetaDataTypeRegistry.fromOrdinal(ordinal);
+        int payloadOffset = offset + 1;
+        int payloadLength = data.length - payloadOffset;
+        try (QpidByteBuffer buffer = QpidByteBuffer.allocateDirect(payloadLength))
+        {
+            // Align with BDB by decoding metadata from a direct buffer.
+            buffer.put(data, payloadOffset, payloadLength);
+            buffer.flip();
+            StorableMessageMetaData metaData = type.createMetaData(buffer);
+            return new MetaDataRecord(metaData, chunked, chunkSize);
         }
     }
 
@@ -1017,30 +2175,29 @@ public class RocksDBMessageStore implements MessageStore
      *
      * @throws StoreException on store errors.
      */
-    private void storeXidRecords(final List<XidRecord> xidRecords,
-                                 final List<byte[]> deletions) throws StoreException
+    private void applyXidRecordsToTransaction(final org.rocksdb.Transaction txn,
+                                              final List<XidRecord> xidRecords,
+                                              final List<byte[]> deletions) throws StoreException
     {
         if (xidRecords.isEmpty() && deletions.isEmpty())
         {
             return;
         }
-        RocksDB database = _environment.getDatabase();
         ColumnFamilyHandle xidHandle = _environment.getColumnFamilyHandle(RocksDBColumnFamily.XIDS);
-        try (WriteBatch batch = new WriteBatch(); WriteOptions options = new WriteOptions())
+        try
         {
             for (XidRecord record : xidRecords)
             {
-                batch.put(xidHandle, record.getKey(), record.getValue());
+                txn.put(xidHandle, record.getKey(), record.getValue());
             }
             for (byte[] key : deletions)
             {
-                batch.delete(xidHandle, key);
+                txn.delete(xidHandle, key);
             }
-            database.write(options, batch);
         }
         catch (RocksDBException e)
         {
-            throw new StoreException("Failed to store XID records", e);
+            throw new StoreException("Failed to persist XID records", e);
         }
     }
 
@@ -1052,863 +2209,198 @@ public class RocksDBMessageStore implements MessageStore
      *
      * @throws StoreException on store errors.
      */
-    private void storeQueueEntries(final List<RocksDBEnqueueRecord> enqueues,
-                                   final List<RocksDBEnqueueRecord> dequeues) throws StoreException
+    private void applyQueueEntriesToTransaction(final org.rocksdb.Transaction txn,
+                                                final List<RocksDBEnqueueRecord> enqueues,
+                                                final List<RocksDBEnqueueRecord> dequeues) throws StoreException
     {
         if (enqueues.isEmpty() && dequeues.isEmpty())
         {
             return;
         }
-        RocksDB database = _environment.getDatabase();
-        ColumnFamilyHandle queueHandle = _environment.getColumnFamilyHandle(RocksDBColumnFamily.QUEUE_ENTRIES);
-        try (WriteBatch batch = new WriteBatch(); WriteOptions options = new WriteOptions())
+        ColumnFamilyHandle segmentHandle = _environment.getColumnFamilyHandle(RocksDBColumnFamily.Q_SEG);
+        ColumnFamilyHandle stateHandle = _environment.getColumnFamilyHandle(RocksDBColumnFamily.Q_STATE);
+
+        Map<QueueSegmentKey, QueueSegment> segmentUpdates = new HashMap<>();
+        Set<QueueSegmentKey> segmentDeletions = new HashSet<>();
+        Map<UUID, QueueState> queueStates = new HashMap<>();
+
+        for (RocksDBEnqueueRecord record : enqueues)
         {
-            for (RocksDBEnqueueRecord record : enqueues)
+            UUID queueId = record.getQueueId();
+            long messageId = record.getMessageNumber();
+            long segmentNo = getQueueSegmentNo(messageId);
+            QueueSegmentKey segmentKey = new QueueSegmentKey(queueId, segmentNo);
+            QueueSegment segment = segmentUpdates.get(segmentKey);
+            if (segment == null && !segmentDeletions.contains(segmentKey))
             {
-                batch.put(queueHandle, encodeQueueEntryKey(record.getQueueId(), record.getMessageNumber()),
-                          EMPTY_VALUE);
+                segment = loadQueueSegment(txn, queueId, segmentNo);
             }
-            for (RocksDBEnqueueRecord record : dequeues)
+            boolean newSegment = false;
+            if (segment == null)
             {
-                batch.delete(queueHandle, encodeQueueEntryKey(record.getQueueId(), record.getMessageNumber()));
-            }
-            database.write(options, batch);
-        }
-        catch (RocksDBException e)
-        {
-            throw new StoreException("Failed to store queue entries", e);
-        }
-    }
-
-    /**
-     * Ensures messages referenced by enqueues are stored.
-     *
-     * @param enqueues enqueue records.
-     */
-    private void ensureMessagesStored(final Transaction.EnqueueRecord[] enqueues)
-    {
-        if (enqueues == null)
-        {
-            return;
-        }
-        for (Transaction.EnqueueRecord record : enqueues)
-        {
-            EnqueueableMessage message = record.getMessage();
-            if (message != null && message.isPersistent())
-            {
-                StoredMessage storedMessage = message.getStoredMessage();
-                if (storedMessage != null)
-                {
-                    storedMessage.flowToDisk();
-                }
-            }
-        }
-    }
-
-    /**
-     * Represents stored message data.
-     *
-     * Thread-safety: supports concurrent access after persistence.
-     */
-    private final class RocksDBStoredMessage<T extends StorableMessageMetaData>
-            implements StoredMessage<T>, MessageHandle<T>
-    {
-        private final long _messageId;
-        private final int _contentSize;
-        private final int _metadataSize;
-
-        private T _metaData;
-        private byte[] _content;
-        private ByteArrayOutputStream _contentStream;
-        private boolean _stored;
-        private boolean _hardRef;
-
-        /**
-         * Creates a new stored message.
-         *
-         * @param messageId message id.
-         * @param metaData message metadata.
-         */
-        private RocksDBStoredMessage(final long messageId, final T metaData)
-        {
-            _messageId = messageId;
-            _metaData = metaData;
-            _metadataSize = metaData.getStorableSize();
-            _contentSize = metaData.getContentSize();
-            _contentStream = new ByteArrayOutputStream(Math.max(_contentSize, 0));
-            _stored = false;
-            _hardRef = true;
-            _inMemorySize.addAndGet(_metadataSize);
-        }
-
-        /**
-         * Creates a recovered stored message.
-         *
-         * @param messageId message id.
-         * @param metaData message metadata.
-         * @param stored true when already stored.
-         */
-        private RocksDBStoredMessage(final long messageId, final T metaData, final boolean stored)
-        {
-            _messageId = messageId;
-            _metaData = metaData;
-            _metadataSize = metaData.getStorableSize();
-            _contentSize = metaData.getContentSize();
-            _stored = stored;
-            _hardRef = !stored;
-            _inMemorySize.addAndGet(_metadataSize);
-        }
-
-        /**
-         * Adds content data.
-         *
-         * @param src content buffer.
-         */
-        @Override
-        public void addContent(final QpidByteBuffer src)
-        {
-            if (_contentStream == null)
-            {
-                _contentStream = new ByteArrayOutputStream();
-            }
-            byte[] chunk = new byte[src.remaining()];
-            src.get(chunk);
-            _contentStream.write(chunk, 0, chunk.length);
-        }
-
-        /**
-         * Marks all content as added and persists the message.
-         *
-         * @return the stored message.
-         */
-        @Override
-        public synchronized StoredMessage<T> allContentAdded()
-        {
-            _inMemorySize.addAndGet(_contentSize);
-            storeIfNecessary();
-            return this;
-        }
-
-        /**
-         * Returns the message metadata.
-         *
-         * @return the message metadata.
-         */
-        @Override
-        public synchronized T getMetaData()
-        {
-            if (_metaData == null)
-            {
-                @SuppressWarnings("unchecked")
-                T metaData = (T) loadMetaData(_messageId);
-                _metaData = metaData;
-                _inMemorySize.addAndGet(_metadataSize);
-            }
-            return _metaData;
-        }
-
-        /**
-         * Returns the message id.
-         *
-         * @return the message id.
-         */
-        @Override
-        public long getMessageNumber()
-        {
-            return _messageId;
-        }
-
-        /**
-         * Returns message content.
-         *
-         * @param offset offset in content.
-         * @param length content length or Integer.MAX_VALUE.
-         *
-         * @return the content buffer.
-         */
-        @Override
-        public synchronized QpidByteBuffer getContent(final int offset, final int length)
-        {
-            byte[] content = loadContentIfNecessary();
-            if (offset >= content.length)
-            {
-                return QpidByteBuffer.emptyQpidByteBuffer();
-            }
-            int available = content.length - offset;
-            int size = length == Integer.MAX_VALUE ? available : Math.min(length, available);
-            return QpidByteBuffer.wrap(content, offset, size);
-        }
-
-        /**
-         * Returns the content size.
-         *
-         * @return the content size.
-         */
-        @Override
-        public int getContentSize()
-        {
-            return _contentSize;
-        }
-
-        /**
-         * Returns the metadata size.
-         *
-         * @return the metadata size.
-         */
-        @Override
-        public int getMetadataSize()
-        {
-            return _metadataSize;
-        }
-
-        /**
-         * Removes the message from the store.
-         */
-        @Override
-        public void remove()
-        {
-            deleteMessage(_messageId);
-            notifyMessageDeleted(this);
-            long bytesCleared = clearInMemory(true);
-            _inMemorySize.addAndGet(-bytesCleared);
-        }
-
-        /**
-         * Returns whether content is in memory.
-         *
-         * @return true when content is in memory.
-         */
-        @Override
-        public boolean isInContentInMemory()
-        {
-            return _hardRef || _content != null || _contentStream != null;
-        }
-
-        /**
-         * Returns in-memory size estimate.
-         *
-         * @return the in-memory size.
-         */
-        @Override
-        public long getInMemorySize()
-        {
-            long size = 0L;
-            if (_hardRef)
-            {
-                size += _metadataSize + _contentSize;
+                segmentDeletions.remove(segmentKey);
+                segment = new QueueSegment(new long[]{messageId}, new BitSet(), 1, 0);
+                newSegment = true;
             }
             else
             {
-                if (_metaData != null)
+                long[] messageIds = segment._messageIds;
+                int index = Arrays.binarySearch(messageIds, messageId);
+                if (index >= 0)
                 {
-                    size += _metadataSize;
+                    segmentUpdates.put(segmentKey, segment);
+                    continue;
                 }
-                if (_content != null || _contentStream != null)
+                int insertIndex = -index - 1;
+                long[] updated = new long[segment._entryCount + 1];
+                System.arraycopy(messageIds, 0, updated, 0, insertIndex);
+                updated[insertIndex] = messageId;
+                System.arraycopy(messageIds, insertIndex, updated, insertIndex + 1, segment._entryCount - insertIndex);
+                segment._messageIds = updated;
+                if (insertIndex < segment._entryCount)
                 {
-                    size += _contentSize;
+                    segment._acked = RocksDBQueueRecordMapper.insertAckBit(segment._acked, insertIndex);
                 }
+                segment._entryCount++;
             }
-            return size;
-        }
+            segmentUpdates.put(segmentKey, segment);
 
-        /**
-         * Forces message persistence.
-         *
-         * @return true if message was persisted.
-         */
-        @Override
-        public synchronized boolean flowToDisk()
-        {
-            storeIfNecessary();
-            if (!_hardRef)
+            QueueState state = queueStates.get(queueId);
+            if (state == null)
             {
-                long bytesCleared = clearInMemory(false);
-                _inMemorySize.addAndGet(-bytesCleared);
-                _bytesEvacuatedFromMemory.addAndGet(bytesCleared);
-            }
-            return true;
-        }
-
-        /**
-         * Reallocates message metadata buffers.
-         */
-        @Override
-        public synchronized void reallocate()
-        {
-            if (_metaData != null)
-            {
-                _metaData.reallocate();
-            }
-        }
-
-        /**
-         * Stores the message if not yet stored.
-         */
-        private void storeIfNecessary()
-        {
-            if (_stored)
-            {
-                return;
-            }
-            byte[] content = _contentStream == null
-                    ? (_content == null ? EMPTY_VALUE : _content)
-                    : _contentStream.toByteArray();
-            storeMessage(_messageId, _metaData, content);
-            if (_contentStream != null)
-            {
-                _content = content;
-                _contentStream = null;
-            }
-            _stored = true;
-            _hardRef = false;
-        }
-
-        /**
-         * Loads content if it is not cached.
-         *
-         * @return the content bytes.
-         */
-        private byte[] loadContentIfNecessary()
-        {
-            if (_content == null)
-            {
-                if (_contentStream != null)
+                state = loadQueueState(txn, queueId);
+                if (state == null)
                 {
-                    _content = _contentStream.toByteArray();
-                    return _content;
+                    state = new QueueState(segmentNo, segmentNo);
                 }
-                _content = loadContent(_messageId);
-                _inMemorySize.addAndGet(_contentSize);
+                queueStates.put(queueId, state);
             }
-            return _content;
+            if (newSegment)
+            {
+                state._headSegment = Math.min(state._headSegment, segmentNo);
+                state._tailSegment = Math.max(state._tailSegment, segmentNo);
+            }
         }
 
-        /**
-         * Clears message data from memory.
-         *
-         * @param close true to dispose metadata, false to clear encoded form.
-         *
-         * @return the number of bytes cleared.
-         */
-        private long clearInMemory(final boolean close)
+        for (RocksDBEnqueueRecord record : dequeues)
         {
-            long bytesCleared = 0L;
-            if (_contentStream != null || _content != null)
+            UUID queueId = record.getQueueId();
+            long messageId = record.getMessageNumber();
+            long segmentNo = getQueueSegmentNo(messageId);
+            QueueSegmentKey segmentKey = new QueueSegmentKey(queueId, segmentNo);
+            QueueSegment segment = segmentUpdates.get(segmentKey);
+            if (segment == null && !segmentDeletions.contains(segmentKey))
             {
-                bytesCleared += _contentSize;
-                _contentStream = null;
-                _content = null;
+                segment = loadQueueSegment(txn, queueId, segmentNo);
             }
-            if (_metaData != null)
+            if (segment == null)
             {
-                bytesCleared += _metadataSize;
-                try
+                continue;
+            }
+            int index = Arrays.binarySearch(segment._messageIds, messageId);
+            if (index < 0 || segment._acked.get(index))
+            {
+                continue;
+            }
+            segment._acked.set(index);
+            segment._ackedCount++;
+            if (segment._ackedCount >= segment._entryCount)
+            {
+                segmentUpdates.remove(segmentKey);
+                segmentDeletions.add(segmentKey);
+
+                QueueState state = queueStates.get(queueId);
+                if (state == null)
                 {
-                    if (close)
+                    state = loadQueueState(txn, queueId);
+                    if (state == null)
                     {
-                        _metaData.dispose();
+                        continue;
+                    }
+                    queueStates.put(queueId, state);
+                }
+                if (state._headSegment == segmentNo)
+                {
+                    state._headDirty = true;
+                }
+                if (state._tailSegment == segmentNo)
+                {
+                    state._tailDirty = true;
+                }
+            }
+            else
+            {
+                segmentUpdates.put(segmentKey, segment);
+            }
+        }
+
+        RocksDB database = _environment.getDatabase();
+        Snapshot snapshot = database.getSnapshot();
+        try (ReadOptions readOptions = new ReadOptions().setSnapshot(snapshot))
+        {
+            for (Map.Entry<UUID, QueueState> entry : queueStates.entrySet())
+            {
+                QueueState state = entry.getValue();
+                if (state._headDirty || state._tailDirty)
+                {
+                    QueueState recalculated =
+                            recomputeQueueState(entry.getKey(), readOptions, segmentUpdates, segmentDeletions);
+                    if (recalculated == null)
+                    {
+                        state._exists = false;
                     }
                     else
                     {
-                        _metaData.clearEncodedForm();
+                        state._headSegment = recalculated._headSegment;
+                        state._tailSegment = recalculated._tailSegment;
+                        state._exists = true;
                     }
                 }
-                finally
+            }
+        }
+        finally
+        {
+            database.releaseSnapshot(snapshot);
+        }
+
+        if (segmentUpdates.isEmpty() && segmentDeletions.isEmpty() && queueStates.isEmpty())
+        {
+            return;
+        }
+        try
+        {
+            for (Map.Entry<QueueSegmentKey, QueueSegment> entry : segmentUpdates.entrySet())
+            {
+                QueueSegmentKey key = entry.getKey();
+                if (!segmentDeletions.contains(key))
                 {
-                    _metaData = null;
+                    txn.put(segmentHandle,
+                            encodeQueueSegmentKey(key._queueId, key._segmentNo),
+                            RocksDBQueueRecordMapper.encodeQueueSegment(entry.getValue()));
                 }
             }
-            return bytesCleared;
-        }
-    }
-
-    /**
-     * Represents a queue entry record.
-     *
-     * Thread-safety: immutable.
-     */
-    private static final class RocksDBEnqueueRecord implements MessageEnqueueRecord
-    {
-        private final UUID _queueId;
-        private final long _messageNumber;
-
-        /**
-         * Creates an enqueue record.
-         *
-         * @param queueId queue id.
-         * @param messageNumber message number.
-         */
-        private RocksDBEnqueueRecord(final UUID queueId, final long messageNumber)
-        {
-            _queueId = queueId;
-            _messageNumber = messageNumber;
-        }
-
-        /**
-         * Returns the queue id.
-         *
-         * @return the queue id.
-         */
-        @Override
-        public UUID getQueueId()
-        {
-            return _queueId;
-        }
-
-        /**
-         * Returns the message number.
-         *
-         * @return the message number.
-         */
-        @Override
-        public long getMessageNumber()
-        {
-            return _messageNumber;
-        }
-    }
-
-    /**
-     * Represents a stored XID record.
-     *
-     * Thread-safety: immutable.
-     */
-    private static final class RocksDBStoredXidRecord implements Transaction.StoredXidRecord
-    {
-        private final long _format;
-        private final byte[] _globalId;
-        private final byte[] _branchId;
-
-        /**
-         * Creates a stored XID record.
-         *
-         * @param format format.
-         * @param globalId global id.
-         * @param branchId branch id.
-         */
-        private RocksDBStoredXidRecord(final long format, final byte[] globalId, final byte[] branchId)
-        {
-            _format = format;
-            _globalId = globalId;
-            _branchId = branchId;
-        }
-
-        /**
-         * Returns the format.
-         *
-         * @return the format.
-         */
-        @Override
-        public long getFormat()
-        {
-            return _format;
-        }
-
-        /**
-         * Returns the global id.
-         *
-         * @return the global id.
-         */
-        @Override
-        public byte[] getGlobalId()
-        {
-            return _globalId;
-        }
-
-        /**
-         * Returns the branch id.
-         *
-         * @return the branch id.
-         */
-        @Override
-        public byte[] getBranchId()
-        {
-            return _branchId;
-        }
-
-        /**
-         * Compares XID records by value.
-         *
-         * @param object object to compare.
-         *
-         * @return true when the records match.
-         */
-        @Override
-        public boolean equals(final Object object)
-        {
-            if (this == object)
+            for (QueueSegmentKey key : segmentDeletions)
             {
-                return true;
+                txn.delete(segmentHandle, encodeQueueSegmentKey(key._queueId, key._segmentNo));
             }
-            if (object == null || getClass() != object.getClass())
+            for (Map.Entry<UUID, QueueState> entry : queueStates.entrySet())
             {
-                return false;
-            }
-
-            RocksDBStoredXidRecord that = (RocksDBStoredXidRecord) object;
-            return _format == that._format
-                   && Arrays.equals(_globalId, that._globalId)
-                   && Arrays.equals(_branchId, that._branchId);
-        }
-
-        /**
-         * Returns the hash code for the XID record.
-         *
-         * @return hash code.
-         */
-        @Override
-        public int hashCode()
-        {
-            int result = (int) (_format ^ (_format >>> 32));
-            result = 31 * result + Arrays.hashCode(_globalId);
-            result = 31 * result + Arrays.hashCode(_branchId);
-            return result;
-        }
-    }
-
-    /**
-     * Represents an XID record entry.
-     *
-     * Thread-safety: immutable.
-     */
-    private static final class XidRecord
-    {
-        private final byte[] _key;
-        private final byte[] _value;
-
-        /**
-         * Creates an XID record.
-         *
-         * @param key XID key.
-         * @param value XID value.
-         */
-        private XidRecord(final byte[] key, final byte[] value)
-        {
-            _key = key;
-            _value = value;
-        }
-
-        /**
-         * Returns the XID key.
-         *
-         * @return the key.
-         */
-        private byte[] getKey()
-        {
-            return _key;
-        }
-
-        /**
-         * Returns the XID value.
-         *
-         * @return the value.
-         */
-        private byte[] getValue()
-        {
-            return _value;
-        }
-    }
-
-    /**
-     * Holds decoded XID actions.
-     *
-     * Thread-safety: immutable.
-     */
-    private static final class XidActions
-    {
-        private final List<RecordImpl> _enqueues;
-        private final List<RecordImpl> _dequeues;
-
-        /**
-         * Creates XID actions.
-         *
-         * @param enqueues enqueue records.
-         * @param dequeues dequeue records.
-         */
-        private XidActions(final List<RecordImpl> enqueues, final List<RecordImpl> dequeues)
-        {
-            _enqueues = enqueues;
-            _dequeues = dequeues;
-        }
-
-        /**
-         * Returns enqueue records.
-         *
-         * @return enqueue records.
-         */
-        private List<RecordImpl> getEnqueues()
-        {
-            return _enqueues;
-        }
-
-        /**
-         * Returns dequeue records.
-         *
-         * @return dequeue records.
-         */
-        private List<RecordImpl> getDequeues()
-        {
-            return _dequeues;
-        }
-    }
-
-    /**
-     * Represents a transaction record used for distributed transactions.
-     *
-     * Thread-safety: immutable.
-     */
-    private static final class RecordImpl implements Transaction.EnqueueRecord,
-                                                     Transaction.DequeueRecord,
-                                                     TransactionLogResource,
-                                                     EnqueueableMessage
-    {
-        private final RocksDBEnqueueRecord _record;
-        private final long _messageNumber;
-        private final UUID _queueId;
-
-        /**
-         * Creates a record instance.
-         *
-         * @param queueId queue id.
-         * @param messageNumber message number.
-         */
-        private RecordImpl(final UUID queueId, final long messageNumber)
-        {
-            _queueId = queueId;
-            _messageNumber = messageNumber;
-            _record = new RocksDBEnqueueRecord(queueId, messageNumber);
-        }
-
-        /**
-         * Returns the enqueue record.
-         *
-         * @return the enqueue record.
-         */
-        @Override
-        public MessageEnqueueRecord getEnqueueRecord()
-        {
-            return _record;
-        }
-
-        /**
-         * Returns the queue resource.
-         *
-         * @return the queue resource.
-         */
-        @Override
-        public TransactionLogResource getResource()
-        {
-            return this;
-        }
-
-        /**
-         * Returns the message for the enqueue record.
-         *
-         * @return the message.
-         */
-        @Override
-        public EnqueueableMessage getMessage()
-        {
-            return this;
-        }
-
-        /**
-         * Returns the message number.
-         *
-         * @return the message number.
-         */
-        @Override
-        public long getMessageNumber()
-        {
-            return _messageNumber;
-        }
-
-        /**
-         * Returns whether the message is persistent.
-         *
-         * @return true for persistence.
-         */
-        @Override
-        public boolean isPersistent()
-        {
-            return true;
-        }
-
-        /**
-         * Returns the stored message.
-         *
-         * @return the stored message.
-         */
-        @Override
-        public StoredMessage getStoredMessage()
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        /**
-         * Returns the queue name.
-         *
-         * @return the queue name.
-         */
-        @Override
-        public String getName()
-        {
-            return _queueId.toString();
-        }
-
-        /**
-         * Returns the queue id.
-         *
-         * @return the queue id.
-         */
-        @Override
-        public UUID getId()
-        {
-            return _queueId;
-        }
-
-        /**
-         * Returns the message durability.
-         *
-         * @return the message durability.
-         */
-        @Override
-        public MessageDurability getMessageDurability()
-        {
-            return MessageDurability.DEFAULT;
-        }
-    }
-
-    /**
-     * Provides a RocksDB-backed transaction.
-     *
-     * Thread-safety: not thread-safe.
-     */
-    private final class RocksDBTransaction implements Transaction
-    {
-        private final List<RocksDBEnqueueRecord> _enqueues = new ArrayList<>();
-        private final List<RocksDBEnqueueRecord> _dequeues = new ArrayList<>();
-        private final List<XidRecord> _xidRecords = new ArrayList<>();
-        private final List<byte[]> _xidRemovals = new ArrayList<>();
-
-        /**
-         * Enqueues a message within the transaction.
-         *
-         * @param queue queue resource.
-         * @param message message to enqueue.
-         *
-         * @return the enqueue record.
-         */
-        @Override
-        public MessageEnqueueRecord enqueueMessage(final TransactionLogResource queue,
-                                                   final EnqueueableMessage message)
-        {
-            if (message != null && message.isPersistent())
-            {
-                StoredMessage storedMessage = message.getStoredMessage();
-                if (storedMessage != null)
+                UUID queueId = entry.getKey();
+                QueueState state = entry.getValue();
+                if (state._exists)
                 {
-                    storedMessage.flowToDisk();
+                    txn.put(stateHandle, encodeQueuePrefix(queueId),
+                            RocksDBQueueRecordMapper.encodeQueueState(state._headSegment, state._tailSegment));
+                }
+                else
+                {
+                    txn.delete(stateHandle, encodeQueuePrefix(queueId));
                 }
             }
-            RocksDBEnqueueRecord record = new RocksDBEnqueueRecord(queue.getId(), message.getMessageNumber());
-            _enqueues.add(record);
-            return record;
         }
-
-        /**
-         * Dequeues a message within the transaction.
-         *
-         * @param enqueueRecord enqueue record to dequeue.
-         */
-        @Override
-        public void dequeueMessage(final MessageEnqueueRecord enqueueRecord)
+        catch (RocksDBException e)
         {
-            _dequeues.add(new RocksDBEnqueueRecord(enqueueRecord.getQueueId(), enqueueRecord.getMessageNumber()));
-        }
-
-        /**
-         * Commits the transaction.
-         */
-        @Override
-        public void commitTran()
-        {
-            synchronized (_transactionLock)
-            {
-                storeQueueEntries(_enqueues, _dequeues);
-                storeXidRecords(_xidRecords, _xidRemovals);
-            }
-            clear();
-        }
-
-        /**
-         * Commits the transaction asynchronously.
-         *
-         * @param val value to return.
-         * @param <X> return type.
-         *
-         * @return completed future.
-         */
-        @Override
-        public <X> CompletableFuture<X> commitTranAsync(final X val)
-        {
-            commitTran();
-            return CompletableFuture.completedFuture(val);
-        }
-
-        /**
-         * Aborts the transaction.
-         */
-        @Override
-        public void abortTran()
-        {
-            clear();
-        }
-
-        /**
-         * Removes an XID record.
-         *
-         * @param record stored XID record.
-         */
-        @Override
-        public void removeXid(final StoredXidRecord record)
-        {
-            _xidRemovals.add(encodeXidKey(record.getFormat(), record.getGlobalId(), record.getBranchId()));
-        }
-
-        /**
-         * Records an XID with actions.
-         *
-         * @param format format.
-         * @param globalId global id.
-         * @param branchId branch id.
-         * @param enqueues enqueue records.
-         * @param dequeues dequeue records.
-         *
-         * @return the stored XID record.
-         */
-        @Override
-        public StoredXidRecord recordXid(final long format,
-                                         final byte[] globalId,
-                                         final byte[] branchId,
-                                         final EnqueueRecord[] enqueues,
-                                         final DequeueRecord[] dequeues)
-        {
-            ensureMessagesStored(enqueues);
-            byte[] key = encodeXidKey(format, globalId, branchId);
-            byte[] value = encodeXidValue(enqueues, dequeues);
-            _xidRecords.add(new XidRecord(key, value));
-            return new RocksDBStoredXidRecord(format, globalId, branchId);
-        }
-
-        /**
-         * Clears pending transaction data.
-         */
-        private void clear()
-        {
-            _enqueues.clear();
-            _dequeues.clear();
-            _xidRecords.clear();
-            _xidRemovals.clear();
+            throw new StoreException("Failed to persist queue segments", e);
         }
     }
 
@@ -1919,6 +2411,13 @@ public class RocksDBMessageStore implements MessageStore
      */
     private final class RocksDBMessageStoreReader implements MessageStoreReader
     {
+        private final RocksDB _database;
+
+        private RocksDBMessageStoreReader()
+        {
+            _database = _environment.getDatabase();
+        }
+
         /**
          * Visits all stored messages.
          *
@@ -1929,21 +2428,26 @@ public class RocksDBMessageStore implements MessageStore
         @Override
         public void visitMessages(final MessageHandler handler) throws StoreException
         {
-            RocksDB database = _environment.getDatabase();
             ColumnFamilyHandle metadataHandle =
                     _environment.getColumnFamilyHandle(RocksDBColumnFamily.MESSAGE_METADATA);
-            try (RocksIterator iterator = database.newIterator(metadataHandle))
+            Snapshot snapshot = _database.getSnapshot();
+            try (ReadOptions readOptions = new ReadOptions().setSnapshot(snapshot);
+                 RocksIterator iterator = _database.newIterator(metadataHandle, readOptions))
             {
                 for (iterator.seekToFirst(); iterator.isValid(); iterator.next())
                 {
                     long messageId = decodeMessageKey(iterator.key());
-                    StorableMessageMetaData metaData = decodeMetaData(iterator.value());
-                    StoredMessage<?> message = new RocksDBStoredMessage<>(messageId, metaData, true);
+                    MetaDataRecord record = decodeMetaDataRecord(iterator.value());
+                    StoredMessage<?> message = new RocksDBStoredMessage<>(_storedMessageAccess, messageId, record, true);
                     if (!handler.handle(message))
                     {
                         return;
                     }
                 }
+            }
+            finally
+            {
+                _database.releaseSnapshot(snapshot);
             }
         }
 
@@ -1957,20 +2461,31 @@ public class RocksDBMessageStore implements MessageStore
         @Override
         public void visitMessageInstances(final MessageInstanceHandler handler) throws StoreException
         {
-            RocksDB database = _environment.getDatabase();
-            ColumnFamilyHandle queueHandle = _environment.getColumnFamilyHandle(RocksDBColumnFamily.QUEUE_ENTRIES);
-            try (RocksIterator iterator = database.newIterator(queueHandle))
+            ColumnFamilyHandle segmentHandle = _environment.getColumnFamilyHandle(RocksDBColumnFamily.Q_SEG);
+            Snapshot snapshot = _database.getSnapshot();
+            try (ReadOptions readOptions = new ReadOptions().setSnapshot(snapshot);
+                 RocksIterator iterator = _database.newIterator(segmentHandle, readOptions))
             {
                 for (iterator.seekToFirst(); iterator.isValid(); iterator.next())
                 {
                     byte[] key = iterator.key();
                     UUID queueId = decodeQueueId(key);
-                    long messageId = decodeQueueMessageId(key);
-                    if (!handler.handle(new RocksDBEnqueueRecord(queueId, messageId)))
+                    QueueSegment segment = RocksDBQueueRecordMapper.decodeQueueSegment(iterator.value());
+                    for (int i = 0; i < segment._entryCount; i++)
                     {
-                        return;
+                        if (!segment._acked.get(i))
+                        {
+                            if (!handler.handle(new RocksDBEnqueueRecord(queueId, segment._messageIds[i])))
+                            {
+                                return;
+                            }
+                        }
                     }
                 }
+            }
+            finally
+            {
+                _database.releaseSnapshot(snapshot);
             }
         }
 
@@ -1986,24 +2501,37 @@ public class RocksDBMessageStore implements MessageStore
         public void visitMessageInstances(final TransactionLogResource queue,
                                           final MessageInstanceHandler handler) throws StoreException
         {
-            RocksDB database = _environment.getDatabase();
-            ColumnFamilyHandle queueHandle = _environment.getColumnFamilyHandle(RocksDBColumnFamily.QUEUE_ENTRIES);
+            ColumnFamilyHandle segmentHandle = _environment.getColumnFamilyHandle(RocksDBColumnFamily.Q_SEG);
             byte[] prefix = encodeQueuePrefix(queue.getId());
-            try (RocksIterator iterator = database.newIterator(queueHandle))
+            Snapshot snapshot = _database.getSnapshot();
+            try (ReadOptions readOptions = new ReadOptions().setSnapshot(snapshot);
+                 RocksIterator iterator = _database.newIterator(segmentHandle, readOptions))
             {
-                for (iterator.seek(prefix); iterator.isValid(); iterator.next())
+                QueueState state = loadQueueState(readOptions, queue.getId());
+                byte[] startKey = state == null ? prefix : encodeQueueSegmentKey(queue.getId(), state._headSegment);
+                for (iterator.seek(startKey); iterator.isValid(); iterator.next())
                 {
                     byte[] key = iterator.key();
                     if (!hasPrefix(key, prefix))
                     {
                         break;
                     }
-                    long messageId = decodeQueueMessageId(key);
-                    if (!handler.handle(new RocksDBEnqueueRecord(queue.getId(), messageId)))
+                    QueueSegment segment = RocksDBQueueRecordMapper.decodeQueueSegment(iterator.value());
+                    for (int i = 0; i < segment._entryCount; i++)
                     {
-                        return;
+                        if (!segment._acked.get(i))
+                        {
+                            if (!handler.handle(new RocksDBEnqueueRecord(queue.getId(), segment._messageIds[i])))
+                            {
+                                return;
+                            }
+                        }
                     }
                 }
+            }
+            finally
+            {
+                _database.releaseSnapshot(snapshot);
             }
         }
 
@@ -2017,14 +2545,17 @@ public class RocksDBMessageStore implements MessageStore
         @Override
         public void visitDistributedTransactions(final DistributedTransactionHandler handler) throws StoreException
         {
-            RocksDB database = _environment.getDatabase();
             ColumnFamilyHandle xidHandle = _environment.getColumnFamilyHandle(RocksDBColumnFamily.XIDS);
-            try (RocksIterator iterator = database.newIterator(xidHandle))
+            Snapshot snapshot = _database.getSnapshot();
+            try (ReadOptions readOptions = new ReadOptions().setSnapshot(snapshot);
+                 RocksIterator iterator = _database.newIterator(xidHandle, readOptions))
             {
                 for (iterator.seekToFirst(); iterator.isValid(); iterator.next())
                 {
-                    StoredXidRecord xid = decodeXidKey(iterator.key());
-                    XidActions actions = decodeXidValue(iterator.value());
+                    XidRecordData data = RocksDBXidRecordMapper.decodeXidValue(iterator.value(),
+                                                                              _xidRecordFactory);
+                    StoredXidRecord xid = data.getXid();
+                    XidActions actions = data.getActions();
                     Transaction.EnqueueRecord[] enqueues =
                             actions.getEnqueues().toArray(new Transaction.EnqueueRecord[0]);
                     Transaction.DequeueRecord[] dequeues =
@@ -2034,6 +2565,10 @@ public class RocksDBMessageStore implements MessageStore
                         return;
                     }
                 }
+            }
+            finally
+            {
+                _database.releaseSnapshot(snapshot);
             }
         }
 
@@ -2047,12 +2582,20 @@ public class RocksDBMessageStore implements MessageStore
         @Override
         public StoredMessage<?> getMessage(final long messageId)
         {
-            StorableMessageMetaData metaData = loadMetaData(messageId);
-            if (metaData == null)
+            Snapshot snapshot = _database.getSnapshot();
+            try (ReadOptions readOptions = new ReadOptions().setSnapshot(snapshot))
             {
-                return null;
+                MetaDataRecord record = loadMetaDataRecord(readOptions, messageId);
+                if (record == null)
+                {
+                    return null;
+                }
+                return new RocksDBStoredMessage<>(_storedMessageAccess, messageId, record, true);
             }
-            return new RocksDBStoredMessage<>(messageId, metaData, true);
+            finally
+            {
+                _database.releaseSnapshot(snapshot);
+            }
         }
 
         /**

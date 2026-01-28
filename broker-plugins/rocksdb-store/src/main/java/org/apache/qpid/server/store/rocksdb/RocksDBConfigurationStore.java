@@ -22,6 +22,7 @@
 package org.apache.qpid.server.store.rocksdb;
 
 import java.io.File;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -48,7 +49,6 @@ import tools.jackson.databind.ObjectMapper;
 
 import org.apache.qpid.server.model.ConfiguredObject;
 import org.apache.qpid.server.model.ConfiguredObjectJacksonModule;
-import org.apache.qpid.server.model.SystemConfig;
 import org.apache.qpid.server.store.ConfiguredObjectRecordImpl;
 import org.apache.qpid.server.store.ConfiguredObjectRecord;
 import org.apache.qpid.server.store.DurableConfigurationStore;
@@ -57,7 +57,6 @@ import org.apache.qpid.server.store.MessageStore;
 import org.apache.qpid.server.store.MessageStoreProvider;
 import org.apache.qpid.server.store.StoreException;
 import org.apache.qpid.server.store.handler.ConfiguredObjectRecordHandler;
-import org.apache.qpid.server.store.preferences.JsonFilePreferenceStore;
 import org.apache.qpid.server.store.preferences.NoopPreferenceStoreFactoryService;
 import org.apache.qpid.server.store.preferences.PreferenceStore;
 
@@ -73,6 +72,10 @@ public class RocksDBConfigurationStore implements DurableConfigurationStore, Mes
     private static final String FIELD_ATTRIBUTES = "attributes";
     private static final char HIERARCHY_SEPARATOR = '|';
     private static final String STORE_DIRECTORY = "store";
+    private static final int LONG_BYTES = 8;
+    private static final byte[] CONFIG_STORE_VERSION_KEY =
+            "rocksdb_config_store_version".getBytes(StandardCharsets.US_ASCII);
+    private static final long CONFIG_STORE_VERSION = 1L;
 
     private enum State { CLOSED, CONFIGURED, OPEN }
 
@@ -83,6 +86,7 @@ public class RocksDBConfigurationStore implements DurableConfigurationStore, Mes
     private State _state = State.CLOSED;
     private RocksDBEnvironment _environment;
     private PreferenceStore _preferenceStore;
+    private RocksDBSettings _settings;
 
     /**
      * Creates a RocksDB configuration store instance.
@@ -111,6 +115,7 @@ public class RocksDBConfigurationStore implements DurableConfigurationStore, Mes
         {
             throw new StoreException("Parent does not provide RocksDB settings");
         }
+        _settings = (RocksDBSettings) parent;
         String baseStorePath = ((FileBasedSettings) parent).getStorePath();
         String dataStorePath = getDataStorePath(baseStorePath);
         createStoreDirectories(baseStorePath, dataStorePath);
@@ -120,6 +125,7 @@ public class RocksDBConfigurationStore implements DurableConfigurationStore, Mes
         {
             ((RocksDBMessageStore) _providedMessageStore).setEnvironment(_environment);
         }
+        ensureConfigStoreVersion();
     }
 
     /**
@@ -130,7 +136,7 @@ public class RocksDBConfigurationStore implements DurableConfigurationStore, Mes
     @Override
     public void upgradeStoreStructure() throws StoreException
     {
-        // No-op for initial RocksDB implementation.
+        ensureConfigStoreVersion();
     }
 
     /**
@@ -209,7 +215,7 @@ public class RocksDBConfigurationStore implements DurableConfigurationStore, Mes
                 throw new StoreException("Configured object record with id " + object.getId() + " already exists");
             }
             try (WriteBatch batch = new WriteBatch();
-                 WriteOptions options = new WriteOptions())
+                 WriteOptions options = createWriteOptions())
             {
                 batch.put(objectsHandle, key, serializeRecord(object));
                 writeHierarchyEntries(batch, object);
@@ -243,7 +249,7 @@ public class RocksDBConfigurationStore implements DurableConfigurationStore, Mes
         ColumnFamilyHandle objectsHandle =
                 _environment.getColumnFamilyHandle(RocksDBColumnFamily.CONFIGURED_OBJECTS);
         try (WriteBatch batch = new WriteBatch();
-             WriteOptions options = new WriteOptions())
+             WriteOptions options = createWriteOptions())
         {
             for (ConfiguredObjectRecord record : records)
             {
@@ -291,7 +297,7 @@ public class RocksDBConfigurationStore implements DurableConfigurationStore, Mes
         ColumnFamilyHandle objectsHandle =
                 _environment.getColumnFamilyHandle(RocksDBColumnFamily.CONFIGURED_OBJECTS);
         try (WriteBatch batch = new WriteBatch();
-             WriteOptions options = new WriteOptions())
+             WriteOptions options = createWriteOptions())
         {
             for (ConfiguredObjectRecord record : objects)
             {
@@ -400,9 +406,16 @@ public class RocksDBConfigurationStore implements DurableConfigurationStore, Mes
         {
             return new NoopPreferenceStoreFactoryService().createInstance(parent, Map.of());
         }
-        String posixFilePermissions = parent.getContextValue(String.class, SystemConfig.POSIX_FILE_PERMISSIONS);
-        String preferenceStorePath = new File(storePath, "preferences.json").getPath();
-        return new JsonFilePreferenceStore(preferenceStorePath, posixFilePermissions);
+        return new RocksDBPreferenceStore(_environment, _settings);
+    }
+
+    private WriteOptions createWriteOptions()
+    {
+        if (_settings == null)
+        {
+            return new WriteOptions();
+        }
+        return RocksDBOptionsFactory.createWriteOptions(_settings);
     }
 
     /**
@@ -424,6 +437,51 @@ public class RocksDBConfigurationStore implements DurableConfigurationStore, Mes
             return storePath;
         }
         return new File(base, STORE_DIRECTORY).getPath();
+    }
+
+    private void ensureConfigStoreVersion()
+    {
+        RocksDB database = _environment.getDatabase();
+        ColumnFamilyHandle versionHandle = _environment.getColumnFamilyHandle(RocksDBColumnFamily.VERSION);
+        try
+        {
+            byte[] stored = database.get(versionHandle, CONFIG_STORE_VERSION_KEY);
+            if (stored == null)
+            {
+                database.put(versionHandle, CONFIG_STORE_VERSION_KEY, encodeLong(CONFIG_STORE_VERSION));
+                return;
+            }
+            long version = decodeLong(stored);
+            if (version > CONFIG_STORE_VERSION)
+            {
+                throw new StoreException("Unsupported RocksDB config store version " + version);
+            }
+            if (version < CONFIG_STORE_VERSION)
+            {
+                throw new StoreException("RocksDB config store version " + version
+                                         + " requires upgrade to " + CONFIG_STORE_VERSION);
+            }
+        }
+        catch (RocksDBException e)
+        {
+            throw new StoreException("Failed to read RocksDB config store version", e);
+        }
+    }
+
+    private byte[] encodeLong(final long value)
+    {
+        ByteBuffer buffer = ByteBuffer.allocate(LONG_BYTES);
+        buffer.putLong(value);
+        return buffer.array();
+    }
+
+    private long decodeLong(final byte[] data)
+    {
+        if (data.length != LONG_BYTES)
+        {
+            throw new StoreException("Invalid long value length: " + data.length);
+        }
+        return ByteBuffer.wrap(data).getLong();
     }
 
     /**

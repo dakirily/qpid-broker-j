@@ -33,6 +33,8 @@ import org.rocksdb.DBOptions;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.Statistics;
+import org.rocksdb.TransactionDB;
+import org.rocksdb.TransactionDBOptions;
 
 import org.apache.qpid.server.store.StoreException;
 
@@ -43,11 +45,12 @@ import org.apache.qpid.server.store.StoreException;
  */
 public class RocksDBEnvironmentImpl implements RocksDBEnvironment
 {
-    private final RocksDB _database;
+    private final TransactionDB _database;
     private final Map<RocksDBColumnFamily, ColumnFamilyHandle> _handles;
     private final List<ColumnFamilyHandle> _handleList;
     private final DBOptions _dbOptions;
     private final ColumnFamilyOptions _columnFamilyOptions;
+    private final TransactionDBOptions _transactionDbOptions;
     private final String _storePath;
     private final Statistics _statistics;
 
@@ -64,24 +67,53 @@ public class RocksDBEnvironmentImpl implements RocksDBEnvironment
     public static RocksDBEnvironmentImpl open(final String storePath, final RocksDBSettings settings)
             throws StoreException
     {
+        DBOptions dbOptions = null;
+        ColumnFamilyOptions columnFamilyOptions = null;
+        TransactionDBOptions transactionOptions = null;
+        List<ColumnFamilyHandle> handles = new ArrayList<>();
         try
         {
-            RocksDB.loadLibrary();
-            DBOptions dbOptions = RocksDBOptionsFactory.createDbOptions(settings);
-            ColumnFamilyOptions columnFamilyOptions = RocksDBOptionsFactory.createColumnFamilyOptions(settings);
+            if (!RocksDBUtils.isAvailable())
+            {
+                throw new StoreException("RocksDB native library is not available");
+            }
+            dbOptions = RocksDBOptionsFactory.createDbOptions(settings);
+            columnFamilyOptions = RocksDBOptionsFactory.createColumnFamilyOptions(settings);
             List<ColumnFamilyDescriptor> descriptors = new ArrayList<>();
             for (RocksDBColumnFamily family : RocksDBColumnFamily.values())
             {
                 descriptors.add(new ColumnFamilyDescriptor(family.getNameBytes(), columnFamilyOptions));
             }
 
-            List<ColumnFamilyHandle> handles = new ArrayList<>();
-            RocksDB database = RocksDB.open(dbOptions, storePath, descriptors, handles);
+            transactionOptions = RocksDBOptionsFactory.createTransactionDbOptions(settings);
+            TransactionDB database = TransactionDB.open(dbOptions, transactionOptions, storePath, descriptors, handles);
             Map<RocksDBColumnFamily, ColumnFamilyHandle> handleMap = buildHandleMap(handles);
-            return new RocksDBEnvironmentImpl(database, handleMap, handles, dbOptions, columnFamilyOptions, storePath);
+            return new RocksDBEnvironmentImpl(database,
+                                              handleMap,
+                                              handles,
+                                              dbOptions,
+                                              columnFamilyOptions,
+                                              transactionOptions,
+                                              storePath);
         }
-        catch (RocksDBException e)
+        catch (RocksDBException | RuntimeException e)
         {
+            for (ColumnFamilyHandle handle : handles)
+            {
+                handle.close();
+            }
+            if (transactionOptions != null)
+            {
+                transactionOptions.close();
+            }
+            if (columnFamilyOptions != null)
+            {
+                columnFamilyOptions.close();
+            }
+            if (dbOptions != null)
+            {
+                dbOptions.close();
+            }
             throw new StoreException("Failed to open RocksDB store", e);
         }
     }
@@ -116,11 +148,12 @@ public class RocksDBEnvironmentImpl implements RocksDBEnvironment
      * @param columnFamilyOptions column family options.
      * @param storePath store path.
      */
-    private RocksDBEnvironmentImpl(final RocksDB database,
+    private RocksDBEnvironmentImpl(final TransactionDB database,
                                    final Map<RocksDBColumnFamily, ColumnFamilyHandle> handles,
                                    final List<ColumnFamilyHandle> handleList,
                                    final DBOptions dbOptions,
                                    final ColumnFamilyOptions columnFamilyOptions,
+                                   final TransactionDBOptions transactionDbOptions,
                                    final String storePath)
     {
         _database = database;
@@ -128,6 +161,7 @@ public class RocksDBEnvironmentImpl implements RocksDBEnvironment
         _handleList = handleList;
         _dbOptions = dbOptions;
         _columnFamilyOptions = columnFamilyOptions;
+        _transactionDbOptions = transactionDbOptions;
         _storePath = storePath;
         _statistics = dbOptions.statistics();
     }
@@ -191,5 +225,6 @@ public class RocksDBEnvironmentImpl implements RocksDBEnvironment
         _database.close();
         _columnFamilyOptions.close();
         _dbOptions.close();
+        _transactionDbOptions.close();
     }
 }

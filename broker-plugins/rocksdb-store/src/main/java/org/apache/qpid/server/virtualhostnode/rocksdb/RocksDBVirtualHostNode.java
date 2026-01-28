@@ -22,6 +22,7 @@
 package org.apache.qpid.server.virtualhostnode.rocksdb;
 
 import org.apache.qpid.server.model.ManagedAttribute;
+import org.apache.qpid.server.model.ManagedObject;
 import org.apache.qpid.server.model.VirtualHostNode;
 import org.apache.qpid.server.store.FileBasedSettings;
 import org.apache.qpid.server.store.preferences.PreferenceStoreAttributes;
@@ -36,6 +37,12 @@ import org.apache.qpid.server.store.rocksdb.RocksDBManagedSettings;
  *
  * @param <X> the virtual host node type.
  */
+@ManagedObject(category = false,
+               type = RocksDBVirtualHostNodeImpl.VIRTUAL_HOST_NODE_TYPE,
+               amqpName = "org.apache.qpid.RocksDBVirtualHostNode",
+               validChildTypes =
+                       "org.apache.qpid.server.virtualhostnode.rocksdb.RocksDBVirtualHostNodeImpl"
+                       + "#getSupportedChildTypes()")
 public interface RocksDBVirtualHostNode<X extends RocksDBVirtualHostNode<X>>
         extends VirtualHostNode<X>,
                 FileBasedSettings,

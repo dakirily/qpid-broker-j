@@ -104,7 +104,7 @@
 
     <bdb-version>7.4.5</bdb-version>
     <derby-version>10.16.1.1</derby-version>
-    <rocksdb-version>10.4.2</rocksdb-version>
+    <rocksdb-version>10.2.1</rocksdb-version>
     <logback-version>1.5.21</logback-version>
     <logback-db-version>1.2.11.1</logback-db-version>
     <caffeine-version>3.2.3</caffeine-version>
@@ -218,6 +218,7 @@
     <module>perftests/visualisation-jfc</module>
     <module>bdbstore</module>
     <module>bdbstore/systests</module>
+    <module>broker-plugins/rocksdb-store/systests</module>
 
     <module>joramtests</module>
     <module>tck</module>

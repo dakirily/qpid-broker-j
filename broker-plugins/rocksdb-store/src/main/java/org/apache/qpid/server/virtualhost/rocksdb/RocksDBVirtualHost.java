@@ -22,6 +22,7 @@
 package org.apache.qpid.server.virtualhost.rocksdb;
 
 import org.apache.qpid.server.model.ManagedAttribute;
+import org.apache.qpid.server.model.ManagedObject;
 import org.apache.qpid.server.store.FileBasedSettings;
 import org.apache.qpid.server.store.SizeMonitoringSettings;
 import org.apache.qpid.server.store.rocksdb.RocksDBContainer;
@@ -35,6 +36,9 @@ import org.apache.qpid.server.virtualhost.QueueManagingVirtualHost;
  *
  * @param <X> the virtual host type.
  */
+@ManagedObject(category = false,
+               type = RocksDBVirtualHostImpl.VIRTUAL_HOST_TYPE,
+               amqpName = "org.apache.qpid.RocksDBVirtualHost")
 public interface RocksDBVirtualHost<X extends RocksDBVirtualHost<X>> extends QueueManagingVirtualHost<X>,
                                                                              FileBasedSettings,
                                                                              SizeMonitoringSettings,

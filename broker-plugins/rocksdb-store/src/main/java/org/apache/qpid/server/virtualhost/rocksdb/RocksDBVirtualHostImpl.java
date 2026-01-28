@@ -38,7 +38,9 @@ import org.apache.qpid.server.virtualhost.AbstractVirtualHost;
  *
  * Thread-safety: safe for concurrent access by the configuration model.
  */
-@ManagedObject(category = false, type = RocksDBVirtualHostImpl.VIRTUAL_HOST_TYPE)
+@ManagedObject(category = false,
+               type = RocksDBVirtualHostImpl.VIRTUAL_HOST_TYPE,
+               amqpName = "org.apache.qpid.RocksDBVirtualHost")
 public class RocksDBVirtualHostImpl extends AbstractVirtualHost<RocksDBVirtualHostImpl>
         implements RocksDBVirtualHost<RocksDBVirtualHostImpl>
 {
@@ -71,9 +73,37 @@ public class RocksDBVirtualHostImpl extends AbstractVirtualHost<RocksDBVirtualHo
     @ManagedAttributeField
     private Long _walBytesPerSync;
     @ManagedAttributeField
+    private Boolean _writeSync;
+    @ManagedAttributeField
+    private Boolean _disableWAL;
+    @ManagedAttributeField
     private Boolean _enableStatistics;
     @ManagedAttributeField
     private Integer _statsDumpPeriodSec;
+    @ManagedAttributeField
+    private Integer _committerNotifyThreshold;
+    @ManagedAttributeField
+    private Long _committerWaitTimeoutMs;
+    @ManagedAttributeField
+    private Integer _messageChunkSize;
+    @ManagedAttributeField
+    private Integer _messageInlineThreshold;
+    @ManagedAttributeField
+    private Integer _queueSegmentShift;
+    @ManagedAttributeField
+    private Long _defaultLockTimeout;
+    @ManagedAttributeField
+    private Long _transactionLockTimeout;
+    @ManagedAttributeField
+    private Long _maxNumLocks;
+    @ManagedAttributeField
+    private Long _numStripes;
+    @ManagedAttributeField
+    private String _txnWritePolicy;
+    @ManagedAttributeField
+    private Integer _txnRetryAttempts;
+    @ManagedAttributeField
+    private Long _txnRetryBaseSleepMs;
     @ManagedAttributeField
     private Long _maxTotalWalSize;
     @ManagedAttributeField
@@ -337,6 +367,28 @@ public class RocksDBVirtualHostImpl extends AbstractVirtualHost<RocksDBVirtualHo
     }
 
     /**
+     * Returns whether writes should be synchronized on commit.
+     *
+     * @return true to enable sync on writes.
+     */
+    @Override
+    public Boolean getWriteSync()
+    {
+        return _writeSync;
+    }
+
+    /**
+     * Returns whether WAL should be disabled for writes.
+     *
+     * @return true to disable WAL.
+     */
+    @Override
+    public Boolean getDisableWAL()
+    {
+        return _disableWAL;
+    }
+
+    /**
      * Returns whether statistics are enabled.
      *
      * @return true when statistics are enabled.
@@ -356,6 +408,138 @@ public class RocksDBVirtualHostImpl extends AbstractVirtualHost<RocksDBVirtualHo
     public Integer getStatsDumpPeriodSec()
     {
         return _statsDumpPeriodSec;
+    }
+
+    /**
+     * Returns the notify threshold for async commits.
+     *
+     * @return async committer notify threshold.
+     */
+    @Override
+    public Integer getCommitterNotifyThreshold()
+    {
+        return _committerNotifyThreshold;
+    }
+
+    /**
+     * Returns the wait timeout for async commits in milliseconds.
+     *
+     * @return async committer wait timeout in milliseconds.
+     */
+    @Override
+    public Long getCommitterWaitTimeoutMs()
+    {
+        return _committerWaitTimeoutMs;
+    }
+
+    /**
+     * Returns the message chunk size in bytes.
+     *
+     * @return the message chunk size in bytes.
+     */
+    @Override
+    public Integer getMessageChunkSize()
+    {
+        return _messageChunkSize;
+    }
+
+    /**
+     * Returns the inline content threshold in bytes.
+     *
+     * @return the inline content threshold in bytes.
+     */
+    @Override
+    public Integer getMessageInlineThreshold()
+    {
+        return _messageInlineThreshold;
+    }
+
+    /**
+     * Returns the queue segment shift.
+     *
+     * @return the queue segment shift.
+     */
+    @Override
+    public Integer getQueueSegmentShift()
+    {
+        return _queueSegmentShift;
+    }
+
+    /**
+     * Returns default lock timeout.
+     *
+     * @return default lock timeout.
+     */
+    @Override
+    public Long getDefaultLockTimeout()
+    {
+        return _defaultLockTimeout;
+    }
+
+    /**
+     * Returns transaction lock timeout.
+     *
+     * @return transaction lock timeout.
+     */
+    @Override
+    public Long getTransactionLockTimeout()
+    {
+        return _transactionLockTimeout;
+    }
+
+    /**
+     * Returns max number of locks.
+     *
+     * @return max number of locks.
+     */
+    @Override
+    public Long getMaxNumLocks()
+    {
+        return _maxNumLocks;
+    }
+
+    /**
+     * Returns number of lock stripes.
+     *
+     * @return number of lock stripes.
+     */
+    @Override
+    public Long getNumStripes()
+    {
+        return _numStripes;
+    }
+
+    /**
+     * Returns transaction write policy.
+     *
+     * @return transaction write policy.
+     */
+    @Override
+    public String getTxnWritePolicy()
+    {
+        return _txnWritePolicy;
+    }
+
+    /**
+     * Returns transaction retry attempts.
+     *
+     * @return retry attempts.
+     */
+    @Override
+    public Integer getTxnRetryAttempts()
+    {
+        return _txnRetryAttempts;
+    }
+
+    /**
+     * Returns transaction retry base sleep in milliseconds.
+     *
+     * @return retry base sleep.
+     */
+    @Override
+    public Long getTxnRetryBaseSleepMs()
+    {
+        return _txnRetryBaseSleepMs;
     }
 
     /**

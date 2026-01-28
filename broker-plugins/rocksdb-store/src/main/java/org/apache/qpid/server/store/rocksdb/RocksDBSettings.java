@@ -51,6 +51,75 @@ public interface RocksDBSettings extends Settings
     String ROCKSDB_STATS_DUMP_PERIOD_SEC = "qpid.broker.rocksdb.statsDumpPeriodSec";
 
     /**
+     * Context key for async committer notify threshold.
+     */
+    String ROCKSDB_COMMITTER_NOTIFY_THRESHOLD = "qpid.broker.rocksdb.committerNotifyThreshold";
+
+    /**
+     * Context key for async committer wait timeout in milliseconds.
+     */
+    String ROCKSDB_COMMITTER_WAIT_TIMEOUT_MS = "qpid.broker.rocksdb.committerWaitTimeoutMs";
+
+    /**
+     * Context key for write sync.
+     */
+    String ROCKSDB_WRITE_SYNC = "qpid.broker.rocksdb.writeSync";
+
+    /**
+     * Context key for write disable WAL.
+     */
+    String ROCKSDB_DISABLE_WAL = "qpid.broker.rocksdb.disableWAL";
+
+    /**
+     * Context key for message chunk size.
+     */
+    String ROCKSDB_MESSAGE_CHUNK_SIZE = "qpid.broker.rocksdb.messageChunkSize";
+
+    /**
+     * Context key for message inline threshold.
+     */
+    String ROCKSDB_MESSAGE_INLINE_THRESHOLD = "qpid.broker.rocksdb.messageInlineThreshold";
+
+    /**
+     * Context key for queue segment shift.
+     */
+    String ROCKSDB_QUEUE_SEGMENT_SHIFT = "qpid.broker.rocksdb.queueSegmentShift";
+    /**
+     * Context key for TransactionDB default lock timeout.
+     */
+    String ROCKSDB_DEFAULT_LOCK_TIMEOUT = "qpid.broker.rocksdb.defaultLockTimeoutMs";
+
+    /**
+     * Context key for TransactionDB transaction lock timeout.
+     */
+    String ROCKSDB_TRANSACTION_LOCK_TIMEOUT = "qpid.broker.rocksdb.transactionLockTimeoutMs";
+
+    /**
+     * Context key for TransactionDB max number of locks.
+     */
+    String ROCKSDB_MAX_NUM_LOCKS = "qpid.broker.rocksdb.maxNumLocks";
+
+    /**
+     * Context key for TransactionDB number of lock stripes.
+     */
+    String ROCKSDB_NUM_STRIPES = "qpid.broker.rocksdb.numStripes";
+
+    /**
+     * Context key for TransactionDB write policy.
+     */
+    String ROCKSDB_TXN_WRITE_POLICY = "qpid.broker.rocksdb.txnWritePolicy";
+
+    /**
+     * Context key for TransactionDB retry attempts.
+     */
+    String ROCKSDB_TXN_RETRY_ATTEMPTS = "qpid.broker.rocksdb.txnRetryAttempts";
+
+    /**
+     * Context key for TransactionDB retry base sleep in milliseconds.
+     */
+    String ROCKSDB_TXN_RETRY_BASE_SLEEP_MILLIS = "qpid.broker.rocksdb.txnRetryBaseSleepMs";
+
+    /**
      * Returns whether the store should be created when it is missing.
      *
      * @return true to create a new store when missing.
@@ -119,6 +188,104 @@ public interface RocksDBSettings extends Settings
      * @return statistics dump period in seconds or 0 to disable.
      */
     Integer getStatsDumpPeriodSec();
+
+    /**
+     * Returns the notify threshold for async commits.
+     *
+     * @return async committer notify threshold.
+     */
+    Integer getCommitterNotifyThreshold();
+
+    /**
+     * Returns the wait timeout for async commits in milliseconds.
+     *
+     * @return async committer wait timeout in milliseconds.
+     */
+    Long getCommitterWaitTimeoutMs();
+
+    /**
+     * Returns whether writes should be synchronized on commit.
+     *
+     * @return true to enable sync on writes.
+     */
+    Boolean getWriteSync();
+
+    /**
+     * Returns whether WAL should be disabled for writes.
+     *
+     * @return true to disable WAL.
+     */
+    Boolean getDisableWAL();
+
+    /**
+     * Returns the message chunk size in bytes or 0 to use the default.
+     *
+     * @return the message chunk size in bytes.
+     */
+    Integer getMessageChunkSize();
+
+    /**
+     * Returns the inline content threshold in bytes or 0 to use the chunk size.
+     *
+     * @return the inline content threshold in bytes.
+     */
+    Integer getMessageInlineThreshold();
+
+    /**
+     * Returns the queue segment shift or 0 to use the default.
+     *
+     * @return queue segment shift.
+     */
+    Integer getQueueSegmentShift();
+
+    /**
+     * Returns default lock timeout in milliseconds or 0 to use RocksDB defaults.
+     *
+     * @return default lock timeout.
+     */
+    Long getDefaultLockTimeout();
+
+    /**
+     * Returns transaction lock timeout in milliseconds or 0 to use RocksDB defaults.
+     *
+     * @return transaction lock timeout.
+     */
+    Long getTransactionLockTimeout();
+
+    /**
+     * Returns max number of locks or 0 to use RocksDB defaults.
+     *
+     * @return max number of locks.
+     */
+    Long getMaxNumLocks();
+
+    /**
+     * Returns number of lock stripes or 0 to use RocksDB defaults.
+     *
+     * @return number of lock stripes.
+     */
+    Long getNumStripes();
+
+    /**
+     * Returns transaction write policy or empty to use RocksDB defaults.
+     *
+     * @return transaction write policy.
+     */
+    String getTxnWritePolicy();
+
+    /**
+     * Returns the number of retry attempts for transactional operations or 0 to use defaults.
+     *
+     * @return retry attempts.
+     */
+    Integer getTxnRetryAttempts();
+
+    /**
+     * Returns the retry base sleep in milliseconds or 0 to use defaults.
+     *
+     * @return retry base sleep.
+     */
+    Long getTxnRetryBaseSleepMs();
 
     /**
      * Returns the max total WAL size or 0 to use RocksDB defaults.

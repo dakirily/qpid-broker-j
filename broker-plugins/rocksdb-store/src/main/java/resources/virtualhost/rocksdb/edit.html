@@ -127,6 +127,26 @@
         </div>
     </div>
     <div class="clear">
+        <div class="formLabel-labelCell tableContainer-labelCell">Write sync:</div>
+        <div class="formLabel-controlCell tableContainer-valueCell">
+            <input type="checkbox" id="editVirtualHost.writeSync"
+                   data-dojo-type="dijit/form/CheckBox"
+                   data-dojo-props="
+                              name: 'writeSync',
+                              required: false"/>
+        </div>
+    </div>
+    <div class="clear">
+        <div class="formLabel-labelCell tableContainer-labelCell">Disable WAL:</div>
+        <div class="formLabel-controlCell tableContainer-valueCell">
+            <input type="checkbox" id="editVirtualHost.disableWAL"
+                   data-dojo-type="dijit/form/CheckBox"
+                   data-dojo-props="
+                              name: 'disableWAL',
+                              required: false"/>
+        </div>
+    </div>
+    <div class="clear">
         <div class="formLabel-labelCell tableContainer-labelCell">Enable statistics:</div>
         <div class="formLabel-controlCell tableContainer-valueCell">
             <input type="checkbox" id="editVirtualHost.enableStatistics"
@@ -144,6 +164,36 @@
                    data-dojo-props="
                               name: 'statsDumpPeriodSec',
                               placeHolder: '0'"/>
+        </div>
+    </div>
+    <div class="clear">
+        <div class="formLabel-labelCell tableContainer-labelCell">Committer notify threshold:</div>
+        <div class="formLabel-controlCell tableContainer-valueCell">
+            <input type="text" id="editVirtualHost.committerNotifyThreshold"
+                   data-dojo-type="dijit/form/ValidationTextBox"
+                   data-dojo-props="
+                              name: 'committerNotifyThreshold',
+                              placeHolder: '8'"/>
+        </div>
+    </div>
+    <div class="clear">
+        <div class="formLabel-labelCell tableContainer-labelCell">Committer wait timeout (ms):</div>
+        <div class="formLabel-controlCell tableContainer-valueCell">
+            <input type="text" id="editVirtualHost.committerWaitTimeoutMs"
+                   data-dojo-type="dijit/form/ValidationTextBox"
+                   data-dojo-props="
+                              name: 'committerWaitTimeoutMs',
+                              placeHolder: '500'"/>
+        </div>
+    </div>
+    <div class="clear">
+        <div class="formLabel-labelCell tableContainer-labelCell">Queue segment shift:</div>
+        <div class="formLabel-controlCell tableContainer-valueCell">
+            <input type="text" id="editVirtualHost.queueSegmentShift"
+                   data-dojo-type="dijit/form/ValidationTextBox"
+                   data-dojo-props="
+                              name: 'queueSegmentShift',
+                              placeHolder: '16'"/>
         </div>
     </div>
     <div class="clear">

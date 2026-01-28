@@ -23,6 +23,7 @@ package org.apache.qpid.server.store.rocksdb;
 
 import org.rocksdb.CompactionStyle;
 import org.rocksdb.CompressionType;
+import org.rocksdb.TxnDBWritePolicy;
 
 /**
  * Parses RocksDB option values from strings.
@@ -78,5 +79,26 @@ public final class RocksDBOptionValues
             }
         }
         throw new IllegalArgumentException("Unknown compression type: " + value);
+    }
+
+    /**
+     * Parses a TransactionDB write policy from string.
+     *
+     * @param value write policy name.
+     *
+     * @return the write policy.
+     *
+     * @throws IllegalArgumentException for an unknown value.
+     */
+    public static TxnDBWritePolicy parseTxnDbWritePolicy(final String value)
+    {
+        for (TxnDBWritePolicy policy : TxnDBWritePolicy.values())
+        {
+            if (policy.name().equalsIgnoreCase(value))
+            {
+                return policy;
+            }
+        }
+        throw new IllegalArgumentException("Unknown transaction write policy: " + value);
     }
 }

@@ -11,7 +11,8 @@
 - `configured_object_hierarchy` stores parent links for configured objects.
 - `preferences` stores preference records.
 - `message_metadata` stores message metadata payloads.
-- `message_content` stores message content segments.
+- `message_content` stores inline message content.
+- `message_chunks` stores chunked message content.
 - `queue_entries` stores queue-id/message-id pairs.
 - `xids` stores distributed transaction records.
 - `version` stores store metadata such as `nextMessageId` and link store version.
@@ -24,9 +25,33 @@
 
 ## Message Store Layout
 - Message metadata keys are 8-byte big-endian message ids.
-- Message content keys are `{messageId}{chunkIndex}` pairs.
+- Metadata values include a header with a chunked flag and per-message chunk size.
+- Inline message content keys are 8-byte message ids.
+- Chunked message content keys are `{messageId}{chunkIndex}` pairs.
 - Queue entries are `{queueId}{messageId}` for ordered traversal by queue.
 - XIDs store the format and byte arrays for global and branch ids with encoded actions.
+
+Chunking is selected at write time based on `messageInlineThreshold`, and the chosen `messageChunkSize`
+is stored in metadata so readers can reconstruct content correctly.
+
+Queue segments group message ids by `segmentNo = messageId >>> queueSegmentShift`, with the shift configured
+via the managed attribute `queueSegmentShift` (default 16).
+
+## Write Durability
+- Write behavior is controlled by `writeSync` and `disableWAL` via `WriteOptions`.
+- `bytesPerSync` and `walBytesPerSync` control background data/WAL sync intervals.
+
+## Transaction Settings
+- Message store operations use TransactionDB and configure `TransactionDBOptions` from managed attributes.
+- `defaultLockTimeout`, `transactionLockTimeout`, `maxNumLocks`, `numStripes`, and `txnWritePolicy` map directly
+  to TransactionDB options; 0 or empty values use RocksDB defaults.
+- Transaction retries are controlled by `txnRetryAttempts` (default 5) and `txnRetryBaseSleepMs` (default 25ms),
+  using exponential backoff between attempts.
+
+## Async Commit (Coalescing)
+- Async commit is handled by a dedicated commit thread that batches transactions.
+- `committerNotifyThreshold` controls batch size; `committerWaitTimeoutMs` controls max wait before flush.
+- When `writeSync` is enabled, async commits defer WAL sync and perform a batch `flushWal(true)` after commit.
 
 ## AMQP 1.0 Link Store Layout
 - Link keys are length-prefixed UTF-8 values for `remoteContainerId` and `linkName`,
@@ -37,7 +62,9 @@
 ## Versioning and Upgrades
 - Link store version uses `BrokerModel` model version strings.
 - On open, the link store rejects downgrades and rewrites entries for upgrades.
-- Configuration and message stores currently perform no schema upgrades.
+- Configuration and message stores record format versions in the `version` column family.
+- Store version keys: `rocksdb_config_store_version`, `rocksdb_message_store_version` (current value 1).
+- If a newer version is detected, startup fails fast; upgrade scaffolding is required for future versions.
 
 ## Operations and Management
 - `RocksDBManagementSupport` provides update, flush, compaction, and diagnostics.

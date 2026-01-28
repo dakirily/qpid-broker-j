@@ -59,6 +59,90 @@ public interface RocksDBManagedSettings<X extends ConfiguredObject<X>> extends C
     int DEFAULT_ROCKSDB_STATS_DUMP_PERIOD_SEC = 0;
 
     /**
+     * Default value for async committer notify threshold.
+     */
+    @ManagedContextDefault(name = ROCKSDB_COMMITTER_NOTIFY_THRESHOLD)
+    int DEFAULT_ROCKSDB_COMMITTER_NOTIFY_THRESHOLD = 8;
+
+    /**
+     * Default value for async committer wait timeout in milliseconds.
+     */
+    @ManagedContextDefault(name = ROCKSDB_COMMITTER_WAIT_TIMEOUT_MS)
+    long DEFAULT_ROCKSDB_COMMITTER_WAIT_TIMEOUT_MS = 500L;
+
+    /**
+     * Default value for write sync.
+     */
+    @ManagedContextDefault(name = ROCKSDB_WRITE_SYNC)
+    boolean DEFAULT_ROCKSDB_WRITE_SYNC = false;
+
+    /**
+     * Default value for disable WAL.
+     */
+    @ManagedContextDefault(name = ROCKSDB_DISABLE_WAL)
+    boolean DEFAULT_ROCKSDB_DISABLE_WAL = false;
+
+    /**
+     * Default value for messageChunkSize.
+     */
+    @ManagedContextDefault(name = ROCKSDB_MESSAGE_CHUNK_SIZE)
+    int DEFAULT_ROCKSDB_MESSAGE_CHUNK_SIZE = 64 * 1024;
+
+    /**
+     * Default value for messageInlineThreshold.
+     */
+    @ManagedContextDefault(name = ROCKSDB_MESSAGE_INLINE_THRESHOLD)
+    int DEFAULT_ROCKSDB_MESSAGE_INLINE_THRESHOLD = DEFAULT_ROCKSDB_MESSAGE_CHUNK_SIZE;
+
+    /**
+     * Default value for queueSegmentShift.
+     */
+    @ManagedContextDefault(name = ROCKSDB_QUEUE_SEGMENT_SHIFT)
+    int DEFAULT_ROCKSDB_QUEUE_SEGMENT_SHIFT = 16;
+
+    /**
+     * Default value for TransactionDB default lock timeout.
+     */
+    @ManagedContextDefault(name = ROCKSDB_DEFAULT_LOCK_TIMEOUT)
+    long DEFAULT_ROCKSDB_DEFAULT_LOCK_TIMEOUT = 0L;
+
+    /**
+     * Default value for TransactionDB lock timeout.
+     */
+    @ManagedContextDefault(name = ROCKSDB_TRANSACTION_LOCK_TIMEOUT)
+    long DEFAULT_ROCKSDB_TRANSACTION_LOCK_TIMEOUT = 0L;
+
+    /**
+     * Default value for TransactionDB max number of locks.
+     */
+    @ManagedContextDefault(name = ROCKSDB_MAX_NUM_LOCKS)
+    long DEFAULT_ROCKSDB_MAX_NUM_LOCKS = 0L;
+
+    /**
+     * Default value for TransactionDB number of lock stripes.
+     */
+    @ManagedContextDefault(name = ROCKSDB_NUM_STRIPES)
+    long DEFAULT_ROCKSDB_NUM_STRIPES = 0L;
+
+    /**
+     * Default value for TransactionDB write policy.
+     */
+    @ManagedContextDefault(name = ROCKSDB_TXN_WRITE_POLICY)
+    String DEFAULT_ROCKSDB_TXN_WRITE_POLICY = "";
+
+    /**
+     * Default value for TransactionDB retry attempts.
+     */
+    @ManagedContextDefault(name = ROCKSDB_TXN_RETRY_ATTEMPTS)
+    int DEFAULT_ROCKSDB_TXN_RETRY_ATTEMPTS = 5;
+
+    /**
+     * Default value for TransactionDB retry base sleep in milliseconds.
+     */
+    @ManagedContextDefault(name = ROCKSDB_TXN_RETRY_BASE_SLEEP_MILLIS)
+    long DEFAULT_ROCKSDB_TXN_RETRY_BASE_SLEEP_MILLIS = 25L;
+
+    /**
      * Returns whether the store should be created when it is missing.
      *
      * @return true to create a new store when missing.
@@ -148,6 +232,132 @@ public interface RocksDBManagedSettings<X extends ConfiguredObject<X>> extends C
     @Override
     @ManagedAttribute(defaultValue = "${qpid.broker.rocksdb.statsDumpPeriodSec}")
     Integer getStatsDumpPeriodSec();
+
+    /**
+     * Returns the notify threshold for async commits.
+     *
+     * @return async committer notify threshold.
+     */
+    @Override
+    @ManagedAttribute(defaultValue = "${qpid.broker.rocksdb.committerNotifyThreshold}", immutable = true)
+    Integer getCommitterNotifyThreshold();
+
+    /**
+     * Returns the wait timeout for async commits in milliseconds.
+     *
+     * @return async committer wait timeout in milliseconds.
+     */
+    @Override
+    @ManagedAttribute(defaultValue = "${qpid.broker.rocksdb.committerWaitTimeoutMs}", immutable = true)
+    Long getCommitterWaitTimeoutMs();
+
+    /**
+     * Returns whether writes should be synchronized on commit.
+     *
+     * @return true to enable sync on writes.
+     */
+    @Override
+    @ManagedAttribute(defaultValue = "${qpid.broker.rocksdb.writeSync}", immutable = true)
+    Boolean getWriteSync();
+
+    /**
+     * Returns whether WAL should be disabled for writes.
+     *
+     * @return true to disable WAL.
+     */
+    @Override
+    @ManagedAttribute(defaultValue = "${qpid.broker.rocksdb.disableWAL}", immutable = true)
+    Boolean getDisableWAL();
+
+    /**
+     * Returns the message chunk size in bytes.
+     *
+     * @return the message chunk size in bytes.
+     */
+    @Override
+    @ManagedAttribute(defaultValue = "${qpid.broker.rocksdb.messageChunkSize}", immutable = true)
+    Integer getMessageChunkSize();
+
+    /**
+     * Returns the inline content threshold in bytes.
+     *
+     * @return the inline content threshold in bytes.
+     */
+    @Override
+    @ManagedAttribute(defaultValue = "${qpid.broker.rocksdb.messageInlineThreshold}", immutable = true)
+    Integer getMessageInlineThreshold();
+
+    /**
+     * Returns the queue segment shift.
+     *
+     * @return queue segment shift.
+     */
+    @Override
+    @ManagedAttribute(defaultValue = "${qpid.broker.rocksdb.queueSegmentShift}", immutable = true)
+    Integer getQueueSegmentShift();
+
+    /**
+     * Returns default lock timeout in milliseconds.
+     *
+     * @return default lock timeout.
+     */
+    @Override
+    @ManagedAttribute(defaultValue = "${qpid.broker.rocksdb.defaultLockTimeoutMs}", immutable = true)
+    Long getDefaultLockTimeout();
+
+    /**
+     * Returns transaction lock timeout in milliseconds.
+     *
+     * @return transaction lock timeout.
+     */
+    @Override
+    @ManagedAttribute(defaultValue = "${qpid.broker.rocksdb.transactionLockTimeoutMs}", immutable = true)
+    Long getTransactionLockTimeout();
+
+    /**
+     * Returns max number of locks.
+     *
+     * @return max number of locks.
+     */
+    @Override
+    @ManagedAttribute(defaultValue = "${qpid.broker.rocksdb.maxNumLocks}", immutable = true)
+    Long getMaxNumLocks();
+
+    /**
+     * Returns number of lock stripes.
+     *
+     * @return number of lock stripes.
+     */
+    @Override
+    @ManagedAttribute(defaultValue = "${qpid.broker.rocksdb.numStripes}", immutable = true)
+    Long getNumStripes();
+
+    /**
+     * Returns transaction write policy.
+     *
+     * @return transaction write policy.
+     */
+    @Override
+    @ManagedAttribute(defaultValue = "${qpid.broker.rocksdb.txnWritePolicy}", immutable = true)
+    String getTxnWritePolicy();
+
+    /**
+     * Returns transaction retry attempts.
+     *
+     * @return retry attempts.
+     */
+    @Override
+    @ManagedAttribute(defaultValue = "${qpid.broker.rocksdb.txnRetryAttempts}", immutable = true)
+    Integer getTxnRetryAttempts();
+
+    /**
+     * Returns transaction retry base sleep in milliseconds.
+     *
+     * @return retry base sleep.
+     */
+    @Override
+    @ManagedAttribute(defaultValue = "${qpid.broker.rocksdb.txnRetryBaseSleepMs}", immutable = true)
+    Long getTxnRetryBaseSleepMs();
 
     /**
      * Returns the max total WAL size or 0 to use RocksDB defaults.
