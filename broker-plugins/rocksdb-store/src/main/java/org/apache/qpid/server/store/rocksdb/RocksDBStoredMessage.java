@@ -62,6 +62,13 @@ final class RocksDBStoredMessage<T extends StorableMessageMetaData>
 
         void storeChunk(Transaction txn, long messageId, int chunkIndex, byte[] data);
 
+        void storeChunkedMessage(Transaction txn,
+                                 long messageId,
+                                 StorableMessageMetaData metaData,
+                                 int chunkSize,
+                                 List<byte[]> chunks,
+                                 byte[] trailingChunk);
+
         void storeMessageMetadata(Transaction txn,
                                   long messageId,
                                   StorableMessageMetaData metaData,
@@ -384,25 +391,17 @@ final class RocksDBStoredMessage<T extends StorableMessageMetaData>
         }
         if (_chunked)
         {
-            int chunkIndex = 0;
-            if (_pendingChunks != null)
-            {
-                for (byte[] chunk : _pendingChunks)
-                {
-                    _access.storeChunk(txn, _messageId, chunkIndex, chunk);
-                    chunkIndex++;
-                }
-            }
-            if (_chunkBufferOffset > 0)
-            {
-                _access.storeChunk(txn,
-                                   _messageId,
-                                   chunkIndex,
-                                   Arrays.copyOf(_chunkBuffer, _chunkBufferOffset));
-                chunkIndex++;
-            }
+            byte[] trailingChunk = _chunkBufferOffset > 0
+                    ? Arrays.copyOf(_chunkBuffer, _chunkBufferOffset)
+                    : null;
+            _access.storeChunkedMessage(txn,
+                                        _messageId,
+                                        _metaData,
+                                        _chunkSize,
+                                        _pendingChunks,
+                                        trailingChunk);
+            int chunkIndex = (_pendingChunks == null ? 0 : _pendingChunks.size()) + (trailingChunk == null ? 0 : 1);
             _nextChunkIndex = chunkIndex;
-            _access.storeMessageMetadata(txn, _messageId, _metaData, true, _chunkSize);
         }
         else
         {

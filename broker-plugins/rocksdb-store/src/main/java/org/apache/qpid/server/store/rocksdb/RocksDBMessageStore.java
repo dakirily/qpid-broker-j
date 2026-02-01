@@ -102,12 +102,15 @@ public class RocksDBMessageStore implements MessageStore
     private static final long DEFAULT_TRANSACTION_RETRY_BASE_SLEEP_MILLIS = 25L;
     private static final int DEFAULT_COMMITTER_NOTIFY_THRESHOLD = 8;
     private static final long DEFAULT_COMMITTER_WAIT_TIMEOUT_MS = 500L;
+    static final String MESSAGE_ID_ALLOCATION_SIZE_PROPERTY = "qpid.rocksdb.messageIdAllocationSize";
+    private static final int DEFAULT_MESSAGE_ID_ALLOCATION_SIZE = 1024;
 
     private final AtomicLong _messageId = new AtomicLong(0);
     private final AtomicLong _inMemorySize = new AtomicLong(0);
     private final AtomicLong _bytesEvacuatedFromMemory = new AtomicLong(0);
     private final Set<MessageDeleteListener> _messageDeleteListeners = ConcurrentHashMap.newKeySet();
     private final EventManager _eventManager = new EventManager();
+    private final Object _messageIdLock = new Object();
 
     private RocksDBEnvironment _environment;
     private boolean _environmentOwned;
@@ -121,6 +124,8 @@ public class RocksDBMessageStore implements MessageStore
     private long _transactionLockTimeoutMs;
     private int _committerNotifyThreshold = DEFAULT_COMMITTER_NOTIFY_THRESHOLD;
     private long _committerWaitTimeoutMs = DEFAULT_COMMITTER_WAIT_TIMEOUT_MS;
+    private int _messageIdAllocationSize = DEFAULT_MESSAGE_ID_ALLOCATION_SIZE;
+    private volatile long _messageIdUpperBound;
     private Boolean _writeSync;
     private Boolean _disableWAL;
     private long _persistentSizeHighThreshold;
@@ -181,6 +186,22 @@ public class RocksDBMessageStore implements MessageStore
                                final byte[] data)
         {
             RocksDBMessageStore.this.storeChunk(txn, messageId, chunkIndex, data);
+        }
+
+        @Override
+        public void storeChunkedMessage(final org.rocksdb.Transaction txn,
+                                        final long messageId,
+                                        final StorableMessageMetaData metaData,
+                                        final int chunkSize,
+                                        final List<byte[]> chunks,
+                                        final byte[] trailingChunk)
+        {
+            RocksDBMessageStore.this.storeChunkedMessage(txn,
+                                                        messageId,
+                                                        metaData,
+                                                        chunkSize,
+                                                        chunks,
+                                                        trailingChunk);
         }
 
         @Override
@@ -369,39 +390,29 @@ public class RocksDBMessageStore implements MessageStore
     public long getNextMessageId()
     {
         checkOpen();
-        TransactionDB database = getTransactionDb();
-        ColumnFamilyHandle versionHandle = _environment.getColumnFamilyHandle(RocksDBColumnFamily.VERSION);
-        for (int attempt = 0; attempt < _transactionRetryAttempts; attempt++)
+        while (true)
         {
-            try (WriteOptions writeOptions = createWriteOptions();
-                 TransactionOptions txnOptions = new TransactionOptions();
-                 ReadOptions readOptions = new ReadOptions())
+            long current = _messageId.get();
+            long upperBound = _messageIdUpperBound;
+            if (current < upperBound)
             {
-                if (_transactionLockTimeoutMs > 0L)
+                if (_messageId.compareAndSet(current, current + 1))
                 {
-                    txnOptions.setLockTimeout(_transactionLockTimeoutMs);
+                    return current + 1;
                 }
-                try (org.rocksdb.Transaction txn = database.beginTransaction(writeOptions, txnOptions))
-                {
-                    byte[] value = txn.getForUpdate(readOptions, versionHandle, NEXT_MESSAGE_ID_KEY, true);
-                    long current = value == null ? findMaxMessageId() : decodeLong(value);
-                    long next = current + 1;
-                    txn.put(versionHandle, NEXT_MESSAGE_ID_KEY, encodeLong(next));
-                    txn.commit();
-                    _messageId.set(next);
-                    return next;
-                }
+                continue;
             }
-            catch (RocksDBException e)
+            synchronized (_messageIdLock)
             {
-                if (!isRetryable(e) || attempt == _transactionRetryAttempts - 1)
+                current = _messageId.get();
+                upperBound = _messageIdUpperBound;
+                if (current < upperBound)
                 {
-                    throw new StoreException("Failed to allocate next message id", e);
+                    continue;
                 }
-                sleepBeforeRetry(attempt);
+                return allocateMessageIdBlock();
             }
         }
-        throw new StoreException("Failed to allocate next message id");
     }
 
     /**
@@ -497,9 +508,12 @@ public class RocksDBMessageStore implements MessageStore
         applyTransactionSettings(settings);
         applyCommitterSettings(settings);
         applyWriteSettings(settings);
+        _messageIdAllocationSize = getMessageIdAllocationSize();
         applySizeMonitoringSettings(parent);
         _totalStoreSize = getSizeOnDisk();
         ensureMessageStoreVersion();
+        cleanupOrphanedMessageChunks();
+        cleanupOrphanedQueueSegments();
         loadNextMessageId();
         startAsyncCommitter();
     }
@@ -513,8 +527,6 @@ public class RocksDBMessageStore implements MessageStore
     public void upgradeStoreStructure() throws StoreException
     {
         ensureMessageStoreVersion();
-        cleanupOrphanedMessageChunks();
-        cleanupOrphanedQueueSegments();
     }
 
     /**
@@ -611,6 +623,8 @@ public class RocksDBMessageStore implements MessageStore
         _bytesEvacuatedFromMemory.set(0L);
         _totalStoreSize = 0L;
         _limitBusted = false;
+        _messageId.set(0L);
+        _messageIdUpperBound = 0L;
     }
 
     /**
@@ -693,6 +707,7 @@ public class RocksDBMessageStore implements MessageStore
                 long maxId = findMaxMessageId();
                 long nextId = Math.max(persisted, maxId);
                 _messageId.set(nextId);
+                _messageIdUpperBound = nextId;
                 if (nextId != persisted)
                 {
                     storeNextMessageId(nextId);
@@ -702,6 +717,7 @@ public class RocksDBMessageStore implements MessageStore
             {
                 long maxId = findMaxMessageId();
                 _messageId.set(maxId);
+                _messageIdUpperBound = maxId;
                 storeNextMessageId(maxId);
             }
         }
@@ -759,6 +775,45 @@ public class RocksDBMessageStore implements MessageStore
         {
             throw new StoreException("Failed to persist next message id", e);
         }
+    }
+
+    private long allocateMessageIdBlock()
+    {
+        TransactionDB database = getTransactionDb();
+        ColumnFamilyHandle versionHandle = _environment.getColumnFamilyHandle(RocksDBColumnFamily.VERSION);
+        for (int attempt = 0; attempt < _transactionRetryAttempts; attempt++)
+        {
+            try (WriteOptions writeOptions = createWriteOptions();
+                 TransactionOptions txnOptions = new TransactionOptions();
+                 ReadOptions readOptions = new ReadOptions())
+            {
+                if (_transactionLockTimeoutMs > 0L)
+                {
+                    txnOptions.setLockTimeout(_transactionLockTimeoutMs);
+                }
+                try (org.rocksdb.Transaction txn = database.beginTransaction(writeOptions, txnOptions))
+                {
+                    byte[] value = txn.getForUpdate(readOptions, versionHandle, NEXT_MESSAGE_ID_KEY, true);
+                    long current = value == null ? findMaxMessageId() : decodeLong(value);
+                    long start = current + 1;
+                    long upper = current + Math.max(1, _messageIdAllocationSize);
+                    txn.put(versionHandle, NEXT_MESSAGE_ID_KEY, encodeLong(upper));
+                    txn.commit();
+                    _messageId.set(start);
+                    _messageIdUpperBound = upper;
+                    return start;
+                }
+            }
+            catch (RocksDBException e)
+            {
+                if (!isRetryable(e) || attempt == _transactionRetryAttempts - 1)
+                {
+                    throw new StoreException("Failed to allocate message id block", e);
+                }
+                sleepBeforeRetry(attempt);
+            }
+        }
+        throw new StoreException("Failed to allocate message id block");
     }
 
     /**
@@ -883,19 +938,15 @@ public class RocksDBMessageStore implements MessageStore
     {
         RocksDB database = _environment.getDatabase();
         ColumnFamilyHandle metadataHandle = _environment.getColumnFamilyHandle(RocksDBColumnFamily.MESSAGE_METADATA);
-        long maxId = 0L;
         try (RocksIterator iterator = database.newIterator(metadataHandle))
         {
-            for (iterator.seekToFirst(); iterator.isValid(); iterator.next())
+            iterator.seekToLast();
+            if (!iterator.isValid())
             {
-                long id = decodeMessageKey(iterator.key());
-                if (id > maxId)
-                {
-                    maxId = id;
-                }
+                return 0L;
             }
+            return decodeMessageKey(iterator.key());
         }
-        return maxId;
     }
 
     /**
@@ -1283,6 +1334,16 @@ public class RocksDBMessageStore implements MessageStore
         }
         _committerNotifyThreshold = notifyThreshold;
         _committerWaitTimeoutMs = waitTimeout;
+    }
+
+    private int getMessageIdAllocationSize()
+    {
+        Integer configured = Integer.getInteger(MESSAGE_ID_ALLOCATION_SIZE_PROPERTY);
+        if (configured != null && configured > 0)
+        {
+            return configured;
+        }
+        return DEFAULT_MESSAGE_ID_ALLOCATION_SIZE;
     }
 
     private void applyWriteSettings(final RocksDBSettings settings)
@@ -1750,6 +1811,65 @@ public class RocksDBMessageStore implements MessageStore
         catch (RocksDBException e)
         {
             throw new StoreException("Failed to store message metadata " + messageId, e);
+        }
+    }
+
+    private void storeChunkedMessage(final org.rocksdb.Transaction txn,
+                                     final long messageId,
+                                     final StorableMessageMetaData metaData,
+                                     final int chunkSize,
+                                     final List<byte[]> chunks,
+                                     final byte[] trailingChunk) throws StoreException
+    {
+        RocksDB database = _environment.getDatabase();
+        ColumnFamilyHandle metadataHandle = _environment.getColumnFamilyHandle(RocksDBColumnFamily.MESSAGE_METADATA);
+        ColumnFamilyHandle chunkHandle = _environment.getColumnFamilyHandle(RocksDBColumnFamily.MESSAGE_CHUNKS);
+        byte[] metadataKey = encodeMessageKey(messageId);
+        try
+        {
+            if (txn != null)
+            {
+                int chunkIndex = 0;
+                if (chunks != null)
+                {
+                    for (byte[] chunk : chunks)
+                    {
+                        txn.put(chunkHandle, encodeChunkKey(messageId, chunkIndex), chunk);
+                        chunkIndex++;
+                    }
+                }
+                if (trailingChunk != null)
+                {
+                    txn.put(chunkHandle, encodeChunkKey(messageId, chunkIndex), trailingChunk);
+                }
+                txn.put(metadataHandle, metadataKey, encodeMetaData(metaData, true, chunkSize));
+            }
+            else
+            {
+                try (WriteBatch batch = new WriteBatch();
+                     WriteOptions options = createWriteOptions())
+                {
+                    int chunkIndex = 0;
+                    if (chunks != null)
+                    {
+                        for (byte[] chunk : chunks)
+                        {
+                            batch.put(chunkHandle, encodeChunkKey(messageId, chunkIndex), chunk);
+                            chunkIndex++;
+                        }
+                    }
+                    if (trailingChunk != null)
+                    {
+                        batch.put(chunkHandle, encodeChunkKey(messageId, chunkIndex), trailingChunk);
+                    }
+                    batch.put(metadataHandle, metadataKey, encodeMetaData(metaData, true, chunkSize));
+                    database.write(options, batch);
+                }
+            }
+        }
+        catch (RocksDBException e)
+        {
+            throw new StoreException("Failed to store chunked message " + messageId, e);
         }
     }
 

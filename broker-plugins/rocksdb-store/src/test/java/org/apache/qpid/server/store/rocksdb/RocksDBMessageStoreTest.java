@@ -144,10 +144,54 @@ public class RocksDBMessageStoreTest extends MessageStoreTestCase
     @Test
     public void testNextMessageIdPersistsWithoutMessages()
     {
-        long firstId = getStore().getNextMessageId();
-        reopenStore();
-        long secondId = getStore().getNextMessageId();
-        assertEquals(firstId + 1, secondId, "Unexpected next message id after reopen");
+        String original = System.getProperty(RocksDBMessageStore.MESSAGE_ID_ALLOCATION_SIZE_PROPERTY);
+        System.setProperty(RocksDBMessageStore.MESSAGE_ID_ALLOCATION_SIZE_PROPERTY, "1");
+        try
+        {
+            reopenStore();
+            long firstId = getStore().getNextMessageId();
+            reopenStore();
+            long secondId = getStore().getNextMessageId();
+            assertEquals(firstId + 1, secondId, "Unexpected next message id after reopen");
+        }
+        finally
+        {
+            if (original == null)
+            {
+                System.clearProperty(RocksDBMessageStore.MESSAGE_ID_ALLOCATION_SIZE_PROPERTY);
+            }
+            else
+            {
+                System.setProperty(RocksDBMessageStore.MESSAGE_ID_ALLOCATION_SIZE_PROPERTY, original);
+            }
+        }
+    }
+
+    @Test
+    public void testNextMessageIdSkipsReservedBlockAfterReopen()
+    {
+        String original = System.getProperty(RocksDBMessageStore.MESSAGE_ID_ALLOCATION_SIZE_PROPERTY);
+        System.setProperty(RocksDBMessageStore.MESSAGE_ID_ALLOCATION_SIZE_PROPERTY, "5");
+        try
+        {
+            reopenStore();
+            long firstId = getStore().getNextMessageId();
+            assertEquals(1L, firstId, "Unexpected first id with block allocation");
+            reopenStore();
+            long afterReopen = getStore().getNextMessageId();
+            assertEquals(6L, afterReopen, "Expected id to skip reserved block after reopen");
+        }
+        finally
+        {
+            if (original == null)
+            {
+                System.clearProperty(RocksDBMessageStore.MESSAGE_ID_ALLOCATION_SIZE_PROPERTY);
+            }
+            else
+            {
+                System.setProperty(RocksDBMessageStore.MESSAGE_ID_ALLOCATION_SIZE_PROPERTY, original);
+            }
+        }
     }
 
     /**
@@ -314,7 +358,7 @@ public class RocksDBMessageStoreTest extends MessageStoreTestCase
     }
 
     @Test
-    public void testUpgradeStoreStructureRemovesOrphanedQueueSegments() throws Exception
+    public void testOrphanedQueueSegmentsRemovedOnOpen() throws Exception
     {
         RocksDBMessageStore store = (RocksDBMessageStore) getStore();
         RocksDBEnvironment environment = store.getEnvironment();
@@ -327,7 +371,11 @@ public class RocksDBMessageStoreTest extends MessageStoreTestCase
         byte[] segmentKey = encodeQueueSegmentKey(queueId, segmentNo);
         database.put(segmentHandle, segmentKey, RocksDBQueueRecordMapper.encodeQueueSegment(segment));
 
-        store.upgradeStoreStructure();
+        reopenStore();
+        store = (RocksDBMessageStore) getStore();
+        environment = store.getEnvironment();
+        database = environment.getDatabase();
+        segmentHandle = environment.getColumnFamilyHandle(RocksDBColumnFamily.Q_SEG);
 
         byte[] stored = database.get(segmentHandle, segmentKey);
         assertNull(stored, "Expected orphaned queue segment to be removed");
@@ -742,7 +790,7 @@ public class RocksDBMessageStoreTest extends MessageStoreTestCase
     }
 
     @Test
-    public void testOrphanedChunksRemovedOnUpgrade() throws Exception
+    public void testOrphanedChunksRemovedOnOpen() throws Exception
     {
         MessageStore store = getStore();
         UUID queueId = UUID.randomUUID();
@@ -781,7 +829,11 @@ public class RocksDBMessageStoreTest extends MessageStoreTestCase
         database.put(chunkHandle, orphanChunkKey, new byte[]{1, 2, 3});
         assertTrue(database.get(chunkHandle, orphanChunkKey) != null, "Expected orphaned chunk to be present");
 
-        store.upgradeStoreStructure();
+        reopenStore();
+        rocksStore = (RocksDBMessageStore) getStore();
+        environment = rocksStore.getEnvironment();
+        database = environment.getDatabase();
+        chunkHandle = environment.getColumnFamilyHandle(RocksDBColumnFamily.MESSAGE_CHUNKS);
 
         assertTrue(database.get(chunkHandle, orphanChunkKey) == null, "Expected orphaned chunk to be removed");
         assertTrue(database.get(chunkHandle, validChunkKey) != null, "Expected valid chunk to remain");
@@ -835,7 +887,7 @@ public class RocksDBMessageStoreTest extends MessageStoreTestCase
     }
 
     @Test
-    public void testOrphanedSegmentsRemovedOnUpgrade() throws Exception
+    public void testOrphanedSegmentsRemovedOnOpen() throws Exception
     {
         MessageStore store = getStore();
         UUID queueId = UUID.randomUUID();
@@ -867,7 +919,12 @@ public class RocksDBMessageStoreTest extends MessageStoreTestCase
                                     .array();
         database.delete(stateHandle, stateKey);
 
-        store.upgradeStoreStructure();
+        reopenStore();
+        store = getStore();
+        rocksStore = (RocksDBMessageStore) store;
+        environment = rocksStore.getEnvironment();
+        database = environment.getDatabase();
+        segmentHandle = environment.getColumnFamilyHandle(RocksDBColumnFamily.Q_SEG);
 
         assertTrue(database.get(segmentHandle, segmentKey) == null, "Expected orphaned segment to be removed");
     }

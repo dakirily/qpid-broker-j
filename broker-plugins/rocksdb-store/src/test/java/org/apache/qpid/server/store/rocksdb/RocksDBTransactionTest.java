@@ -210,6 +210,16 @@ class RocksDBTransactionTest
         }
 
         @Override
+        public void storeChunkedMessage(final org.rocksdb.Transaction txn,
+                                        final long messageId,
+                                        final org.apache.qpid.server.store.StorableMessageMetaData metaData,
+                                        final int chunkSize,
+                                        final java.util.List<byte[]> chunks,
+                                        final byte[] trailingChunk)
+        {
+        }
+
+        @Override
         public void storeMessageMetadata(final org.rocksdb.Transaction txn,
                                          final long messageId,
                                          final org.apache.qpid.server.store.StorableMessageMetaData metaData,

@@ -171,6 +171,44 @@ class RocksDBStoredMessageTest
         }
 
         @Override
+        public void storeChunkedMessage(final org.rocksdb.Transaction txn,
+                                        final long messageId,
+                                        final org.apache.qpid.server.store.StorableMessageMetaData metaData,
+                                        final int chunkSize,
+                                        final java.util.List<byte[]> chunks,
+                                        final byte[] trailingChunk)
+        {
+            storedMeta = new MetaDataRecord(metaData, true, chunkSize);
+            int total = 0;
+            if (chunks != null)
+            {
+                for (byte[] chunk : chunks)
+                {
+                    total += chunk.length;
+                }
+            }
+            if (trailingChunk != null)
+            {
+                total += trailingChunk.length;
+            }
+            byte[] combined = new byte[total];
+            int offset = 0;
+            if (chunks != null)
+            {
+                for (byte[] chunk : chunks)
+                {
+                    System.arraycopy(chunk, 0, combined, offset, chunk.length);
+                    offset += chunk.length;
+                }
+            }
+            if (trailingChunk != null)
+            {
+                System.arraycopy(trailingChunk, 0, combined, offset, trailingChunk.length);
+            }
+            storedContent = combined;
+        }
+
+        @Override
         public void storeMessageMetadata(final org.rocksdb.Transaction txn,
                                          final long messageId,
                                          final org.apache.qpid.server.store.StorableMessageMetaData metaData,
