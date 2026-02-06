@@ -66,7 +66,7 @@ import org.apache.qpid.server.security.NonJavaKeyStore;
 import org.apache.qpid.server.transport.network.security.ssl.SSLUtil;
 import org.apache.qpid.server.util.DataUrlUtils;
 import org.apache.qpid.test.utils.tls.PemUtils;
-import org.apache.qpid.test.utils.tls.types.KeyCertificatePair;
+import org.apache.qpid.test.utils.tls.KeyCertificatePair;
 import org.apache.qpid.test.utils.tls.TlsResourceBuilder;
 import org.apache.qpid.tests.utils.BrokerAdmin;
 

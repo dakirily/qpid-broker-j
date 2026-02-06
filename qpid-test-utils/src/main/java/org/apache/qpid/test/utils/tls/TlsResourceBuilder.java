@@ -41,9 +41,6 @@ import java.util.Arrays;
 import java.util.Date;
 
 import org.apache.qpid.test.utils.exception.QpidTestException;
-import org.apache.qpid.test.utils.tls.types.AlternativeName;
-import org.apache.qpid.test.utils.tls.types.KeyCertificatePair;
-import org.apache.qpid.test.utils.tls.types.ValidityPeriod;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x500.style.RFC4519Style;
 import org.bouncycastle.asn1.x509.BasicConstraints;

@@ -45,7 +45,7 @@ import java.util.concurrent.TimeUnit;
 
 import javax.net.ssl.KeyManager;
 
-import org.apache.qpid.test.utils.TlsResourceExtension;
+import org.apache.qpid.test.utils.tls.TlsResourceExtension;
 import org.apache.qpid.test.utils.tls.PemUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -63,7 +63,7 @@ import org.apache.qpid.server.model.BrokerModel;
 import org.apache.qpid.server.model.BrokerTestHelper;
 import org.apache.qpid.server.model.ConfiguredObjectFactory;
 import org.apache.qpid.server.model.KeyStore;
-import org.apache.qpid.test.utils.tls.types.KeyCertificatePair;
+import org.apache.qpid.test.utils.tls.KeyCertificatePair;
 import org.apache.qpid.test.utils.tls.TlsResource;
 import org.apache.qpid.test.utils.tls.TlsResourceBuilder;
 import org.apache.qpid.server.util.DataUrlUtils;

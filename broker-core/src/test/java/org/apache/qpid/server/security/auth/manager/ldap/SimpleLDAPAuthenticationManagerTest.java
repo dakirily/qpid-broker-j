@@ -29,7 +29,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
-import org.apache.qpid.test.utils.TlsResourceExtension;
+import org.apache.qpid.test.utils.tls.TlsResourceExtension;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -45,9 +45,9 @@ import org.apache.qpid.server.security.auth.manager.SimpleLDAPAuthenticationMana
 import org.apache.qpid.server.util.FileUtils;
 import org.apache.qpid.test.utils.PortHelper;
 import org.apache.qpid.test.utils.UnitTestBase;
-import org.apache.qpid.test.utils.tls.types.CertificateEntry;
-import org.apache.qpid.test.utils.tls.types.KeyCertificatePair;
-import org.apache.qpid.test.utils.tls.types.PrivateKeyEntry;
+import org.apache.qpid.test.utils.tls.CertificateEntry;
+import org.apache.qpid.test.utils.tls.KeyCertificatePair;
+import org.apache.qpid.test.utils.tls.PrivateKeyEntry;
 import org.apache.qpid.test.utils.tls.TlsResource;
 import org.apache.qpid.test.utils.tls.TlsResourceBuilder;
 

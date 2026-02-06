@@ -22,7 +22,6 @@
 package org.apache.qpid.test.utils.tls;
 
 import org.apache.qpid.test.utils.exception.QpidTestException;
-import org.apache.qpid.test.utils.tls.types.KeyStoreEntry;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;

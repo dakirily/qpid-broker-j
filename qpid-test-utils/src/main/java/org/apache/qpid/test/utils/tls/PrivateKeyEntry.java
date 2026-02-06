@@ -19,7 +19,7 @@
  *
  */
 
-package org.apache.qpid.test.utils.tls.types;
+package org.apache.qpid.test.utils.tls;
 
 import org.apache.qpid.test.utils.exception.QpidTestException;
 

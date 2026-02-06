@@ -36,7 +36,7 @@ import java.util.Map;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
 
-import org.apache.qpid.test.utils.TlsResourceExtension;
+import org.apache.qpid.test.utils.tls.TlsResourceExtension;
 import org.junit.jupiter.api.Test;
 
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -47,7 +47,7 @@ import org.apache.qpid.server.model.BrokerModel;
 import org.apache.qpid.server.model.BrokerTestHelper;
 import org.apache.qpid.server.model.ConfiguredObjectFactory;
 import org.apache.qpid.server.model.TrustStore;
-import org.apache.qpid.test.utils.tls.types.KeyCertificatePair;
+import org.apache.qpid.test.utils.tls.KeyCertificatePair;
 import org.apache.qpid.test.utils.tls.TlsResource;
 import org.apache.qpid.test.utils.tls.TlsResourceBuilder;
 import org.apache.qpid.test.utils.UnitTestBase;

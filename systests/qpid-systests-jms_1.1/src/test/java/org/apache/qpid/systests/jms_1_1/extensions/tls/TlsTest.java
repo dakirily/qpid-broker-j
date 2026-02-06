@@ -44,7 +44,7 @@ import javax.jms.Connection;
 import javax.jms.JMSException;
 import javax.jms.Session;
 
-import org.apache.qpid.test.utils.TlsResourceExtension;
+import org.apache.qpid.test.utils.tls.TlsResourceExtension;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;

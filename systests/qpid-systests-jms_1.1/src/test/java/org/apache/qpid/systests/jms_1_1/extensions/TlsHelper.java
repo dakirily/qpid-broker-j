@@ -25,10 +25,10 @@ import java.security.KeyPair;
 import java.security.PrivateKey;
 import java.security.cert.X509Certificate;
 
-import org.apache.qpid.test.utils.tls.types.CertificateEntry;
-import org.apache.qpid.test.utils.tls.types.PrivateKeyEntry;
+import org.apache.qpid.test.utils.tls.CertificateEntry;
+import org.apache.qpid.test.utils.tls.PrivateKeyEntry;
 import org.apache.qpid.test.utils.tls.TlsResourceBuilder;
-import org.apache.qpid.test.utils.tls.types.KeyCertificatePair;
+import org.apache.qpid.test.utils.tls.KeyCertificatePair;
 import org.apache.qpid.test.utils.tls.TlsResource;
 
 public class TlsHelper

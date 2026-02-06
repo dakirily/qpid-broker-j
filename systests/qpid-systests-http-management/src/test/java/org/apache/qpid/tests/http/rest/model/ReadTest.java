@@ -54,7 +54,7 @@ import org.apache.qpid.server.security.NonJavaTrustStore;
 import org.apache.qpid.test.utils.tls.TlsResourceBuilder;
 import org.apache.qpid.server.util.DataUrlUtils;
 import org.apache.qpid.server.util.FileUtils;
-import org.apache.qpid.test.utils.tls.types.KeyCertificatePair;
+import org.apache.qpid.test.utils.tls.KeyCertificatePair;
 import org.apache.qpid.tests.http.HttpRequestConfig;
 import org.apache.qpid.tests.http.HttpTestBase;
 

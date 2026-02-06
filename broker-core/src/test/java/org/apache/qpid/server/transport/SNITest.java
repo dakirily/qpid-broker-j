@@ -67,11 +67,11 @@ import org.apache.qpid.server.security.auth.manager.AnonymousAuthenticationManag
 import org.apache.qpid.server.transport.network.security.ssl.SSLUtil;
 import org.apache.qpid.test.utils.TestFileUtils;
 import org.apache.qpid.test.utils.UnitTestBase;
-import org.apache.qpid.test.utils.TlsResourceExtension;
-import org.apache.qpid.test.utils.tls.types.AltNameType;
-import org.apache.qpid.test.utils.tls.types.AlternativeName;
-import org.apache.qpid.test.utils.tls.types.KeyCertificatePair;
-import org.apache.qpid.test.utils.tls.types.PrivateKeyEntry;
+import org.apache.qpid.test.utils.tls.TlsResourceExtension;
+import org.apache.qpid.test.utils.tls.AltNameType;
+import org.apache.qpid.test.utils.tls.AlternativeName;
+import org.apache.qpid.test.utils.tls.KeyCertificatePair;
+import org.apache.qpid.test.utils.tls.PrivateKeyEntry;
 import org.apache.qpid.test.utils.tls.TlsResource;
 import org.apache.qpid.test.utils.tls.TlsResourceBuilder;
 

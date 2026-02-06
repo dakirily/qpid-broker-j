@@ -19,33 +19,35 @@
  *
  */
 
-package org.apache.qpid.test.utils.tls.types;
+package org.apache.qpid.test.utils.tls;
 
-import org.apache.qpid.test.utils.exception.QpidTestException;
-
-import java.security.KeyStore;
-import java.security.KeyStoreException;
-import java.security.cert.Certificate;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Objects;
 
-public record CertificateEntry(String alias, Certificate certificate) implements KeyStoreEntry
+public record ValidityPeriod(Instant from, Instant to)
 {
-    public CertificateEntry
+    public ValidityPeriod
     {
-        Objects.requireNonNull(alias, "alias must not be null");
-        Objects.requireNonNull(certificate, "certificate must not be null");
+        Objects.requireNonNull(from, "from must not be null");
+        Objects.requireNonNull(to, "to must not be null");
+
+        if (to.isBefore(from))
+        {
+            throw new IllegalArgumentException("'to' must be before 'from'");
+        }
     }
 
-    @Override
-    public void addToKeyStore(final KeyStore keyStore, final char[] secret)
+    public static ValidityPeriod of(final Instant from, final Instant to)
     {
-        try
-        {
-            keyStore.setCertificateEntry(alias(), certificate());
-        }
-        catch (final KeyStoreException e)
-        {
-            throw new QpidTestException(e);
-        }
+        return new ValidityPeriod(from, to);
+    }
+
+    public static ValidityPeriod fromYesterday(final Duration duration)
+    {
+        Objects.requireNonNull(duration, "duration must not be null");
+        final Instant from = Instant.now().minus(1, ChronoUnit.DAYS);
+        return new ValidityPeriod(from, from.plus(duration));
     }
 }

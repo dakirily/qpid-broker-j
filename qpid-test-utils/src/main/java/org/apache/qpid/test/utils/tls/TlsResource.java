@@ -36,10 +36,6 @@ import java.util.List;
 import java.util.stream.Stream;
 
 import org.apache.qpid.test.utils.exception.QpidTestException;
-import org.apache.qpid.test.utils.tls.types.CertificateEntry;
-import org.apache.qpid.test.utils.tls.types.KeyCertificatePair;
-import org.apache.qpid.test.utils.tls.types.KeyStoreEntry;
-import org.apache.qpid.test.utils.tls.types.PrivateKeyEntry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -75,6 +71,7 @@ public class TlsResource implements AutoCloseable
         try
         {
             final Path targetDir = Path.of("target");
+            Files.createDirectories(targetDir);
             _keystoreDirectory = Files.createTempDirectory(targetDir, "test-tls-resources-");
             LOGGER.debug("Test keystore directory is created : '{}'", _keystoreDirectory);
         }

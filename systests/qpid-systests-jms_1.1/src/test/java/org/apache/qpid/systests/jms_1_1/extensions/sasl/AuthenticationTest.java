@@ -49,8 +49,8 @@ import javax.jms.Session;
 import javax.jms.TemporaryQueue;
 import javax.naming.NamingException;
 
-import org.apache.qpid.test.utils.TlsResourceExtension;
-import org.apache.qpid.test.utils.tls.types.KeyStoreEntry;
+import org.apache.qpid.test.utils.tls.TlsResourceExtension;
+import org.apache.qpid.test.utils.tls.KeyStoreEntry;
 import org.eclipse.jetty.server.Handler;
 import org.eclipse.jetty.server.Request;
 import org.eclipse.jetty.server.Response;
@@ -79,9 +79,9 @@ import org.apache.qpid.systests.ConnectionBuilder;
 import org.apache.qpid.systests.JmsTestBase;
 import org.apache.qpid.systests.jms_1_1.extensions.BrokerManagementHelper;
 import org.apache.qpid.test.utils.JvmVendor;
-import org.apache.qpid.test.utils.tls.types.CertificateEntry;
-import org.apache.qpid.test.utils.tls.types.KeyCertificatePair;
-import org.apache.qpid.test.utils.tls.types.PrivateKeyEntry;
+import org.apache.qpid.test.utils.tls.CertificateEntry;
+import org.apache.qpid.test.utils.tls.KeyCertificatePair;
+import org.apache.qpid.test.utils.tls.PrivateKeyEntry;
 import org.apache.qpid.test.utils.tls.TlsResource;
 import org.apache.qpid.test.utils.tls.TlsResourceBuilder;
 

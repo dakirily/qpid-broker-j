@@ -1,6 +1,5 @@
-package org.apache.qpid.test.utils;
+package org.apache.qpid.test.utils.tls;
 
-import org.apache.qpid.test.utils.tls.TlsResource;
 import org.jspecify.annotations.NonNull;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -8,8 +7,6 @@ import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.extension.ParameterContext;
 import org.junit.jupiter.api.extension.ParameterResolutionException;
 import org.junit.jupiter.api.extension.ParameterResolver;
-
-import java.lang.reflect.Method;
 
 /**
  * JUnit extension allowing to inject {@link TlsResource} as test method parameter. Created {@link TlsResource} instance
@@ -64,17 +61,14 @@ public class TlsResourceExtension implements ParameterResolver
 
     /**
      * Creates {@link ExtensionContext.Store} from {@link ExtensionContext} instance
-     * @param context {@link ExtensionContext} instance
+     * @param extensionContext {@link ExtensionContext} instance
      * @return {@link ExtensionContext.Store} instance
      */
     private ExtensionContext.Store store(final @NonNull ParameterContext parameterContext,
-                                         final @NonNull ExtensionContext context)
+                                         final @NonNull ExtensionContext extensionContext)
     {
-        final var className = context.getRequiredTestClass().getCanonicalName();
-        final var methodName = context.getTestMethod().map(Method::getName).orElse("");
-        final var index = parameterContext.getIndex();
-        final var key = "%s%s%d".formatted(className, (methodName.isEmpty() ? "" : "#" + methodName), index);
+        final var key = extensionContext.getUniqueId();
         final var namespace = ExtensionContext.Namespace.create(key);
-        return context.getStore(ExtensionContext.StoreScope.EXTENSION_CONTEXT, namespace);
+        return extensionContext.getStore(ExtensionContext.StoreScope.EXTENSION_CONTEXT, namespace);
     }
 }
