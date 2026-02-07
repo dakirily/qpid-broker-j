@@ -26,8 +26,6 @@ import java.security.KeyStoreException;
 import java.security.cert.Certificate;
 import java.util.Objects;
 
-import org.apache.qpid.test.utils.exception.QpidTestException;
-
 public record CertificateEntry(String alias, Certificate certificate) implements KeyStoreEntry
 {
     public CertificateEntry
@@ -37,15 +35,8 @@ public record CertificateEntry(String alias, Certificate certificate) implements
     }
 
     @Override
-    public void addToKeyStore(final KeyStore keyStore, final char[] secret)
+    public void addToKeyStore(final KeyStore keyStore, final char[] secret) throws KeyStoreException
     {
-        try
-        {
-            keyStore.setCertificateEntry(alias(), certificate());
-        }
-        catch (final KeyStoreException e)
-        {
-            throw new QpidTestException(e);
-        }
+        keyStore.setCertificateEntry(alias(), certificate());
     }
 }

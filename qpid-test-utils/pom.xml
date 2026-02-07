@@ -123,7 +123,7 @@
         <artifactId>apache-rat-plugin</artifactId>
         <configuration>
           <inputExcludes>
-            <inputExclude>**/*.md</inputExclude>
+            <inputExclude>README.md</inputExclude>
             <inputExclude>src/main/resources/ssl/**</inputExclude>
           </inputExcludes>
         </configuration>

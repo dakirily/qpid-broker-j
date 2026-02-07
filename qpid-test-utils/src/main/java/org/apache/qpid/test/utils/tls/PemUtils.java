@@ -21,8 +21,6 @@
 
 package org.apache.qpid.test.utils.tls;
 
-import org.apache.qpid.test.utils.exception.QpidTestException;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -50,56 +48,29 @@ public class PemUtils
     private static final int PEM_LINE_LENGTH = 76;
 
     public static void saveCertificateAsPem(final Path path, final List<X509Certificate> certificates)
+            throws IOException, CertificateEncodingException
     {
-        try
+        final StringBuilder stringBuilder = new StringBuilder();
+        for (final X509Certificate x509Certificate : certificates)
         {
-            final StringBuilder stringBuilder = new StringBuilder();
-            for (final X509Certificate x509Certificate : certificates)
-            {
-                stringBuilder.append(toPEM(x509Certificate));
-            }
-            Files.writeString(path, stringBuilder.toString(), UTF_8);
+            stringBuilder.append(toPEM(x509Certificate));
         }
-        catch (final IOException e)
-        {
-            throw new QpidTestException(e);
-        }
+        Files.writeString(path, stringBuilder.toString(), UTF_8);
     }
 
-    public static void savePrivateKeyAsPem(final Path path, final PrivateKey key)
+    public static void savePrivateKeyAsPem(final Path path, final PrivateKey key) throws IOException
     {
-        try
-        {
-            Files.writeString(path, toPEM(key), UTF_8);
-        }
-        catch (final IOException e)
-        {
-            throw new QpidTestException(e);
-        }
+        Files.writeString(path, toPEM(key), UTF_8);
     }
 
-    public static void saveCrlAsPem(final Path path, final X509CRL crl)
+    public static void saveCrlAsPem(final Path path, final X509CRL crl) throws IOException, CRLException
     {
-        try
-        {
-            Files.writeString(path, toPEM(crl.getEncoded(), BEGIN_X_509_CRL, END_X_509_CRL), UTF_8);
-        }
-        catch (IOException | CRLException e)
-        {
-            throw new QpidTestException(e);
-        }
+        Files.writeString(path, toPEM(crl.getEncoded(), BEGIN_X_509_CRL, END_X_509_CRL), UTF_8);
     }
 
-    public static String toPEM(final Certificate certificate)
+    public static String toPEM(final Certificate certificate) throws CertificateEncodingException
     {
-        try
-        {
-            return toPEM(certificate.getEncoded(), BEGIN_CERTIFICATE, END_CERTIFICATE);
-        }
-        catch (final CertificateEncodingException e)
-        {
-            throw new QpidTestException(e);
-        }
+        return toPEM(certificate.getEncoded(), BEGIN_CERTIFICATE, END_CERTIFICATE);
     }
 
     public static String toPEM(final PrivateKey key)

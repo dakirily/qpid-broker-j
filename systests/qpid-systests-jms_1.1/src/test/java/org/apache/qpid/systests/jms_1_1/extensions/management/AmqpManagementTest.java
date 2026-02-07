@@ -73,6 +73,7 @@ import org.apache.qpid.tests.utils.BrokerAdmin;
 public class AmqpManagementTest extends JmsTestBase
 {
     private static TlsHelper _tlsHelper;
+    private static TlsResource _classTls;
 
     private Session _session;
     private Queue _replyAddress;
@@ -82,6 +83,7 @@ public class AmqpManagementTest extends JmsTestBase
     @BeforeAll
     public static void setUp(final TlsResource tls) throws Exception
     {
+        _classTls = tls;
         _tlsHelper = new TlsHelper(tls);
     }
 
@@ -626,7 +628,7 @@ public class AmqpManagementTest extends JmsTestBase
     }
 
     @Test
-    public void testInvokeSecureOperation(final TlsResource tls) throws Exception
+    public void testInvokeSecureOperation() throws Exception
     {
         assumeTrue(isSupportedClient());
 
@@ -671,10 +673,10 @@ public class AmqpManagementTest extends JmsTestBase
                     helper.getAuthenticationProviderNameForAmqpPort(getBrokerAdmin().getBrokerAddress(
                             BrokerAdmin.PortType.AMQP)
                                                                                     .getPort());
-            tlsPort = helper.createKeyStore(keyStoreName, _tlsHelper.getBrokerKeyStore(), tls.getSecret())
+            tlsPort = helper.createKeyStore(keyStoreName, _tlsHelper.getBrokerKeyStore(), _classTls.getSecret())
                             .createTrustStore(trustStoreName,
                                               _tlsHelper.getBrokerTrustStore(),
-                                              tls.getSecret())
+                                              _classTls.getSecret())
                             .createAmqpTlsPort(portName,
                                                authenticationManager,
                                                keyStoreName,
@@ -687,7 +689,7 @@ public class AmqpManagementTest extends JmsTestBase
         Connection connection = getConnectionBuilder().setTls(true)
                                                       .setPort(tlsPort)
                                                       .setTrustStoreLocation(_tlsHelper.getClientTrustStore())
-                                                      .setTrustStorePassword(tls.getSecret())
+                                                      .setTrustStorePassword(_classTls.getSecret())
                                                       .build();
         try
         {

@@ -21,8 +21,6 @@
 
 package org.apache.qpid.test.utils.tls;
 
-import org.apache.qpid.test.utils.exception.QpidTestException;
-
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -37,7 +35,10 @@ import javax.crypto.SecretKey;
 
 public class TlsResourceHelper
 {
-    public static KeyStore createKeyStore(final String keyStoreType, final char[] secret, final KeyStoreEntry... entries)
+    public static KeyStore createKeyStore(final String keyStoreType,
+                                          final char[] secret,
+                                          final KeyStoreEntry... entries)
+            throws GeneralSecurityException, IOException
     {
         final KeyStore keyStore = createKeyStoreOfType(keyStoreType);
         for (KeyStoreEntry keyStoreEntry : entries)
@@ -50,51 +51,38 @@ public class TlsResourceHelper
     public static String createKeyStoreAsDataUrl(final String keyStoreType,
                                                  final char[] secret,
                                                  final KeyStoreEntry... entries)
+            throws GeneralSecurityException, IOException
     {
         final KeyStore keyStore = createKeyStore(keyStoreType, secret, entries);
         return toDataUrl(keyStore, secret);
     }
 
     public static KeyStore createKeyStoreOfType(final String keyStoreType)
+            throws GeneralSecurityException, IOException
     {
-        try
-        {
-            final KeyStore keyStore = KeyStore.getInstance(keyStoreType);
-            keyStore.load(null, null);
-            return keyStore;
-        }
-        catch (final GeneralSecurityException | IOException e)
-        {
-            throw new QpidTestException(e);
-        }
+        final KeyStore keyStore = KeyStore.getInstance(keyStoreType);
+        keyStore.load(null, null);
+        return keyStore;
     }
 
     private static byte[] keyStoreToBytes(final KeyStore keyStore, final char[] secret)
+            throws GeneralSecurityException, IOException
     {
         try (final ByteArrayOutputStream out = new ByteArrayOutputStream())
         {
             keyStore.store(out, secret);
             return out.toByteArray();
         }
-        catch (GeneralSecurityException | IOException e)
-        {
-            throw new QpidTestException(e);
-        }
     }
 
     public static void saveKeyStoreIntoFile(final KeyStore keyStore, final char[] secret, final Path storePath)
+            throws GeneralSecurityException, IOException
     {
-        try
-        {
-            Files.write(storePath, keyStoreToBytes(keyStore, secret));
-        }
-        catch (IOException e)
-        {
-            throw new QpidTestException(e);
-        }
+        Files.write(storePath, keyStoreToBytes(keyStore, secret));
     }
 
     public static String toDataUrl(final KeyStore keyStore, final char[] secret)
+            throws GeneralSecurityException, IOException
     {
         return getDataUrlForBytes(keyStoreToBytes(keyStore, secret));
     }
@@ -104,17 +92,10 @@ public class TlsResourceHelper
         return "data:;base64," + Base64.getEncoder().encodeToString(bytes);
     }
 
-    public static SecretKey createAESSecretKey()
+    public static SecretKey createAESSecretKey() throws NoSuchAlgorithmException
     {
-        try
-        {
-            final KeyGenerator keyGen = KeyGenerator.getInstance("AES");
-            keyGen.init(256);
-            return keyGen.generateKey();
-        }
-        catch (NoSuchAlgorithmException e)
-        {
-            throw new QpidTestException(e);
-        }
+        final KeyGenerator keyGen = KeyGenerator.getInstance("AES");
+        keyGen.init(256);
+        return keyGen.generateKey();
     }
 }

@@ -20,8 +20,6 @@
  */
 package org.apache.qpid.test.utils.tls;
 
-import org.apache.qpid.test.utils.exception.QpidTestException;
-
 import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.util.Objects;
@@ -37,15 +35,8 @@ public record SecretKeyEntry(String alias, SecretKey secretKey) implements KeySt
     }
 
     @Override
-    public void addToKeyStore(final KeyStore keyStore, char[] secret)
+    public void addToKeyStore(final KeyStore keyStore, char[] secret) throws KeyStoreException
     {
-        try
-        {
-            keyStore.setKeyEntry(alias(), secretKey(), secret, null);
-        }
-        catch (final KeyStoreException e)
-        {
-            throw new QpidTestException(e);
-        }
+        keyStore.setKeyEntry(alias(), secretKey(), secret, null);
     }
 }

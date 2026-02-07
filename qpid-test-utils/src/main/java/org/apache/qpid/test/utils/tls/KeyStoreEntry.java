@@ -22,8 +22,9 @@
 package org.apache.qpid.test.utils.tls;
 
 import java.security.KeyStore;
+import java.security.KeyStoreException;
 
 public sealed interface KeyStoreEntry permits PrivateKeyEntry, SecretKeyEntry, CertificateEntry
 {
-    void addToKeyStore(final KeyStore keyStore, final char[] secret);
+    void addToKeyStore(final KeyStore keyStore, final char[] secret) throws KeyStoreException;
 }

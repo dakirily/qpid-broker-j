@@ -21,8 +21,6 @@
 
 package org.apache.qpid.test.utils.tls;
 
-import org.apache.qpid.test.utils.exception.QpidTestException;
-
 import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.PrivateKey;
@@ -66,15 +64,8 @@ public record PrivateKeyEntry(String alias, PrivateKey privateKey, Certificate[]
     }
 
     @Override
-    public void addToKeyStore(final KeyStore keyStore, final char[] secret)
+    public void addToKeyStore(final KeyStore keyStore, final char[] secret) throws KeyStoreException
     {
-        try
-        {
-            keyStore.setKeyEntry(alias, privateKey, secret, certificateChain);
-        }
-        catch (final KeyStoreException e)
-        {
-            throw new QpidTestException(e);
-        }
+        keyStore.setKeyEntry(alias, privateKey, secret, certificateChain);
     }
 }
