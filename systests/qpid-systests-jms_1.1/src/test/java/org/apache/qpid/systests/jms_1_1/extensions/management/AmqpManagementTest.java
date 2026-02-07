@@ -65,6 +65,7 @@ import org.apache.qpid.systests.AmqpManagementFacade;
 import org.apache.qpid.systests.JmsTestBase;
 import org.apache.qpid.systests.jms_1_1.extensions.BrokerManagementHelper;
 import org.apache.qpid.systests.jms_1_1.extensions.TlsHelper;
+import org.apache.qpid.test.utils.tls.TlsResourceExtension;
 import org.apache.qpid.test.utils.tls.TlsResource;
 import org.apache.qpid.tests.utils.BrokerAdmin;
 

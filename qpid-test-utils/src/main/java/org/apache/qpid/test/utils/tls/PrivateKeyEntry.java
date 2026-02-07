@@ -40,22 +40,22 @@ public record PrivateKeyEntry(String alias, PrivateKey privateKey, Certificate[]
 
     public PrivateKeyEntry(String alias, PrivateKey privateKey, Certificate certificate)
     {
-        this(alias, privateKey, new  Certificate[]{ certificate });
+        this(alias, privateKey, new Certificate[]{ certificate });
     }
 
     public PrivateKeyEntry(String alias, PrivateKey privateKey, Certificate certificate1, Certificate certificate2)
     {
-        this(alias, privateKey, new  Certificate[]{ certificate1, certificate2 });
+        this(alias, privateKey, new Certificate[]{ certificate1, certificate2 });
     }
 
     public PrivateKeyEntry(String alias, PrivateKey privateKey, Certificate certificate1, Certificate certificate2, Certificate certificate3)
     {
-        this(alias, privateKey, new  Certificate[]{ certificate1, certificate2, certificate3 });
+        this(alias, privateKey, new Certificate[]{ certificate1, certificate2, certificate3 });
     }
 
     public PrivateKeyEntry(String alias, KeyCertificatePair keyCertPair)
     {
-        this(alias, keyCertPair.privateKey(), new  Certificate[]{ keyCertPair.certificate() });
+        this(alias, keyCertPair.privateKey(), new Certificate[]{ keyCertPair.certificate() });
     }
 
     @Override

@@ -24,7 +24,6 @@ package org.apache.qpid.test.utils.tls;
 import java.lang.reflect.Executable;
 import java.util.Optional;
 
-import org.jspecify.annotations.NonNull;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.extension.AfterAllCallback;
@@ -74,8 +73,8 @@ public class TlsResourceExtension implements ParameterResolver,
      * @throws ParameterResolutionException When failed to resolve method parameter
      */
     @Override
-    public boolean supportsParameter(final @NonNull ParameterContext parameterContext,
-                                     final @NonNull ExtensionContext extensionContext) throws ParameterResolutionException
+    public boolean supportsParameter(final ParameterContext parameterContext,
+                                     final ExtensionContext extensionContext) throws ParameterResolutionException
     {
         return TlsResource.class.equals(parameterContext.getParameter().getType());
     }
@@ -107,8 +106,8 @@ public class TlsResourceExtension implements ParameterResolver,
      * @throws ParameterResolutionException When failed to resolve method parameter
      */
     @Override
-    public Object resolveParameter(final @NonNull ParameterContext parameterContext,
-                                   final @NonNull ExtensionContext extensionContext) throws ParameterResolutionException
+    public Object resolveParameter(final ParameterContext parameterContext,
+                                   final ExtensionContext extensionContext) throws ParameterResolutionException
     {
         final Scope scope = resolveScope(parameterContext.getDeclaringExecutable());
         final StoreKey key = storeKey(scope, extensionContext)
@@ -121,7 +120,7 @@ public class TlsResourceExtension implements ParameterResolver,
      * @param extensionContext {@link ExtensionContext} instance
      * @return {@link ExtensionContext.Store} instance
      */
-    private ExtensionContext.Store store(final @NonNull ExtensionContext extensionContext)
+    private ExtensionContext.Store store(final ExtensionContext extensionContext)
     {
         return extensionContext.getRoot().getStore(NAMESPACE);
     }

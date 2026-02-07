@@ -43,7 +43,22 @@ public class QpidTestException extends RuntimeException
 
     public QpidTestException(final String message, final Throwable cause)
     {
-        super(message + ": " + Optional.ofNullable(cause).map(ex -> ex.getClass().getCanonicalName() + ": " +
-                ex.getMessage()).orElse(null), cause);
+        super(buildMessage(message, cause), cause);
+    }
+
+    private static String buildMessage(final String message, final Throwable cause)
+    {
+        final String causeText = Optional.ofNullable(cause)
+                .map(ex -> ex.getClass().getCanonicalName() + ": " + ex.getMessage())
+                .orElse(null);
+        if (message == null)
+        {
+            return causeText;
+        }
+        if (causeText == null)
+        {
+            return message;
+        }
+        return message + ": " + causeText;
     }
 }

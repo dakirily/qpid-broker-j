@@ -48,7 +48,7 @@ public class TlsResource implements AutoCloseable
     private static final String CERTIFICATE_ALIAS = "certificate-alias";
     private static final String SECRET = "secret";
 
-    private final Path _keystoreDirectory;
+    private Path _keystoreDirectory;
     private final String _privateKeyAlias;
     private final String _certificateAlias;
     private final char[] _secret;
@@ -68,18 +68,6 @@ public class TlsResource implements AutoCloseable
         _certificateAlias = certificateAlias;
         _secret = secret == null ? null : secret.toCharArray();
         _keyStoreType = defaultType;
-
-        try
-        {
-            final Path targetDir = Path.of("target");
-            Files.createDirectories(targetDir);
-            _keystoreDirectory = Files.createTempDirectory(targetDir, "test-tls-resources-");
-            LOGGER.debug("Test keystore directory is created : '{}'", _keystoreDirectory);
-        }
-        catch (IOException e)
-        {
-            throw new QpidTestException("Failed to create TLS resource directory under 'target'", e);
-        }
     }
 
     @Override
@@ -250,7 +238,7 @@ public class TlsResource implements AutoCloseable
     {
         try
         {
-            return Files.createTempFile(_keystoreDirectory, "tls", suffix);
+            return Files.createTempFile(ensureKeystoreDirectory(), "tls", suffix);
         }
         catch (IOException e)
         {
@@ -282,6 +270,10 @@ public class TlsResource implements AutoCloseable
 
     private void deleteFiles()
     {
+        if (_keystoreDirectory == null)
+        {
+            return;
+        }
         if (!Files.exists(_keystoreDirectory))
         {
             return;
@@ -312,6 +304,26 @@ public class TlsResource implements AutoCloseable
         if (_secret != null)
         {
             Arrays.fill(_secret, '\0');
+        }
+    }
+
+    private synchronized Path ensureKeystoreDirectory()
+    {
+        if (_keystoreDirectory != null)
+        {
+            return _keystoreDirectory;
+        }
+        try
+        {
+            final Path targetDir = Path.of("target");
+            Files.createDirectories(targetDir);
+            _keystoreDirectory = Files.createTempDirectory(targetDir, "test-tls-resources-");
+            LOGGER.debug("Test keystore directory is created : '{}'", _keystoreDirectory);
+            return _keystoreDirectory;
+        }
+        catch (IOException e)
+        {
+            throw new QpidTestException("Failed to create TLS resource directory under 'target'", e);
         }
     }
 }
