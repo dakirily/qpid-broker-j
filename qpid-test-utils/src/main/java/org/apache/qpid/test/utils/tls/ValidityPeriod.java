@@ -35,7 +35,7 @@ public record ValidityPeriod(Instant from, Instant to)
 
         if (to.isBefore(from))
         {
-            throw new IllegalArgumentException("'to' must be before 'from'");
+            throw new IllegalArgumentException("'to' must not be before 'from'");
         }
     }
 

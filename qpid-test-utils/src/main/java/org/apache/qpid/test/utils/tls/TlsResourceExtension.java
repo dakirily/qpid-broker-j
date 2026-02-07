@@ -1,16 +1,20 @@
 package org.apache.qpid.test.utils.tls;
 
+import java.lang.reflect.Executable;
+import java.util.Optional;
+
 import org.jspecify.annotations.NonNull;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.extension.AfterAllCallback;
+import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.extension.ParameterContext;
 import org.junit.jupiter.api.extension.ParameterResolutionException;
 import org.junit.jupiter.api.extension.ParameterResolver;
 
 /**
- * JUnit extension allowing to inject {@link TlsResource} as test method parameter. Created {@link TlsResource} instance
- * is stored in {@link ExtensionContext.Store} and closed automatically as it implements {@link AutoCloseable}.
+ * JUnit extension allowing to inject {@link TlsResource} into test lifecycle methods and test methods.
  * To enable extension on test class add annotation on the class level:
  * <pre> {@code @ExtendWith({ TlsResourceExtension.class }) } </pre>
  * To inject {@link TlsResource} into the test method pass it as a method parameter:
@@ -19,15 +23,26 @@ import org.junit.jupiter.api.extension.ParameterResolver;
  * {
  *
  * } } </pre>
- * Using this scenario new {@link TlsResource} instance will be created before test method invocation and will be closed
- * after test method invocation.
- * Though it's possible to inject {@link TlsResource} instance into the methods annotated as {@link BeforeAll} or {@link BeforeEach},
- * but such {@link TlsResource} instances will be closed after all test method invocations in the end of the test class
- * lifecycle. Generally it's not recommended to inject {@link TlsResource} instances into {@link BeforeAll} or
- * {@link BeforeEach} methods.
+ * A new {@link TlsResource} instance is created lazily per test invocation and will be closed after the invocation completes.
+ * When injected into a {@link org.junit.jupiter.api.BeforeEach} method, the same instance is reused for the corresponding test invocation.
+ * When injected into a {@link BeforeAll} method, a single instance is created per test class and will be closed after
+ * all test methods in that class complete.
  */
-public class TlsResourceExtension implements ParameterResolver
+public class TlsResourceExtension implements ParameterResolver,
+                                              AfterAllCallback,
+                                              AfterEachCallback
 {
+    private static final ExtensionContext.Namespace NAMESPACE =
+            ExtensionContext.Namespace.create(TlsResourceExtension.class);
+
+    private enum Scope
+    {
+        CLASS,
+        INVOCATION
+    }
+
+    private record StoreKey(Scope scope, String id) { }
+
     /**
      * Returns true when test method argument is of type {@link TlsResource}
      * @param parameterContext the context for the parameter for which an argument should
@@ -45,7 +60,26 @@ public class TlsResourceExtension implements ParameterResolver
     }
 
     /**
-     * Retrieves {@link TlsResource} from the {@link ExtensionContext.Store} or creates it when absent
+     * Closes class-scoped resource after all tests in the class.
+     */
+    @Override
+    public void afterAll(final ExtensionContext extensionContext)
+    {
+        closeAndRemove(Scope.CLASS, extensionContext);
+    }
+
+    /**
+     * Closes invocation-scoped resource after each test invocation.
+     */
+    @Override
+    public void afterEach(final ExtensionContext extensionContext)
+    {
+        closeAndRemove(Scope.INVOCATION, extensionContext);
+    }
+
+    /**
+     * Resolves {@link TlsResource} for the appropriate lifecycle scope.
+     * Retrieves {@link TlsResource} from the {@link ExtensionContext.Store} or creates it when absent.
      * @param parameterContext {@link ParameterContext} instance
      * @param extensionContext {@link ExtensionContext} instance
      * @return {@link TlsResource} instance
@@ -55,20 +89,103 @@ public class TlsResourceExtension implements ParameterResolver
     public Object resolveParameter(final @NonNull ParameterContext parameterContext,
                                    final @NonNull ExtensionContext extensionContext) throws ParameterResolutionException
     {
-        final var store = store(parameterContext, extensionContext);
-        return store.computeIfAbsent(TlsResource.class, key -> new TlsResource(), TlsResource.class);
+        final Scope scope = resolveScope(parameterContext.getDeclaringExecutable());
+        final StoreKey key = storeKey(scope, extensionContext)
+                .orElseThrow(() -> new ParameterResolutionException("Unable to resolve TlsResource scope"));
+        return store(extensionContext).computeIfAbsent(key, k -> new TlsResource(), TlsResource.class);
     }
 
     /**
-     * Creates {@link ExtensionContext.Store} from {@link ExtensionContext} instance
+     * Returns {@link ExtensionContext.Store} for extension-level storage
      * @param extensionContext {@link ExtensionContext} instance
      * @return {@link ExtensionContext.Store} instance
      */
-    private ExtensionContext.Store store(final @NonNull ParameterContext parameterContext,
-                                         final @NonNull ExtensionContext extensionContext)
+    private ExtensionContext.Store store(final @NonNull ExtensionContext extensionContext)
     {
-        final var key = extensionContext.getUniqueId();
-        final var namespace = ExtensionContext.Namespace.create(key);
-        return extensionContext.getStore(ExtensionContext.StoreScope.EXTENSION_CONTEXT, namespace);
+        return extensionContext.getRoot().getStore(NAMESPACE);
+    }
+
+    /**
+     * Determines resource scope based on the declaring executable.
+     */
+    private Scope resolveScope(final Executable executable)
+    {
+        if (executable.isAnnotationPresent(BeforeAll.class) || executable.isAnnotationPresent(AfterAll.class))
+        {
+            return Scope.CLASS;
+        }
+        return Scope.INVOCATION;
+    }
+
+    /**
+     * Closes and removes the {@link TlsResource} for the given scope if present.
+     */
+    private void closeAndRemove(final Scope scope, final ExtensionContext extensionContext)
+    {
+        final var key = storeKey(scope, extensionContext);
+        if (key.isEmpty())
+        {
+            return;
+        }
+        final var resource = store(extensionContext).remove(key.get(), TlsResource.class);
+        if (resource != null)
+        {
+            resource.close();
+        }
+    }
+
+    /**
+     * Builds the store key for the scope based on the relevant context.
+     */
+    private Optional<StoreKey> storeKey(final Scope scope, final ExtensionContext extensionContext)
+    {
+        final Optional<ExtensionContext> keyContext = switch (scope)
+        {
+            case CLASS -> findTestClassContext(extensionContext);
+            case INVOCATION -> findTestInvocationContext(extensionContext);
+        };
+        return keyContext.map(context -> new StoreKey(scope, context.getUniqueId()));
+    }
+
+    /**
+     * Finds the nearest test invocation context in the hierarchy.
+     */
+    private Optional<ExtensionContext> findTestInvocationContext(final ExtensionContext extensionContext)
+    {
+        ExtensionContext current = extensionContext;
+        while (true)
+        {
+            if (current.getTestMethod().isPresent())
+            {
+                return Optional.of(current);
+            }
+            final var parent = current.getParent();
+            if (parent.isEmpty())
+            {
+                return Optional.empty();
+            }
+            current = parent.get();
+        }
+    }
+
+    /**
+     * Finds the test class context in the hierarchy.
+     */
+    private Optional<ExtensionContext> findTestClassContext(final ExtensionContext extensionContext)
+    {
+        ExtensionContext current = extensionContext;
+        while (true)
+        {
+            if (current.getTestClass().isPresent() && current.getTestMethod().isEmpty())
+            {
+                return Optional.of(current);
+            }
+            final var parent = current.getParent();
+            if (parent.isEmpty())
+            {
+                return Optional.empty();
+            }
+            current = parent.get();
+        }
     }
 }

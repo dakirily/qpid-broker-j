@@ -27,7 +27,7 @@ public record AlternativeName(AltNameType type, String value)
 {
     public AlternativeName
     {
-        Objects.requireNonNull(type, "name must not be null");
+        Objects.requireNonNull(type, "type must not be null");
         Objects.requireNonNull(value, "value must not be null");
     }
 }

@@ -31,6 +31,7 @@ import java.security.cert.CertificateEncodingException;
 import java.security.cert.X509CRL;
 import java.security.cert.X509Certificate;
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Stream;
@@ -50,7 +51,7 @@ public class TlsResource implements AutoCloseable
     private final Path _keystoreDirectory;
     private final String _privateKeyAlias;
     private final String _certificateAlias;
-    private final String _secret;
+    private final char[] _secret;
     private final String _keyStoreType;
 
     public TlsResource()
@@ -65,7 +66,7 @@ public class TlsResource implements AutoCloseable
     {
         _privateKeyAlias = privateKeyAlias;
         _certificateAlias = certificateAlias;
-        _secret = secret;
+        _secret = secret == null ? null : secret.toCharArray();
         _keyStoreType = defaultType;
 
         try
@@ -77,7 +78,7 @@ public class TlsResource implements AutoCloseable
         }
         catch (IOException e)
         {
-            throw new QpidTestException(e);
+            throw new QpidTestException("Failed to create TLS resource directory under 'target'", e);
         }
     }
 
@@ -85,16 +86,17 @@ public class TlsResource implements AutoCloseable
     public void close()
     {
         deleteFiles();
+        clearSecret();
     }
 
     public String getSecret()
     {
-        return _secret;
+        return _secret == null ? null : new String(_secret);
     }
 
     public char[] getSecretAsCharacters()
     {
-        return _secret == null ? new char[]{} : _secret.toCharArray();
+        return _secret == null ? new char[]{} : _secret.clone();
     }
 
     public String getPrivateKeyAlias()
@@ -189,7 +191,7 @@ public class TlsResource implements AutoCloseable
         }
         catch (final CRLException e)
         {
-            throw new QpidTestException(e);
+            throw new QpidTestException("Failed to encode CRL as DER", e);
         }
     }
 
@@ -202,7 +204,7 @@ public class TlsResource implements AutoCloseable
         }
         catch (final CRLException e)
         {
-            throw new QpidTestException(e);
+            throw new QpidTestException("Failed to encode CRL for data URL", e);
         }
     }
 
@@ -240,7 +242,7 @@ public class TlsResource implements AutoCloseable
         }
         catch (CertificateEncodingException e)
         {
-            throw new QpidTestException(e);
+            throw new QpidTestException("Failed to encode X509 certificate to DER", e);
         }
     }
 
@@ -252,7 +254,8 @@ public class TlsResource implements AutoCloseable
         }
         catch (IOException e)
         {
-            throw new QpidTestException(e);
+            throw new QpidTestException("Failed to create temp file in '%s' with suffix '%s'"
+                    .formatted(_keystoreDirectory, suffix), e);
         }
     }
 
@@ -265,7 +268,7 @@ public class TlsResource implements AutoCloseable
         }
         catch (IOException e)
         {
-            throw new QpidTestException(e);
+            throw new QpidTestException("Failed to write %d bytes to '%s'".formatted(bytes.length, path), e);
         }
         return path;
     }
@@ -301,6 +304,14 @@ public class TlsResource implements AutoCloseable
         catch (Exception e)
         {
             LOGGER.warn("Failure to clean up test resources", e);
+        }
+    }
+
+    private void clearSecret()
+    {
+        if (_secret != null)
+        {
+            Arrays.fill(_secret, '\0');
         }
     }
 }
