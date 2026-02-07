@@ -88,6 +88,7 @@ public class SNITest extends UnitTestBase
     private Broker<?> _broker;
     private int _boundPort;
     private File _brokerWork;
+    private String _keyStorePassword;
 
     @BeforeAll
     public void setUp(final TlsResource tls) throws Exception
@@ -106,6 +107,7 @@ public class SNITest extends UnitTestBase
                         _fooValid.certificate()),
                 new PrivateKeyEntry("fooinvalid", _fooInvalid.privateKey(), _fooInvalid.certificate()),
                 new PrivateKeyEntry("barinvalid", _barInvalid.privateKey(), _barInvalid.certificate())).toFile();
+        _keyStorePassword = tls.getSecret();
     }
 
     @AfterAll
@@ -123,52 +125,51 @@ public class SNITest extends UnitTestBase
     }
 
     @Test
-    public void testValidCertChosen(final TlsResource tls) throws Exception
+    public void testValidCertChosen() throws Exception
     {
-        performTest(tls, true, "fooinvalid", "foo", _fooValid);
+        performTest(true, "fooinvalid", "foo", _fooValid);
     }
 
     @Test
-    public void testMatchCertChosenEvenIfInvalid(final TlsResource tls) throws Exception
+    public void testMatchCertChosenEvenIfInvalid() throws Exception
     {
-        performTest(tls, true, "fooinvalid", "bar", _barInvalid);
+        performTest(true, "fooinvalid", "bar", _barInvalid);
     }
 
     @Test
-    public void testDefaultCertChose(final TlsResource tls) throws Exception
+    public void testDefaultCertChose() throws Exception
     {
-        performTest(tls, true, "fooinvalid", null, _fooInvalid);
+        performTest(true, "fooinvalid", null, _fooInvalid);
     }
 
     @Test
-    public void testMatchingCanBeDisabled(final TlsResource tls) throws Exception
+    public void testMatchingCanBeDisabled() throws Exception
     {
-        performTest(tls, false, "fooinvalid", "foo", _fooInvalid);
+        performTest(false, "fooinvalid", "foo", _fooInvalid);
     }
 
     @Test
-    public void testInvalidHostname(final TlsResource tls)
+    public void testInvalidHostname()
     {
         assertThrows(SSLPeerUnverifiedException.class,
-                () -> performTest(tls, false, "fooinvalid", "_foo", _fooInvalid),
+                () -> performTest(false, "fooinvalid", "_foo", _fooInvalid),
                 "Expected exception not thrown");
     }
 
     @Test
-    public void testBypassInvalidSniHostnameWithJava17(final TlsResource tls)
+    public void testBypassInvalidSniHostnameWithJava17()
     {
         assertThrows(SSLPeerUnverifiedException.class,
-                () -> performTest(tls, false, "foovalid", "_foo", _fooValid),
+                () -> performTest(false, "foovalid", "_foo", _fooValid),
                 "Expected exception not thrown");
     }
 
-    private void performTest(final TlsResource tls,
-                             final boolean useMatching,
+    private void performTest(final boolean useMatching,
                              final String defaultAlias,
                              final String sniHostName,
                              final KeyCertificatePair expectedCert) throws Exception
     {
-        doBrokerStartup(tls, useMatching, defaultAlias);
+        doBrokerStartup(useMatching, defaultAlias);
         final SSLContext context = SSLUtil.tryGetSSLContext();
         context.init(null, new TrustManager[]
         {
@@ -210,8 +211,7 @@ public class SNITest extends UnitTestBase
         }
     }
 
-    private void doBrokerStartup(final TlsResource tls,
-                                 final boolean useMatching,
+    private void doBrokerStartup(final boolean useMatching,
                                  final String defaultAlias) throws Exception
     {
         final File initialConfiguration = createInitialContext();
@@ -238,7 +238,7 @@ public class SNITest extends UnitTestBase
         final AuthenticationProvider<?> authProvider = _broker.createChild(AuthenticationProvider.class, authProviderAttr);
         final Map<String, Object> keyStoreAttr = Map.of(FileKeyStore.NAME, "myKeyStore",
                 FileKeyStore.STORE_URL, _keyStoreFile.toURI().toURL().toString(),
-                FileKeyStore.PASSWORD, tls.getSecret(),
+                FileKeyStore.PASSWORD, _keyStorePassword,
                 FileKeyStore.USE_HOST_NAME_MATCHING, useMatching,
                 FileKeyStore.CERTIFICATE_ALIAS, defaultAlias);
         final KeyStore<?> keyStore = _broker.createChild(KeyStore.class, keyStoreAttr);
