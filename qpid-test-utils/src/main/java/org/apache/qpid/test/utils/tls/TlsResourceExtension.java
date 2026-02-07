@@ -61,8 +61,6 @@ public class TlsResourceExtension implements ParameterResolver,
         INVOCATION
     }
 
-    private record StoreKey(Scope scope, String id) { }
-
     /**
      * Returns true when test method argument is of type {@link TlsResource}
      * @param parameterContext the context for the parameter for which an argument should
@@ -110,19 +108,19 @@ public class TlsResourceExtension implements ParameterResolver,
                                    final ExtensionContext extensionContext) throws ParameterResolutionException
     {
         final Scope scope = resolveScope(parameterContext.getDeclaringExecutable());
-        final StoreKey key = storeKey(scope, extensionContext)
+        final ExtensionContext keyContext = storeContext(scope, extensionContext)
                 .orElseThrow(() -> new ParameterResolutionException("Unable to resolve TlsResource scope"));
-        return store(extensionContext).computeIfAbsent(key, k -> new TlsResource(), TlsResource.class);
+        return store(keyContext).computeIfAbsent(TlsResource.class, key -> new TlsResource(), TlsResource.class);
     }
 
     /**
-     * Returns {@link ExtensionContext.Store} for extension-level storage
+     * Returns {@link ExtensionContext.Store} scoped to the provided context.
      * @param extensionContext {@link ExtensionContext} instance
      * @return {@link ExtensionContext.Store} instance
      */
     private ExtensionContext.Store store(final ExtensionContext extensionContext)
     {
-        return extensionContext.getRoot().getStore(NAMESPACE);
+        return extensionContext.getStore(NAMESPACE);
     }
 
     /**
@@ -142,12 +140,12 @@ public class TlsResourceExtension implements ParameterResolver,
      */
     private void closeAndRemove(final Scope scope, final ExtensionContext extensionContext)
     {
-        final var key = storeKey(scope, extensionContext);
-        if (key.isEmpty())
+        final var keyContext = storeContext(scope, extensionContext);
+        if (keyContext.isEmpty())
         {
             return;
         }
-        final var resource = store(extensionContext).remove(key.get(), TlsResource.class);
+        final var resource = store(keyContext.get()).remove(TlsResource.class, TlsResource.class);
         if (resource != null)
         {
             resource.close();
@@ -155,16 +153,15 @@ public class TlsResourceExtension implements ParameterResolver,
     }
 
     /**
-     * Builds the store key for the scope based on the relevant context.
+     * Determines the store context for the scope based on the relevant context.
      */
-    private Optional<StoreKey> storeKey(final Scope scope, final ExtensionContext extensionContext)
+    private Optional<ExtensionContext> storeContext(final Scope scope, final ExtensionContext extensionContext)
     {
-        final Optional<ExtensionContext> keyContext = switch (scope)
+        return switch (scope)
         {
             case CLASS -> findTestClassContext(extensionContext);
             case INVOCATION -> findTestInvocationContext(extensionContext);
         };
-        return keyContext.map(context -> new StoreKey(scope, context.getUniqueId()));
     }
 
     /**
