@@ -24,6 +24,7 @@ package org.apache.qpid.test.utils.tls;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -45,6 +46,7 @@ class TlsResourceExtensionInvocationTest
 {
     private static final List<Integer> IDS = new ArrayList<>();
     private static final ThreadLocal<Path> CURRENT_DIR = new ThreadLocal<>();
+    private static final ThreadLocal<TlsResource> CURRENT_RESOURCE = new ThreadLocal<>();
 
     private TlsResource _beforeEachResource;
 
@@ -52,6 +54,7 @@ class TlsResourceExtensionInvocationTest
     void setUp(final TlsResource tls) throws Exception
     {
         _beforeEachResource = tls;
+        CURRENT_RESOURCE.set(tls);
         final Path file = tls.createFile(".tmp");
         CURRENT_DIR.set(file.getParent());
     }
@@ -86,6 +89,12 @@ class TlsResourceExtensionInvocationTest
             {
                 assertFalse(Files.exists(directory), "Expected TLS resource directory to be deleted: " + directory);
                 CURRENT_DIR.remove();
+            }
+            final TlsResource tls = CURRENT_RESOURCE.get();
+            if (tls != null)
+            {
+                assertThrows(IllegalStateException.class, tls::getSecretAsCharacters);
+                CURRENT_RESOURCE.remove();
             }
         }
     }

@@ -24,6 +24,7 @@ package org.apache.qpid.test.utils.tls;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Files;
@@ -35,7 +36,7 @@ import org.junit.jupiter.api.Test;
 class TlsResourceTest
 {
     @Test
-    void secretIsClearedOnClose()
+    void secretIsUnavailableAfterClose()
     {
         final TlsResource tls = new TlsResource("private", "cert", "secret", KeyStore.getDefaultType());
         try
@@ -48,11 +49,7 @@ class TlsResourceTest
             tls.close();
         }
 
-        final char[] after = tls.getSecretAsCharacters();
-        for (char value : after)
-        {
-            assertEquals('\0', value);
-        }
+        assertThrows(IllegalStateException.class, tls::getSecretAsCharacters);
     }
 
     @Test
@@ -73,5 +70,14 @@ class TlsResourceTest
 
         assertNotNull(directory);
         assertFalse(Files.exists(directory));
+    }
+
+    @Test
+    void cannotReuseAfterClose()
+    {
+        final TlsResource tls = new TlsResource();
+        tls.close();
+
+        assertThrows(IllegalStateException.class, () -> tls.createFile(".tmp"));
     }
 }

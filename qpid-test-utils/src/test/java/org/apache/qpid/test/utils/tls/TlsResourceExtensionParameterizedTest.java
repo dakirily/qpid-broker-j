@@ -24,6 +24,7 @@ package org.apache.qpid.test.utils.tls;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -31,6 +32,8 @@ import java.util.List;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.RepeatedTest;
+import org.junit.jupiter.api.extension.AfterEachCallback;
+import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
@@ -38,18 +41,20 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 @Execution(ExecutionMode.SAME_THREAD)
-@ExtendWith({ TlsResourceExtension.class })
+@ExtendWith({ TlsResourceExtensionParameterizedTest.InvocationCleanupVerifier.class, TlsResourceExtension.class })
 class TlsResourceExtensionParameterizedTest
 {
     private static final List<Integer> PARAMETERIZED_IDS = new ArrayList<>();
     private static final List<Integer> REPEATED_IDS = new ArrayList<>();
 
     private TlsResource _beforeEachResource;
+    private static final ThreadLocal<TlsResource> CURRENT_RESOURCE = new ThreadLocal<>();
 
     @BeforeEach
     void setUp(final TlsResource tls)
     {
         _beforeEachResource = tls;
+        CURRENT_RESOURCE.set(tls);
     }
 
     @ParameterizedTest
@@ -75,5 +80,19 @@ class TlsResourceExtensionParameterizedTest
         assertEquals(3, REPEATED_IDS.size());
         assertEquals(3, PARAMETERIZED_IDS.stream().distinct().count());
         assertEquals(3, REPEATED_IDS.stream().distinct().count());
+    }
+
+    static class InvocationCleanupVerifier implements AfterEachCallback
+    {
+        @Override
+        public void afterEach(final ExtensionContext context)
+        {
+            final TlsResource tls = CURRENT_RESOURCE.get();
+            if (tls != null)
+            {
+                assertThrows(IllegalStateException.class, tls::getSecretAsCharacters);
+                CURRENT_RESOURCE.remove();
+            }
+        }
     }
 }

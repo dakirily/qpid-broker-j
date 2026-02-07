@@ -43,6 +43,7 @@ import org.slf4j.LoggerFactory;
 /**
  * Test helper that creates and manages TLS-related resources like key/trust stores and PEM/DER files.
  * Temporary files are created under a dedicated directory and removed on {@link #close()}.
+ * After close, the instance must not be reused.
  */
 public class TlsResource implements AutoCloseable
 {
@@ -57,6 +58,7 @@ public class TlsResource implements AutoCloseable
     private final String _certificateAlias;
     private final char[] _secret;
     private final String _keyStoreType;
+    private boolean _closed;
 
     /**
      * Creates a {@link TlsResource} with default aliases, secret, and key store type.
@@ -86,8 +88,14 @@ public class TlsResource implements AutoCloseable
      */
     public void close()
     {
+        if (_closed)
+        {
+            return;
+        }
+        _closed = true;
         deleteFiles();
         clearSecret();
+        _keystoreDirectory = null;
     }
 
     /**
@@ -95,6 +103,7 @@ public class TlsResource implements AutoCloseable
      */
     public String getSecret()
     {
+        assertOpen();
         return _secret == null ? null : new String(_secret);
     }
 
@@ -103,6 +112,7 @@ public class TlsResource implements AutoCloseable
      */
     public char[] getSecretAsCharacters()
     {
+        assertOpen();
         return _secret == null ? new char[]{} : _secret.clone();
     }
 
@@ -111,6 +121,7 @@ public class TlsResource implements AutoCloseable
      */
     public String getPrivateKeyAlias()
     {
+        assertOpen();
         return _privateKeyAlias;
     }
 
@@ -119,6 +130,7 @@ public class TlsResource implements AutoCloseable
      */
     public String getCertificateAlias()
     {
+        assertOpen();
         return _certificateAlias;
     }
 
@@ -127,6 +139,7 @@ public class TlsResource implements AutoCloseable
      */
     public String getKeyStoreType()
     {
+        assertOpen();
         return _keyStoreType;
     }
 
@@ -135,6 +148,7 @@ public class TlsResource implements AutoCloseable
      */
     public Path createKeyStore(final KeyStoreEntry... entries) throws GeneralSecurityException, IOException
     {
+        assertOpen();
         return createKeyStore(getKeyStoreType(), entries);
     }
 
@@ -144,6 +158,7 @@ public class TlsResource implements AutoCloseable
     public Path createKeyStore(final String keyStoreType, final KeyStoreEntry... entries)
             throws GeneralSecurityException, IOException
     {
+        assertOpen();
         final KeyStore keyStore = TlsResourceHelper.createKeyStore(keyStoreType, getSecretAsCharacters(), entries);
         return saveKeyStore(keyStoreType, keyStore);
     }
@@ -154,6 +169,7 @@ public class TlsResource implements AutoCloseable
     public String createKeyStoreAsDataUrl(final KeyStoreEntry... entries)
             throws GeneralSecurityException, IOException
     {
+        assertOpen();
         return TlsResourceHelper.createKeyStoreAsDataUrl(getKeyStoreType(), getSecretAsCharacters(), entries);
     }
 
@@ -163,6 +179,7 @@ public class TlsResource implements AutoCloseable
     public Path createSelfSignedKeyStore(final String dn)
             throws GeneralSecurityException, IOException, OperatorCreationException
     {
+        assertOpen();
         final KeyCertificatePair keyCertPair = TlsResourceBuilder.createSelfSigned(dn);
         return createKeyStore(new PrivateKeyEntry(_privateKeyAlias, keyCertPair));
     }
@@ -173,6 +190,7 @@ public class TlsResource implements AutoCloseable
     public String createSelfSignedKeyStoreAsDataUrl(final String dn)
             throws GeneralSecurityException, IOException, OperatorCreationException
     {
+        assertOpen();
         final KeyCertificatePair keyCertPair = TlsResourceBuilder.createSelfSigned(dn);
         return createKeyStoreAsDataUrl(new PrivateKeyEntry(_privateKeyAlias, keyCertPair));
     }
@@ -183,6 +201,7 @@ public class TlsResource implements AutoCloseable
     public Path createSelfSignedTrustStore(final String dn)
             throws GeneralSecurityException, IOException, OperatorCreationException
     {
+        assertOpen();
         final KeyCertificatePair keyCertPair = TlsResourceBuilder.createSelfSigned(dn);
         return createKeyStore(new CertificateEntry(_certificateAlias, keyCertPair.certificate()));
     }
@@ -193,6 +212,7 @@ public class TlsResource implements AutoCloseable
     public Path createSelfSignedTrustStore(final String dn, final Instant from, final Instant to)
             throws GeneralSecurityException, IOException, OperatorCreationException
     {
+        assertOpen();
         final KeyCertificatePair keyCertPair = TlsResourceBuilder.createSelfSigned(dn, from, to);
         return createKeyStore(new CertificateEntry(_certificateAlias, keyCertPair.certificate()));
     }
@@ -203,6 +223,7 @@ public class TlsResource implements AutoCloseable
     public String createSelfSignedTrustStoreAsDataUrl(final String dn)
             throws GeneralSecurityException, IOException, OperatorCreationException
     {
+        assertOpen();
         final KeyCertificatePair keyCertPair = TlsResourceBuilder.createSelfSigned(dn);
         return createKeyStoreAsDataUrl(new CertificateEntry(_certificateAlias, keyCertPair.certificate()));
     }
@@ -213,6 +234,7 @@ public class TlsResource implements AutoCloseable
     public Path createTrustStore(final String dn, final KeyCertificatePair ca)
             throws GeneralSecurityException, IOException, OperatorCreationException
     {
+        assertOpen();
         final KeyCertificatePair keyCertPair = TlsResourceBuilder.createKeyPairAndCertificate(dn, ca);
         return createKeyStore(new CertificateEntry(_certificateAlias, keyCertPair.certificate()));
     }
@@ -223,6 +245,7 @@ public class TlsResource implements AutoCloseable
     public Path createSelfSignedKeyStoreWithCertificate(final String dn)
             throws GeneralSecurityException, IOException, OperatorCreationException
     {
+        assertOpen();
         final KeyCertificatePair keyCertPair = TlsResourceBuilder.createSelfSigned(dn);
         final PrivateKeyEntry privateKeyEntry = new PrivateKeyEntry(_privateKeyAlias, keyCertPair);
         final CertificateEntry certificateEntry = new CertificateEntry(_certificateAlias, keyCertPair.certificate());
@@ -235,6 +258,7 @@ public class TlsResource implements AutoCloseable
     public Path createCrl(final KeyCertificatePair caPair, final X509Certificate... certificate)
             throws GeneralSecurityException, IOException, OperatorCreationException
     {
+        assertOpen();
         final X509CRL crl = TlsResourceBuilder.createCertificateRevocationList(caPair, certificate);
         final Path pkFile = createFile(".crl");
         PemUtils.saveCrlAsPem(pkFile, crl);
@@ -247,6 +271,7 @@ public class TlsResource implements AutoCloseable
     public Path createCrlAsDer(final KeyCertificatePair caPair, final X509Certificate... certificate)
             throws GeneralSecurityException, IOException, OperatorCreationException
     {
+        assertOpen();
         final X509CRL crl = TlsResourceBuilder.createCertificateRevocationList(caPair, certificate);
         return saveBytes(crl.getEncoded(), ".crl");
     }
@@ -257,6 +282,7 @@ public class TlsResource implements AutoCloseable
     public String createCrlAsDataUrl(final KeyCertificatePair caPair, final X509Certificate... certificate)
             throws GeneralSecurityException, IOException, OperatorCreationException
     {
+        assertOpen();
         final X509CRL crl = TlsResourceBuilder.createCertificateRevocationList(caPair, certificate);
         return TlsResourceHelper.getDataUrlForBytes(crl.getEncoded());
     }
@@ -266,6 +292,7 @@ public class TlsResource implements AutoCloseable
      */
     public Path savePrivateKeyAsPem(final PrivateKey privateKey) throws IOException
     {
+        assertOpen();
         final Path pkFile = createFile(".pk.pem");
         PemUtils.savePrivateKeyAsPem(pkFile, privateKey);
         return pkFile;
@@ -277,6 +304,7 @@ public class TlsResource implements AutoCloseable
     public Path saveCertificateAsPem(final X509Certificate certificate)
             throws IOException, CertificateEncodingException
     {
+        assertOpen();
         final Path certificateFile = createFile(".cer.pem");
         PemUtils.saveCertificateAsPem(certificateFile, List.of(certificate));
         return certificateFile;
@@ -288,6 +316,7 @@ public class TlsResource implements AutoCloseable
     public Path saveCertificateAsPem(final List<X509Certificate> certificates)
             throws IOException, CertificateEncodingException
     {
+        assertOpen();
         final Path certificateFile = createFile(".cer.pem");
         PemUtils.saveCertificateAsPem(certificateFile, certificates);
         return certificateFile;
@@ -298,6 +327,7 @@ public class TlsResource implements AutoCloseable
      */
     public Path savePrivateKeyAsDer(final PrivateKey privateKey) throws IOException
     {
+        assertOpen();
         return saveBytes(privateKey.getEncoded(), ".pk.der");
     }
 
@@ -306,6 +336,7 @@ public class TlsResource implements AutoCloseable
      */
     public Path saveCertificateAsDer(final X509Certificate certificate) throws CertificateEncodingException, IOException
     {
+        assertOpen();
         return saveBytes(certificate.getEncoded(), ".cer.der");
     }
 
@@ -314,6 +345,7 @@ public class TlsResource implements AutoCloseable
      */
     public Path createFile(final String suffix) throws IOException
     {
+        assertOpen();
         return Files.createTempFile(ensureKeystoreDirectory(), "tls", suffix);
     }
 
@@ -397,5 +429,13 @@ public class TlsResource implements AutoCloseable
         _keystoreDirectory = Files.createTempDirectory(targetDir, "test-tls-resources-");
         LOGGER.debug("Test keystore directory is created : '{}'", _keystoreDirectory);
         return _keystoreDirectory;
+    }
+
+    private void assertOpen()
+    {
+        if (_closed)
+        {
+            throw new IllegalStateException("TlsResource is closed");
+        }
     }
 }

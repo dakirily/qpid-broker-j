@@ -24,6 +24,7 @@ package org.apache.qpid.test.utils.tls;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Files;
@@ -75,6 +76,10 @@ class TlsResourceExtensionBeforeAllTest
             {
                 assertFalse(Files.exists(_classDirectory),
                         "Expected TLS resource directory to be deleted: " + _classDirectory);
+            }
+            if (_beforeAllResource != null)
+            {
+                assertThrows(IllegalStateException.class, _beforeAllResource::getSecretAsCharacters);
             }
         }
     }

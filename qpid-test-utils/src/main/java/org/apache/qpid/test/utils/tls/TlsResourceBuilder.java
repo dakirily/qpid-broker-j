@@ -403,7 +403,7 @@ public class TlsResourceBuilder
     private static Extension createAlternateNamesExtension(final AlternativeName[] alternativeName) throws IOException
     {
         final GeneralName[] generalNames = Arrays.stream(alternativeName)
-                .map(an -> new GeneralName(an.type().ordinal(), an.value()))
+                .map(an -> new GeneralName(an.type().generalNameTag(), an.value()))
                 .toArray(GeneralName[]::new);
         return new Extension(Extension.subjectAlternativeName, false, new GeneralNames(generalNames).getEncoded());
     }
