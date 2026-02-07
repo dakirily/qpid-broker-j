@@ -36,6 +36,13 @@ public record PrivateKeyEntry(String alias, PrivateKey privateKey, Certificate[]
         Objects.requireNonNull(alias, "alias must not be null");
         Objects.requireNonNull(privateKey, "privateKey must not be null");
         Objects.requireNonNull(certificateChain, "certificateChain must not be null");
+        certificateChain = certificateChain.clone();
+    }
+
+    @Override
+    public Certificate[] certificateChain()
+    {
+        return certificateChain.clone();
     }
 
     public PrivateKeyEntry(String alias, PrivateKey privateKey, Certificate certificate)
