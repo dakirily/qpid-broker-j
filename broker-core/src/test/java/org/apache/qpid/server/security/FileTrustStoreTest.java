@@ -44,7 +44,6 @@ import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
 
 import org.apache.qpid.test.utils.tls.TlsResourceExtension;
-import org.apache.qpid.test.utils.tls.KeyStoreEntry;
 import org.junit.jupiter.api.Test;
 
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -428,8 +427,7 @@ public class FileTrustStoreTest extends UnitTestBase
         final PrivateKeyEntry privateKeyEntry = new PrivateKeyEntry(tls.getPrivateKeyAlias(), keyCertPair);
         final CertificateEntry certificateEntry = new CertificateEntry(tls.getCertificateAlias(), keyCertPair.certificate());
         final SecretKeyEntry secretKeyEntry = new SecretKeyEntry(SECRET_KEY_ALIAS, TlsResourceHelper.createAESSecretKey());
-        final KeyStoreEntry[] privateKeyEntries = { privateKeyEntry, certificateEntry, secretKeyEntry };
-        return tls.createKeyStore(keyStoreType, privateKeyEntries);
+        return tls.createKeyStore(keyStoreType, privateKeyEntry, certificateEntry, secretKeyEntry);
     }
 
     private StoreAndCrl<Path> generateTrustStoreAndCrl(final TlsResource tls) throws Exception

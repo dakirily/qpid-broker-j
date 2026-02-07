@@ -64,7 +64,6 @@ import org.apache.qpid.server.util.BaseAction;
 import org.apache.qpid.test.utils.tls.AltNameType;
 import org.apache.qpid.test.utils.tls.AlternativeName;
 import org.apache.qpid.test.utils.tls.KeyCertificatePair;
-import org.apache.qpid.test.utils.tls.KeyStoreEntry;
 import org.apache.qpid.test.utils.tls.PrivateKeyEntry;
 import org.apache.qpid.test.utils.tls.TlsResourceBuilder;
 import org.apache.qpid.test.utils.tls.TlsResourceHelper;
@@ -322,8 +321,9 @@ public class PreemptiveAuthenticationTest extends HttpTestBase
 
     private String createKeyStoreDataUrl(final KeyCertificatePair keyCertPair) throws Exception
     {
-        final KeyStoreEntry[] entries = { new PrivateKeyEntry("key1", keyCertPair) };
-        return TlsResourceHelper.createKeyStoreAsDataUrl(KeyStore.getDefaultType(), STORE_PASSWORD.toCharArray(), entries);
+        return TlsResourceHelper.createKeyStoreAsDataUrl(KeyStore.getDefaultType(),
+                STORE_PASSWORD.toCharArray(),
+                new PrivateKeyEntry("key1", keyCertPair));
     }
 
     private KeyCertificatePair getKeyCertPair(final String x500Name) throws Exception

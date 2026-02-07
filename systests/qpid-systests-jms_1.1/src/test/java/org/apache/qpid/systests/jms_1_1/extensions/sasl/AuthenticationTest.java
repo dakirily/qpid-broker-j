@@ -50,7 +50,6 @@ import javax.jms.TemporaryQueue;
 import javax.naming.NamingException;
 
 import org.apache.qpid.test.utils.tls.TlsResourceExtension;
-import org.apache.qpid.test.utils.tls.KeyStoreEntry;
 import org.eclipse.jetty.server.Handler;
 import org.eclipse.jetty.server.Request;
 import org.eclipse.jetty.server.Response;
@@ -253,37 +252,39 @@ public class AuthenticationTest extends JmsTestBase
                                             clientKeyPairExpired.getPrivate(),
                                             clientCertificateExpired,
                                             caPair.certificate())).toFile().getAbsolutePath();
-        final KeyStoreEntry[] entries = { new PrivateKeyEntry(CERT_ALIAS_APP1,
-                        clientApp1KeyPair.getPrivate(),
-                        clientApp1Certificate,
-                        caPair.certificate()),
+        _clientKeyStore = tls.createKeyStore(
+                new PrivateKeyEntry(CERT_ALIAS_APP1,
+                                    clientApp1KeyPair.getPrivate(),
+                                    clientApp1Certificate,
+                                    caPair.certificate()),
                 new PrivateKeyEntry(CERT_ALIAS_APP2,
-                        clientApp2KeyPair.getPrivate(),
-                        clientApp2Certificate,
-                        caPair.certificate()),
+                                    clientApp2KeyPair.getPrivate(),
+                                    clientApp2Certificate,
+                                    caPair.certificate()),
                 new PrivateKeyEntry(CERT_ALIAS_ALLOWED,
-                        clientAllowedKeyPair.getPrivate(),
-                        clientAllowedCertificate,
-                        caPair.certificate()),
+                                    clientAllowedKeyPair.getPrivate(),
+                                    clientAllowedCertificate,
+                                    caPair.certificate()),
                 new PrivateKeyEntry(CERT_ALIAS_REVOKED,
-                        clientRevokedKeyPair.getPrivate(),
-                        clientRevokedCertificate,
-                        caPair.certificate()),
+                                    clientRevokedKeyPair.getPrivate(),
+                                    clientRevokedCertificate,
+                                    caPair.certificate()),
                 new PrivateKeyEntry(CERT_ALIAS_REVOKED_EMPTY_CRL,
-                        clientKeyPairRevokedByEmpty.getPrivate(),
-                        clientCertificateRevokedByEmpty,
-                        caPair.certificate()),
+                                    clientKeyPairRevokedByEmpty.getPrivate(),
+                                    clientCertificateRevokedByEmpty,
+                                    caPair.certificate()),
                 new PrivateKeyEntry(CERT_ALIAS_REVOKED_INVALID_CRL_PATH,
-                        clientKeyPairInvalidClr.getPrivate(),
-                        clientCertificateInvalidClr,
-                        caPair.certificate()),
+                                    clientKeyPairInvalidClr.getPrivate(),
+                                    clientCertificateInvalidClr,
+                                    caPair.certificate()),
                 new PrivateKeyEntry(CERT_ALIAS_ALLOWED_WITH_INTERMEDIATE,
-                        clientKeyPairIntermediate.getPrivate(),
-                        clientCertificateIntermediate,
-                        intermediateCA.certificate(),
-                        caPair.certificate()),
-                new CertificateEntry(CERT_ALIAS_ROOT_CA, caPair.certificate()) };
-        _clientKeyStore = tls.createKeyStore(entries).toFile().getAbsolutePath();
+                                    clientKeyPairIntermediate.getPrivate(),
+                                    clientCertificateIntermediate,
+                                    intermediateCA.certificate(),
+                                    caPair.certificate()),
+                new CertificateEntry(CERT_ALIAS_ROOT_CA, caPair.certificate()))
+                .toFile()
+                .getAbsolutePath();
 
         _clientTrustStore = tls.createKeyStore(new CertificateEntry(CERT_ALIAS_ROOT_CA,
                                                                              caPair.certificate()))

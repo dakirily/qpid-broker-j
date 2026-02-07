@@ -34,7 +34,6 @@ import java.util.Map;
 import javax.net.ssl.KeyManager;
 
 import org.apache.qpid.test.utils.tls.TlsResourceExtension;
-import org.apache.qpid.test.utils.tls.KeyStoreEntry;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -336,7 +335,6 @@ public class FileKeyStoreTest extends UnitTestBase
         final PrivateKeyEntry privateKeyEntry = new PrivateKeyEntry(tls.getPrivateKeyAlias(), keyCertPair);
         final CertificateEntry certificateEntry = new CertificateEntry(tls.getCertificateAlias(), keyCertPair.certificate());
         final SecretKeyEntry secretKeyEntry = new SecretKeyEntry(SECRET_KEY_ALIAS, TlsResourceHelper.createAESSecretKey());
-        final KeyStoreEntry[] entries = { privateKeyEntry, certificateEntry, secretKeyEntry };
-        return tls.createKeyStore(keyStoreType, entries);
+        return tls.createKeyStore(keyStoreType, privateKeyEntry, certificateEntry, secretKeyEntry);
     }
 }

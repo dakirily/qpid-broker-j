@@ -36,10 +36,13 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Stream;
 
-import org.apache.qpid.test.utils.exception.QpidTestException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * Test helper that creates and manages TLS-related resources like key/trust stores and PEM/DER files.
+ * Temporary files are created under a dedicated directory and removed on {@link #close()}.
+ */
 public class TlsResource implements AutoCloseable
 {
     private static final Logger LOGGER = LoggerFactory.getLogger(TlsResource.class);
@@ -54,11 +57,17 @@ public class TlsResource implements AutoCloseable
     private final char[] _secret;
     private final String _keyStoreType;
 
+    /**
+     * Creates a {@link TlsResource} with default aliases, secret, and key store type.
+     */
     public TlsResource()
     {
         this(PRIVATE_KEY_ALIAS, CERTIFICATE_ALIAS, SECRET, KeyStore.getDefaultType());
     }
 
+    /**
+     * Creates a {@link TlsResource} with custom aliases, secret, and key store type.
+     */
     public TlsResource(final String privateKeyAlias,
                        final String certificateAlias,
                        final String secret,
@@ -71,90 +80,138 @@ public class TlsResource implements AutoCloseable
     }
 
     @Override
+    /**
+     * Removes temporary files and clears the in-memory secret.
+     */
     public void close()
     {
         deleteFiles();
         clearSecret();
     }
 
+    /**
+     * Returns the secret as a string, or {@code null} if not set.
+     */
     public String getSecret()
     {
         return _secret == null ? null : new String(_secret);
     }
 
+    /**
+     * Returns a defensive copy of the secret as {@code char[]}.
+     */
     public char[] getSecretAsCharacters()
     {
         return _secret == null ? new char[]{} : _secret.clone();
     }
 
+    /**
+     * Returns the default private key alias.
+     */
     public String getPrivateKeyAlias()
     {
         return _privateKeyAlias;
     }
 
+    /**
+     * Returns the default certificate alias.
+     */
     public String getCertificateAlias()
     {
         return _certificateAlias;
     }
 
+    /**
+     * Returns the key store type used by default.
+     */
     public String getKeyStoreType()
     {
         return _keyStoreType;
     }
 
-    public Path createKeyStore(final KeyStoreEntry... entries)
+    /**
+     * Creates a key store file using the default key store type.
+     */
+    public Path createKeyStore(final KeyStoreEntry... entries) throws IOException
     {
         return createKeyStore(getKeyStoreType(), entries);
     }
 
-    public Path createKeyStore(final String keyStoreType, final KeyStoreEntry... entries)
+    /**
+     * Creates a key store file using the given key store type.
+     */
+    public Path createKeyStore(final String keyStoreType, final KeyStoreEntry... entries) throws IOException
     {
         final KeyStore keyStore = TlsResourceHelper.createKeyStore(keyStoreType, getSecretAsCharacters(), entries);
         return saveKeyStore(keyStoreType, keyStore);
     }
 
+    /**
+     * Creates a key store as a data URL using the default key store type.
+     */
     public String createKeyStoreAsDataUrl(final KeyStoreEntry... entries)
     {
         return TlsResourceHelper.createKeyStoreAsDataUrl(getKeyStoreType(), getSecretAsCharacters(), entries);
     }
 
-    public Path createSelfSignedKeyStore(final String dn)
+    /**
+     * Creates a self-signed key store for the given DN.
+     */
+    public Path createSelfSignedKeyStore(final String dn) throws IOException
     {
         final KeyCertificatePair keyCertPair = TlsResourceBuilder.createSelfSigned(dn);
         return createKeyStore(new PrivateKeyEntry(_privateKeyAlias, keyCertPair));
     }
 
+    /**
+     * Creates a self-signed key store as a data URL for the given DN.
+     */
     public String createSelfSignedKeyStoreAsDataUrl(final String dn)
     {
         final KeyCertificatePair keyCertPair = TlsResourceBuilder.createSelfSigned(dn);
         return createKeyStoreAsDataUrl(new PrivateKeyEntry(_privateKeyAlias, keyCertPair));
     }
 
-    public Path createSelfSignedTrustStore(final String dn)
+    /**
+     * Creates a self-signed trust store for the given DN.
+     */
+    public Path createSelfSignedTrustStore(final String dn) throws IOException
     {
         final KeyCertificatePair keyCertPair = TlsResourceBuilder.createSelfSigned(dn);
         return createKeyStore(new CertificateEntry(_certificateAlias, keyCertPair.certificate()));
     }
 
-    public Path createSelfSignedTrustStore(final String dn, final Instant from, final Instant to)
+    /**
+     * Creates a self-signed trust store for the given DN and validity period.
+     */
+    public Path createSelfSignedTrustStore(final String dn, final Instant from, final Instant to) throws IOException
     {
         final KeyCertificatePair keyCertPair = TlsResourceBuilder.createSelfSigned(dn, from, to);
         return createKeyStore(new CertificateEntry(_certificateAlias, keyCertPair.certificate()));
     }
 
+    /**
+     * Creates a self-signed trust store as a data URL for the given DN.
+     */
     public String createSelfSignedTrustStoreAsDataUrl(final String dn)
     {
         final KeyCertificatePair keyCertPair = TlsResourceBuilder.createSelfSigned(dn);
         return createKeyStoreAsDataUrl(new CertificateEntry(_certificateAlias, keyCertPair.certificate()));
     }
 
-    public Path createTrustStore(final String dn, final KeyCertificatePair ca)
+    /**
+     * Creates a trust store signed by the given CA.
+     */
+    public Path createTrustStore(final String dn, final KeyCertificatePair ca) throws IOException
     {
         final KeyCertificatePair keyCertPair = TlsResourceBuilder.createKeyPairAndCertificate(dn, ca);
         return createKeyStore(new CertificateEntry(_certificateAlias, keyCertPair.certificate()));
     }
 
-    public Path createSelfSignedKeyStoreWithCertificate(final String dn)
+    /**
+     * Creates a key store containing both a private key and certificate.
+     */
+    public Path createSelfSignedKeyStoreWithCertificate(final String dn) throws IOException
     {
         final KeyCertificatePair keyCertPair = TlsResourceBuilder.createSelfSigned(dn);
         final PrivateKeyEntry privateKeyEntry = new PrivateKeyEntry(_privateKeyAlias, keyCertPair);
@@ -162,7 +219,10 @@ public class TlsResource implements AutoCloseable
         return createKeyStore(privateKeyEntry, certificateEntry);
     }
 
-    public Path createCrl(final KeyCertificatePair caPair, final X509Certificate... certificate)
+    /**
+     * Creates a CRL file in PEM format.
+     */
+    public Path createCrl(final KeyCertificatePair caPair, final X509Certificate... certificate) throws IOException
     {
         final X509CRL crl = TlsResourceBuilder.createCertificateRevocationList(caPair, certificate);
         final Path pkFile = createFile(".crl");
@@ -170,104 +230,103 @@ public class TlsResource implements AutoCloseable
         return pkFile;
     }
 
+    /**
+     * Creates a CRL file in DER format.
+     */
     public Path createCrlAsDer(final KeyCertificatePair caPair, final X509Certificate... certificate)
+            throws IOException, CRLException
     {
         final X509CRL crl = TlsResourceBuilder.createCertificateRevocationList(caPair, certificate);
-        try
-        {
-            return saveBytes(crl.getEncoded(), ".crl");
-        }
-        catch (final CRLException e)
-        {
-            throw new QpidTestException("Failed to encode CRL as DER", e);
-        }
+        return saveBytes(crl.getEncoded(), ".crl");
     }
 
+    /**
+     * Creates a CRL as a data URL.
+     */
     public String createCrlAsDataUrl(final KeyCertificatePair caPair, final X509Certificate... certificate)
+            throws CRLException
     {
         final X509CRL crl = TlsResourceBuilder.createCertificateRevocationList(caPair, certificate);
-        try
-        {
-            return TlsResourceHelper.getDataUrlForBytes(crl.getEncoded());
-        }
-        catch (final CRLException e)
-        {
-            throw new QpidTestException("Failed to encode CRL for data URL", e);
-        }
+        return TlsResourceHelper.getDataUrlForBytes(crl.getEncoded());
     }
 
-    public Path savePrivateKeyAsPem(final PrivateKey privateKey)
+    /**
+     * Saves a private key as PEM.
+     */
+    public Path savePrivateKeyAsPem(final PrivateKey privateKey) throws IOException
     {
         final Path pkFile = createFile(".pk.pem");
         PemUtils.savePrivateKeyAsPem(pkFile, privateKey);
         return pkFile;
     }
 
-    public Path saveCertificateAsPem(final X509Certificate certificate)
+    /**
+     * Saves a certificate as PEM.
+     */
+    public Path saveCertificateAsPem(final X509Certificate certificate) throws IOException
     {
         final Path certificateFile = createFile(".cer.pem");
         PemUtils.saveCertificateAsPem(certificateFile, List.of(certificate));
         return certificateFile;
     }
 
-    public Path saveCertificateAsPem(final List<X509Certificate> certificates)
+    /**
+     * Saves certificates as PEM.
+     */
+    public Path saveCertificateAsPem(final List<X509Certificate> certificates) throws IOException
     {
         final Path certificateFile = createFile(".cer.pem");
         PemUtils.saveCertificateAsPem(certificateFile, certificates);
         return certificateFile;
     }
 
-    public Path savePrivateKeyAsDer(final PrivateKey privateKey)
+    /**
+     * Saves a private key as DER.
+     */
+    public Path savePrivateKeyAsDer(final PrivateKey privateKey) throws IOException
     {
         return saveBytes(privateKey.getEncoded(), ".pk.der");
     }
 
-    public Path saveCertificateAsDer(final X509Certificate certificate)
+    /**
+     * Saves a certificate as DER.
+     */
+    public Path saveCertificateAsDer(final X509Certificate certificate) throws CertificateEncodingException, IOException
     {
-        try
-        {
-            return saveBytes(certificate.getEncoded(), ".cer.der");
-        }
-        catch (CertificateEncodingException e)
-        {
-            throw new QpidTestException("Failed to encode X509 certificate to DER", e);
-        }
+        return saveBytes(certificate.getEncoded(), ".cer.der");
     }
 
-    public Path createFile(final String suffix)
+    /**
+     * Creates a temporary file under the TLS resource directory.
+     */
+    public Path createFile(final String suffix) throws IOException
     {
-        try
-        {
-            return Files.createTempFile(ensureKeystoreDirectory(), "tls", suffix);
-        }
-        catch (IOException e)
-        {
-            throw new QpidTestException("Failed to create temp file in '%s' with suffix '%s'"
-                    .formatted(_keystoreDirectory, suffix), e);
-        }
+        return Files.createTempFile(ensureKeystoreDirectory(), "tls", suffix);
     }
 
-    private Path saveBytes(final byte[] bytes, final String extension)
+    /**
+     * Writes bytes to a temporary file with the given extension.
+     */
+    private Path saveBytes(final byte[] bytes, final String extension) throws IOException
     {
         final Path path = createFile(extension);
-        try
-        {
-            Files.write(path, bytes);
-        }
-        catch (IOException e)
-        {
-            throw new QpidTestException("Failed to write %d bytes to '%s'".formatted(bytes.length, path), e);
-        }
+        Files.write(path, bytes);
         return path;
     }
 
-    private Path saveKeyStore(final String keyStoreType, final KeyStore ks)
+    /**
+     * Writes the key store to a temporary file.
+     */
+    private Path saveKeyStore(final String keyStoreType, final KeyStore ks) throws IOException
     {
         final Path storePath = createFile("." + keyStoreType);
         TlsResourceHelper.saveKeyStoreIntoFile(ks, getSecretAsCharacters(), storePath);
         return storePath;
     }
 
+    /**
+     * Deletes the temporary resource directory if it exists.
+     */
     private void deleteFiles()
     {
         if (_keystoreDirectory == null)
@@ -299,6 +358,9 @@ public class TlsResource implements AutoCloseable
         }
     }
 
+    /**
+     * Clears the in-memory secret.
+     */
     private void clearSecret()
     {
         if (_secret != null)
@@ -307,23 +369,19 @@ public class TlsResource implements AutoCloseable
         }
     }
 
-    private synchronized Path ensureKeystoreDirectory()
+    /**
+     * Lazily initializes the resource directory.
+     */
+    private synchronized Path ensureKeystoreDirectory() throws IOException
     {
         if (_keystoreDirectory != null)
         {
             return _keystoreDirectory;
         }
-        try
-        {
-            final Path targetDir = Path.of("target");
-            Files.createDirectories(targetDir);
-            _keystoreDirectory = Files.createTempDirectory(targetDir, "test-tls-resources-");
-            LOGGER.debug("Test keystore directory is created : '{}'", _keystoreDirectory);
-            return _keystoreDirectory;
-        }
-        catch (IOException e)
-        {
-            throw new QpidTestException("Failed to create TLS resource directory under 'target'", e);
-        }
+        final Path targetDir = Path.of("target");
+        Files.createDirectories(targetDir);
+        _keystoreDirectory = Files.createTempDirectory(targetDir, "test-tls-resources-");
+        LOGGER.debug("Test keystore directory is created : '{}'", _keystoreDirectory);
+        return _keystoreDirectory;
     }
 }

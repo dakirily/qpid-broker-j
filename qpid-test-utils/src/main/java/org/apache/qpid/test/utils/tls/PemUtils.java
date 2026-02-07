@@ -40,6 +40,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 public class PemUtils
 {
     private static final byte[] LINE_SEPARATOR = new byte[]{'\r', '\n'};
+    private static final String LS = "\r\n";
     private static final String BEGIN_X_509_CRL = "-----BEGIN X509 CRL-----";
     private static final String END_X_509_CRL = "-----END X509 CRL-----";
     private static final String BEGIN_PRIVATE_KEY = "-----BEGIN PRIVATE KEY-----";
@@ -108,8 +109,8 @@ public class PemUtils
 
     private static String toPEM(final byte[] bytes, final String header, final String footer)
     {
-        return header + new String(LINE_SEPARATOR, UTF_8) +
+        return header + LS +
                 Base64.getMimeEncoder(PEM_LINE_LENGTH, LINE_SEPARATOR).encodeToString(bytes) +
-                new String(LINE_SEPARATOR, UTF_8) + footer + new String(LINE_SEPARATOR, UTF_8);
+                LS + footer + LS;
     }
 }
