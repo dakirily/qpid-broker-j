@@ -110,7 +110,8 @@ public class TlsResourceExtension implements ParameterResolver,
         final Scope scope = resolveScope(parameterContext.getDeclaringExecutable());
         final ExtensionContext keyContext = storeContext(scope, extensionContext)
                 .orElseThrow(() -> new ParameterResolutionException("Unable to resolve TlsResource scope"));
-        return store(keyContext).computeIfAbsent(TlsResource.class, key -> new TlsResource(), TlsResource.class);
+        final String key = keyContext.getUniqueId();
+        return store(keyContext).computeIfAbsent(key, k -> new TlsResource(), TlsResource.class);
     }
 
     /**
@@ -145,7 +146,7 @@ public class TlsResourceExtension implements ParameterResolver,
         {
             return;
         }
-        final var resource = store(keyContext.get()).remove(TlsResource.class, TlsResource.class);
+        final var resource = store(keyContext.get()).remove(keyContext.get().getUniqueId(), TlsResource.class);
         if (resource != null)
         {
             resource.close();
