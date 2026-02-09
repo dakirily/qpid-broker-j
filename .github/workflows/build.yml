@@ -88,4 +88,4 @@ jobs:
           distribution: 'temurin'
 
       - name: Broker-core MR JAR test
-        run: mvn verify -pl broker-core -Dtest=NoSuchTest -DfailIfNoTests=false -Dit.test=SubjectExecutionContextMultiReleaseIT -DskipITs=false
+        run: mvn verify -pl broker-core -am -Dtest=NoSuchTest -DfailIfNoTests=false -Dit.test=SubjectExecutionContextMultiReleaseIT -DskipITs=false
