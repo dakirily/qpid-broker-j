@@ -20,13 +20,15 @@
  */
 package org.apache.qpid.server.management.amqp;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -34,6 +36,7 @@ import static org.mockito.Mockito.when;
 import java.util.EnumSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.security.auth.Subject;
 
@@ -67,6 +70,13 @@ public class ProxyMessageSourceTest
 
         assertNull(consumer, "Unexpected consumer");
         verifyNoInteractions(managementNode);
+
+        final Subject subject = createSubjectWithSession();
+        stubSuccessfulConsumerCreation(managementNode);
+
+        final MessageInstanceConsumer recovered = SubjectExecutionContext.withSubject(subject, () ->
+                source.addConsumer(target, null, ServerMessage.class, "c2", EnumSet.noneOf(ConsumerOption.class), null));
+        assertNotNull(recovered, "Consumer should be created after a null-subject attempt");
     }
 
     @Test
@@ -81,6 +91,69 @@ public class ProxyMessageSourceTest
                 new ProxyMessageSource(addressSpace, Map.of(ConfiguredObject.NAME, sourceName));
         final ConsumerTarget target = mock(ConsumerTarget.class);
 
+        stubSuccessfulConsumerCreation(managementNode);
+        final Subject subject = createSubjectWithSession();
+        final AMQPSession session = subject.getPrincipals(SessionPrincipal.class).iterator().next().getSession();
+
+        final MessageInstanceConsumer consumer = SubjectExecutionContext.withSubject(subject, () ->
+                source.addConsumer(target, null, ServerMessage.class, "c", EnumSet.noneOf(ConsumerOption.class), null));
+
+        assertNotNull(consumer, "Consumer was not created");
+        assertTrue(source.verifySessionAccess(session), "Unexpected session access");
+        verify(managementNode).addConsumer(any(), any(), any(), anyString(), any(), any());
+    }
+
+    @Test
+    public void testAddConsumerFailureRollsBackExclusiveState() throws Exception
+    {
+        final String sourceName = "testSource";
+        final ManagementAddressSpace addressSpace = mock(ManagementAddressSpace.class);
+        final ManagementNode managementNode = mock(ManagementNode.class);
+        when(addressSpace.getManagementNode()).thenReturn(managementNode);
+
+        final ProxyMessageSource source =
+                new ProxyMessageSource(addressSpace, Map.of(ConfiguredObject.NAME, sourceName));
+        final ConsumerTarget target = mock(ConsumerTarget.class);
+        final Subject subject = createSubjectWithSession();
+        final AtomicInteger calls = new AtomicInteger();
+
+        doAnswer(invocation ->
+        {
+            final int call = calls.getAndIncrement();
+            if (call == 0)
+            {
+                throw new IllegalStateException("boom");
+            }
+            final ConsumerTarget wrapper = invocation.getArgument(0);
+            final MessageInstanceConsumer consumer = mock(MessageInstanceConsumer.class);
+            wrapper.consumerAdded(consumer);
+            return null;
+        }).when(managementNode).addConsumer(any(), any(), any(), anyString(), any(), any());
+
+        assertThrows(IllegalStateException.class, () ->
+                SubjectExecutionContext.withSubject(subject, () ->
+                        source.addConsumer(target, null, ServerMessage.class, "c1",
+                                EnumSet.noneOf(ConsumerOption.class), null)));
+
+        final MessageInstanceConsumer recovered = SubjectExecutionContext.withSubject(subject, () ->
+                source.addConsumer(target, null, ServerMessage.class, "c2", EnumSet.noneOf(ConsumerOption.class), null));
+        assertNotNull(recovered, "Consumer should be created after rollback");
+        verify(managementNode, times(2)).addConsumer(any(), any(), any(), anyString(), any(), any());
+    }
+
+    private static Subject createSubjectWithSession()
+    {
+        final AMQPSession session = mock(AMQPSession.class);
+        final Object connectionReference = new Object();
+        when(session.getConnectionReference()).thenReturn(connectionReference);
+        when(session.getId()).thenReturn(java.util.UUID.randomUUID());
+
+        final SessionPrincipal sessionPrincipal = new SessionPrincipal(session);
+        return new Subject(false, Set.of(sessionPrincipal), Set.of(), Set.of());
+    }
+
+    private static void stubSuccessfulConsumerCreation(final ManagementNode managementNode)
+    {
         doAnswer(invocation ->
         {
             final ConsumerTarget wrapper = invocation.getArgument(0);
@@ -88,20 +161,5 @@ public class ProxyMessageSourceTest
             wrapper.consumerAdded(consumer);
             return null;
         }).when(managementNode).addConsumer(any(), any(), any(), anyString(), any(), any());
-
-        final AMQPSession session = mock(AMQPSession.class);
-        final Object connectionReference = new Object();
-        when(session.getConnectionReference()).thenReturn(connectionReference);
-        when(session.getId()).thenReturn(java.util.UUID.randomUUID());
-
-        final SessionPrincipal sessionPrincipal = new SessionPrincipal(session);
-        final Subject subject = new Subject(false, Set.of(sessionPrincipal), Set.of(), Set.of());
-
-        final MessageInstanceConsumer consumer = SubjectExecutionContext.withSubject(subject, () ->
-                source.addConsumer(target, null, ServerMessage.class, "c", EnumSet.noneOf(ConsumerOption.class), null));
-
-        assertNotNull(consumer, "Consumer was not created");
-        assertEquals(true, source.verifySessionAccess(session), "Unexpected session access");
-        verify(managementNode).addConsumer(any(), any(), any(), anyString(), any(), any());
     }
 }

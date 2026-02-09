@@ -27,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -56,8 +57,10 @@ import org.mockito.stubbing.Answer;
 
 import org.apache.qpid.server.configuration.updater.CurrentThreadTaskExecutor;
 import org.apache.qpid.server.configuration.updater.TaskExecutor;
+import org.apache.qpid.server.connection.SessionPrincipal;
 import org.apache.qpid.server.filter.AMQPFilterTypes;
 import org.apache.qpid.server.logging.EventLogger;
+import org.apache.qpid.server.logging.LogMessage;
 import org.apache.qpid.server.message.MessageDestination;
 import org.apache.qpid.server.model.Binding;
 import org.apache.qpid.server.model.BrokerModel;
@@ -182,6 +185,28 @@ class Session_1_0Test extends UnitTestBase
         final Principal systemPrincipal =
                 ((BrokerTestHelper.TestableSystemPrincipalSource) connection).getSystemPrincipal();
         assertTrue(subject.getPrincipals().contains(systemPrincipal), "System principal missing");
+    }
+
+    @Test
+    void constructorLogsCreateWithinSessionSubject()
+    {
+        final AMQPConnection_1_0<?> connection = createAmqpConnection_1_0();
+        final EventLogger eventLogger = connection.getEventLogger();
+        final AtomicReference<Subject> capturedSubject = new AtomicReference<>();
+
+        doAnswer(invocation ->
+        {
+            capturedSubject.set(SubjectExecutionContext.currentSubject());
+            return null;
+        }).when(eventLogger).message(any(LogMessage.class));
+
+        final Session_1_0 session = createSession_1_0(connection, 0);
+
+        final Subject subject = capturedSubject.get();
+        assertNotNull(subject, "Subject should be set during CREATE logging");
+        final Set<SessionPrincipal> sessionPrincipals = subject.getPrincipals(SessionPrincipal.class);
+        assertEquals(1, sessionPrincipals.size(), "Session principal should be present");
+        assertEquals(session, sessionPrincipals.iterator().next().getSession(), "Unexpected logged session principal");
     }
 
     @Test

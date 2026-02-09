@@ -157,27 +157,49 @@ public class ProxyMessageSource implements MessageSource, MessageDestination
             final Integer priority
     ) throws ExistingExclusiveConsumer, ExistingConsumerPreventsExclusive, ConsumerAccessRefused, QueueDeleted
     {
-        if (_consumerSet.compareAndSet(false,true))
+        final Subject currentSubject = SubjectExecutionContext.currentSubject();
+        if (currentSubject == null)
         {
-            final Subject currentSubject = SubjectExecutionContext.currentSubject();
-            if (currentSubject == null)
-            {
-                return null;
-            }
-            final Set<SessionPrincipal> sessionPrincipals = currentSubject.getPrincipals(SessionPrincipal.class);
-            if (!sessionPrincipals.isEmpty())
+            return null;
+        }
+        final Set<SessionPrincipal> sessionPrincipals = currentSubject.getPrincipals(SessionPrincipal.class);
+        if (sessionPrincipals.isEmpty())
+        {
+            return null;
+        }
+
+        if (_consumerSet.compareAndSet(false, true))
+        {
+            try
             {
                 _connectionReference = sessionPrincipals.iterator().next().getSession().getConnectionReference();
 
                 final WrappingTarget<T> wrapper = new WrappingTarget<>(target, _name);
                 _managementAddressSpace.getManagementNode().addConsumer(wrapper, filters, messageClass, _name, options, priority);
                 final MessageInstanceConsumer<T> consumer = wrapper.getConsumer();
+                if (consumer == null)
+                {
+                    _consumerSet.set(false);
+                    _connectionReference = null;
+                    return null;
+                }
                 _consumer = consumer;
                 return consumer;
             }
-            else
+            catch (ExistingExclusiveConsumer
+                    | ExistingConsumerPreventsExclusive
+                    | ConsumerAccessRefused
+                    | QueueDeleted e)
             {
-                return null;
+                _consumerSet.set(false);
+                _connectionReference = null;
+                throw e;
+            }
+            catch (RuntimeException | Error e)
+            {
+                _consumerSet.set(false);
+                _connectionReference = null;
+                throw e;
             }
         }
         else
@@ -365,6 +387,8 @@ public class ProxyMessageSource implements MessageSource, MessageDestination
         {
             _managementAddressSpace.removeProxyMessageSource(_connectionReference, _name);
             ProxyMessageSource.this._consumer = null;
+            ProxyMessageSource.this._connectionReference = null;
+            ProxyMessageSource.this._consumerSet.set(false);
             return _underlying.close();
         }
 

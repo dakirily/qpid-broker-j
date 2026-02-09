@@ -163,7 +163,7 @@ public class Session_1_0 extends AbstractAMQPSession<Session_1_0, ConsumerTarget
         _primaryDomain = getPrimaryDomain();
         _incomingWindow = UnsignedInteger.valueOf(incomingWindow);
 
-        _connection.getEventLogger().message(ChannelMessages.CREATE());
+        SubjectExecutionContext.withSubject(_subject, () -> _connection.getEventLogger().message(ChannelMessages.CREATE()));
     }
 
     public void sendDetach(final Detach detach)

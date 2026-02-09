@@ -277,6 +277,28 @@
               </execution>
             </executions>
           </plugin>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-failsafe-plugin</artifactId>
+            <version>${maven-surefire-plugin-version}</version>
+            <executions>
+              <execution>
+                <id>mr-java24-integration-test</id>
+                <goals>
+                  <goal>integration-test</goal>
+                  <goal>verify</goal>
+                </goals>
+                <configuration>
+                  <includes>
+                    <include>**/SubjectExecutionContextMultiReleaseIT.java</include>
+                  </includes>
+                  <systemPropertyVariables>
+                    <mr.test.jar.path>${project.build.directory}/${project.build.finalName}.jar</mr.test.jar.path>
+                  </systemPropertyVariables>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
         </plugins>
       </build>
     </profile>

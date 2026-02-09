@@ -112,7 +112,7 @@ public class InteractiveAuthenticationFilter implements Filter
     private void invokeAuthenticationHandler(final HttpServletRequest httpRequest,
                                              final HttpServletResponse httpResponse,
                                              final HttpRequestInteractiveAuthenticator.AuthenticationHandler handler)
-            throws ServletException
+            throws IOException, ServletException
     {
         final Subject tempSubject = new Subject(true, Set.of(new ServletConnectionPrincipal(httpRequest)), Set.of(), Set.of());
         try
@@ -125,7 +125,24 @@ public class InteractiveAuthenticationFilter implements Filter
         }
         catch (Exception e)
         {
-            throw SubjectExecutionContext.unwrapSubjectActionException(e, ServletException.class, ServletException::new);
+            final Throwable cause = SubjectExecutionContext.unwrapSubjectActionException(e);
+            if (cause instanceof IOException ioException)
+            {
+                throw ioException;
+            }
+            if (cause instanceof ServletException servletException)
+            {
+                throw servletException;
+            }
+            if (cause instanceof RuntimeException runtimeException)
+            {
+                throw runtimeException;
+            }
+            if (cause instanceof Error error)
+            {
+                throw error;
+            }
+            throw new ServletException(cause);
         }
     }
 }
