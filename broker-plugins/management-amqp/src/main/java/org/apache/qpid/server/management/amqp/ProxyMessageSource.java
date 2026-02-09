@@ -186,15 +186,6 @@ public class ProxyMessageSource implements MessageSource, MessageDestination
                 _consumer = consumer;
                 return consumer;
             }
-            catch (ExistingExclusiveConsumer
-                    | ExistingConsumerPreventsExclusive
-                    | ConsumerAccessRefused
-                    | QueueDeleted e)
-            {
-                _consumerSet.set(false);
-                _connectionReference = null;
-                throw e;
-            }
             catch (RuntimeException | Error e)
             {
                 _consumerSet.set(false);
