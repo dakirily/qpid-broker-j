@@ -285,6 +285,10 @@ public class SpnegoAuthenticator
             }
             return new AuthenticationResult(AuthenticationResult.AuthenticationStatus.ERROR, e);
         }
+        catch (RuntimeException e)
+        {
+            throw e;
+        }
         catch (Exception e)
         {
             LOGGER.error("Service login failed", e);

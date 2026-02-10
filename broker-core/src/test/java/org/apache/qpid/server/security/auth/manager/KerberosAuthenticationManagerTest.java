@@ -243,6 +243,12 @@ public class KerberosAuthenticationManagerTest extends UnitTestBase
         assertEquals(AuthenticationResult.AuthenticationStatus.ERROR, result.getStatus());
     }
 
+    @Test
+    public void testAuthenticateNullTokenRethrowsRuntimeException()
+    {
+        assertThrows(NullPointerException.class, () -> _spnegoAuthenticator.authenticate((byte[]) null));
+    }
+
     private KerberosAuthenticationManager createKerberosAuthenticationProvider(String acceptScope)
     {
         when(_broker.getChildren(AuthenticationProvider.class)).thenReturn(List.of());

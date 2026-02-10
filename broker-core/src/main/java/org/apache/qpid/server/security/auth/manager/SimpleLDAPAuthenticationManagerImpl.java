@@ -424,6 +424,10 @@ public class SimpleLDAPAuthenticationManagerImpl
         {
             name = getNameFromId(userId, gssapiIdentity);
         }
+        catch (RuntimeException e)
+        {
+            throw e;
+        }
         catch (Exception e)
         {
             LOGGER.warn("Retrieving LDAP name for user '{}' resulted in error.", userId, e);
@@ -471,6 +475,10 @@ public class SimpleLDAPAuthenticationManagerImpl
         {
             //Authentication failed
             return new AuthenticationResult(AuthenticationStatus.ERROR);
+        }
+        catch (RuntimeException e)
+        {
+            throw e;
         }
         catch (Exception e)
         {
@@ -694,6 +702,10 @@ public class SimpleLDAPAuthenticationManagerImpl
         {
             LOGGER.debug("JAAS login failed ", e);
             throw new IllegalConfigurationException("JAAS login failed.", e);
+        }
+        catch (RuntimeException e)
+        {
+            throw e;
         }
         catch (Exception e)
         {
