@@ -59,11 +59,12 @@ import org.apache.qpid.server.plugin.ConfiguredObjectTypeFactory;
 import org.apache.qpid.server.util.Action;
 import org.apache.qpid.server.util.ServerScopedRuntimeException;
 import org.apache.qpid.server.util.Strings;
+import tools.jackson.databind.ObjectMapper;
 
 public class ConfiguredObjectTypeRegistry
 {
     private static final Logger LOGGER = LoggerFactory.getLogger(ConfiguredObjectTypeRegistry.class);
-
+    private static final ObjectMapper OBJECT_MAPPER = ConfiguredObjectJacksonModule.newObjectMapper(false);
     private static final Map<String, Integer> STANDARD_FIRST_FIELDS_ORDER = new HashMap<>();
 
     private static final ConcurrentMap<Class<?>, Class<? extends ConfiguredObject>> CATEGORY_CACHE =
@@ -1007,7 +1008,7 @@ public class ConfiguredObjectTypeRegistry
                         {
                             try
                             {
-                                stringValue = ConfiguredObjectJacksonModule.newObjectMapper(false).writeValueAsString(value);
+                                stringValue = OBJECT_MAPPER.writeValueAsString(value);
                             }
                             catch (JacksonException e)
                             {
