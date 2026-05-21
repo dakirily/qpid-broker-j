@@ -75,6 +75,7 @@ public class VirtualHostStoreUpgraderAndRecoverer extends AbstractConfigurationS
         register(new Upgrader_7_1_to_8_0());
         register(new Upgrader_8_0_to_9_0());
         register(new Upgrader_9_0_to_9_1());
+        register(new Upgrader_9_1_to_9_2());
 
         Map<String, UUID> defaultExchangeIds = new HashMap<>();
         for (String exchangeName : DEFAULT_EXCHANGES.keySet())
@@ -1134,6 +1135,29 @@ public class VirtualHostStoreUpgraderAndRecoverer extends AbstractConfigurationS
 
             final ConfiguredObjectRecord updatedRecord = UpgraderHelper.upgradeConnectionPool(record);
             getUpdateMap().put(updatedRecord.getId(), updatedRecord);
+        }
+
+        @Override
+        public void complete()
+        {
+
+        }
+    }
+
+    private static class Upgrader_9_1_to_9_2 extends StoreUpgraderPhase
+    {
+        public Upgrader_9_1_to_9_2()
+        {
+            super("modelVersion", "9.1", "9.2");
+        }
+
+        @Override
+        public void configuredObject(final ConfiguredObjectRecord record)
+        {
+            if (VIRTUALHOST.equals(record.getType()))
+            {
+                upgradeRootRecord(record);
+            }
         }
 
         @Override

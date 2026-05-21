@@ -87,9 +87,12 @@ public final class BrokerModel extends Model
      *
      * 9.1
      *    Replaced JDBC connection pool provider from BoneCP to HikariCP
+     *
+     * 9.2
+     *    Introduced operation QueueManagingVirtualHost#closeIdleConnections
      */
     public static final int MODEL_MAJOR_VERSION = 9;
-    public static final int MODEL_MINOR_VERSION = 1;
+    public static final int MODEL_MINOR_VERSION = 2;
     public static final String MODEL_VERSION = MODEL_MAJOR_VERSION + "." + MODEL_MINOR_VERSION;
     private static final Model MODEL_INSTANCE = new BrokerModel();
     private final Map<Class<? extends ConfiguredObject>, Class<? extends ConfiguredObject>> _parents = new HashMap<>();

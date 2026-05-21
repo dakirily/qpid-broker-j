@@ -73,6 +73,7 @@ public class BrokerStoreUpgraderAndRecoverer extends AbstractConfigurationStoreU
         register(new Upgrader_7_1_to_8_0());
         register(new Upgrader_8_0_to_9_0());
         register(new Upgrader_9_0_to_9_1());
+        register(new Upgrader_9_1_to_9_2());
     }
 
     private static final class Upgrader_1_0_to_1_1 extends StoreUpgraderPhase
@@ -795,6 +796,29 @@ public class BrokerStoreUpgraderAndRecoverer extends AbstractConfigurationStoreU
 
             final ConfiguredObjectRecord updatedRecord = UpgraderHelper.upgradeConnectionPool(record);
             getUpdateMap().put(updatedRecord.getId(), updatedRecord);
+        }
+
+        @Override
+        public void complete()
+        {
+
+        }
+    }
+
+    private static class Upgrader_9_1_to_9_2 extends StoreUpgraderPhase
+    {
+        public Upgrader_9_1_to_9_2()
+        {
+            super("modelVersion", "9.1", "9.2");
+        }
+
+        @Override
+        public void configuredObject(ConfiguredObjectRecord record)
+        {
+            if (BROKER.equals(record.getType()))
+            {
+                upgradeRootRecord(record);
+            }
         }
 
         @Override
