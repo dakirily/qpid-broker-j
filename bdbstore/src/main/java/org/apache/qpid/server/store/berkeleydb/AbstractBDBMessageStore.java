@@ -1609,33 +1609,82 @@ public abstract class AbstractBDBMessageStore implements MessageStore
         @Override
         public void visitMessageInstances(final MessageInstanceHandler validHandler,
                                           final Predicate<MessageEnqueueRecord> predicate,
-                                          final Consumer<MessageEnqueueRecord> invalidCollector) throws StoreException
+                                          final int invalidBatchSize,
+                                          final Consumer<List<MessageEnqueueRecord>> invalidBatchConsumer) throws StoreException
         {
             checkMessageStoreOpen();
+            if (invalidBatchSize <= 0)
+            {
+                throw new IllegalArgumentException("Invalid batch size must be greater than zero");
+            }
 
             final CachingUUIDFactory uuidFactory = new CachingUUIDFactory();
+            byte[] resumeKey = null;
+            boolean complete = false;
 
-            // Callbacks are invoked while iterating a BDB cursor; BDB resources/locks may be held.
-            // Callbacks must be fast and must not re-enter the store (including creating transactions, reading
-            // messages, or performing other database operations). Only validHandler controls early termination.
-            try (final Cursor cursor = getDeliveryDb().openCursor(null, null))
+            try
             {
-                final DatabaseEntry key = new DatabaseEntry(new byte[QueueEntryBinding.KEY_SIZE]);
-
-                while (cursor.getNext(key, null, LockMode.READ_UNCOMMITTED) == OperationStatus.SUCCESS)
+                while (!complete)
                 {
-                    final MessageEnqueueRecord record = QueueEntryBinding.readIds(uuidFactory, key);
+                    final List<MessageEnqueueRecord> invalidRecords = new ArrayList<>(invalidBatchSize);
+                    boolean stoppedByValidHandler = false;
 
-                    if (predicate.test(record))
+                    try (final Cursor cursor = getDeliveryDb().openCursor(null, null))
                     {
-                        if (!validHandler.handle(record))
+                        final DatabaseEntry key = new DatabaseEntry(new byte[QueueEntryBinding.KEY_SIZE]);
+                        OperationStatus status;
+                        if (resumeKey == null)
                         {
-                            break;
+                            status = cursor.getNext(key, null, LockMode.READ_UNCOMMITTED);
+                        }
+                        else
+                        {
+                            key.setData(Arrays.copyOf(resumeKey, resumeKey.length));
+                            status = cursor.getSearchKeyRange(key, null, LockMode.READ_UNCOMMITTED);
+                            if (status == OperationStatus.SUCCESS && Arrays.equals(resumeKey, key.getData()))
+                            {
+                                status = cursor.getNext(key, null, LockMode.READ_UNCOMMITTED);
+                            }
+                        }
+
+                        while (status == OperationStatus.SUCCESS)
+                        {
+                            resumeKey = Arrays.copyOfRange(key.getData(), key.getOffset(),
+                                                           key.getOffset() + QueueEntryBinding.KEY_SIZE);
+                            final MessageEnqueueRecord record = QueueEntryBinding.readIds(uuidFactory, key);
+
+                            if (predicate.test(record))
+                            {
+                                if (!validHandler.handle(record))
+                                {
+                                    stoppedByValidHandler = true;
+                                    complete = true;
+                                    break;
+                                }
+                            }
+                            else
+                            {
+                                invalidRecords.add(record);
+                                if (invalidRecords.size() == invalidBatchSize)
+                                {
+                                    break;
+                                }
+                            }
+                            status = cursor.getNext(key, null, LockMode.READ_UNCOMMITTED);
+                        }
+                        if (status != OperationStatus.SUCCESS && invalidRecords.size() < invalidBatchSize)
+                        {
+                            complete = true;
                         }
                     }
-                    else
+
+                    if (!invalidRecords.isEmpty())
                     {
-                        invalidCollector.accept(record);
+                        invalidBatchConsumer.accept(Collections.unmodifiableList(invalidRecords));
+                    }
+                    if (stoppedByValidHandler)
+                    {
+                        return;
                     }
                 }
             }
@@ -1649,46 +1698,86 @@ public abstract class AbstractBDBMessageStore implements MessageStore
         public void visitMessageInstances(final TransactionLogResource queue,
                                           final MessageInstanceHandler validHandler,
                                           final Predicate<MessageEnqueueRecord> predicate,
-                                          final Consumer<MessageEnqueueRecord> invalidCollector) throws StoreException
+                                          final int invalidBatchSize,
+                                          final Consumer<List<MessageEnqueueRecord>> invalidBatchConsumer) throws StoreException
         {
             checkMessageStoreOpen();
+            if (invalidBatchSize <= 0)
+            {
+                throw new IllegalArgumentException("Invalid batch size must be greater than zero");
+            }
 
             final UUID queueId = queue.getId();
+            byte[] resumeKey = null;
+            boolean complete = false;
 
-            // Callbacks are invoked while iterating a BDB cursor; BDB resources/locks may be held.
-            // Callbacks must be fast and must not re-enter the store (including creating transactions, reading
-            // messages, or performing other database operations). Only validHandler controls early termination.
-            try (final Cursor cursor = getDeliveryDb().openCursor(null, null))
+            try
             {
-                final DatabaseEntry key = new DatabaseEntry(new byte[QueueEntryBinding.KEY_SIZE]);
-
-                QueueEntryBinding.objectToEntry(queueId, 0L, key);
-
-                if (cursor.getSearchKeyRange(key, null, LockMode.READ_UNCOMMITTED) == OperationStatus.SUCCESS)
+                while (!complete)
                 {
-                    do
+                    final List<MessageEnqueueRecord> invalidRecords = new ArrayList<>(invalidBatchSize);
+                    boolean stoppedByValidHandler = false;
+
+                    try (final Cursor cursor = getDeliveryDb().openCursor(null, null))
                     {
-                        if (!QueueEntryBinding.matchesQueueId(key, queueId))
+                        final DatabaseEntry key = new DatabaseEntry(new byte[QueueEntryBinding.KEY_SIZE]);
+                        OperationStatus status;
+                        if (resumeKey == null)
                         {
-                            break;
-                        }
-
-                        final long messageId = QueueEntryBinding.readMessageId(key);
-                        final MessageEnqueueRecord record = new BDBEnqueueRecord(queueId, messageId);
-
-                        if (predicate.test(record))
-                        {
-                            if (!validHandler.handle(record))
-                            {
-                                break;
-                            }
+                            QueueEntryBinding.objectToEntry(queueId, 0L, key);
+                            status = cursor.getSearchKeyRange(key, null, LockMode.READ_UNCOMMITTED);
                         }
                         else
                         {
-                            invalidCollector.accept(record);
+                            key.setData(Arrays.copyOf(resumeKey, resumeKey.length));
+                            status = cursor.getSearchKeyRange(key, null, LockMode.READ_UNCOMMITTED);
+                            if (status == OperationStatus.SUCCESS && Arrays.equals(resumeKey, key.getData()))
+                            {
+                                status = cursor.getNext(key, null, LockMode.READ_UNCOMMITTED);
+                            }
+                        }
+
+                        while (status == OperationStatus.SUCCESS && QueueEntryBinding.matchesQueueId(key, queueId))
+                        {
+                            resumeKey = Arrays.copyOfRange(key.getData(), key.getOffset(),
+                                                           key.getOffset() + QueueEntryBinding.KEY_SIZE);
+                            final long messageId = QueueEntryBinding.readMessageId(key);
+                            final MessageEnqueueRecord record = new BDBEnqueueRecord(queueId, messageId);
+
+                            if (predicate.test(record))
+                            {
+                                if (!validHandler.handle(record))
+                                {
+                                    stoppedByValidHandler = true;
+                                    complete = true;
+                                    break;
+                                }
+                            }
+                            else
+                            {
+                                invalidRecords.add(record);
+                                if (invalidRecords.size() == invalidBatchSize)
+                                {
+                                    break;
+                                }
+                            }
+                            status = cursor.getNext(key, null, LockMode.READ_UNCOMMITTED);
+                        }
+                        if ((status != OperationStatus.SUCCESS || !QueueEntryBinding.matchesQueueId(key, queueId))
+                                && invalidRecords.size() < invalidBatchSize)
+                        {
+                            complete = true;
                         }
                     }
-                    while (cursor.getNext(key, null, LockMode.READ_UNCOMMITTED) == OperationStatus.SUCCESS);
+
+                    if (!invalidRecords.isEmpty())
+                    {
+                        invalidBatchConsumer.accept(Collections.unmodifiableList(invalidRecords));
+                    }
+                    if (stoppedByValidHandler)
+                    {
+                        return;
+                    }
                 }
             }
             catch (final RuntimeException e)

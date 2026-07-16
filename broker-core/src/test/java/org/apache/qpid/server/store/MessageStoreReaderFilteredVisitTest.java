@@ -54,7 +54,8 @@ public class MessageStoreReaderFilteredVisitTest
             return true;
         },
         record -> record.getMessageNumber() % 2L == 0L,
-        record -> invalid.add(record.getMessageNumber()));
+        2,
+        records -> records.forEach(record -> invalid.add(record.getMessageNumber())));
 
         assertEquals(List.of(2L), valid, "Unexpected valid records");
         assertEquals(List.of(1L, 3L), invalid, "Unexpected invalid records");
@@ -80,7 +81,8 @@ public class MessageStoreReaderFilteredVisitTest
             return invoked.incrementAndGet() < 2;
         },
         record -> true,
-        record ->
+        2,
+        records ->
         {
             throw new AssertionError("Invalid collector must not be invoked when predicate always returns true");
         });
@@ -113,7 +115,8 @@ public class MessageStoreReaderFilteredVisitTest
                     return true;
                 },
                 record -> record.getMessageNumber() == 2L,
-                record -> invalid.add(record.getMessageNumber()));
+                2,
+                records -> records.forEach(record -> invalid.add(record.getMessageNumber())));
 
         assertEquals(List.of(2L), valid, "Unexpected valid records");
         assertEquals(List.of(1L), invalid, "Unexpected invalid records");
@@ -121,6 +124,25 @@ public class MessageStoreReaderFilteredVisitTest
         // Ensure queue-specific overload does not leak other queue entries.
         assertTrue(valid.stream().noneMatch(id -> id == 100L));
         assertTrue(invalid.stream().noneMatch(id -> id == 100L));
+    }
+
+    @Test
+    public void filteredVisitSplitsInvalidRecordsIntoBoundedBatches() throws StoreException
+    {
+        final UUID queueId = UUID.randomUUID();
+        final List<MessageEnqueueRecord> input = new ArrayList<>();
+        for (int i = 0; i < 1001; i++)
+        {
+            input.add(new TestRecord(queueId, i));
+        }
+
+        final List<Integer> batchSizes = new ArrayList<>();
+        new TestReader(input).visitMessageInstances(record -> true,
+                                                     record -> false,
+                                                     1000,
+                                                     records -> batchSizes.add(records.size()));
+
+        assertEquals(List.of(1000, 1), batchSizes, "Unexpected invalid batch sizes");
     }
 
     private static class TestReader implements MessageStore.MessageStoreReader

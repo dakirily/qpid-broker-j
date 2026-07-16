@@ -22,14 +22,13 @@
 package org.apache.qpid.server.virtualhost;
 
 import java.util.HashMap;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.function.Consumer;
-import java.util.function.Predicate;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
+import java.util.function.Predicate;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -85,9 +84,7 @@ public class SynchronousMessageStoreRecoverer implements MessageStoreRecoverer
         storeReader.visitMessages(new MessageVisitor(recoveredMessages, unusedMessages));
 
         eventLogger.message(logSubject, TransactionLogMessages.RECOVERY_START(null, false));
-        // Some store implementations iterate using cursors/locks and cannot tolerate mutations during the visit.
-        // Collect invalid message instances first and dequeue them after the visit completes.
-        final List<MessageEnqueueRecord> invalidMessageInstances = new ArrayList<>();
+        // Invalid records are dequeued in bounded batches outside non-reentrant store resources.
         try
         {
 
@@ -96,19 +93,15 @@ public class SynchronousMessageStoreRecoverer implements MessageStoreRecoverer
                                                                                  recoveredMessages,
                                                                                  unusedMessages);
             final Predicate<MessageEnqueueRecord> filter = new MessageInstanceFilter(virtualHost, recoveredMessages);
-            final Consumer<MessageEnqueueRecord> invalidCollector = new InvalidMessageInstanceCollector(virtualHost,
-                                                                                                      invalidMessageInstances,
-                                                                                                      unknownQueuesWithMessages,
-                                                                                                      queuesWithUnknownMessages);
+            final InvalidMessageInstanceBatchConsumer invalidBatchConsumer =
+                    new InvalidMessageInstanceBatchConsumer(virtualHost, store, unknownQueuesWithMessages,
+                                                            queuesWithUnknownMessages);
 
-            storeReader.visitMessageInstances(validHandler, filter, invalidCollector);
+            storeReader.visitMessageInstances(validHandler, filter, INVALID_INSTANCE_DEQUEUE_BATCH_SIZE,
+                                              invalidBatchConsumer);
         }
         finally
         {
-            // Dequeue after visitation to avoid cursor/lock reentrancy issues in the underlying store.
-            dequeueInvalidMessageInstances(store, invalidMessageInstances);
-
-
             if (!unknownQueuesWithMessages.isEmpty())
             {
                 unknownQueuesWithMessages.forEach((queueId, count) ->
@@ -221,7 +214,7 @@ public class SynchronousMessageStoreRecoverer implements MessageStoreRecoverer
 
             if (inTxn == INVALID_INSTANCE_DEQUEUE_BATCH_SIZE && i + 1 < invalidRecords.size())
             {
-                txn.commitTranAsync((Void) null);
+                txn.commitTran();
                 txn = store.newTransaction();
                 inTxn = 0;
             }
@@ -229,7 +222,7 @@ public class SynchronousMessageStoreRecoverer implements MessageStoreRecoverer
 
         if (inTxn > 0)
         {
-            txn.commitTranAsync((Void) null);
+            txn.commitTran();
         }
     }
 
@@ -253,47 +246,48 @@ public class SynchronousMessageStoreRecoverer implements MessageStoreRecoverer
         }
     }
 
-    private static class InvalidMessageInstanceCollector implements Consumer<MessageEnqueueRecord>
+    private static class InvalidMessageInstanceBatchConsumer implements Consumer<List<MessageEnqueueRecord>>
     {
         private final QueueManagingVirtualHost<?> _virtualHost;
-        private final List<MessageEnqueueRecord> _invalidRecords;
+        private final MessageStore _store;
         private final Map<UUID, Integer> _unknownQueuesWithMessages;
         private final Map<Queue<?>, Integer> _queuesWithUnknownMessages;
 
-        private InvalidMessageInstanceCollector(final QueueManagingVirtualHost<?> virtualHost,
-                                                final List<MessageEnqueueRecord> invalidRecords,
-                                                final Map<UUID, Integer> unknownQueuesWithMessages,
-                                                final Map<Queue<?>, Integer> queuesWithUnknownMessages)
+        private InvalidMessageInstanceBatchConsumer(final QueueManagingVirtualHost<?> virtualHost,
+                                                    final MessageStore store,
+                                                    final Map<UUID, Integer> unknownQueuesWithMessages,
+                                                    final Map<Queue<?>, Integer> queuesWithUnknownMessages)
         {
             _virtualHost = virtualHost;
-            _invalidRecords = invalidRecords;
+            _store = store;
             _unknownQueuesWithMessages = unknownQueuesWithMessages;
             _queuesWithUnknownMessages = queuesWithUnknownMessages;
         }
 
         @Override
-        public void accept(final MessageEnqueueRecord record)
+        public void accept(final List<MessageEnqueueRecord> records)
         {
-            final UUID queueId = record.getQueueId();
-            final long messageId = record.getMessageNumber();
-            final Queue<?> queue = _virtualHost.getAttainedQueue(queueId);
-            if (queue != null)
+            for (final MessageEnqueueRecord record : records)
             {
-                LOGGER.debug(
+                final UUID queueId = record.getQueueId();
+                final long messageId = record.getMessageNumber();
+                final Queue<?> queue = _virtualHost.getAttainedQueue(queueId);
+                if (queue != null)
+                {
+                    LOGGER.debug(
                         "Message id '{}' referenced in log as enqueued in queue '{}' is unknown, entry will be discarded",
                         messageId, queue.getName());
-
-                _queuesWithUnknownMessages.merge(queue, 1, (old, unused) -> old + 1);
-            }
-            else
-            {
-                LOGGER.debug(
+                    _queuesWithUnknownMessages.merge(queue, 1, (old, unused) -> old + 1);
+                }
+                else
+                {
+                    LOGGER.debug(
                         "Message id '{}' in log references queue with id '{}' which is not in the configuration, entry will be discarded",
                         messageId, queueId);
-                _unknownQueuesWithMessages.merge(queueId, 1, (old, unused) -> old + 1);
+                    _unknownQueuesWithMessages.merge(queueId, 1, (old, unused) -> old + 1);
+                }
             }
-
-            _invalidRecords.add(record);
+            dequeueInvalidMessageInstances(_store, records);
         }
     }
 

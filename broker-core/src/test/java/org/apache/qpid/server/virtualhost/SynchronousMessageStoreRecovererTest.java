@@ -147,7 +147,7 @@ public class SynchronousMessageStoreRecovererTest extends UnitTestBase
         verify(queue, times(1)).recover(eq(message), any(MessageEnqueueRecord.class));
 
         verify(transaction).dequeueMessage(argThat(new MessageEnqueueRecordMatcher(queue.getId(), invalidMessageId)));
-        verify(transaction, times(1)).commitTranAsync((Void) null);
+        verify(transaction, times(1)).commitTran();
     }
 
     @SuppressWarnings("unchecked")
@@ -186,7 +186,7 @@ public class SynchronousMessageStoreRecovererTest extends UnitTestBase
 
         verify(queue, never()).enqueue(any(ServerMessage.class), any(Action.class), any(MessageEnqueueRecord.class));
         verify(transaction).dequeueMessage(argThat(new MessageEnqueueRecordMatcher(queue.getId(), messageId)));
-        verify(transaction, times(1)).commitTranAsync((Void) null);
+        verify(transaction, times(1)).commitTran();
     }
 
     @Test
@@ -224,7 +224,7 @@ public class SynchronousMessageStoreRecovererTest extends UnitTestBase
         recoverer.recover(_virtualHost);
 
         verify(transaction).dequeueMessage(argThat(new MessageEnqueueRecordMatcher(queueId, messageId)));
-        verify(transaction, times(1)).commitTranAsync((Void) null);
+        verify(transaction, times(1)).commitTran();
     }
 
     @Test

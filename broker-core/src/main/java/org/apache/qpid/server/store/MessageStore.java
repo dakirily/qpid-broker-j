@@ -23,6 +23,9 @@ package org.apache.qpid.server.store;
 
 
 import java.io.File;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 
@@ -103,51 +106,83 @@ public interface MessageStore
          * Visits message instances and classifies each enqueue record as valid or invalid.
          *
          * <p>Records accepted by {@code predicate} are passed to {@code validHandler}. Rejected records are
-         * forwarded to {@code invalidCollector}. Iteration stops only when {@code validHandler} returns
-         * {@code false}. The {@code invalidCollector} cannot stop iteration.
+         * forwarded to {@code invalidBatchConsumer} in immutable, callback-scoped batches containing at most
+         * {@code invalidBatchSize} records. Iteration stops only when {@code validHandler} returns {@code false}.
          *
          * <p>Implementations may invoke callbacks while holding store-internal resources (for example, cursors
-         * or locks). Callbacks must be fast and must not re-enter the store or block on external I/O.
+         * or locks). Implementations that hold non-reentrant resources must override this method and invoke the
+         * invalid batch consumer only after releasing those resources.
          */
         default void visitMessageInstances(final MessageInstanceHandler validHandler,
                                            final Predicate<MessageEnqueueRecord> predicate,
-                                           final Consumer<MessageEnqueueRecord> invalidCollector) throws StoreException
+                                           final int invalidBatchSize,
+                                           final Consumer<List<MessageEnqueueRecord>> invalidBatchConsumer) throws StoreException
         {
+            if (invalidBatchSize <= 0)
+            {
+                throw new IllegalArgumentException("Invalid batch size must be greater than zero");
+            }
+            final List<MessageEnqueueRecord> invalidRecords = new ArrayList<>(invalidBatchSize);
             visitMessageInstances(record ->
             {
                 if (predicate.test(record))
                 {
                     return validHandler.handle(record);
                 }
-                invalidCollector.accept(record);
+                invalidRecords.add(record);
+                if (invalidRecords.size() == invalidBatchSize)
+                {
+                    invalidBatchConsumer.accept(Collections.unmodifiableList(new ArrayList<>(invalidRecords)));
+                    invalidRecords.clear();
+                }
                 return true;
             });
+            if (!invalidRecords.isEmpty())
+            {
+                invalidBatchConsumer.accept(Collections.unmodifiableList(new ArrayList<>(invalidRecords)));
+            }
         }
 
         /**
          * Visits message instances for a given {@code queue} and classifies each enqueue record as valid or invalid.
          *
          * <p>Records accepted by {@code predicate} are passed to {@code validHandler}. Rejected records are
-         * forwarded to {@code invalidCollector}. Iteration stops only when {@code validHandler} returns
-         * {@code false}. The {@code invalidCollector} cannot stop iteration.
+         * forwarded to {@code invalidBatchConsumer} in immutable, callback-scoped batches containing at most
+         * {@code invalidBatchSize} records. Iteration stops only when {@code validHandler} returns {@code false}.
          *
          * <p>Implementations may invoke callbacks while holding store-internal resources (for example, cursors
-         * or locks). Callbacks must be fast and must not re-enter the store or block on external I/O.
+         * or locks). Implementations that hold non-reentrant resources must override this method and invoke the
+         * invalid batch consumer only after releasing those resources.
          */
         default void visitMessageInstances(final TransactionLogResource queue,
                                            final MessageInstanceHandler validHandler,
                                            final Predicate<MessageEnqueueRecord> predicate,
-                                           final Consumer<MessageEnqueueRecord> invalidCollector) throws StoreException
+                                           final int invalidBatchSize,
+                                           final Consumer<List<MessageEnqueueRecord>> invalidBatchConsumer) throws StoreException
         {
+            if (invalidBatchSize <= 0)
+            {
+                throw new IllegalArgumentException("Invalid batch size must be greater than zero");
+            }
+            final List<MessageEnqueueRecord> invalidRecords = new ArrayList<>(invalidBatchSize);
             visitMessageInstances(queue, record ->
             {
                 if (predicate.test(record))
                 {
                     return validHandler.handle(record);
                 }
-                invalidCollector.accept(record);
+                invalidRecords.add(record);
+                if (invalidRecords.size() == invalidBatchSize)
+                {
+                    invalidBatchConsumer.accept(Collections.unmodifiableList(new ArrayList<>(invalidRecords)));
+                    invalidRecords.clear();
+                }
                 return true;
             });
+            if (!invalidRecords.isEmpty())
+            {
+                invalidBatchConsumer.accept(Collections.unmodifiableList(new ArrayList<>(invalidRecords)));
+            }
         }
 
         void visitDistributedTransactions(DistributedTransactionHandler handler) throws StoreException;

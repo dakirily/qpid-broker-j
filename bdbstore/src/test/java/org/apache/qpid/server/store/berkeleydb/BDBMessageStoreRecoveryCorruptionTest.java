@@ -192,7 +192,8 @@ public class BDBMessageStoreRecoveryCorruptionTest extends UnitTestBase
                 },
                 record -> knownQueues.contains(record.getQueueId())
                         && expectedMessageIds.contains(record.getMessageNumber()),
-                visitedInvalid::add);
+                2,
+                visitedInvalid::addAll);
 
         // Valid: exactly the originally enqueued instances.
         assertEquals(expectedMessageIds.size(), visitedValid.size(), "Unexpected number of valid instances");
@@ -281,6 +282,7 @@ public class BDBMessageStoreRecoveryCorruptionTest extends UnitTestBase
                 },
                 record -> (queueAId.equals(record.getQueueId()) && expectedASet.contains(record.getMessageNumber()))
                         || (queueBId.equals(record.getQueueId()) && expectedBSet.contains(record.getMessageNumber())),
+                2,
                 record -> { });
 
         assertEquals(expectedA, recoveredA, "Unexpected queueA recovered order");

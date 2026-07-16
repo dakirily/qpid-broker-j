@@ -373,14 +373,15 @@ public class BDBMessageStoreReaderVisitMessageInstancesTest extends MessageStore
                         return true;
                     },
                     record -> validIds.contains(record.getMessageNumber()),
-                    record ->
+                    2,
+                    records -> records.forEach(record ->
                     {
                         if (!queueAId.equals(record.getQueueId()))
                         {
                             sawNonQueueA.set(true);
                         }
                         visitedInvalid.add(record.getMessageNumber());
-                    });
+                    }));
         }
         finally
         {
@@ -446,7 +447,8 @@ public class BDBMessageStoreReaderVisitMessageInstancesTest extends MessageStore
                         return shouldContinue;
                     },
                     record -> true,
-                    record -> invalidCount.incrementAndGet());
+                    2,
+                    records -> invalidCount.addAndGet(records.size()));
         }
         finally
         {
@@ -490,7 +492,8 @@ public class BDBMessageStoreReaderVisitMessageInstancesTest extends MessageStore
                         return true;
                     },
                     record -> false,
-                    record -> visitedInvalid.add(record));
+                    2,
+                    visitedInvalid::addAll);
         }
         finally
         {
@@ -552,7 +555,8 @@ public class BDBMessageStoreReaderVisitMessageInstancesTest extends MessageStore
                         return shouldContinue;
                     },
                     record -> true,
-                    record -> invalidCount.incrementAndGet());
+                    2,
+                    records -> invalidCount.addAndGet(records.size()));
         }
         finally
         {
@@ -604,7 +608,8 @@ public class BDBMessageStoreReaderVisitMessageInstancesTest extends MessageStore
                         return true;
                     },
                     record -> validIds.contains(record.getMessageNumber()),
-                    record -> visitedInvalid.add(record));
+                    2,
+                    visitedInvalid::addAll);
         }
         finally
         {
@@ -649,7 +654,8 @@ public class BDBMessageStoreReaderVisitMessageInstancesTest extends MessageStore
                         return true;
                     },
                     record -> true,
-                    record -> invalidCount.incrementAndGet());
+                    2,
+                    records -> invalidCount.addAndGet(records.size()));
         }
         finally
         {
@@ -677,6 +683,7 @@ public class BDBMessageStoreReaderVisitMessageInstancesTest extends MessageStore
                             {
                                 throw failure;
                             },
+                            2,
                             record -> { }));
 
             assertTrue(exception.getMessage().contains("Cannot visit message instances"),
@@ -706,6 +713,7 @@ public class BDBMessageStoreReaderVisitMessageInstancesTest extends MessageStore
                                 throw failure;
                             },
                             record -> true,
+                            2,
                             record -> { }));
 
             assertTrue(exception.getMessage().contains("Cannot visit message instances"),
@@ -732,6 +740,7 @@ public class BDBMessageStoreReaderVisitMessageInstancesTest extends MessageStore
             final StoreException exception = assertThrows(StoreException.class, () ->
                     reader.visitMessageInstances(record -> true,
                             record -> false,
+                            2,
                             record ->
                             {
                                 throw failure;
@@ -759,6 +768,7 @@ public class BDBMessageStoreReaderVisitMessageInstancesTest extends MessageStore
             final StoreException exception = assertThrows(StoreException.class, () ->
                     reader.visitMessageInstances(record -> true,
                             record -> true,
+                            2,
                             record -> { }));
 
             assertTrue(exception.getMessage().contains("Cannot visit message instances"),
