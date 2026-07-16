@@ -30,6 +30,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.io.File;
+import java.lang.reflect.Field;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -44,6 +45,7 @@ import java.util.function.Predicate;
 import com.sleepycat.je.Database;
 import com.sleepycat.je.DatabaseConfig;
 import com.sleepycat.je.DatabaseEntry;
+import com.sleepycat.je.Cursor;
 import com.sleepycat.je.LockMode;
 import com.sleepycat.je.OperationStatus;
 import com.sleepycat.je.Sequence;
@@ -81,8 +83,8 @@ import org.apache.qpid.test.utils.UnitTestBase;
 import org.apache.qpid.test.utils.VirtualHostNodeStoreType;
 
 /**
- * Tests that deterministically detect whether recovery re-enters BDB JE from within the
- * {@link MessageStore.MessageStoreReader#visitMessageInstances} callback (while iterating a cursor).
+ * Tests that deterministically detect whether recovery re-enters BDB JE while the delivery cursor is open.
+ * Callback counters additionally verify where recovery performs store work.
  */
 public class BDBMessageStoreRecovererReentrancyTest extends UnitTestBase
 {
@@ -195,6 +197,40 @@ public class BDBMessageStoreRecovererReentrancyTest extends UnitTestBase
 
     @Test
     @SuppressWarnings({"rawtypes", "unchecked"})
+    public void recoverStoreMutationFromValidHandlerRunsAfterDeliveryCursorCloses()
+    {
+        final UUID queueId = new UUID(0x0102030405060708L, 0x0000000000000001L);
+        final TransactionLogResource queueResource = createQueueResource(queueId, "queue");
+        final long messageId = enqueueNewMessage(queueResource);
+
+        restartStore();
+
+        final Queue queue = createMockQueue(queueId, "queue");
+        doAnswer(invocation ->
+        {
+            final MessageEnqueueRecord record = invocation.getArgument(1);
+            final Transaction txn = _store.newTransaction();
+            txn.dequeueMessage(record);
+            txn.commitTran();
+            return null;
+        }).when(queue).recover(any(ServerMessage.class), any(MessageEnqueueRecord.class));
+
+        final QueueManagingVirtualHost virtualHost = createVirtualHostForRecoverer(queue, queueId);
+
+        _observingFacade.resetCounters();
+        new SynchronousMessageStoreRecoverer().recover(virtualHost).join();
+
+        assertEquals(0,
+                _observingFacade.getBeginTransactionWithDeliveryCursorOpen(),
+                "Valid recovery callbacks must mutate the store only after the delivery cursor closes");
+        assertTrue(_observingFacade.getBeginTransactionTotal() > 0,
+                "The valid recovery callback did not begin its store transaction");
+        assertFalse(deliveryRecordExists(queueId, messageId),
+                "The valid recovery callback did not remove the delivery record");
+    }
+
+    @Test
+    @SuppressWarnings({"rawtypes", "unchecked"})
     public void recoverInvalidInstancesAreDequeuedOutsideCallback()
     {
         final UUID queueId = new UUID(0x1111111111111111L, 0x0000000000000001L);
@@ -221,6 +257,9 @@ public class BDBMessageStoreRecovererReentrancyTest extends UnitTestBase
         assertEquals(0,
                 _observingFacade.getBeginTransactionInCallback(),
                 "Invalid-instance cleanup must not start BDB transactions within cursor callback");
+        assertEquals(0,
+                _observingFacade.getBeginTransactionWithDeliveryCursorOpen(),
+                "Invalid-instance cleanup must not start BDB transactions while the delivery cursor is open");
         assertTrue(_observingFacade.getBeginTransactionTotal() > 0,
                 "Invalid-instance cleanup must dequeue records using a BDB transaction");
         assertFalse(deliveryRecordExists(unknownQueueId, messageId),
@@ -262,6 +301,25 @@ public class BDBMessageStoreRecovererReentrancyTest extends UnitTestBase
         assertEquals(_observingFacade.getBeginTransactionInCallback(),
                 _observingFacade.getBeginTransactionTotal(),
                 "All beginTransaction calls in this test must originate from inside callback");
+    }
+
+    @Test
+    public void probeDetectorDetectsOpenDeliveryCursor()
+    {
+        final EnvironmentFacade environmentFacade = _store.getEnvironmentFacade();
+        final Database deliveryDb = environmentFacade.openDatabase("QUEUE_ENTRIES", BDBUtils.DEFAULT_DATABASE_CONFIG);
+
+        _observingFacade.resetCounters();
+        try (Cursor ignored = deliveryDb.openCursor(null, null))
+        {
+            final Transaction txn = _store.newTransaction();
+            txn.abortTran();
+        }
+
+        assertTrue(_observingFacade.getBeginTransactionWithDeliveryCursorOpen() > 0,
+                "Detector did not observe the open delivery cursor");
+        assertEquals(0, _observingFacade.getOpenDeliveryCursorCount(),
+                "Delivery cursor was not closed by the control test");
     }
 
     private void openStore()
@@ -563,10 +621,15 @@ public class BDBMessageStoreRecovererReentrancyTest extends UnitTestBase
 
     private static class ObservingEnvironmentFacade implements EnvironmentFacade
     {
+        private static final Field OPEN_CURSORS_FIELD = openCursorsField();
+
         private final EnvironmentFacade _delegate;
 
         private final AtomicInteger _beginTransactionInCallback = new AtomicInteger();
         private final AtomicInteger _beginTransactionTotal = new AtomicInteger();
+        private final AtomicInteger _beginTransactionWithDeliveryCursorOpen = new AtomicInteger();
+
+        private volatile Database _deliveryDatabase;
 
         private final AtomicInteger _commitInCallback = new AtomicInteger();
         private final AtomicInteger _commitTotal = new AtomicInteger();
@@ -592,10 +655,33 @@ public class BDBMessageStoreRecovererReentrancyTest extends UnitTestBase
             return _beginTransactionTotal.get();
         }
 
+        int getBeginTransactionWithDeliveryCursorOpen()
+        {
+            return _beginTransactionWithDeliveryCursorOpen.get();
+        }
+
+        int getOpenDeliveryCursorCount()
+        {
+            final Database deliveryDatabase = _deliveryDatabase;
+            if (deliveryDatabase == null)
+            {
+                return 0;
+            }
+            try
+            {
+                return ((AtomicInteger) OPEN_CURSORS_FIELD.get(deliveryDatabase)).get();
+            }
+            catch (IllegalAccessException e)
+            {
+                throw new RuntimeException("Cannot inspect Berkeley DB cursor count", e);
+            }
+        }
+
         void resetCounters()
         {
             _beginTransactionInCallback.set(0);
             _beginTransactionTotal.set(0);
+            _beginTransactionWithDeliveryCursorOpen.set(0);
             _commitInCallback.set(0);
             _commitTotal.set(0);
             _commitNoSyncInCallback.set(0);
@@ -610,6 +696,24 @@ public class BDBMessageStoreRecovererReentrancyTest extends UnitTestBase
             if (CallbackContext.isInCallback())
             {
                 _beginTransactionInCallback.incrementAndGet();
+            }
+            if (getOpenDeliveryCursorCount() > 0)
+            {
+                _beginTransactionWithDeliveryCursorOpen.incrementAndGet();
+            }
+        }
+
+        private static Field openCursorsField()
+        {
+            try
+            {
+                final Field field = Database.class.getDeclaredField("openCursors");
+                field.setAccessible(true);
+                return field;
+            }
+            catch (NoSuchFieldException e)
+            {
+                throw new ExceptionInInitializerError(e);
             }
         }
 
@@ -649,7 +753,12 @@ public class BDBMessageStoreRecovererReentrancyTest extends UnitTestBase
         @Override
         public Database openDatabase(final String databaseName, final DatabaseConfig databaseConfig)
         {
-            return _delegate.openDatabase(databaseName, databaseConfig);
+            final Database database = _delegate.openDatabase(databaseName, databaseConfig);
+            if ("QUEUE_ENTRIES".equals(databaseName))
+            {
+                _deliveryDatabase = database;
+            }
+            return database;
         }
 
         @Override

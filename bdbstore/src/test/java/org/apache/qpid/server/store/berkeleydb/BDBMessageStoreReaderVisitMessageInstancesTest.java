@@ -412,9 +412,14 @@ public class BDBMessageStoreReaderVisitMessageInstancesTest extends MessageStore
         final TransactionLogResource queueA = createQueue(queueAId, "queueA");
         final TransactionLogResource queueB = createQueue(queueBId, "queueB");
 
+        final Set<Long> invalidIds = new HashSet<>();
         for (int i = 0; i < 5; i++)
         {
-            enqueueNewMessage(queueA);
+            final long messageId = enqueueNewMessage(queueA);
+            if (i < 2)
+            {
+                invalidIds.add(messageId);
+            }
         }
         for (int i = 0; i < 5; i++)
         {
@@ -446,8 +451,8 @@ public class BDBMessageStoreReaderVisitMessageInstancesTest extends MessageStore
                         }
                         return shouldContinue;
                     },
-                    record -> true,
-                    2,
+                    record -> !invalidIds.contains(record.getMessageNumber()),
+                    10,
                     records -> invalidCount.addAndGet(records.size()));
         }
         finally
@@ -456,7 +461,7 @@ public class BDBMessageStoreReaderVisitMessageInstancesTest extends MessageStore
         }
 
         assertEquals(stopAfter, invocationCount.get(), "Reader did not stop when handler returned false");
-        assertEquals(0, invalidCount.get(), "Invalid collector must not have been invoked");
+        assertEquals(invalidIds.size(), invalidCount.get(), "Pending invalid records were not flushed on stop");
     }
 
     @Test
@@ -522,16 +527,21 @@ public class BDBMessageStoreReaderVisitMessageInstancesTest extends MessageStore
         final TransactionLogResource queueA = createQueue(queueAId, "queueA");
         final TransactionLogResource queueB = createQueue(queueBId, "queueB");
 
+        final Set<Long> invalidIds = new HashSet<>();
         for (int i = 0; i < 5; i++)
         {
-            enqueueNewMessage(queueA);
+            final long messageId = enqueueNewMessage(queueA);
+            if (i < 2)
+            {
+                invalidIds.add(messageId);
+            }
         }
         for (int i = 0; i < 5; i++)
         {
             enqueueNewMessage(queueB);
         }
 
-        final int stopAfter = 4;
+        final int stopAfter = 3;
         final AtomicInteger invocationCount = new AtomicInteger();
         final AtomicBoolean stopReturned = new AtomicBoolean(false);
         final AtomicInteger invalidCount = new AtomicInteger();
@@ -554,8 +564,8 @@ public class BDBMessageStoreReaderVisitMessageInstancesTest extends MessageStore
                         }
                         return shouldContinue;
                     },
-                    record -> true,
-                    2,
+                    record -> !invalidIds.contains(record.getMessageNumber()),
+                    10,
                     records -> invalidCount.addAndGet(records.size()));
         }
         finally
@@ -564,7 +574,83 @@ public class BDBMessageStoreReaderVisitMessageInstancesTest extends MessageStore
         }
 
         assertEquals(stopAfter, invocationCount.get(), "Reader did not stop when handler returned false");
+        assertEquals(invalidIds.size(), invalidCount.get(), "Pending invalid records were not flushed on stop");
+    }
+
+    @Test
+    public void visitMessageInstancesWithFilterResumesAfterValidHandlerDeletesPageEndRecord()
+    {
+        final UUID queueId = UUID.randomUUID();
+        final int pageSize = AbstractBDBMessageStore.MESSAGE_INSTANCE_PAGE_SIZE;
+        final List<Long> expectedMessageIds = insertQueueEntries(queueId, pageSize * 2 + 3);
+        final List<Long> visitedMessageIds = new ArrayList<>();
+        final AtomicInteger invalidCount = new AtomicInteger();
+
+        final MessageStore.MessageStoreReader reader = getStore().newMessageStoreReader();
+        try
+        {
+            reader.visitMessageInstances(record ->
+                    {
+                        visitedMessageIds.add(record.getMessageNumber());
+                        if (record.getMessageNumber() % pageSize == 0)
+                        {
+                            dequeueMessages(List.of(record));
+                        }
+                        return true;
+                    },
+                    record -> true,
+                    17,
+                    records -> invalidCount.addAndGet(records.size()));
+        }
+        finally
+        {
+            reader.close();
+        }
+
+        assertEquals(expectedMessageIds, visitedMessageIds, "Page resume skipped or duplicated a message instance");
         assertEquals(0, invalidCount.get(), "Invalid collector must not have been invoked");
+    }
+
+    @Test
+    public void visitMessageInstancesForQueueWithFilterResumesAfterInvalidBatchDeletesPage()
+    {
+        final UUID queueAId = new UUID(0x0102030405060708L, 0x0000000000000000L);
+        final UUID queueBId = new UUID(0x0102030405060708L, 0x0000000000000001L);
+        final TransactionLogResource queueA = createQueue(queueAId, "queueA");
+        final int pageSize = AbstractBDBMessageStore.MESSAGE_INSTANCE_PAGE_SIZE;
+        final List<Long> expectedMessageIds = insertQueueEntries(queueAId, pageSize * 2 + 3);
+        insertQueueEntries(queueBId, 3);
+
+        final List<Long> visitedMessageIds = new ArrayList<>();
+        final List<Integer> batchSizes = new ArrayList<>();
+        final AtomicInteger validCount = new AtomicInteger();
+
+        final MessageStore.MessageStoreReader reader = getStore().newMessageStoreReader();
+        try
+        {
+            reader.visitMessageInstances(queueA,
+                    record ->
+                    {
+                        validCount.incrementAndGet();
+                        return true;
+                    },
+                    record -> false,
+                    pageSize,
+                    records ->
+                    {
+                        batchSizes.add(records.size());
+                        records.forEach(record -> visitedMessageIds.add(record.getMessageNumber()));
+                        dequeueMessages(records);
+                    });
+        }
+        finally
+        {
+            reader.close();
+        }
+
+        assertEquals(expectedMessageIds, visitedMessageIds, "Page resume skipped or duplicated a message instance");
+        assertEquals(List.of(pageSize, pageSize, 3), batchSizes, "Unexpected invalid batch sizes");
+        assertEquals(0, validCount.get(), "Valid handler must not have been invoked");
     }
 
     @Test
@@ -859,6 +945,45 @@ public class BDBMessageStoreReaderVisitMessageInstancesTest extends MessageStore
         final DatabaseEntry key = new DatabaseEntry();
         QueueEntryBinding.objectToEntry(queueId, messageId, key);
         insertDeliveryDbRecord(key);
+    }
+
+    private List<Long> insertQueueEntries(final UUID queueId, final int count)
+    {
+        final BDBMessageStore store = (BDBMessageStore) getStore();
+        final EnvironmentFacade environmentFacade = store.getEnvironmentFacade();
+        final Database deliveryDb = environmentFacade.openDatabase("QUEUE_ENTRIES", BDBUtils.DEFAULT_DATABASE_CONFIG);
+        final List<Long> messageIds = new ArrayList<>(count);
+
+        com.sleepycat.je.Transaction tx = null;
+        try
+        {
+            tx = environmentFacade.beginTransaction(null);
+            final DatabaseEntry value = new DatabaseEntry(new byte[0]);
+            for (long messageId = 1L; messageId <= count; messageId++)
+            {
+                final DatabaseEntry key = new DatabaseEntry();
+                QueueEntryBinding.objectToEntry(queueId, messageId, key);
+                deliveryDb.put(tx, key, value);
+                messageIds.add(messageId);
+            }
+            environmentFacade.commit(tx);
+        }
+        catch (RuntimeException e)
+        {
+            BDBUtils.abortTransactionSafely(tx, environmentFacade);
+            throw e;
+        }
+        return messageIds;
+    }
+
+    private void dequeueMessages(final List<MessageEnqueueRecord> records)
+    {
+        final Transaction txn = getStore().newTransaction();
+        for (final MessageEnqueueRecord record : records)
+        {
+            txn.dequeueMessage(record);
+        }
+        txn.commitTran();
     }
 
     private void insertDeliveryDbRecord(final DatabaseEntry key)

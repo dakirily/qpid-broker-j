@@ -81,6 +81,7 @@ import org.apache.qpid.server.util.ConnectionScopedRuntimeException;
 public abstract class AbstractBDBMessageStore implements MessageStore
 {
     private static final int LOCK_RETRY_ATTEMPTS = 5;
+    static final int MESSAGE_INSTANCE_PAGE_SIZE = 1000;
 
     private static final String MESSAGE_META_DATA_DB_NAME = "MESSAGE_METADATA";
     private static final String MESSAGE_META_DATA_SEQ_DB_NAME = "MESSAGE_METADATA.SEQ";
@@ -1619,6 +1620,8 @@ public abstract class AbstractBDBMessageStore implements MessageStore
             }
 
             final CachingUUIDFactory uuidFactory = new CachingUUIDFactory();
+            final List<MessageEnqueueRecord> invalidRecords =
+                    new ArrayList<>(Math.min(invalidBatchSize, MESSAGE_INSTANCE_PAGE_SIZE));
             byte[] resumeKey = null;
             boolean complete = false;
 
@@ -1626,8 +1629,7 @@ public abstract class AbstractBDBMessageStore implements MessageStore
             {
                 while (!complete)
                 {
-                    final List<MessageEnqueueRecord> invalidRecords = new ArrayList<>(invalidBatchSize);
-                    boolean stoppedByValidHandler = false;
+                    final List<MessageEnqueueRecord> records = new ArrayList<>(MESSAGE_INSTANCE_PAGE_SIZE);
 
                     try (final Cursor cursor = getDeliveryDb().openCursor(null, null))
                     {
@@ -1641,52 +1643,30 @@ public abstract class AbstractBDBMessageStore implements MessageStore
                         {
                             key.setData(Arrays.copyOf(resumeKey, resumeKey.length));
                             status = cursor.getSearchKeyRange(key, null, LockMode.READ_UNCOMMITTED);
-                            if (status == OperationStatus.SUCCESS && Arrays.equals(resumeKey, key.getData()))
+                            if (status == OperationStatus.SUCCESS && matchesResumeKey(resumeKey, key))
                             {
                                 status = cursor.getNext(key, null, LockMode.READ_UNCOMMITTED);
                             }
                         }
 
-                        while (status == OperationStatus.SUCCESS)
+                        while (status == OperationStatus.SUCCESS && records.size() < MESSAGE_INSTANCE_PAGE_SIZE)
                         {
-                            resumeKey = Arrays.copyOfRange(key.getData(), key.getOffset(),
-                                                           key.getOffset() + QueueEntryBinding.KEY_SIZE);
                             final MessageEnqueueRecord record = QueueEntryBinding.readIds(uuidFactory, key);
-
-                            if (predicate.test(record))
-                            {
-                                if (!validHandler.handle(record))
-                                {
-                                    stoppedByValidHandler = true;
-                                    complete = true;
-                                    break;
-                                }
-                            }
-                            else
-                            {
-                                invalidRecords.add(record);
-                                if (invalidRecords.size() == invalidBatchSize)
-                                {
-                                    break;
-                                }
-                            }
+                            resumeKey = Arrays.copyOfRange(key.getData(), key.getOffset(),
+                                    key.getOffset() + QueueEntryBinding.KEY_SIZE);
+                            records.add(record);
                             status = cursor.getNext(key, null, LockMode.READ_UNCOMMITTED);
                         }
-                        if (status != OperationStatus.SUCCESS && invalidRecords.size() < invalidBatchSize)
-                        {
-                            complete = true;
-                        }
+                        complete = status != OperationStatus.SUCCESS;
                     }
 
-                    if (!invalidRecords.isEmpty())
-                    {
-                        invalidBatchConsumer.accept(Collections.unmodifiableList(invalidRecords));
-                    }
-                    if (stoppedByValidHandler)
+                    if (!processMessageInstancePage(records, validHandler, predicate, invalidBatchSize,
+                            invalidBatchConsumer, invalidRecords))
                     {
                         return;
                     }
                 }
+                consumeInvalidRecords(invalidBatchConsumer, invalidRecords);
             }
             catch (final RuntimeException e)
             {
@@ -1708,6 +1688,8 @@ public abstract class AbstractBDBMessageStore implements MessageStore
             }
 
             final UUID queueId = queue.getId();
+            final List<MessageEnqueueRecord> invalidRecords =
+                    new ArrayList<>(Math.min(invalidBatchSize, MESSAGE_INSTANCE_PAGE_SIZE));
             byte[] resumeKey = null;
             boolean complete = false;
 
@@ -1715,8 +1697,7 @@ public abstract class AbstractBDBMessageStore implements MessageStore
             {
                 while (!complete)
                 {
-                    final List<MessageEnqueueRecord> invalidRecords = new ArrayList<>(invalidBatchSize);
-                    boolean stoppedByValidHandler = false;
+                    final List<MessageEnqueueRecord> records = new ArrayList<>(MESSAGE_INSTANCE_PAGE_SIZE);
 
                     try (final Cursor cursor = getDeliveryDb().openCursor(null, null))
                     {
@@ -1731,58 +1712,89 @@ public abstract class AbstractBDBMessageStore implements MessageStore
                         {
                             key.setData(Arrays.copyOf(resumeKey, resumeKey.length));
                             status = cursor.getSearchKeyRange(key, null, LockMode.READ_UNCOMMITTED);
-                            if (status == OperationStatus.SUCCESS && Arrays.equals(resumeKey, key.getData()))
+                            if (status == OperationStatus.SUCCESS && matchesResumeKey(resumeKey, key))
                             {
                                 status = cursor.getNext(key, null, LockMode.READ_UNCOMMITTED);
                             }
                         }
 
-                        while (status == OperationStatus.SUCCESS && QueueEntryBinding.matchesQueueId(key, queueId))
+                        while (status == OperationStatus.SUCCESS && records.size() < MESSAGE_INSTANCE_PAGE_SIZE)
                         {
-                            resumeKey = Arrays.copyOfRange(key.getData(), key.getOffset(),
-                                                           key.getOffset() + QueueEntryBinding.KEY_SIZE);
-                            final long messageId = QueueEntryBinding.readMessageId(key);
-                            final MessageEnqueueRecord record = new BDBEnqueueRecord(queueId, messageId);
+                            if (!QueueEntryBinding.matchesQueueId(key, queueId))
+                            {
+                                complete = true;
+                                break;
+                            }
 
-                            if (predicate.test(record))
-                            {
-                                if (!validHandler.handle(record))
-                                {
-                                    stoppedByValidHandler = true;
-                                    complete = true;
-                                    break;
-                                }
-                            }
-                            else
-                            {
-                                invalidRecords.add(record);
-                                if (invalidRecords.size() == invalidBatchSize)
-                                {
-                                    break;
-                                }
-                            }
+                            final long messageId = QueueEntryBinding.readMessageId(key);
+                            resumeKey = Arrays.copyOfRange(key.getData(), key.getOffset(),
+                                    key.getOffset() + QueueEntryBinding.KEY_SIZE);
+                            records.add(new BDBEnqueueRecord(queueId, messageId));
                             status = cursor.getNext(key, null, LockMode.READ_UNCOMMITTED);
                         }
-                        if ((status != OperationStatus.SUCCESS || !QueueEntryBinding.matchesQueueId(key, queueId))
-                                && invalidRecords.size() < invalidBatchSize)
+                        if (status != OperationStatus.SUCCESS)
                         {
                             complete = true;
                         }
                     }
 
-                    if (!invalidRecords.isEmpty())
-                    {
-                        invalidBatchConsumer.accept(Collections.unmodifiableList(invalidRecords));
-                    }
-                    if (stoppedByValidHandler)
+                    if (!processMessageInstancePage(records, validHandler, predicate, invalidBatchSize,
+                            invalidBatchConsumer, invalidRecords))
                     {
                         return;
                     }
                 }
+                consumeInvalidRecords(invalidBatchConsumer, invalidRecords);
             }
             catch (final RuntimeException e)
             {
                 throw getEnvironmentFacade().handleDatabaseException("Cannot visit message instances", e);
+            }
+        }
+
+        private boolean matchesResumeKey(final byte[] resumeKey, final DatabaseEntry key)
+        {
+            return key.getSize() == resumeKey.length
+                    && Arrays.equals(resumeKey, 0, resumeKey.length,
+                            key.getData(), key.getOffset(), key.getOffset() + key.getSize());
+        }
+
+        private boolean processMessageInstancePage(final List<MessageEnqueueRecord> records,
+                                                   final MessageInstanceHandler validHandler,
+                                                   final Predicate<MessageEnqueueRecord> predicate,
+                                                   final int invalidBatchSize,
+                                                   final Consumer<List<MessageEnqueueRecord>> invalidBatchConsumer,
+                                                   final List<MessageEnqueueRecord> invalidRecords)
+        {
+            for (final MessageEnqueueRecord record : records)
+            {
+                if (predicate.test(record))
+                {
+                    if (!validHandler.handle(record))
+                    {
+                        consumeInvalidRecords(invalidBatchConsumer, invalidRecords);
+                        return false;
+                    }
+                }
+                else
+                {
+                    invalidRecords.add(record);
+                    if (invalidRecords.size() == invalidBatchSize)
+                    {
+                        consumeInvalidRecords(invalidBatchConsumer, invalidRecords);
+                    }
+                }
+            }
+            return true;
+        }
+
+        private void consumeInvalidRecords(final Consumer<List<MessageEnqueueRecord>> invalidBatchConsumer,
+                                           final List<MessageEnqueueRecord> invalidRecords)
+        {
+            if (!invalidRecords.isEmpty())
+            {
+                invalidBatchConsumer.accept(Collections.unmodifiableList(new ArrayList<>(invalidRecords)));
+                invalidRecords.clear();
             }
         }
 
