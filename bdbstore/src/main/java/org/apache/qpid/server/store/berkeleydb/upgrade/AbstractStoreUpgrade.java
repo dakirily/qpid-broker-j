@@ -18,6 +18,7 @@
  * under the License.
  *
  */
+
 package org.apache.qpid.server.store.berkeleydb.upgrade;
 
 import java.util.List;
@@ -32,7 +33,7 @@ public abstract class AbstractStoreUpgrade implements StoreUpgrade
 
     protected void reportFinished(Environment environment, int version)
     {
-        LOGGER.info("Completed upgrade to version " + version);
+        LOGGER.info("Completed upgrade to version {}", version);
         if (LOGGER.isDebugEnabled())
         {
             LOGGER.debug("Upgraded:");
@@ -45,13 +46,13 @@ public abstract class AbstractStoreUpgrade implements StoreUpgrade
         List<String> databases = environment.getDatabaseNames();
         for (String database : databases)
         {
-            LOGGER.debug("    " + getRowCount(database, environment)  + " rows in " + database);
+            LOGGER.debug("    {} rows in {}", getRowCount(database, environment), database);
         }
     }
 
     protected void reportStarting(Environment environment, int version)
     {
-        LOGGER.info("Starting store upgrade from version " + version);
+        LOGGER.info("Starting store upgrade from version {}", version);
         if (LOGGER.isDebugEnabled())
         {
             LOGGER.debug("Upgrading:");

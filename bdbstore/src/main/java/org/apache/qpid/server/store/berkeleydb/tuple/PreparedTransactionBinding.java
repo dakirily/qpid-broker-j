@@ -46,18 +46,18 @@ public class PreparedTransactionBinding
 
     public static PreparedTransaction entryToObject(final CachingUUIDFactory uuidFactory, final DatabaseEntry value)
     {
-        TupleInput input = TupleBinding.entryToInput(value);
-        Transaction.EnqueueRecord[] enqueues = readEnqueueRecords(uuidFactory, input);
-        Transaction.DequeueRecord[] dequeues = readDequeueRecords(uuidFactory, input);
+        final TupleInput input = TupleBinding.entryToInput(value);
+        final Transaction.EnqueueRecord[] enqueues = readEnqueueRecords(uuidFactory, input);
+        final Transaction.DequeueRecord[] dequeues = readDequeueRecords(uuidFactory, input);
         return new PreparedTransaction(enqueues, dequeues);
     }
 
     private static Transaction.EnqueueRecord[] readEnqueueRecords(final CachingUUIDFactory uuidFactory, TupleInput input)
     {
-        Transaction.EnqueueRecord[] records = new Transaction.EnqueueRecord[input.readInt()];
-        for(int i = 0; i < records.length; i++)
+        final Transaction.EnqueueRecord[] records = new Transaction.EnqueueRecord[input.readInt()];
+        for (int i = 0; i < records.length; i++)
         {
-            UUID queueId = uuidFactory.createUuidFromBits(input.readLong(), input.readLong());
+            final UUID queueId = uuidFactory.createUuidFromBits(input.readLong(), input.readLong());
             records[i] = new EnqueueRecordImpl(queueId, input.readLong());
         }
         return records;
@@ -65,10 +65,10 @@ public class PreparedTransactionBinding
 
     private static Transaction.DequeueRecord[] readDequeueRecords(final CachingUUIDFactory uuidFactory, TupleInput input)
     {
-        Transaction.DequeueRecord[] records = new Transaction.DequeueRecord[input.readInt()];
-        for(int i = 0; i < records.length; i++)
+        final Transaction.DequeueRecord[] records = new Transaction.DequeueRecord[input.readInt()];
+        for (int i = 0; i < records.length; i++)
         {
-            UUID queueId = uuidFactory.createUuidFromBits(input.readLong(), input.readLong());
+            final UUID queueId = uuidFactory.createUuidFromBits(input.readLong(), input.readLong());
             records[i] = new DequeueRecordImpl(queueId, input.readLong());
         }
         return records;
@@ -76,24 +76,24 @@ public class PreparedTransactionBinding
 
     public static void objectToEntry(final PreparedTransaction preparedTransaction, final DatabaseEntry value)
     {
-        TupleOutput tupleOutput = new TupleOutput();
-        writeRecords(preparedTransaction.getEnqueues(), tupleOutput);
-        writeRecords(preparedTransaction.getDequeues(), tupleOutput);
+        final TupleOutput tupleOutput = new TupleOutput();
+        writeRecords(preparedTransaction.enqueues(), tupleOutput);
+        writeRecords(preparedTransaction.dequeues(), tupleOutput);
         TupleBinding.outputToEntry(tupleOutput, value);
     }
 
-    private static void writeRecords(Transaction.EnqueueRecord[] records, TupleOutput output)
+    private static void writeRecords(final Transaction.EnqueueRecord[] records, final TupleOutput output)
     {
-        if(records == null)
+        if (records == null)
         {
             output.writeInt(0);
         }
         else
         {
             output.writeInt(records.length);
-            for(Transaction.EnqueueRecord record : records)
+            for (final Transaction.EnqueueRecord record : records)
             {
-                UUID id = record.getResource().getId();
+                final UUID id = record.getResource().getId();
                 output.writeLong(id.getMostSignificantBits());
                 output.writeLong(id.getLeastSignificantBits());
                 output.writeLong(record.getMessage().getMessageNumber());
@@ -101,18 +101,18 @@ public class PreparedTransactionBinding
         }
     }
 
-    private static void writeRecords(Transaction.DequeueRecord[] records, TupleOutput output)
+    private static void writeRecords(final Transaction.DequeueRecord[] records, final TupleOutput output)
     {
-        if(records == null)
+        if (records == null)
         {
             output.writeInt(0);
         }
         else
         {
             output.writeInt(records.length);
-            for(Transaction.DequeueRecord record : records)
+            for (final Transaction.DequeueRecord record : records)
             {
-                UUID id = record.getEnqueueRecord().getQueueId();
+                final UUID id = record.getEnqueueRecord().getQueueId();
                 output.writeLong(id.getMostSignificantBits());
                 output.writeLong(id.getLeastSignificantBits());
                 output.writeLong(record.getEnqueueRecord().getMessageNumber());

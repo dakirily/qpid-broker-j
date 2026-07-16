@@ -163,7 +163,7 @@ public class BDBHARemoteReplicationNodeImpl extends AbstractConfiguredObject<BDB
         }
         catch (TimeoutException e)
         {
-            LOGGER.warn("Transfer master did not complete within " + MUTATE_JE_TIMEOUT_MS + "ms. Node may still be elected master at a later time.");
+            LOGGER.warn("Transfer master did not complete within {} ms. Node may still be elected master at a later time.", MUTATE_JE_TIMEOUT_MS);
         }
         catch (InterruptedException e)
         {

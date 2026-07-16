@@ -108,13 +108,13 @@ public class BDBPreferenceStore extends AbstractBDBPreferenceStore
         {
             if (LOGGER.isDebugEnabled())
             {
-                LOGGER.debug("Deleting preference store " + _storePath);
+                LOGGER.debug("Deleting preference store {}", _storePath);
             }
 
             File preferenceStoreFile = new File(_storePath);
             if (!FileUtils.delete(preferenceStoreFile, true))
             {
-                LOGGER.info("Failed to delete the preference store at location " + _storePath);
+                LOGGER.info("Failed to delete the preference store at location {}", _storePath);
             }
         }
     }

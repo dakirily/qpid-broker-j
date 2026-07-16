@@ -18,6 +18,7 @@
  * under the License.
  *
  */
+
 package org.apache.qpid.server.store.berkeleydb.upgrade;
 
 import java.io.StringWriter;
@@ -124,7 +125,7 @@ public class UpgradeFrom7To8 extends AbstractStoreUpgrade
                 TupleInput input = TupleBinding.entryToInput(value);
                 String type = input.readString();
                 String json = input.readString();
-                Map<String,Object> attributes = null;
+                Map<String,Object> attributes;
                 try
                 {
                     attributes = OBJECT_MAPPER.readValue(json, MAP_TYPE_REFERENCE);
@@ -244,10 +245,8 @@ public class UpgradeFrom7To8 extends AbstractStoreUpgrade
 
     private int getConfigVersion(Database configVersionDb)
     {
-        Cursor cursor = null;
-        try
+        try (Cursor cursor = configVersionDb.openCursor(null, null))
         {
-            cursor = configVersionDb.openCursor(null, null);
             DatabaseEntry key = new DatabaseEntry();
             DatabaseEntry value = new DatabaseEntry();
             while (cursor.getNext(key, value, LockMode.RMW) == OperationStatus.SUCCESS)
@@ -255,13 +254,6 @@ public class UpgradeFrom7To8 extends AbstractStoreUpgrade
                 return IntegerBinding.entryToInt(value);
             }
             return -1;
-        }
-        finally
-        {
-            if (cursor != null)
-            {
-                cursor.close();
-            }
         }
     }
 

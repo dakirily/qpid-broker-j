@@ -39,18 +39,13 @@ public enum NodeRole
 
     public static NodeRole fromJeState(final State state)
     {
-        switch(state)
+        return switch (state)
         {
-            case DETACHED:
-                return DETACHED;
-            case UNKNOWN:
-                return WAITING;
-            case MASTER:
-                return MASTER;
-            case REPLICA:
-                return REPLICA;
-            default:
-                throw new IllegalArgumentException("Unrecognised JE node state " + state);
-        }
+            case DETACHED -> DETACHED;
+            case UNKNOWN -> WAITING;
+            case MASTER -> MASTER;
+            case REPLICA -> REPLICA;
+            default -> throw new IllegalArgumentException("Unrecognised JE node state " + state);
+        };
     }
 }

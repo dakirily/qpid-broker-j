@@ -18,6 +18,7 @@
  * under the License.
  *
  */
+
 package org.apache.qpid.server.store.berkeleydb.upgrade;
 
 import static org.apache.qpid.server.store.berkeleydb.BDBStoreUpgradeTestPreparer.PRIORITY_QUEUE_NAME;
@@ -246,9 +247,9 @@ public class UpgradeFrom5To6Test extends AbstractUpgradeTestCase
                 DatabaseEntry newKey = new DatabaseEntry();
                 binding.objectToEntry(corruptedCompoundKey, newKey);
 
-                LOGGER.info("Deliberately corrupted message id " + originalCompoundKey.getMessageId()
-                        + ", changed offset from " + originalCompoundKey.getOffset() + " to "
-                        + corruptedCompoundKey.getOffset());
+                LOGGER.info("Deliberately corrupted message id {}, changed offset from {} to {}",
+                        originalCompoundKey.getMessageId(), originalCompoundKey.getOffset(),
+                        corruptedCompoundKey.getOffset());
 
                 deleteCurrent();
                 sourceDatabase.put(transaction, newKey, value);

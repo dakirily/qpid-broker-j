@@ -18,6 +18,7 @@
  * under the License.
  *
  */
+
 package org.apache.qpid.server.store.berkeleydb.upgrade;
 
 import static org.apache.qpid.server.store.berkeleydb.BDBStoreUpgradeTestPreparer.NONEXCLUSIVE_WITH_ERRONEOUS_OWNER;
@@ -135,7 +136,7 @@ public abstract class AbstractUpgradeTestCase extends UnitTestBase
         int index = 0;
         String prefix = "0000000";
         String extension = ".jdb";
-        InputStream is = null;
+        InputStream is;
         do
         {
             String fileName = prefix + index + extension;

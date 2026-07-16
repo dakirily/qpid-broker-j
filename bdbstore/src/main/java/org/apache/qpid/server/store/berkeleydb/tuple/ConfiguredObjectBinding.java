@@ -20,6 +20,7 @@
  */
 package org.apache.qpid.server.store.berkeleydb.tuple;
 
+import java.io.StringWriter;
 import java.util.Map;
 import java.util.UUID;
 
