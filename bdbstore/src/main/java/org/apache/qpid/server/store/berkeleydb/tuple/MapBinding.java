@@ -33,6 +33,8 @@ import tools.jackson.databind.ObjectWriter;
 
 import org.apache.qpid.server.model.ConfiguredObjectJacksonModule;
 import org.apache.qpid.server.store.StoreException;
+import tools.jackson.databind.ObjectReader;
+import tools.jackson.databind.ObjectWriter;
 
 public class MapBinding extends TupleBinding<Map<String, Object>>
 {

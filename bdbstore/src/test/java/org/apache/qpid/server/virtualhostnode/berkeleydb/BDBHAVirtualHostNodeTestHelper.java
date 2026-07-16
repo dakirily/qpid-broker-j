@@ -18,6 +18,7 @@
  * under the License.
  *
  */
+
 package org.apache.qpid.server.virtualhostnode.berkeleydb;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -32,6 +33,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -302,7 +304,7 @@ public class BDBHAVirtualHostNodeTestHelper
             node1Attributes.put(BDBHAVirtualHostNode.HELPER_NODE_NAME, helperNodeNode);
         }
 
-        Map<String, String> context = new HashMap<>();
+        Map<String, String> context = new LinkedHashMap<>();
         context.put(ReplicationConfig.REPLICA_ACK_TIMEOUT, "2 s");
         context.put(ReplicationConfig.INSUFFICIENT_REPLICAS_TIMEOUT, "2 s");
 

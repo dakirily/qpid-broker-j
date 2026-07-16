@@ -40,12 +40,11 @@ public class BDBPreferenceStoreFactoryService implements PreferenceStoreFactoryS
                                           final Map<String, Object> preferenceStoreAttributes)
     {
         final Object path = preferenceStoreAttributes.get(PATH);
-        if (path == null || !(path instanceof String))
+        if (!(path instanceof String storePath))
         {
             throw new IllegalConfigurationException("BDBPreferenceStore requires path");
         }
 
-        final String storePath = (String)path;
         return new BDBPreferenceStore(parent, storePath);
     }
 

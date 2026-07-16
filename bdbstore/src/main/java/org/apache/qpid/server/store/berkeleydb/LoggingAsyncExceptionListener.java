@@ -18,8 +18,8 @@
  * under the License.
  *
  */
-package org.apache.qpid.server.store.berkeleydb;
 
+package org.apache.qpid.server.store.berkeleydb;
 
 import com.sleepycat.je.ExceptionEvent;
 import com.sleepycat.je.ExceptionListener;
@@ -28,11 +28,11 @@ import org.slf4j.LoggerFactory;
 
 public class LoggingAsyncExceptionListener implements ExceptionListener
 {
-    private static final Logger LOGGER  = LoggerFactory.getLogger(LoggingAsyncExceptionListener.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(LoggingAsyncExceptionListener.class);
 
     @Override
     public void exceptionThrown(ExceptionEvent event)
     {
-        LOGGER.error("Asynchronous exception thrown by BDB thread '" + event.getThreadName() + "'", event.getException());
+        LOGGER.error("Asynchronous exception thrown by BDB thread '{}'", event.getThreadName(), event.getException());
     }
 }

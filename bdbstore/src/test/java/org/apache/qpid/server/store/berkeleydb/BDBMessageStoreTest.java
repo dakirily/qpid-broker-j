@@ -18,6 +18,7 @@
  * under the License.
  *
  */
+
 package org.apache.qpid.server.store.berkeleydb;
 
 import static org.hamcrest.CoreMatchers.equalTo;
@@ -84,11 +85,22 @@ public class BDBMessageStoreTest extends MessageStoreTestCase
     {
         try
         {
-            super.tearDown();
+            final MessageStore store = getStore();
+            if (store != null)
+            {
+                store.closeMessageStore();
+            }
         }
         finally
         {
-            deleteStoreIfExists();
+            try
+            {
+                super.tearDown();
+            }
+            finally
+            {
+                deleteStoreIfExists();
+            }
         }
     }
 

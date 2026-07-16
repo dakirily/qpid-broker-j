@@ -16,6 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+
 package org.apache.qpid.server.store.berkeleydb;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -83,12 +84,7 @@ public class AMQShortStringEncodingTest extends UnitTestBase
 
     private AMQShortString createString(char ch, int length)
     {
-        StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < length; i++)
-        {
-            sb.append(ch);
-        }
-        return AMQShortString.createAMQShortString(sb.toString());
+        return AMQShortString.createAMQShortString(String.valueOf(ch).repeat(Math.max(0, length)));
     }
 
 }

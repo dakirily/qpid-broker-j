@@ -18,6 +18,7 @@
  * under the License.
  *
  */
+
 package org.apache.qpid.server.store.berkeleydb;
 
 import java.util.ArrayList;
@@ -188,6 +189,11 @@ public class CoalescingCommiter implements Committer
             while((job = _jobQueue.poll()) != null)
             {
                 _inProcessJobs.add(job);
+            }
+
+            if (_inProcessJobs.isEmpty())
+            {
+                return;
             }
 
             int completedJobsIndex = 0;
