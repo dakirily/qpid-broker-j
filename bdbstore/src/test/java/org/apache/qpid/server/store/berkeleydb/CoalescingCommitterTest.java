@@ -345,7 +345,13 @@ public class CoalescingCommitterTest extends UnitTestBase
     {
         final RuntimeException testFailure = new RuntimeException("flush failed");
         final EnvironmentFacade environmentFacade = mock(EnvironmentFacade.class);
+        final CountDownLatch flushFailureHandled = new CountDownLatch(1);
         doThrow(testFailure).when(environmentFacade).flushLog();
+        doAnswer(invocation ->
+        {
+            flushFailureHandled.countDown();
+            return null;
+        }).when(environmentFacade).flushLogFailed(testFailure);
 
         recreateUnstartedCommitter(1_000_000, LARGE_WAIT_TIMEOUT_MS, environmentFacade);
 
@@ -381,6 +387,8 @@ public class CoalescingCommitterTest extends UnitTestBase
             }
         }
 
+        assertTrue(flushFailureHandled.await(ASSERT_TIMEOUT_MS, TimeUnit.MILLISECONDS),
+                "flushLogFailed should be called after aborting the batch");
         verify(environmentFacade, times(1)).flushLog();
         verify(environmentFacade, times(1)).flushLogFailed(testFailure);
     }
