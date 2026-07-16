@@ -90,6 +90,15 @@ public class CoalescingCommitterTest extends UnitTestBase
         _coalescingCommitter.start();
     }
 
+    private void recreateUnstartedCommitter(final int notifyThreshold,
+                                            final long waitTimeoutMs,
+                                            final EnvironmentFacade environmentFacade)
+    {
+        stopCommitter();
+        _environmentFacade = environmentFacade;
+        _coalescingCommitter = new CoalescingCommiter("Test", notifyThreshold, waitTimeoutMs, _environmentFacade);
+    }
+
     @Test
     public void committerEnvironmentFacadeInteractionsOnSyncCommit()
     {
@@ -291,7 +300,7 @@ public class CoalescingCommitterTest extends UnitTestBase
             return null;
         }).when(environmentFacade).flushLog();
 
-        recreateCommitter(1_000_000, LARGE_WAIT_TIMEOUT_MS, environmentFacade);
+        recreateUnstartedCommitter(1_000_000, LARGE_WAIT_TIMEOUT_MS, environmentFacade);
 
         final List<CompletableFuture<?>> futures = new ArrayList<>();
         for (int i = 0; i < 20; i++)
@@ -299,7 +308,9 @@ public class CoalescingCommitterTest extends UnitTestBase
             futures.add(_coalescingCommitter.commitAsync(null, "R" + i));
         }
 
-        // trigger processing explicitly after all jobs have been queued
+        // Queue before starting so this test deterministically exercises one already-formed batch.
+        _coalescingCommitter.start();
+
         final Thread waiter = new Thread(() ->
         {
             try
@@ -336,7 +347,7 @@ public class CoalescingCommitterTest extends UnitTestBase
         final EnvironmentFacade environmentFacade = mock(EnvironmentFacade.class);
         doThrow(testFailure).when(environmentFacade).flushLog();
 
-        recreateCommitter(1_000_000, LARGE_WAIT_TIMEOUT_MS, environmentFacade);
+        recreateUnstartedCommitter(1_000_000, LARGE_WAIT_TIMEOUT_MS, environmentFacade);
 
         final List<CompletableFuture<?>> futures = new ArrayList<>();
         for (int i = 0; i < 10; i++)
@@ -344,7 +355,9 @@ public class CoalescingCommitterTest extends UnitTestBase
             futures.add(_coalescingCommitter.commitAsync(null, "R" + i));
         }
 
-        // Trigger processing explicitly after all jobs have been queued.
+        // Queue before starting so this test deterministically exercises one already-formed batch.
+        _coalescingCommitter.start();
+
         try
         {
             futures.get(0).get(ASSERT_TIMEOUT_MS, TimeUnit.MILLISECONDS);

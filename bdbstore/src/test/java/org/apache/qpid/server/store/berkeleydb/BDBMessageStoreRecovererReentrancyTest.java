@@ -249,6 +249,7 @@ public class BDBMessageStoreRecovererReentrancyTest extends UnitTestBase
                         return false;
                     },
                     record -> true,
+                    1,
                     record -> { });
         }
         finally
@@ -488,23 +489,27 @@ public class BDBMessageStoreRecovererReentrancyTest extends UnitTestBase
         @Override
         public void visitMessageInstances(final MessageInstanceHandler validHandler,
                                           final Predicate<MessageEnqueueRecord> predicate,
-                                          final Consumer<MessageEnqueueRecord> invalidCollector)
+                                          final int invalidBatchSize,
+                                          final Consumer<List<MessageEnqueueRecord>> invalidBatchConsumer)
         {
             _delegate.visitMessageInstances(record -> CallbackContext.callInCallback(() -> validHandler.handle(record)),
                     record -> CallbackContext.callInCallback(() -> predicate.test(record)),
-                    record -> CallbackContext.runInCallback(() -> invalidCollector.accept(record)));
+                    invalidBatchSize,
+                    invalidBatchConsumer);
         }
 
         @Override
         public void visitMessageInstances(final TransactionLogResource queue,
                                           final MessageInstanceHandler validHandler,
                                           final Predicate<MessageEnqueueRecord> predicate,
-                                          final Consumer<MessageEnqueueRecord> invalidCollector)
+                                          final int invalidBatchSize,
+                                          final Consumer<List<MessageEnqueueRecord>> invalidBatchConsumer)
         {
             _delegate.visitMessageInstances(queue,
                     record -> CallbackContext.callInCallback(() -> validHandler.handle(record)),
                     record -> CallbackContext.callInCallback(() -> predicate.test(record)),
-                    record -> CallbackContext.runInCallback(() -> invalidCollector.accept(record)));
+                    invalidBatchSize,
+                    invalidBatchConsumer);
         }
 
         @Override
