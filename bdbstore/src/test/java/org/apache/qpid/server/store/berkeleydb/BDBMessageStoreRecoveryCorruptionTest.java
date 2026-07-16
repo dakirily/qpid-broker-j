@@ -20,6 +20,7 @@
 package org.apache.qpid.server.store.berkeleydb;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import static org.mockito.Mockito.mock;
@@ -27,6 +28,7 @@ import static org.mockito.Mockito.when;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -50,6 +52,7 @@ import org.apache.qpid.server.store.MessageDurability;
 import org.apache.qpid.server.store.MessageEnqueueRecord;
 import org.apache.qpid.server.store.MessageStore;
 import org.apache.qpid.server.store.StorableMessageMetaData;
+import org.apache.qpid.server.store.StoreException;
 import org.apache.qpid.server.store.StoredMessage;
 import org.apache.qpid.server.store.TestMessageMetaData;
 import org.apache.qpid.server.store.Transaction;
@@ -287,6 +290,59 @@ public class BDBMessageStoreRecoveryCorruptionTest extends UnitTestBase
 
         assertEquals(expectedA, recoveredA, "Unexpected queueA recovered order");
         assertEquals(expectedB, recoveredB, "Unexpected queueB recovered order");
+    }
+
+    @Test
+    public void legacyPerQueueVisitorFailsClosedOnMalformedKey()
+    {
+        final TransactionLogResource queue = prepareMalformedPerQueueDeliveryKey();
+        final List<Long> visited = new ArrayList<>();
+
+        assertThrows(StoreException.class,
+                () -> _storeReader.visitMessageInstances(queue, record ->
+                {
+                    visited.add(record.getMessageNumber());
+                    return true;
+                }));
+
+        assertTrue(visited.isEmpty(), "No records should be delivered from a page containing a malformed key");
+    }
+
+    @Test
+    public void filteredPerQueueVisitorFailsClosedOnMalformedKey()
+    {
+        final TransactionLogResource queue = prepareMalformedPerQueueDeliveryKey();
+        final List<Long> visited = new ArrayList<>();
+
+        assertThrows(StoreException.class,
+                () -> _storeReader.visitMessageInstances(queue,
+                        record ->
+                        {
+                            visited.add(record.getMessageNumber());
+                            return true;
+                        },
+                        record -> true,
+                        2,
+                        records -> { }));
+
+        assertTrue(visited.isEmpty(), "No records should be delivered from a page containing a malformed key");
+    }
+
+    private TransactionLogResource prepareMalformedPerQueueDeliveryKey()
+    {
+        final UUID queueId = new UUID(0L, 0L);
+        final TransactionLogResource queue = createQueue(queueId, "queue");
+
+        insertQueueEntry(queueId, 255L);
+        insertQueueEntry(queueId, 256L);
+        insertQueueEntry(queueId, 257L);
+
+        final DatabaseEntry validKey = new DatabaseEntry();
+        QueueEntryBinding.objectToEntry(queueId, 256L, validKey);
+        insertDeliveryDbRecord(new DatabaseEntry(Arrays.copyOf(validKey.getData(), QueueEntryBinding.KEY_SIZE - 1)));
+
+        restartStore();
+        return queue;
     }
 
     private void restartStore()

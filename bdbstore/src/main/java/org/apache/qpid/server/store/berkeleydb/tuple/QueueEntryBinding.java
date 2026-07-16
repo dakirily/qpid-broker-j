@@ -43,13 +43,16 @@ public class QueueEntryBinding
     {
     }
 
-    public static void objectToEntry(final UUID queueId, long messageId, final DatabaseEntry entry)
+    public static void objectToEntry(final UUID queueId, final long messageId, final DatabaseEntry entry)
     {
-        final byte[] output = entry.getData() != null ? entry.getData() : new byte[KEY_SIZE];
+        final byte[] existingData = entry.getData();
+        final byte[] output = existingData != null && existingData.length >= KEY_SIZE
+                ? existingData
+                : new byte[KEY_SIZE];
         writeUnsignedLong(queueId.getMostSignificantBits() ^ 0x8000000000000000L, output, 0);
         writeUnsignedLong(queueId.getLeastSignificantBits() ^ 0x8000000000000000L, output, 8);
         writeUnsignedLong(messageId ^ 0x8000000000000000L, output, 16);
-        entry.setData(output);
+        entry.setData(output, 0, KEY_SIZE);
     }
 
     private static void writeUnsignedLong(final long val, final byte[] data, int offset)
@@ -91,23 +94,14 @@ public class QueueEntryBinding
 
     public static boolean matchesQueueId(final DatabaseEntry entry, final UUID queueId)
     {
-        if (entry == null || queueId == null)
+        if (queueId == null)
         {
-            return false;
+            throw new IllegalArgumentException("Queue id is null");
         }
 
+        validateKey(entry);
         final byte[] data = entry.getData();
-        if (data == null)
-        {
-            return false;
-        }
-
         final int offset = entry.getOffset();
-        final int size = entry.getSize();
-        if (offset < 0 || size < KEY_SIZE || offset + KEY_SIZE > data.length)
-        {
-            return false;
-        }
 
         // compare encoded values directly to avoid creating UUID objects
         return readUnsignedLong(data, offset) == (queueId.getMostSignificantBits() ^ 0x8000000000000000L)
@@ -141,10 +135,11 @@ public class QueueEntryBinding
         final int offset = entry.getOffset();
         final int size = entry.getSize();
 
-        if (offset < 0 || size < KEY_SIZE || offset + KEY_SIZE > data.length)
+        if (offset < 0 || size != KEY_SIZE || offset > data.length - size)
         {
-            throw new IllegalArgumentException("Invalid deliveryDb key: expected at least " + KEY_SIZE +
-                    " bytes from offset. offset = " + offset +", size = " + size + ", data.length = " + data.length);
+            throw new IllegalArgumentException("Invalid deliveryDb key: expected exactly " + KEY_SIZE
+                    + " bytes from offset. offset = " + offset + ", size = " + size
+                    + ", data.length = " + data.length);
         }
     }
 }

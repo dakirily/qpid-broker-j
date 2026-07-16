@@ -81,6 +81,30 @@ class QueueEntryBindingTest
     }
 
     @Test
+    void objectToEntryUsesFixedLogicalSizeWithOversizedReusableBuffer()
+    {
+        final DatabaseEntry entry = new DatabaseEntry(new byte[KEY_SIZE + 8]);
+
+        QueueEntryBinding.objectToEntry(_uuid, _messageId, entry);
+
+        assertEquals(KEY_SIZE, entry.getSize());
+        assertEquals(_uuid, QueueEntryBinding.readIds(_uuidFactory, entry).getQueueId());
+        assertEquals(_messageId, QueueEntryBinding.readMessageId(entry));
+    }
+
+    @Test
+    void objectToEntryReplacesUndersizedReusableBuffer()
+    {
+        final DatabaseEntry entry = new DatabaseEntry(new byte[KEY_SIZE - 1]);
+
+        QueueEntryBinding.objectToEntry(_uuid, _messageId, entry);
+
+        assertEquals(KEY_SIZE, entry.getSize());
+        assertEquals(_uuid, QueueEntryBinding.readIds(_uuidFactory, entry).getQueueId());
+        assertEquals(_messageId, QueueEntryBinding.readMessageId(entry));
+    }
+
+    @Test
     void matchesQueueIdReturnsTrueForMatchingQueueIdAndFalseForDifferentQueueId()
     {
         final DatabaseEntry entry = encodeWithOffset(_uuid, _messageId, 7);
@@ -111,29 +135,38 @@ class QueueEntryBindingTest
     }
 
     @Test
-    void matchesQueueIdReturnsFalseForNullEntryOrQueueIdOrData()
+    void matchesQueueIdThrowsIllegalArgumentExceptionForNullEntryOrQueueIdOrData()
     {
-        assertFalse(QueueEntryBinding.matchesQueueId(null, _uuid));
-        assertFalse(QueueEntryBinding.matchesQueueId(new DatabaseEntry(), null));
+        assertThrows(IllegalArgumentException.class, () -> QueueEntryBinding.matchesQueueId(null, _uuid));
+        assertThrows(IllegalArgumentException.class,
+                () -> QueueEntryBinding.matchesQueueId(new DatabaseEntry(), null));
 
         final DatabaseEntry nullData = new DatabaseEntry();
         nullData.setData(null);
-        assertFalse(QueueEntryBinding.matchesQueueId(nullData, _uuid));
+        assertThrows(IllegalArgumentException.class, () -> QueueEntryBinding.matchesQueueId(nullData, _uuid));
     }
 
     @Test
-    void matchesQueueIdReturnsFalseForInvalidOffsetOrSize()
+    void matchesQueueIdThrowsIllegalArgumentExceptionForInvalidOffsetOrSize()
     {
         final UUID queueId = _uuid;
 
         final DatabaseEntry sizeTooSmall = entryWithOffsetAndSize(new byte[KEY_SIZE], 0, KEY_SIZE - 1);
-        assertFalse(QueueEntryBinding.matchesQueueId(sizeTooSmall, queueId));
+        assertThrows(IllegalArgumentException.class, () -> QueueEntryBinding.matchesQueueId(sizeTooSmall, queueId));
+
+        final DatabaseEntry sizeTooLarge = entryWithOffsetAndSize(new byte[KEY_SIZE + 1], 0, KEY_SIZE + 1);
+        assertThrows(IllegalArgumentException.class, () -> QueueEntryBinding.matchesQueueId(sizeTooLarge, queueId));
 
         final DatabaseEntry offsetTooLarge = entryWithOffsetAndSize(new byte[KEY_SIZE], 1, KEY_SIZE);
-        assertFalse(QueueEntryBinding.matchesQueueId(offsetTooLarge, queueId));
+        assertThrows(IllegalArgumentException.class, () -> QueueEntryBinding.matchesQueueId(offsetTooLarge, queueId));
 
         final DatabaseEntry negativeOffset = entryWithOffsetAndSize(new byte[KEY_SIZE], -1, KEY_SIZE);
-        assertFalse(QueueEntryBinding.matchesQueueId(negativeOffset, queueId));
+        assertThrows(IllegalArgumentException.class, () -> QueueEntryBinding.matchesQueueId(negativeOffset, queueId));
+
+        final DatabaseEntry overflowingOffset =
+                entryWithOffsetAndSize(new byte[KEY_SIZE], Integer.MAX_VALUE, KEY_SIZE);
+        assertThrows(IllegalArgumentException.class,
+                () -> QueueEntryBinding.matchesQueueId(overflowingOffset, queueId));
     }
 
     @Test
@@ -182,6 +215,13 @@ class QueueEntryBindingTest
     }
 
     @Test
+    void readIdsThrowsIllegalArgumentExceptionWhenSizeGreaterThanKeySize()
+    {
+        final DatabaseEntry entry = entryWithOffsetAndSize(new byte[KEY_SIZE + 1], 0, KEY_SIZE + 1);
+        assertThrows(IllegalArgumentException.class, () -> QueueEntryBinding.readIds(_uuidFactory, entry));
+    }
+
+    @Test
     void readIdsThrowsIllegalArgumentExceptionWhenOffsetNegative()
     {
         final DatabaseEntry entry = entryWithOffsetAndSize(new byte[KEY_SIZE], -1, KEY_SIZE);
@@ -192,6 +232,13 @@ class QueueEntryBindingTest
     void readIdsThrowsIllegalArgumentExceptionWhenOffsetPlusKeySizeBeyondArrayLength()
     {
         final DatabaseEntry entry = entryWithOffsetAndSize(new byte[KEY_SIZE], 1, KEY_SIZE);
+        assertThrows(IllegalArgumentException.class, () -> QueueEntryBinding.readIds(_uuidFactory, entry));
+    }
+
+    @Test
+    void readIdsThrowsIllegalArgumentExceptionWhenOffsetArithmeticWouldOverflow()
+    {
+        final DatabaseEntry entry = entryWithOffsetAndSize(new byte[KEY_SIZE], Integer.MAX_VALUE, KEY_SIZE);
         assertThrows(IllegalArgumentException.class, () -> QueueEntryBinding.readIds(_uuidFactory, entry));
     }
 
