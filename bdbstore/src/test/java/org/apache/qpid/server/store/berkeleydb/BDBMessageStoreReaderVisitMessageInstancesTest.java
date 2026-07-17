@@ -578,6 +578,36 @@ public class BDBMessageStoreReaderVisitMessageInstancesTest extends MessageStore
     }
 
     @Test
+    public void visitMessageInstancesWithFilterResumesWhenPageEndRecordRemains()
+    {
+        final UUID queueId = UUID.randomUUID();
+        final int pageSize = AbstractBDBMessageStore.MESSAGE_INSTANCE_PAGE_SIZE;
+        final List<Long> expectedMessageIds = insertQueueEntries(queueId, pageSize * 2 + 3);
+        final List<Long> visitedMessageIds = new ArrayList<>();
+        final AtomicInteger invalidCount = new AtomicInteger();
+
+        final MessageStore.MessageStoreReader reader = getStore().newMessageStoreReader();
+        try
+        {
+            reader.visitMessageInstances(record ->
+                    {
+                        visitedMessageIds.add(record.getMessageNumber());
+                        return true;
+                    },
+                    record -> true,
+                    17,
+                    records -> invalidCount.addAndGet(records.size()));
+        }
+        finally
+        {
+            reader.close();
+        }
+
+        assertEquals(expectedMessageIds, visitedMessageIds, "Page resume skipped or duplicated a message instance");
+        assertEquals(0, invalidCount.get(), "Invalid collector must not have been invoked");
+    }
+
+    @Test
     public void visitMessageInstancesWithFilterResumesAfterValidHandlerDeletesPageEndRecord()
     {
         final UUID queueId = UUID.randomUUID();
@@ -596,6 +626,41 @@ public class BDBMessageStoreReaderVisitMessageInstancesTest extends MessageStore
                         {
                             dequeueMessages(List.of(record));
                         }
+                        return true;
+                    },
+                    record -> true,
+                    17,
+                    records -> invalidCount.addAndGet(records.size()));
+        }
+        finally
+        {
+            reader.close();
+        }
+
+        assertEquals(expectedMessageIds, visitedMessageIds, "Page resume skipped or duplicated a message instance");
+        assertEquals(0, invalidCount.get(), "Invalid collector must not have been invoked");
+    }
+
+    @Test
+    public void visitMessageInstancesForQueueWithFilterResumesWhenPageEndRecordRemains()
+    {
+        final UUID queueAId = new UUID(0x0102030405060708L, 0x0000000000000000L);
+        final UUID queueBId = new UUID(0x0102030405060708L, 0x0000000000000001L);
+        final TransactionLogResource queueA = createQueue(queueAId, "queueA");
+        final int pageSize = AbstractBDBMessageStore.MESSAGE_INSTANCE_PAGE_SIZE;
+        final List<Long> expectedMessageIds = insertQueueEntries(queueAId, pageSize * 2 + 3);
+        insertQueueEntries(queueBId, 3);
+
+        final List<Long> visitedMessageIds = new ArrayList<>();
+        final AtomicInteger invalidCount = new AtomicInteger();
+
+        final MessageStore.MessageStoreReader reader = getStore().newMessageStoreReader();
+        try
+        {
+            reader.visitMessageInstances(queueA,
+                    record ->
+                    {
+                        visitedMessageIds.add(record.getMessageNumber());
                         return true;
                     },
                     record -> true,

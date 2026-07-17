@@ -1648,7 +1648,9 @@ public abstract class AbstractBDBMessageStore implements MessageStore
             final CachingUUIDFactory uuidFactory = new CachingUUIDFactory();
             final List<MessageEnqueueRecord> invalidRecords =
                     new ArrayList<>(Math.min(invalidBatchSize, MESSAGE_INSTANCE_PAGE_SIZE));
-            byte[] resumeKey = null;
+            final byte[] resumeKey = new byte[QueueEntryBinding.KEY_SIZE];
+            final byte[] searchKey = new byte[QueueEntryBinding.KEY_SIZE];
+            boolean hasResumeKey = false;
             boolean complete = false;
 
             try
@@ -1660,15 +1662,16 @@ public abstract class AbstractBDBMessageStore implements MessageStore
 
                     try (final Cursor cursor = getDeliveryDb().openCursor(null, null))
                     {
-                        final DatabaseEntry key = new DatabaseEntry(new byte[QueueEntryBinding.KEY_SIZE]);
+                        final DatabaseEntry key = new DatabaseEntry(searchKey);
                         OperationStatus status;
-                        if (resumeKey == null)
+                        if (!hasResumeKey)
                         {
                             status = cursor.getNext(key, null, LockMode.READ_UNCOMMITTED);
                         }
                         else
                         {
-                            key.setData(Arrays.copyOf(resumeKey, resumeKey.length));
+                            System.arraycopy(resumeKey, 0, searchKey, 0, QueueEntryBinding.KEY_SIZE);
+                            key.setData(searchKey, 0, QueueEntryBinding.KEY_SIZE);
                             status = cursor.getSearchKeyRange(key, null, LockMode.READ_UNCOMMITTED);
                             if (status == OperationStatus.SUCCESS && matchesResumeKey(resumeKey, key))
                             {
@@ -1679,9 +1682,12 @@ public abstract class AbstractBDBMessageStore implements MessageStore
                         while (status == OperationStatus.SUCCESS && records.size() < MESSAGE_INSTANCE_PAGE_SIZE)
                         {
                             final MessageEnqueueRecord record = QueueEntryBinding.readIds(uuidFactory, key);
-                            resumeKey = Arrays.copyOfRange(key.getData(), key.getOffset(),
-                                    key.getOffset() + QueueEntryBinding.KEY_SIZE);
                             records.add(record);
+                            if (records.size() == MESSAGE_INSTANCE_PAGE_SIZE)
+                            {
+                                copyMessageInstanceKey(key, resumeKey);
+                                hasResumeKey = true;
+                            }
                             status = cursor.getNext(key, null, LockMode.READ_UNCOMMITTED);
                         }
                         complete = status != OperationStatus.SUCCESS;
@@ -1717,7 +1723,9 @@ public abstract class AbstractBDBMessageStore implements MessageStore
             final UUID queueId = queue.getId();
             final List<MessageEnqueueRecord> invalidRecords =
                     new ArrayList<>(Math.min(invalidBatchSize, MESSAGE_INSTANCE_PAGE_SIZE));
-            byte[] resumeKey = null;
+            final byte[] resumeKey = new byte[QueueEntryBinding.KEY_SIZE];
+            final byte[] searchKey = new byte[QueueEntryBinding.KEY_SIZE];
+            boolean hasResumeKey = false;
             boolean complete = false;
 
             try
@@ -1729,16 +1737,17 @@ public abstract class AbstractBDBMessageStore implements MessageStore
 
                     try (final Cursor cursor = getDeliveryDb().openCursor(null, null))
                     {
-                        final DatabaseEntry key = new DatabaseEntry(new byte[QueueEntryBinding.KEY_SIZE]);
+                        final DatabaseEntry key = new DatabaseEntry(searchKey);
                         OperationStatus status;
-                        if (resumeKey == null)
+                        if (!hasResumeKey)
                         {
                             QueueEntryBinding.objectToEntry(queueId, 0L, key);
                             status = cursor.getSearchKeyRange(key, null, LockMode.READ_UNCOMMITTED);
                         }
                         else
                         {
-                            key.setData(Arrays.copyOf(resumeKey, resumeKey.length));
+                            System.arraycopy(resumeKey, 0, searchKey, 0, QueueEntryBinding.KEY_SIZE);
+                            key.setData(searchKey, 0, QueueEntryBinding.KEY_SIZE);
                             status = cursor.getSearchKeyRange(key, null, LockMode.READ_UNCOMMITTED);
                             if (status == OperationStatus.SUCCESS && matchesResumeKey(resumeKey, key))
                             {
@@ -1755,9 +1764,12 @@ public abstract class AbstractBDBMessageStore implements MessageStore
                             }
 
                             final long messageId = QueueEntryBinding.readMessageId(key);
-                            resumeKey = Arrays.copyOfRange(key.getData(), key.getOffset(),
-                                    key.getOffset() + QueueEntryBinding.KEY_SIZE);
                             records.add(new BDBEnqueueRecord(queueId, messageId));
+                            if (records.size() == MESSAGE_INSTANCE_PAGE_SIZE)
+                            {
+                                copyMessageInstanceKey(key, resumeKey);
+                                hasResumeKey = true;
+                            }
                             status = cursor.getNext(key, null, LockMode.READ_UNCOMMITTED);
                         }
                         if (status != OperationStatus.SUCCESS)
@@ -1823,6 +1835,11 @@ public abstract class AbstractBDBMessageStore implements MessageStore
             return key.getSize() == resumeKey.length
                     && Arrays.equals(resumeKey, 0, resumeKey.length,
                             key.getData(), key.getOffset(), key.getOffset() + key.getSize());
+        }
+
+        private void copyMessageInstanceKey(final DatabaseEntry source, final byte[] target)
+        {
+            System.arraycopy(source.getData(), source.getOffset(), target, 0, QueueEntryBinding.KEY_SIZE);
         }
 
         private boolean processMessageInstancePage(final List<MessageEnqueueRecord> records,
