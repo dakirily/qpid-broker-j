@@ -675,12 +675,12 @@ public abstract class AbstractBDBMessageStore implements MessageStore
         }
     }
 
-    private List<Runnable> recordXid(final Transaction txn,
-                                     final long format,
-                                     final byte[] globalId,
-                                     final byte[] branchId,
-                                     final org.apache.qpid.server.store.Transaction.EnqueueRecord[] enqueues,
-                                     final org.apache.qpid.server.store.Transaction.DequeueRecord[] dequeues) throws StoreException
+    private void recordXid(final Transaction txn,
+                           final long format,
+                           final byte[] globalId,
+                           final byte[] branchId,
+                           final org.apache.qpid.server.store.Transaction.EnqueueRecord[] enqueues,
+                           final org.apache.qpid.server.store.Transaction.DequeueRecord[] dequeues) throws StoreException
     {
         final DatabaseEntry key = new DatabaseEntry();
         final Xid xid = new Xid(format, globalId, branchId);
@@ -702,7 +702,6 @@ public abstract class AbstractBDBMessageStore implements MessageStore
         try
         {
             getXidDb().put(txn, key, value);
-            return Collections.emptyList();
         }
         catch (final RuntimeException e)
         {
@@ -1332,9 +1331,9 @@ public abstract class AbstractBDBMessageStore implements MessageStore
     private class BDBTransaction implements org.apache.qpid.server.store.Transaction
     {
         private final Transaction _txn;
-        private final List<Runnable> _postCommitActions = new ArrayList<>();
-        private final ArrayList<StoredBDBMessage<?>> _messagesToStore = new ArrayList<>();
-        private final IdentityHashMap<StoredBDBMessage<?>, Boolean> _messagesToStoreSet = new IdentityHashMap<>();
+        private StoredBDBMessage<?> _messageToStore;
+        private ArrayList<StoredBDBMessage<?>> _messagesToStore;
+        private IdentityHashMap<StoredBDBMessage<?>, Boolean> _messagesToStoreSet;
 
         private int _storeSizeIncrease;
 
@@ -1357,11 +1356,7 @@ public abstract class AbstractBDBMessageStore implements MessageStore
 
             if (message.getStoredMessage() instanceof StoredBDBMessage<?> storedMessage)
             {
-                if (_messagesToStoreSet.put(storedMessage, Boolean.TRUE) == null)
-                {
-                    _messagesToStore.add(storedMessage);
-                    _storeSizeIncrease += storedMessage.getContentSize();
-                }
+                trackMessageToStore(storedMessage);
             }
 
             AbstractBDBMessageStore.this.enqueueMessage(_txn, queue, message.getMessageNumber());
@@ -1381,31 +1376,63 @@ public abstract class AbstractBDBMessageStore implements MessageStore
             checkMessageStoreOpen();
             doPreCommitStores();
             AbstractBDBMessageStore.this.commitTranImpl(_txn);
-            doPostCommitActions();
             AbstractBDBMessageStore.this.storedSizeChangeOccurred(_storeSizeIncrease);
+        }
+
+        private void trackMessageToStore(final StoredBDBMessage<?> message)
+        {
+            if (_messagesToStore == null)
+            {
+                if (_messageToStore == null)
+                {
+                    _messageToStore = message;
+                    _storeSizeIncrease += message.getContentSize();
+                }
+                else if (_messageToStore != message)
+                {
+                    _messagesToStore = new ArrayList<>();
+                    _messagesToStoreSet = new IdentityHashMap<>();
+                    _messagesToStore.add(_messageToStore);
+                    _messagesToStoreSet.put(_messageToStore, Boolean.TRUE);
+                    _messageToStore = null;
+
+                    _messagesToStore.add(message);
+                    _messagesToStoreSet.put(message, Boolean.TRUE);
+                    _storeSizeIncrease += message.getContentSize();
+                }
+            }
+            else if (_messagesToStoreSet.put(message, Boolean.TRUE) == null)
+            {
+                _messagesToStore.add(message);
+                _storeSizeIncrease += message.getContentSize();
+            }
         }
 
         private void doPreCommitStores()
         {
-            for (final StoredBDBMessage<?> message : _messagesToStore)
+            if (_messagesToStore == null)
             {
-                message.store(_txn);
+                if (_messageToStore != null)
+                {
+                    _messageToStore.store(_txn);
+                }
             }
-            _messagesToStore.clear();
-            _messagesToStoreSet.clear();
+            else
+            {
+                for (final StoredBDBMessage<?> message : _messagesToStore)
+                {
+                    message.store(_txn);
+                }
+            }
+
+            clearTrackedMessages();
         }
 
-        private void doPostCommitActions()
+        private void clearTrackedMessages()
         {
-            // QPID-7447: prevent unnecessary allocation of empty iterator
-            if (!_postCommitActions.isEmpty())
-            {
-                for (Runnable action : _postCommitActions)
-                {
-                    action.run();
-                }
-                _postCommitActions.clear();
-            }
+            _messageToStore = null;
+            _messagesToStore = null;
+            _messagesToStoreSet = null;
         }
 
         @Override
@@ -1415,7 +1442,6 @@ public abstract class AbstractBDBMessageStore implements MessageStore
             doPreCommitStores();
             AbstractBDBMessageStore.this.storedSizeChangeOccurred(_storeSizeIncrease);
             CompletableFuture<X> futureResult = AbstractBDBMessageStore.this.commitTranAsyncImpl(_txn, val);
-            doPostCommitActions();
             return futureResult;
         }
 
@@ -1423,9 +1449,7 @@ public abstract class AbstractBDBMessageStore implements MessageStore
         public void abortTran() throws StoreException
         {
             checkMessageStoreOpen();
-            _messagesToStore.clear();
-            _messagesToStoreSet.clear();
-            _postCommitActions.clear();
+            clearTrackedMessages();
             AbstractBDBMessageStore.this.abortTran(_txn);
         }
 
@@ -1444,7 +1468,7 @@ public abstract class AbstractBDBMessageStore implements MessageStore
                                          final DequeueRecord[] dequeues) throws StoreException
         {
             checkMessageStoreOpen();
-            _postCommitActions.addAll(AbstractBDBMessageStore.this.recordXid(_txn, format, globalId, branchId, enqueues, dequeues));
+            AbstractBDBMessageStore.this.recordXid(_txn, format, globalId, branchId, enqueues, dequeues);
             return new BDBStoredXidRecord(format, globalId, branchId);
         }
     }
