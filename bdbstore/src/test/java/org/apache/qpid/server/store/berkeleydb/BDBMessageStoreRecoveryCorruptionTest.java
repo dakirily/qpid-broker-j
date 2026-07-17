@@ -36,6 +36,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import com.sleepycat.je.Database;
 import com.sleepycat.je.DatabaseEntry;
@@ -63,9 +64,9 @@ import org.apache.qpid.server.virtualhost.berkeleydb.BDBVirtualHost;
 import org.apache.qpid.test.utils.VirtualHostNodeStoreType;
 
 /**
- * Integration-style tests for corruption scenarios. The tests intentionally inject
- * semantically invalid delivery DB records (but still decodable) and verify that
- * recovery-style scans do not fail and route such records to the invalid collector.
+ * Integration-style tests for corruption scenarios. The tests intentionally inject semantically invalid
+ * delivery DB records and structurally malformed keys, then verify the appropriate recovery or fail-closed
+ * behaviour.
  */
 public class BDBMessageStoreRecoveryCorruptionTest extends UnitTestBase
 {
@@ -328,6 +329,89 @@ public class BDBMessageStoreRecoveryCorruptionTest extends UnitTestBase
         assertTrue(visited.isEmpty(), "No records should be delivered from a page containing a malformed key");
     }
 
+    @Test
+    public void filteredGlobalVisitorFailsClosedWhenShortKeyFollowsFirstPage()
+    {
+        prepareShortMalformedDeliveryKeyAfterFirstPage();
+        final AtomicInteger predicateInvocations = new AtomicInteger();
+        final AtomicInteger validHandlerInvocations = new AtomicInteger();
+        final AtomicInteger invalidConsumerInvocations = new AtomicInteger();
+
+        final StoreException exception = assertThrows(StoreException.class,
+                () -> _storeReader.visitMessageInstances(record ->
+                        {
+                            validHandlerInvocations.incrementAndGet();
+                            return true;
+                        },
+                        record ->
+                        {
+                            predicateInvocations.incrementAndGet();
+                            return record.getMessageNumber() % 2L != 0L;
+                        },
+                        2,
+                        records -> invalidConsumerInvocations.incrementAndGet()));
+
+        assertTrue(exception.getCause() instanceof IllegalArgumentException, "Unexpected exception cause");
+        assertEquals(0, predicateInvocations.get(), "Predicate must not be invoked before full key validation");
+        assertEquals(0, validHandlerInvocations.get(),
+                "Valid handler must not be invoked before full key validation");
+        assertEquals(0, invalidConsumerInvocations.get(),
+                "Invalid consumer must not be invoked before full key validation");
+    }
+
+    @Test
+    public void filteredGlobalVisitorValidatesRemainingKeysBeforeHonoringHandlerStop()
+    {
+        prepareShortMalformedDeliveryKeyAfterFirstPage();
+        final AtomicInteger validHandlerInvocations = new AtomicInteger();
+
+        final StoreException exception = assertThrows(StoreException.class,
+                () -> _storeReader.visitMessageInstances(record ->
+                        {
+                            validHandlerInvocations.incrementAndGet();
+                            return false;
+                        },
+                        record -> true,
+                        2,
+                        records -> { }));
+
+        assertTrue(exception.getCause() instanceof IllegalArgumentException, "Unexpected exception cause");
+        assertEquals(0, validHandlerInvocations.get(),
+                "Valid handler must not be invoked before full key validation");
+    }
+
+    @Test
+    public void filteredPerQueueVisitorFailsClosedWhenShortKeyFollowsFirstPage()
+    {
+        final UUID queueId = prepareShortMalformedDeliveryKeyAfterFirstPage();
+        final TransactionLogResource queue = createQueue(queueId, "queue");
+        final AtomicInteger predicateInvocations = new AtomicInteger();
+        final AtomicInteger validHandlerInvocations = new AtomicInteger();
+        final AtomicInteger invalidConsumerInvocations = new AtomicInteger();
+
+        final StoreException exception = assertThrows(StoreException.class,
+                () -> _storeReader.visitMessageInstances(queue,
+                        record ->
+                        {
+                            validHandlerInvocations.incrementAndGet();
+                            return true;
+                        },
+                        record ->
+                        {
+                            predicateInvocations.incrementAndGet();
+                            return record.getMessageNumber() % 2L != 0L;
+                        },
+                        2,
+                        records -> invalidConsumerInvocations.incrementAndGet()));
+
+        assertTrue(exception.getCause() instanceof IllegalArgumentException, "Unexpected exception cause");
+        assertEquals(0, predicateInvocations.get(), "Predicate must not be invoked before full key validation");
+        assertEquals(0, validHandlerInvocations.get(),
+                "Valid handler must not be invoked before full key validation");
+        assertEquals(0, invalidConsumerInvocations.get(),
+                "Invalid consumer must not be invoked before full key validation");
+    }
+
     private TransactionLogResource prepareMalformedPerQueueDeliveryKey()
     {
         final UUID queueId = new UUID(0L, 0L);
@@ -343,6 +427,51 @@ public class BDBMessageStoreRecoveryCorruptionTest extends UnitTestBase
 
         restartStore();
         return queue;
+    }
+
+    private UUID prepareShortMalformedDeliveryKeyAfterFirstPage()
+    {
+        final UUID queueId = new UUID(0L, 0L);
+        final int pageSize = AbstractBDBMessageStore.MESSAGE_INSTANCE_PAGE_SIZE;
+        final long malformedMessageId = (pageSize / 256L + 1L) * 256L;
+        final EnvironmentFacade environmentFacade = _store.getEnvironmentFacade();
+        final Database deliveryDb =
+                environmentFacade.openDatabase("QUEUE_ENTRIES", BDBUtils.DEFAULT_DATABASE_CONFIG);
+
+        com.sleepycat.je.Transaction tx = null;
+        try
+        {
+            tx = environmentFacade.beginTransaction(null);
+            final DatabaseEntry value = new DatabaseEntry();
+            value.setData(new byte[0]);
+
+            for (long messageId = 1L; messageId <= pageSize; messageId++)
+            {
+                final DatabaseEntry key = new DatabaseEntry();
+                QueueEntryBinding.objectToEntry(queueId, messageId, key);
+                deliveryDb.put(tx, key, value);
+            }
+
+            final DatabaseEntry validKey = new DatabaseEntry();
+            QueueEntryBinding.objectToEntry(queueId, malformedMessageId, validKey);
+            deliveryDb.put(tx,
+                    new DatabaseEntry(Arrays.copyOf(validKey.getData(), QueueEntryBinding.KEY_SIZE - 1)),
+                    value);
+
+            final DatabaseEntry keyAfterMalformed = new DatabaseEntry();
+            QueueEntryBinding.objectToEntry(queueId, malformedMessageId + 1L, keyAfterMalformed);
+            deliveryDb.put(tx, keyAfterMalformed, value);
+
+            environmentFacade.commit(tx);
+        }
+        catch (RuntimeException e)
+        {
+            BDBUtils.abortTransactionSafely(tx, environmentFacade);
+            throw e;
+        }
+
+        restartStore();
+        return queueId;
     }
 
     private void restartStore()

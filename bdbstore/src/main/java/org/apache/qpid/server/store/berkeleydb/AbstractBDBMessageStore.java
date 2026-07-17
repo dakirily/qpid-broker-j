@@ -1653,6 +1653,7 @@ public abstract class AbstractBDBMessageStore implements MessageStore
 
             try
             {
+                validateMessageInstanceKeys();
                 while (!complete)
                 {
                     final List<MessageEnqueueRecord> records = new ArrayList<>(MESSAGE_INSTANCE_PAGE_SIZE);
@@ -1721,6 +1722,7 @@ public abstract class AbstractBDBMessageStore implements MessageStore
 
             try
             {
+                validateMessageInstanceKeys(queueId);
                 while (!complete)
                 {
                     final List<MessageEnqueueRecord> records = new ArrayList<>(MESSAGE_INSTANCE_PAGE_SIZE);
@@ -1775,6 +1777,44 @@ public abstract class AbstractBDBMessageStore implements MessageStore
             catch (final RuntimeException e)
             {
                 throw getEnvironmentFacade().handleDatabaseException("Cannot visit message instances", e);
+            }
+        }
+
+        /*
+         * Filtered visitors publish bounded pages. Pre-scan the stable recovery keyspace so structural
+         * corruption cannot expose callbacks from earlier pages. This intentionally trades a second
+         * READ_UNCOMMITTED traversal for bounded-memory fail-closed behaviour; it is not a snapshot
+         * against concurrent writers.
+         */
+        private void validateMessageInstanceKeys()
+        {
+            try (final Cursor cursor = getDeliveryDb().openCursor(null, null))
+            {
+                final DatabaseEntry key = new DatabaseEntry(new byte[QueueEntryBinding.KEY_SIZE]);
+
+                while (cursor.getNext(key, null, LockMode.READ_UNCOMMITTED) == OperationStatus.SUCCESS)
+                {
+                    QueueEntryBinding.readMessageId(key);
+                }
+            }
+        }
+
+        private void validateMessageInstanceKeys(final UUID queueId)
+        {
+            try (final Cursor cursor = getDeliveryDb().openCursor(null, null))
+            {
+                final DatabaseEntry key = new DatabaseEntry(new byte[QueueEntryBinding.KEY_SIZE]);
+                QueueEntryBinding.objectToEntry(queueId, 0L, key);
+
+                OperationStatus status = cursor.getSearchKeyRange(key, null, LockMode.READ_UNCOMMITTED);
+                while (status == OperationStatus.SUCCESS)
+                {
+                    if (!QueueEntryBinding.matchesQueueId(key, queueId))
+                    {
+                        break;
+                    }
+                    status = cursor.getNext(key, null, LockMode.READ_UNCOMMITTED);
+                }
             }
         }
 
