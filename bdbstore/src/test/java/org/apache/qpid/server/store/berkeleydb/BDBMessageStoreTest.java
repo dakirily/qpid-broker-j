@@ -29,8 +29,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.io.File;
@@ -55,6 +59,8 @@ import org.apache.qpid.server.store.MessageStore;
 import org.apache.qpid.server.store.MessageStoreTestCase;
 import org.apache.qpid.server.store.StoreException;
 import org.apache.qpid.server.store.StoredMessage;
+import org.apache.qpid.server.store.Transaction;
+import org.apache.qpid.server.store.handler.DistributedTransactionHandler;
 import org.apache.qpid.server.util.ConnectionScopedRuntimeException;
 import org.apache.qpid.server.util.FileUtils;
 import org.apache.qpid.server.virtualhost.berkeleydb.BDBVirtualHost;
@@ -203,6 +209,44 @@ public class BDBMessageStoreTest extends MessageStoreTestCase
         getStore().onDelete(mockVH);
 
         assertFalse(location.exists(), "Store exists at " + storeLocation);
+    }
+
+    @Test
+    public void testXidChangesAreRolledBackOnAbort()
+    {
+        final Transaction.EnqueueRecord[] enqueues = new Transaction.EnqueueRecord[0];
+        final Transaction.DequeueRecord[] dequeues = new Transaction.DequeueRecord[0];
+
+        Transaction transaction = getStore().newTransaction();
+        final Transaction.StoredXidRecord abortedRecord =
+                transaction.recordXid(1L, new byte[] { 1 }, new byte[] { 2 }, enqueues, dequeues);
+        transaction.abortTran();
+
+        transaction = getStore().newTransaction();
+        final Transaction.StoredXidRecord committedRecord =
+                transaction.recordXid(2L, new byte[] { 3 }, new byte[] { 4 }, enqueues, dequeues);
+        transaction.commitTran();
+
+        transaction = getStore().newTransaction();
+        transaction.removeXid(committedRecord);
+        transaction.abortTran();
+
+        reopenStore();
+
+        final DistributedTransactionHandler handler = mock(DistributedTransactionHandler.class);
+        when(handler.handle(any(), any(), any())).thenReturn(true);
+        final MessageStore.MessageStoreReader reader = getStore().newMessageStoreReader();
+        try
+        {
+            reader.visitDistributedTransactions(handler);
+        }
+        finally
+        {
+            reader.close();
+        }
+
+        verify(handler, never()).handle(eq(abortedRecord), any(), any());
+        verify(handler, times(1)).handle(eq(committedRecord), any(), any());
     }
 
 
