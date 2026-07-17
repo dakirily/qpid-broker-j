@@ -1056,14 +1056,16 @@ public abstract class AbstractBDBMessageStore implements MessageStore
 
             if (_contentFragments == null)
             {
-                _contentFragments = new ArrayList<>();
-
                 final QpidByteBuffer existingData = _messageDataRef.getData();
-                if (existingData != null)
+                if (existingData == null)
                 {
-                    _contentFragments.add(existingData);
-                    _messageDataRef.setData(null);
+                    _messageDataRef.setData(src.slice());
+                    return;
                 }
+
+                _contentFragments = new ArrayList<>();
+                _contentFragments.add(existingData);
+                _messageDataRef.setData(null);
             }
             _contentFragments.add(src.slice());
         }
