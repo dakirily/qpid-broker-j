@@ -24,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -64,7 +65,17 @@ class StoredBDBMessageTest
              QpidByteBuffer f2 = QpidByteBuffer.wrap(new byte[]{3, 4, 5, 6}))
         {
             message.addContent(f1);
+
+            final QpidByteBuffer firstFragmentData = getMessageData(message);
+            assertNotNull(firstFragmentData);
+            assertNull(getContentFragments(message));
+
             message.addContent(f2);
+
+            final List<QpidByteBuffer> fragments = getContentFragments(message);
+            assertNotNull(fragments);
+            assertEquals(2, fragments.size());
+            assertSame(firstFragmentData, fragments.get(0));
         }
 
         // Verify that content is accumulated as fragments before consolidation.
@@ -251,7 +262,7 @@ class StoredBDBMessageTest
     }
 
     @Test
-    void singleFragmentConsolidationMovesFragmentIntoMessageData() throws Exception
+    void singleFragmentUsesMessageDataWithoutAllocatingFragmentList() throws Exception
     {
         final TestBDBMessageStore store = new TestBDBMessageStore();
         final TestMetaData metaData = new TestMetaData(3, 3);
@@ -264,17 +275,62 @@ class StoredBDBMessageTest
             message.addContent(f1);
         }
 
-        assertEquals(1, fragmentCount(message));
-        assertNull(getMessageData(message));
+        assertNull(getContentFragments(message));
+        final QpidByteBuffer messageData = getMessageData(message);
+        assertNotNull(messageData);
 
         message.allContentAdded();
 
-        assertEquals(0, fragmentCount(message));
-        assertNotNull(getMessageData(message));
+        assertNull(getContentFragments(message));
+        assertSame(messageData, getMessageData(message));
+        assertEquals(6L, store.getInMemorySize());
 
         try (QpidByteBuffer content = message.getContent(0, Integer.MAX_VALUE))
         {
             assertArrayEquals(new byte[]{1, 2, 3}, readRemaining(content));
+        }
+    }
+
+    @Test
+    void addContentAfterReadingSingleFragmentPromotesToFragmentList() throws Exception
+    {
+        final TestBDBMessageStore store = new TestBDBMessageStore();
+        final TestMetaData metaData = new TestMetaData(3, 4);
+
+        final AbstractBDBMessageStore.StoredBDBMessage<TestMetaData> message =
+                store.new StoredBDBMessage<>(1L, metaData, false);
+
+        try (QpidByteBuffer f1 = QpidByteBuffer.wrap(new byte[]{1, 2}))
+        {
+            message.addContent(f1);
+        }
+
+        final QpidByteBuffer firstFragmentData = getMessageData(message);
+        assertNotNull(firstFragmentData);
+        assertNull(getContentFragments(message));
+
+        try (QpidByteBuffer content = message.getContent(0, Integer.MAX_VALUE))
+        {
+            assertArrayEquals(new byte[]{1, 2}, readRemaining(content));
+        }
+
+        try (QpidByteBuffer f2 = QpidByteBuffer.wrap(new byte[]{3, 4}))
+        {
+            message.addContent(f2);
+        }
+
+        final List<QpidByteBuffer> fragments = getContentFragments(message);
+        assertNotNull(fragments);
+        assertEquals(2, fragments.size());
+        assertSame(firstFragmentData, fragments.get(0));
+        assertNull(getMessageData(message));
+
+        message.allContentAdded();
+
+        assertNull(getContentFragments(message));
+        try (QpidByteBuffer content = message.getContent(0, Integer.MAX_VALUE))
+        {
+            assertArrayEquals(new byte[]{1, 2, 3, 4}, readRemaining(content));
         }
     }
 
@@ -557,11 +613,17 @@ class StoredBDBMessageTest
 
     private static int fragmentCount(final Object message) throws Exception
     {
+        final List<QpidByteBuffer> fragments = getContentFragments(message);
+        return fragments == null ? 0 : fragments.size();
+    }
+
+    private static List<QpidByteBuffer> getContentFragments(final Object message) throws Exception
+    {
         final Field fragmentsField = message.getClass().getDeclaredField("_contentFragments");
         fragmentsField.setAccessible(true);
         @SuppressWarnings("unchecked")
         final List<QpidByteBuffer> fragments = (List<QpidByteBuffer>) fragmentsField.get(message);
-        return fragments == null ? 0 : fragments.size();
+        return fragments;
     }
 
     private static QpidByteBuffer getMessageData(final Object message) throws Exception
