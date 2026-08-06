@@ -22,8 +22,8 @@ package org.apache.qpid.server.protocol.v1_0;
 
 import org.apache.qpid.server.message.MessageDestination;
 import org.apache.qpid.server.message.ServerMessage;
+import org.apache.qpid.server.protocol.PublishAuthorisationCache;
 import org.apache.qpid.server.protocol.v1_0.type.Symbol;
-import org.apache.qpid.server.security.SecurityToken;
 import org.apache.qpid.server.txn.ServerTransaction;
 
 public interface ReceivingDestination
@@ -32,7 +32,8 @@ public interface ReceivingDestination
 
     void send(final ServerMessage<?> message,
               final ServerTransaction txn,
-              final SecurityToken securityToken) throws UnroutableMessageException;
+              final PublishAuthorisationCache publishAuthCache,
+              final long currentTime) throws UnroutableMessageException;
 
     int getCredit();
 

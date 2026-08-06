@@ -29,11 +29,11 @@ import org.apache.qpid.server.message.MessageDestination;
 import org.apache.qpid.server.message.ServerMessage;
 import org.apache.qpid.server.model.DestinationAddress;
 import org.apache.qpid.server.model.NamedAddressSpace;
+import org.apache.qpid.server.protocol.PublishAuthorisationCache;
 import org.apache.qpid.server.protocol.v1_0.constants.Symbols;
 import org.apache.qpid.server.protocol.v1_0.type.Symbol;
 import org.apache.qpid.server.protocol.v1_0.type.messaging.Target;
 import org.apache.qpid.server.protocol.v1_0.type.transport.AmqpError;
-import org.apache.qpid.server.security.SecurityToken;
 import org.apache.qpid.server.txn.ServerTransaction;
 
 public class AnonymousRelayDestination implements ReceivingDestination
@@ -72,7 +72,8 @@ public class AnonymousRelayDestination implements ReceivingDestination
     @Override
     public void send(final ServerMessage<?> message,
                      final ServerTransaction txn,
-                     final SecurityToken securityToken) throws UnroutableMessageException
+                     final PublishAuthorisationCache publishAuthCache,
+                     final long currentTime) throws UnroutableMessageException
     {
         final ReceivingDestination destination;
         final String routingAddress = message.getTo();
@@ -107,7 +108,8 @@ public class AnonymousRelayDestination implements ReceivingDestination
         {
             destination.send(message,
                              txn,
-                             securityToken);
+                             publishAuthCache,
+                             currentTime);
         }
     }
 

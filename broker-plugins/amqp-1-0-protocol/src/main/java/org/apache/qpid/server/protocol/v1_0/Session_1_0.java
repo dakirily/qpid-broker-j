@@ -96,6 +96,7 @@ import org.apache.qpid.server.protocol.v1_0.type.transport.LinkError;
 import org.apache.qpid.server.protocol.v1_0.type.transport.Role;
 import org.apache.qpid.server.protocol.v1_0.type.transport.SessionError;
 import org.apache.qpid.server.protocol.v1_0.type.transport.Transfer;
+import org.apache.qpid.server.protocol.PublishAuthorisationCache;
 import org.apache.qpid.server.queue.CreatingLinkInfo;
 import org.apache.qpid.server.queue.CreatingLinkInfoImpl;
 import org.apache.qpid.server.security.AccessDeniedException;
@@ -1391,6 +1392,11 @@ public class Session_1_0 extends AbstractAMQPSession<Session_1_0, ConsumerTarget
     public SecurityToken getSecurityToken()
     {
         return _token;
+    }
+
+    PublishAuthorisationCache getPublishAuthCache()
+    {
+        return _publishAuthCache;
     }
 
     @Override

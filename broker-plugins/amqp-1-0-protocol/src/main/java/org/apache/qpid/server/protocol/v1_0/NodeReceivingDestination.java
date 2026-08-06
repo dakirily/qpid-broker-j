@@ -21,7 +21,6 @@
 package org.apache.qpid.server.protocol.v1_0;
 
 import java.util.Arrays;
-import java.util.Map;
 
 import org.apache.qpid.server.logging.EventLogger;
 import org.apache.qpid.server.logging.messages.ExchangeMessages;
@@ -32,12 +31,12 @@ import org.apache.qpid.server.message.RoutingResult;
 import org.apache.qpid.server.message.ServerMessage;
 import org.apache.qpid.server.model.DestinationAddress;
 import org.apache.qpid.server.model.Exchange;
+import org.apache.qpid.server.protocol.PublishAuthorisationCache;
 import org.apache.qpid.server.protocol.v1_0.constants.Symbols;
 import org.apache.qpid.server.protocol.v1_0.type.Symbol;
 import org.apache.qpid.server.protocol.v1_0.type.messaging.TerminusDurability;
 import org.apache.qpid.server.protocol.v1_0.type.messaging.TerminusExpiryPolicy;
 import org.apache.qpid.server.protocol.v1_0.type.transport.AmqpError;
-import org.apache.qpid.server.security.SecurityToken;
 import org.apache.qpid.server.store.StorableMessageMetaData;
 import org.apache.qpid.server.txn.ServerTransaction;
 import org.apache.qpid.server.txn.TransactionMonitor;
@@ -68,10 +67,10 @@ public class NodeReceivingDestination implements ReceivingDestination
 
         _eventLogger = eventLogger;
 
-        if (_destination instanceof Exchange)
+        if (_destination instanceof Exchange<?> exchange)
         {
             _discardUnroutable = ((capabilities != null && Arrays.asList(capabilities).contains(Symbols.DISCARD_UNROUTABLE))
-                                     || ((Exchange)_destination).getUnroutableMessageBehaviour() == Exchange.UnroutableMessageBehaviour.DISCARD);
+                                     || exchange.getUnroutableMessageBehaviour() == Exchange.UnroutableMessageBehaviour.DISCARD);
             _routingAddress = destinationAddress.getRoutingKey();
             _address = _destination.getName();
         }
@@ -86,26 +85,19 @@ public class NodeReceivingDestination implements ReceivingDestination
     @Override
     public void send(final ServerMessage<?> message,
                      final ServerTransaction txn,
-                     final SecurityToken securityToken) throws UnroutableMessageException
+                     final PublishAuthorisationCache publishAuthCache,
+                     final long currentTime) throws UnroutableMessageException
     {
         final String routingAddress = "".equals(_routingAddress) ? getRoutingAddress(message) : _routingAddress;
-        _destination.authorisePublish(securityToken, Map.of("routingKey", routingAddress));
+        publishAuthCache.authorisePublish(_destination, routingAddress, false, currentTime);
 
         final InstanceProperties instanceProperties = prop ->
-        {
-            switch(prop)
-            {
-                case MANDATORY:
-                case REDELIVERED:
-                case IMMEDIATE:
-                    return false;
-                case PERSISTENT:
-                    return message.isPersistent();
-                case EXPIRATION:
-                    return message.getExpiration();
-            }
-            return null;
-        };
+                switch (prop)
+                {
+                    case MANDATORY, REDELIVERED, IMMEDIATE -> false;
+                    case PERSISTENT -> message.isPersistent();
+                    case EXPIRATION -> message.getExpiration();
+                };
 
         final RoutingResult<? extends ServerMessage<? extends StorableMessageMetaData>> result =
                 _destination.route(message, routingAddress, instanceProperties);

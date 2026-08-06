@@ -280,7 +280,8 @@ public class StandardReceivingLinkEndpoint extends AbstractReceivingLinkEndpoint
                         {
                             getReceivingDestination().send(serverMessage,
                                                            transaction,
-                                                           session.getSecurityToken());
+                                                           session.getPublishAuthCache(),
+                                                           session.getConnection().getLastReadTime());
                             outcome = ACCEPTED;
                             if (_producer != null)
                             {
