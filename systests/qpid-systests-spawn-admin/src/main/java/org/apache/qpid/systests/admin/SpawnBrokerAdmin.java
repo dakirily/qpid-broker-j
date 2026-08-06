@@ -71,6 +71,7 @@ import org.apache.qpid.server.plugin.PluggableService;
 import org.apache.qpid.server.util.FileUtils;
 import org.apache.qpid.server.util.SystemUtils;
 import org.apache.qpid.systests.AmqpManagementFacade;
+import org.apache.qpid.test.utils.TestDerbyLogWriter;
 import org.apache.qpid.tests.utils.BrokerAdmin;
 import org.apache.qpid.tests.utils.ConfigItem;
 import org.apache.qpid.tests.utils.SystemTestBrokerContext;
@@ -753,6 +754,9 @@ public class SpawnBrokerAdmin implements BrokerAdmin, Closeable
         jvmArguments.add("java");
         jvmArguments.add("-Djava.io.tmpdir=" + escape(System.getProperty("java.io.tmpdir")));
         jvmArguments.add("-Dlogback.configurationFile=default-broker-logback.xml");
+        jvmArguments.add("-Dderby.stream.error.method="
+                         + TestDerbyLogWriter.class.getName()
+                         + ".getLogWriter");
         jvmArguments.add("-Dqpid.tests.mms.messagestore.persistence=true");
         jvmArguments.addAll(Arrays.stream(configItems)
                                   .filter(ConfigItem::jvm)

@@ -329,7 +329,7 @@
               <systemPropertyVariables>
                 <!-- Defaults -->
                 <qpid.dest_syntax>BURL</qpid.dest_syntax>
-                <derby.stream.error.file>target/derby.log</derby.stream.error.file>
+                <derby.stream.error.method>org.apache.qpid.test.utils.TestDerbyLogWriter.getLogWriter</derby.stream.error.method>
 
                 <!-- Profile Based Values -->
                 <profile>${profile}</profile>

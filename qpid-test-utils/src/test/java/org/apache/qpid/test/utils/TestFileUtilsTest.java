@@ -21,6 +21,8 @@
 package org.apache.qpid.test.utils;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -57,6 +59,77 @@ public class TestFileUtilsTest
         TestFileUtils.deleteRecursively(root);
 
         assertFalse(Files.exists(root), "Restricted test directory was not deleted");
+    }
+
+    @Test
+    public void testDeleteDerbyLogs() throws Exception
+    {
+        final Path workingDirectory = Files.createDirectory(_tempDirectory.resolve("module"));
+        final Path defaultLog = Files.createFile(workingDirectory.resolve("derby.log"));
+        final Path configuredLog = Files.createDirectories(workingDirectory.resolve("target")).resolve("derby.log");
+        Files.createFile(configuredLog);
+
+        TestFileUtils.deleteDerbyLogs(workingDirectory, "target/derby.log");
+
+        assertFalse(Files.exists(defaultLog), "Default Derby log was not deleted");
+        assertFalse(Files.exists(configuredLog), "Configured Derby log was not deleted");
+    }
+
+    @Test
+    public void testDeleteDerbyLogsDoesNotDeleteOutsideWorkingDirectory() throws Exception
+    {
+        final Path workingDirectory = Files.createDirectory(_tempDirectory.resolve("module"));
+        final Path externalLog = Files.createFile(_tempDirectory.resolve("derby.log"));
+
+        TestFileUtils.deleteDerbyLogs(workingDirectory, ".." + System.getProperty("file.separator") + "derby.log");
+
+        assertTrue(Files.exists(externalLog), "Derby log outside the working directory was deleted");
+    }
+
+    @Test
+    public void testDeleteDerbyLogsDoesNotDeleteDirectory() throws Exception
+    {
+        final Path workingDirectory = Files.createDirectory(_tempDirectory.resolve("module"));
+        final Path directory = Files.createDirectory(workingDirectory.resolve("derby.log"));
+
+        TestFileUtils.deleteDerbyLogs(workingDirectory, null);
+
+        assertTrue(Files.isDirectory(directory), "Directory named derby.log was deleted");
+    }
+
+    @Test
+    public void testUnitTestCleanupDeletesDerbyLogWhenCallbackFails() throws Exception
+    {
+        final Path workingDirectory = Files.createDirectory(_tempDirectory.resolve("module"));
+        final Path derbyLog = Files.createFile(workingDirectory.resolve("derby.log"));
+        final String originalWorkingDirectory = System.getProperty("user.dir");
+        final String originalBaseDirectory = System.getProperty("basedir");
+        final UnitTestBase testBase = new UnitTestBase();
+        testBase.registerAfterAllTearDown(() ->
+        {
+            throw new IllegalStateException("Expected callback failure");
+        });
+
+        try
+        {
+            System.setProperty("user.dir", workingDirectory.toString());
+            System.setProperty("basedir", workingDirectory.toString());
+            assertThrows(IllegalStateException.class, testBase::cleanupAfterAll);
+        }
+        finally
+        {
+            System.setProperty("user.dir", originalWorkingDirectory);
+            if (originalBaseDirectory == null)
+            {
+                System.clearProperty("basedir");
+            }
+            else
+            {
+                System.setProperty("basedir", originalBaseDirectory);
+            }
+        }
+
+        assertFalse(Files.exists(derbyLog), "Derby log was not deleted after a cleanup callback failure");
     }
 
     private void restrictFile(final Path file) throws Exception

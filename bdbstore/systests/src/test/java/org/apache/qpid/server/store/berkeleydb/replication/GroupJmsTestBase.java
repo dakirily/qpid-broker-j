@@ -42,6 +42,7 @@ import org.junit.jupiter.api.TestInstance;
 import org.apache.qpid.systests.ConnectionBuilder;
 import org.apache.qpid.systests.JmsProvider;
 import org.apache.qpid.systests.Utils;
+import org.apache.qpid.test.utils.TestFileUtils;
 
 @TestInstance(TestInstance.Lifecycle.PER_METHOD)
 public class GroupJmsTestBase
@@ -67,12 +68,19 @@ public class GroupJmsTestBase
     }
 
     @AfterAll
-    public static void tearDownTestBase()
+    public static void tearDownTestBase() throws Exception
     {
-        Class<?> testClass = _testClass.get();
-        if (testClass != null && _testClass.compareAndSet(testClass, null))
+        try
         {
-            _groupBrokerAdmin.afterTestClass(testClass);
+            final Class<?> testClass = _testClass.get();
+            if (testClass != null && _testClass.compareAndSet(testClass, null))
+            {
+                _groupBrokerAdmin.afterTestClass(testClass);
+            }
+        }
+        finally
+        {
+            TestFileUtils.deleteDerbyLogs();
         }
     }
 

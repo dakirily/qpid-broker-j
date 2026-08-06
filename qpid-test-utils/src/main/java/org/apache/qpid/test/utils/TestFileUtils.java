@@ -27,6 +27,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
 import java.nio.file.LinkOption;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
@@ -40,6 +41,7 @@ import java.nio.file.attribute.PosixFilePermission;
 import java.nio.file.attribute.UserPrincipal;
 import java.util.ArrayList;
 import java.util.EnumSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Set;
@@ -51,6 +53,8 @@ import org.junit.jupiter.api.TestInfo;
  */
 public class TestFileUtils
 {
+    private static final String DERBY_LOG_FILE_NAME = "derby.log";
+    private static final String DERBY_LOG_FILE_PROPERTY = "derby.stream.error.file";
     private static final String SYSTEM_TMP_DIR = System.getProperty("java.io.tmpdir");
     private static final String SUFFIX = "tmp";
 
@@ -346,6 +350,55 @@ public class TestFileUtils
         if (dosView != null)
         {
             dosView.setReadOnly(false);
+        }
+    }
+
+    /**
+     * Deletes Derby log files created within the current test module. For non-Maven runs, the test JVM working
+     * directory is used as the cleanup boundary.
+     *
+     * @throws IOException if a Derby log exists but cannot be deleted
+     */
+    public static void deleteDerbyLogs() throws IOException
+    {
+        deleteDerbyLogs(Path.of(System.getProperty("basedir", System.getProperty("user.dir"))),
+                        System.getProperty(DERBY_LOG_FILE_PROPERTY));
+    }
+
+    static void deleteDerbyLogs(final Path workingDirectory, final String configuredLogFile) throws IOException
+    {
+        final Path normalizedWorkingDirectory = workingDirectory.toAbsolutePath().normalize();
+        final Set<Path> candidates = new LinkedHashSet<>();
+        candidates.add(normalizedWorkingDirectory.resolve(DERBY_LOG_FILE_NAME));
+
+        if (configuredLogFile != null && !configuredLogFile.isBlank())
+        {
+            try
+            {
+                final Path configuredPath = Path.of(configuredLogFile);
+                candidates.add((configuredPath.isAbsolute()
+                        ? configuredPath
+                        : normalizedWorkingDirectory.resolve(configuredPath)).normalize());
+            }
+            catch (InvalidPathException e)
+            {
+                // An invalid configured path cannot identify a safe test artifact.
+            }
+        }
+
+        final Path realWorkingDirectory = normalizedWorkingDirectory.toRealPath();
+        for (final Path candidate : candidates)
+        {
+            if (DERBY_LOG_FILE_NAME.equals(String.valueOf(candidate.getFileName()))
+                    && candidate.startsWith(normalizedWorkingDirectory)
+                    && Files.isRegularFile(candidate, LinkOption.NOFOLLOW_LINKS))
+            {
+                final Path parent = candidate.getParent();
+                if (parent != null && parent.toRealPath().startsWith(realWorkingDirectory))
+                {
+                    Files.deleteIfExists(candidate);
+                }
+            }
         }
     }
 

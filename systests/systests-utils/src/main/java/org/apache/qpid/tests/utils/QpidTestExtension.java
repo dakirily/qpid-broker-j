@@ -32,6 +32,7 @@ import org.junit.jupiter.api.extension.TestInstanceFactoryContext;
 import org.junit.jupiter.api.extension.TestInstancePreDestroyCallback;
 import org.junit.jupiter.api.extension.TestInstantiationException;
 
+import org.apache.qpid.test.utils.TestFileUtils;
 import org.apache.qpid.test.utils.TestUtils;
 
 public class QpidTestExtension implements Extension, InvocationInterceptor, TestInstanceFactory,
@@ -77,9 +78,16 @@ public class QpidTestExtension implements Extension, InvocationInterceptor, Test
         invocation.proceed();
     }
 
-    public void preDestroyTestInstance(ExtensionContext ctx)
+    public void preDestroyTestInstance(ExtensionContext ctx) throws Exception
     {
-        _brokerAdmin.afterTestClass(_testClass);
+        try
+        {
+            _brokerAdmin.afterTestClass(_testClass);
+        }
+        finally
+        {
+            TestFileUtils.deleteDerbyLogs();
+        }
     }
 
     public void interceptTestMethod(final InvocationInterceptor.Invocation<Void> invocation,

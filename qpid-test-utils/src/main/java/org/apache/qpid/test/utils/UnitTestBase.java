@@ -19,6 +19,7 @@
  */
 package org.apache.qpid.test.utils;
 
+import java.io.IOException;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.UUID;
@@ -94,10 +95,17 @@ public class UnitTestBase
 
     /** Executes callbacks and cleans system variables */
     @AfterAll
-    public void cleanupAfterAll()
+    public void cleanupAfterAll() throws IOException
     {
-        _afterAllTearDownRegistry.forEach(Runnable::run);
-        _afterAllTearDownRegistry.clear();
+        try
+        {
+            _afterAllTearDownRegistry.forEach(Runnable::run);
+        }
+        finally
+        {
+            _afterAllTearDownRegistry.clear();
+            TestFileUtils.deleteDerbyLogs();
+        }
     }
 
     /**
