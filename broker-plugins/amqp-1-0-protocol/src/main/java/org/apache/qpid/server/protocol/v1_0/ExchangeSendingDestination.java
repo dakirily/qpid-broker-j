@@ -21,7 +21,6 @@
 package org.apache.qpid.server.protocol.v1_0;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -88,24 +87,24 @@ public class ExchangeSendingDestination extends StandardSendingDestination
                                        final BindingInfo bindingInfo)
             throws AmqpErrorException
     {
-        this(exchange, getQueue(exchange, source, subscriptionName, bindingInfo), bindingInfo, source.getCapabilities());
+        this(exchange, getQueue(exchange, source, subscriptionName, bindingInfo), bindingInfo, source);
     }
 
     private ExchangeSendingDestination(final Exchange<?> exchange,
                                        final Queue<?> queue,
                                        final BindingInfo bindingInfo,
-                                       final Symbol[] capabilities)
+                                       final Source source)
     {
         super(queue);
         _exchange = exchange;
         _filters = bindingInfo.getActualFilters().isEmpty() ? null : bindingInfo.getActualFilters();
         List<Symbol> sourceCapabilities = new ArrayList<>();
 
-        if (hasCapability(capabilities, Symbols.GLOBAL_CAPABILITY))
+        if (source.hasCapability(Symbols.GLOBAL_CAPABILITY))
         {
             sourceCapabilities.add(Symbols.GLOBAL_CAPABILITY);
         }
-        if (hasCapability(capabilities, Symbols.SHARED_CAPABILITY))
+        if (source.hasCapability(Symbols.SHARED_CAPABILITY))
         {
             sourceCapabilities.add(Symbols.SHARED_CAPABILITY);
         }
@@ -129,8 +128,8 @@ public class ExchangeSendingDestination extends StandardSendingDestination
                                                      final Source source)
     {
         boolean isDurable = source.getExpiryPolicy() == TerminusExpiryPolicy.NEVER;
-        boolean isShared = hasCapability(source.getCapabilities(), Symbols.SHARED_CAPABILITY);
-        boolean isGlobal = hasCapability(source.getCapabilities(), Symbols.GLOBAL_CAPABILITY);
+        boolean isShared = source.hasCapability(Symbols.SHARED_CAPABILITY);
+        boolean isGlobal = source.hasCapability(Symbols.GLOBAL_CAPABILITY);
 
         return getMangledSubscriptionName(linkName, isDurable, isShared, isGlobal, remoteContainerId);
 
@@ -141,7 +140,7 @@ public class ExchangeSendingDestination extends StandardSendingDestination
             throws AmqpErrorException
     {
         boolean isDurable = source.getExpiryPolicy() == TerminusExpiryPolicy.NEVER;
-        boolean isShared = hasCapability(source.getCapabilities(), Symbols.SHARED_CAPABILITY);
+        boolean isShared = source.hasCapability(Symbols.SHARED_CAPABILITY);
 
         QueueManagingVirtualHost virtualHost;
         if (exchange.getAddressSpace() instanceof QueueManagingVirtualHost)
@@ -190,14 +189,6 @@ public class ExchangeSendingDestination extends StandardSendingDestination
                                                    "Subscription is already in use"));
         }
         return queue;
-    }
-
-
-
-    private static boolean hasCapability(final Symbol[] capabilities,
-                                  final Symbol expectedCapability)
-    {
-        return (capabilities != null && Arrays.asList(capabilities).contains(expectedCapability));
     }
 
     private static LifetimePolicy getLifetimePolicy(final TerminusExpiryPolicy expiryPolicy) throws AmqpErrorException

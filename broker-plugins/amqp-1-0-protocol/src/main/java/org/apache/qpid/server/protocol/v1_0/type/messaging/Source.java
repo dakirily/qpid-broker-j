@@ -25,6 +25,7 @@ import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+import org.apache.qpid.server.protocol.v1_0.CapabilitiesAware;
 import org.apache.qpid.server.protocol.v1_0.CompositeType;
 import org.apache.qpid.server.protocol.v1_0.CompositeTypeField;
 import org.apache.qpid.server.protocol.v1_0.constants.SymbolTexts;
@@ -35,7 +36,7 @@ import org.apache.qpid.server.protocol.v1_0.type.Symbol;
 import org.apache.qpid.server.protocol.v1_0.type.UnsignedInteger;
 
 @CompositeType(symbolicDescriptor = SymbolTexts.AMQP_SOURCE, numericDescriptor = 0x0000000000000028L)
-public class Source implements BaseSource, Terminus
+public class Source implements BaseSource, Terminus, CapabilitiesAware
 {
     @CompositeTypeField(index = 0)
     private String _address;

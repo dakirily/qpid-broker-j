@@ -21,8 +21,6 @@
 
 package org.apache.qpid.server.protocol.v1_0;
 
-import java.util.Arrays;
-
 import org.apache.qpid.server.logging.EventLogger;
 import org.apache.qpid.server.logging.messages.ExchangeMessages;
 import org.apache.qpid.server.message.MessageDestination;
@@ -52,8 +50,7 @@ public class AnonymousRelayDestination implements ReceivingDestination
         _addressSpace = addressSpace;
         _target = target;
         _eventLogger = eventLogger;
-        _discardUnroutable = target.getCapabilities() != null && Arrays.asList(target.getCapabilities())
-                                                                       .contains(Symbols.DISCARD_UNROUTABLE);
+        _discardUnroutable = target.hasCapability(Symbols.DISCARD_UNROUTABLE);
     }
 
     /**
@@ -105,9 +102,7 @@ public class AnonymousRelayDestination implements ReceivingDestination
         }
         else
         {
-            destination.send(message,
-                             txn,
-                             securityToken);
+            destination.send(message, txn, securityToken);
         }
     }
 

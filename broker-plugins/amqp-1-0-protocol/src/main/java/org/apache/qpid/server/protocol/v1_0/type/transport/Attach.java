@@ -24,6 +24,7 @@ package org.apache.qpid.server.protocol.v1_0.type.transport;
 import java.util.Arrays;
 import java.util.Map;
 
+import org.apache.qpid.server.protocol.v1_0.CapabilitiesAware;
 import org.apache.qpid.server.protocol.v1_0.ConnectionHandler;
 import org.apache.qpid.server.protocol.v1_0.constants.SymbolTexts;
 import org.apache.qpid.server.protocol.v1_0.type.BaseSource;
@@ -38,7 +39,7 @@ import org.apache.qpid.server.protocol.v1_0.type.UnsignedInteger;
 import org.apache.qpid.server.protocol.v1_0.type.UnsignedLong;
 
 @CompositeType( symbolicDescriptor = SymbolTexts.AMQP_ATTACH, numericDescriptor = 0x0000000000000012L)
-public class Attach implements FrameBody
+public class Attach implements FrameBody, CapabilitiesAware
 {
 
     @CompositeTypeField(index = 0, mandatory = true)

@@ -459,16 +459,15 @@ public class StandardReceivingLinkEndpoint extends AbstractReceivingLinkEndpoint
         final List<Symbol> targetCapabilities = new ArrayList<>();
         if (attachTarget.getCapabilities() != null)
         {
-            final List<Symbol> desiredCapabilities = Arrays.asList(attachTarget.getCapabilities());
-            if (desiredCapabilities.contains(Symbols.TEMPORARY_TOPIC))
+            if (attachTarget.hasCapability(Symbols.TEMPORARY_TOPIC))
             {
                 targetCapabilities.add(Symbols.TEMPORARY_TOPIC);
             }
-            if (desiredCapabilities.contains(Symbols.TEMPORARY_QUEUE))
+            if (attachTarget.hasCapability(Symbols.TEMPORARY_QUEUE))
             {
                 targetCapabilities.add(Symbols.TEMPORARY_QUEUE);
             }
-            if (desiredCapabilities.contains(Symbols.TOPIC))
+            if (attachTarget.hasCapability(Symbols.TOPIC))
             {
                 targetCapabilities.add(Symbols.TOPIC);
             }
@@ -498,8 +497,7 @@ public class StandardReceivingLinkEndpoint extends AbstractReceivingLinkEndpoint
             }
         }
         getLink().setTermini(source, target);
-        _rejectedOutcomeSupportedBySource =
-                source.getOutcomes() != null && Arrays.asList(source.getOutcomes()).contains(Symbols.AMQP_REJECTED);
+        _rejectedOutcomeSupportedBySource = source.hasOutcome(Symbols.AMQP_REJECTED);
     }
 
     public ReceivingDestination getReceivingDestination()

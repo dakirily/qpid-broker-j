@@ -22,7 +22,6 @@
 package org.apache.qpid.server.protocol.v1_0;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashMap;
@@ -382,9 +381,7 @@ public class SendingLinkEndpoint extends AbstractLinkEndpoint<Source, Target>
         Source source = getSource();
         if (source == null && attach.getDesiredCapabilities() != null)
         {
-            List<Symbol> capabilities = Arrays.asList(attach.getDesiredCapabilities());
-            if (capabilities.contains(Symbols.GLOBAL_CAPABILITY)
-                && capabilities.contains(Symbols.SHARED_CAPABILITY)
+            if (attach.contains(attach.getDesiredCapabilities(), Symbols.GLOBAL_CAPABILITY, Symbols.SHARED_CAPABILITY)
                 && getLinkName().endsWith("|global"))
             {
                 final NamedAddressSpace namedAddressSpace = getSession().getConnection().getAddressSpace();
@@ -831,7 +828,6 @@ public class SendingLinkEndpoint extends AbstractLinkEndpoint<Source, Target>
         Source source = getSource();
         TerminusExpiryPolicy expiryPolicy = source.getExpiryPolicy();
         NamedAddressSpace addressSpace = getSession().getConnection().getAddressSpace();
-        List<Symbol> sourceCapabilities = source.getCapabilities() == null ? Collections.emptyList() : Arrays.asList(source.getCapabilities());
 
         if (close
             || TerminusExpiryPolicy.LINK_DETACH.equals(expiryPolicy)
@@ -855,10 +851,9 @@ public class SendingLinkEndpoint extends AbstractLinkEndpoint<Source, Target>
                     TerminusDurability sourceDurability = source.getDurable();
                     if (sourceDurability != null
                         && !TerminusDurability.NONE.equals(sourceDurability)
-                        && sourceCapabilities.contains(Symbols.SHARED_CAPABILITY)
-                        && sourceCapabilities.contains(ExchangeSendingDestination.TOPIC_CAPABILITY))
+                        && source.hasCapabilities(Symbols.SHARED_CAPABILITY, ExchangeSendingDestination.TOPIC_CAPABILITY))
                     {
-                        final Pattern containerIdPattern = sourceCapabilities.contains(Symbols.GLOBAL_CAPABILITY)
+                        final Pattern containerIdPattern = source.hasCapability(Symbols.GLOBAL_CAPABILITY)
                                 ? ANY_CONTAINER_ID
                                 : Pattern.compile("^" + Pattern.quote(getSession().getConnection().getRemoteContainerId()) + "$");
                         final Pattern linkNamePattern = Pattern.compile("^" + Pattern.quote(getLinkName()) + "\\|?\\d*$");
@@ -881,8 +876,7 @@ public class SendingLinkEndpoint extends AbstractLinkEndpoint<Source, Target>
                 catch (IllegalStateException e)
                 {
                     String message;
-                    if(sourceCapabilities.contains(Symbols.SHARED_CAPABILITY)
-                       && sourceCapabilities.contains(ExchangeSendingDestination.TOPIC_CAPABILITY))
+                    if(source.hasCapabilities(Symbols.SHARED_CAPABILITY, ExchangeSendingDestination.TOPIC_CAPABILITY))
                     {
                         String subscriptionName = getLinkName();
                         int separator = subscriptionName.indexOf("|");
@@ -914,9 +908,7 @@ public class SendingLinkEndpoint extends AbstractLinkEndpoint<Source, Target>
         }
         else if (addressSpace instanceof QueueManagingVirtualHost
                  && ((QueueManagingVirtualHost) addressSpace).isDiscardGlobalSharedSubscriptionLinksOnDetach()
-                 && sourceCapabilities.contains(Symbols.SHARED_CAPABILITY)
-                 && sourceCapabilities.contains(Symbols.GLOBAL_CAPABILITY)
-                 && sourceCapabilities.contains(ExchangeSendingDestination.TOPIC_CAPABILITY)
+                 && source.hasCapabilities(Symbols.SHARED_CAPABILITY, Symbols.GLOBAL_CAPABILITY, ExchangeSendingDestination.TOPIC_CAPABILITY)
                  && !getLinkName().endsWith("|global"))
         {
             // For JMS 2.0 global shared subscriptions we do not want to keep the links hanging around.

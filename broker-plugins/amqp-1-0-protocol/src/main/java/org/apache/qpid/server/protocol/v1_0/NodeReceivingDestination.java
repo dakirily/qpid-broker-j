@@ -42,7 +42,7 @@ import org.apache.qpid.server.store.StorableMessageMetaData;
 import org.apache.qpid.server.txn.ServerTransaction;
 import org.apache.qpid.server.txn.TransactionMonitor;
 
-public class NodeReceivingDestination implements ReceivingDestination
+public class NodeReceivingDestination implements ReceivingDestination, CapabilitiesAware
 {
     private static final Symbol[] CAPABILITIES_DISCARD = { Symbols.DISCARD_UNROUTABLE, Symbols.DELAYED_DELIVERY };
     private static final Symbol[] CAPABILITIES_REJECT = { Symbols.REJECT_UNROUTABLE, Symbols.DELAYED_DELIVERY };
@@ -70,8 +70,8 @@ public class NodeReceivingDestination implements ReceivingDestination
 
         if (_destination instanceof Exchange)
         {
-            _discardUnroutable = ((capabilities != null && Arrays.asList(capabilities).contains(Symbols.DISCARD_UNROUTABLE))
-                                     || ((Exchange)_destination).getUnroutableMessageBehaviour() == Exchange.UnroutableMessageBehaviour.DISCARD);
+            _discardUnroutable = (contains(capabilities, Symbols.DISCARD_UNROUTABLE) ||
+                    ((Exchange)_destination).getUnroutableMessageBehaviour() == Exchange.UnroutableMessageBehaviour.DISCARD);
             _routingAddress = destinationAddress.getRoutingKey();
             _address = _destination.getName();
         }
