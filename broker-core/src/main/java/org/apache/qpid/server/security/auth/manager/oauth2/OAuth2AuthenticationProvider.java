@@ -30,6 +30,7 @@ import org.apache.qpid.server.model.NamedAddressSpace;
 import org.apache.qpid.server.model.TrustStore;
 import org.apache.qpid.server.security.auth.AuthenticationResult;
 import org.apache.qpid.server.security.auth.manager.CachingAuthenticationProvider;
+import org.apache.qpid.server.util.HttpClientTransport;
 
 @ManagedObject( category = false, type = "OAuth2" )
 public interface OAuth2AuthenticationProvider<T extends OAuth2AuthenticationProvider<T>>
@@ -43,30 +44,43 @@ public interface OAuth2AuthenticationProvider<T extends OAuth2AuthenticationProv
     @ManagedContextDefault(name = AUTHENTICATION_OAUTH2_READ_TIMEOUT)
     int DEFAULT_AUTHENTICATION_OAUTH2_READ_TIMEOUT = 60000;
 
-    @ManagedAttribute( description = "Redirect URI to obtain authorization code grant", mandatory = true, defaultValue = "${this:defaultAuthorizationEndpointURI}")
+    @ManagedAttribute( description = "Redirect URI to obtain authorization code grant",
+            mandatory = true,
+            defaultValue = "${this:defaultAuthorizationEndpointURI}")
     URI getAuthorizationEndpointURI();
 
-    URI getAuthorizationEndpointURI(NamedAddressSpace addressSpace);
+    URI getAuthorizationEndpointURI(final NamedAddressSpace addressSpace);
 
-    @ManagedAttribute( description = "Token endpoint URI to exchange an authorization code grant for an access token", mandatory = true, defaultValue = "${this:defaultTokenEndpointURI}" )
+    @ManagedAttribute(
+            description = "Token endpoint URI to exchange an authorization code grant for an access token",
+            mandatory = true,
+            defaultValue = "${this:defaultTokenEndpointURI}" )
     URI getTokenEndpointURI();
 
-    URI getTokenEndpointURI(NamedAddressSpace addressSpace);
+    URI getTokenEndpointURI(final NamedAddressSpace addressSpace);
 
-    @ManagedAttribute( description = "Whether to use basic authentication when accessing the token endpoint", defaultValue = "false" )
+    @ManagedAttribute( description = "Whether to use basic authentication when accessing the token endpoint",
+            defaultValue = "false" )
     boolean getTokenEndpointNeedsAuth();
 
-    @ManagedAttribute( description = "Identity resolver endpoint URI to get user information associated with a given access token", mandatory = true, defaultValue = "${this:defaultIdentityResolverEndpointURI}"  )
+    @ManagedAttribute(
+            description = "Identity resolver endpoint URI to get user information associated with a given access token",
+            mandatory = true,
+            defaultValue = "${this:defaultIdentityResolverEndpointURI}"  )
     URI getIdentityResolverEndpointURI();
 
-    URI getIdentityResolverEndpointURI(NamedAddressSpace addressSpace);
+    URI getIdentityResolverEndpointURI(final NamedAddressSpace addressSpace);
 
 
     @ManagedAttribute( description = "The type of the IdentityResolver", mandatory = true,
-            validValues = {"org.apache.qpid.server.security.auth.manager.oauth2.OAuth2AuthenticationProviderImpl#validIdentityResolvers()"})
+            validValues = {
+                    "org.apache.qpid.server.security.auth.manager.oauth2.OAuth2AuthenticationProviderImpl"
+                    + "#validIdentityResolvers()" })
     String getIdentityResolverType();
 
-    @ManagedAttribute( description = "Redirect URI used when the user leaves the Web Management Console. If not specified, an internal page is used instead.")
+    @ManagedAttribute(
+            description = "Redirect URI used when the user leaves the Web Management Console. If not specified,"
+                          + " an internal page is used instead.")
     URI getPostLogoutURI();
 
     @ManagedAttribute( description = "Client ID to identify qpid to the OAuth endpoints", mandatory = true )
@@ -75,20 +89,23 @@ public interface OAuth2AuthenticationProvider<T extends OAuth2AuthenticationProv
     @ManagedAttribute( description = "Client secret to identify qpid to the OAuth endpoints", secure = true )
     String getClientSecret();
 
-    @ManagedAttribute( description = "The OAuth2 access token scope passed to the authorization endpoint", defaultValue = "${this:defaultScope}")
+    @ManagedAttribute( description = "The OAuth2 access token scope passed to the authorization endpoint",
+            defaultValue = "${this:defaultScope}")
     String getScope();
 
     @ManagedAttribute( description = "TrustStore to use when contacting OAuth2 endpoints" )
-    TrustStore getTrustStore();
+    TrustStore<?> getTrustStore();
 
     @Override
     @ManagedAttribute( defaultValue = "[ \"XOAUTH2\" ]")
     List<String> getSecureOnlyMechanisms();
 
-    AuthenticationResult authenticateViaAuthorizationCode(String authorizationCode, final String redirectUri, NamedAddressSpace addressSpace);
+    AuthenticationResult authenticateViaAuthorizationCode(final String authorizationCode,
+                                                           final String redirectUri,
+                                                           final NamedAddressSpace addressSpace);
 
-    AuthenticationResult authenticateViaAccessToken(String accessToken,
-                                                    final NamedAddressSpace addressSpace);
+    AuthenticationResult authenticateViaAccessToken(final String accessToken,
+                                                     final NamedAddressSpace addressSpace);
 
     @DerivedAttribute( description = "Default redirect URI to obtain authorization code grant")
     URI getDefaultAuthorizationEndpointURI();
@@ -117,4 +134,9 @@ public interface OAuth2AuthenticationProvider<T extends OAuth2AuthenticationProv
     int getConnectTimeout();
 
     int getReadTimeout();
+
+    default HttpClientTransport getHttpClientTransport()
+    {
+        return OAuth2Utils.createHttpClientTransport(this);
+    }
 }

@@ -22,17 +22,12 @@ package org.apache.qpid.server.security.auth.manager.oauth2;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.io.UnsupportedEncodingException;
-import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.net.URL;
 import java.net.URLEncoder;
-import java.security.GeneralSecurityException;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.security.Principal;
-import java.util.Base64;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -62,9 +57,8 @@ import org.apache.qpid.server.security.auth.manager.AuthenticationResultCacher;
 import org.apache.qpid.server.security.auth.sasl.SaslNegotiator;
 import org.apache.qpid.server.security.auth.sasl.SaslSettings;
 import org.apache.qpid.server.security.auth.sasl.oauth2.OAuth2Negotiator;
-import org.apache.qpid.server.util.ConnectionBuilder;
+import org.apache.qpid.server.util.HttpClientTransport;
 import org.apache.qpid.server.util.ParameterizedTypes;
-import org.apache.qpid.server.util.ServerScopedRuntimeException;
 import org.apache.qpid.server.util.Strings;
 
 public class OAuth2AuthenticationProviderImpl
@@ -73,6 +67,7 @@ public class OAuth2AuthenticationProviderImpl
 {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(OAuth2AuthenticationProviderImpl.class);
+    private static final String TRUST_STORE_ATTRIBUTE = "trustStore";
 
     private final ObjectMapper _objectMapper = JsonMapper.builder().build();
 
@@ -98,7 +93,7 @@ public class OAuth2AuthenticationProviderImpl
     private String _clientSecret;
 
     @ManagedAttributeField
-    private TrustStore _trustStore;
+    private TrustStore<?> _trustStore;
 
     @ManagedAttributeField
     private String _scope;
@@ -118,6 +113,7 @@ public class OAuth2AuthenticationProviderImpl
     private int _readTimeout;
 
     private AuthenticationResultCacher _authenticationResultCacher;
+    private volatile HttpClientTransport _httpClientTransport;
 
     @ManagedObjectFactoryConstructor
     protected OAuth2AuthenticationProviderImpl(final Map<String, Object> attributes,
@@ -130,28 +126,64 @@ public class OAuth2AuthenticationProviderImpl
     protected void onOpen()
     {
         super.onOpen();
-        String type = getIdentityResolverType();
-        _identityResolverService = new QpidServiceLoader().getInstancesByType(OAuth2IdentityResolverService.class).get(type);
-        _tlsProtocolAllowList = getContextValue(List.class, ParameterizedTypes.LIST_OF_STRINGS, CommonProperties.QPID_SECURITY_TLS_PROTOCOL_ALLOW_LIST);
-        _tlsProtocolDenyList = getContextValue(List.class, ParameterizedTypes.LIST_OF_STRINGS, CommonProperties.QPID_SECURITY_TLS_PROTOCOL_DENY_LIST);
-        _tlsCipherSuiteAllowList = getContextValue(List.class, ParameterizedTypes.LIST_OF_STRINGS, CommonProperties.QPID_SECURITY_TLS_CIPHER_SUITE_ALLOW_LIST);
-        _tlsCipherSuiteDenyList = getContextValue(List.class, ParameterizedTypes.LIST_OF_STRINGS, CommonProperties.QPID_SECURITY_TLS_CIPHER_SUITE_DENY_LIST);
+        final String type = getIdentityResolverType();
+        _identityResolverService =
+                new QpidServiceLoader().getInstancesByType(OAuth2IdentityResolverService.class).get(type);
+        _tlsProtocolAllowList =
+                getContextValue(List.class,
+                                ParameterizedTypes.LIST_OF_STRINGS,
+                                CommonProperties.QPID_SECURITY_TLS_PROTOCOL_ALLOW_LIST);
+        _tlsProtocolDenyList =
+                getContextValue(List.class,
+                                ParameterizedTypes.LIST_OF_STRINGS,
+                                CommonProperties.QPID_SECURITY_TLS_PROTOCOL_DENY_LIST);
+        _tlsCipherSuiteAllowList =
+                getContextValue(List.class,
+                                ParameterizedTypes.LIST_OF_STRINGS,
+                                CommonProperties.QPID_SECURITY_TLS_CIPHER_SUITE_ALLOW_LIST);
+        _tlsCipherSuiteDenyList =
+                getContextValue(List.class,
+                                ParameterizedTypes.LIST_OF_STRINGS,
+                                CommonProperties.QPID_SECURITY_TLS_CIPHER_SUITE_DENY_LIST);
         _connectTimeout = getContextValue(Integer.class, AUTHENTICATION_OAUTH2_CONNECT_TIMEOUT);
         _readTimeout = getContextValue(Integer.class, AUTHENTICATION_OAUTH2_READ_TIMEOUT);
+        _httpClientTransport = OAuth2Utils.createHttpClientTransport(this);
 
-        Integer cacheMaxSize = getContextValue(Integer.class, AUTHENTICATION_CACHE_MAX_SIZE);
-        Long cacheExpirationTime = getContextValue(Long.class, AUTHENTICATION_CACHE_EXPIRATION_TIME);
-        Integer cacheIterationCount = getContextValue(Integer.class, AUTHENTICATION_CACHE_ITERATION_COUNT);
-        if (cacheMaxSize == null || cacheMaxSize <= 0
-            || cacheExpirationTime == null || cacheExpirationTime <= 0
-            || cacheIterationCount == null || cacheIterationCount < 0)
+        final Integer configuredCacheMaxSize = getContextValue(Integer.class, AUTHENTICATION_CACHE_MAX_SIZE);
+        final Long configuredCacheExpirationTime =
+                getContextValue(Long.class, AUTHENTICATION_CACHE_EXPIRATION_TIME);
+        final Integer configuredCacheIterationCount =
+                getContextValue(Integer.class, AUTHENTICATION_CACHE_ITERATION_COUNT);
+        final int cacheMaxSize;
+        final long cacheExpirationTime;
+        final int cacheIterationCount;
+        if (configuredCacheMaxSize == null || configuredCacheMaxSize <= 0
+            || configuredCacheExpirationTime == null || configuredCacheExpirationTime <= 0
+            || configuredCacheIterationCount == null || configuredCacheIterationCount < 0)
         {
             LOGGER.debug("disabling authentication result caching");
             cacheMaxSize = 0;
             cacheExpirationTime = 1L;
             cacheIterationCount = 0;
         }
-        _authenticationResultCacher = new AuthenticationResultCacher(cacheMaxSize, cacheExpirationTime, cacheIterationCount);
+        else
+        {
+            cacheMaxSize = configuredCacheMaxSize;
+            cacheExpirationTime = configuredCacheExpirationTime;
+            cacheIterationCount = configuredCacheIterationCount;
+        }
+        _authenticationResultCacher =
+                new AuthenticationResultCacher(cacheMaxSize, cacheExpirationTime, cacheIterationCount);
+    }
+
+    @Override
+    protected void postSetAttributes(final Set<String> actualUpdatedAttributes)
+    {
+        super.postSetAttributes(actualUpdatedAttributes);
+        if (_httpClientTransport != null && actualUpdatedAttributes.contains(TRUST_STORE_ATTRIBUTE))
+        {
+            _httpClientTransport = OAuth2Utils.createHttpClientTransport(this);
+        }
     }
 
     @Override
@@ -177,15 +209,20 @@ public class OAuth2AuthenticationProviderImpl
     {
         if (!"https".equals(provider.getAuthorizationEndpointURI().getScheme()))
         {
-            throw new IllegalConfigurationException(String.format("Authorization endpoint is not secure: '%s'", provider.getAuthorizationEndpointURI()));
+            throw new IllegalConfigurationException(
+                    String.format("Authorization endpoint is not secure: '%s'",
+                                  provider.getAuthorizationEndpointURI()));
         }
         if (!"https".equals(provider.getTokenEndpointURI().getScheme()))
         {
-            throw new IllegalConfigurationException(String.format("Token endpoint is not secure: '%s'", provider.getTokenEndpointURI()));
+            throw new IllegalConfigurationException(
+                    String.format("Token endpoint is not secure: '%s'", provider.getTokenEndpointURI()));
         }
         if (!"https".equals(provider.getIdentityResolverEndpointURI().getScheme()))
         {
-            throw new IllegalConfigurationException(String.format("Identity resolver endpoint is not secure: '%s'", provider.getIdentityResolverEndpointURI()));
+            throw new IllegalConfigurationException(
+                    String.format("Identity resolver endpoint is not secure: '%s'",
+                                  provider.getIdentityResolverEndpointURI()));
         }
     }
 
@@ -193,10 +230,12 @@ public class OAuth2AuthenticationProviderImpl
     {
         if (provider.getPostLogoutURI() != null)
         {
-            String scheme = provider.getPostLogoutURI().getScheme();
+            final String scheme = provider.getPostLogoutURI().getScheme();
             if (!"https".equals(scheme) && !"http".equals(scheme))
             {
-                throw new IllegalConfigurationException(String.format("Post logout URI does not have a http or https scheme: '%s'", provider.getPostLogoutURI()));
+                throw new IllegalConfigurationException(
+                        String.format("Post logout URI does not have a http or https scheme: '%s'",
+                                      provider.getPostLogoutURI()));
             }
         }
     }
@@ -204,9 +243,10 @@ public class OAuth2AuthenticationProviderImpl
     private void validateResolver(final OAuth2AuthenticationProvider<?> provider)
     {
         final OAuth2IdentityResolverService identityResolverService =
-                new QpidServiceLoader().getInstancesByType(OAuth2IdentityResolverService.class).get(provider.getIdentityResolverType());
+                new QpidServiceLoader().getInstancesByType(OAuth2IdentityResolverService.class)
+                        .get(provider.getIdentityResolverType());
 
-        if(identityResolverService == null)
+        if (identityResolverService == null)
         {
             throw new IllegalConfigurationException("Unknown identity resolver " + provider.getType());
         }
@@ -238,47 +278,23 @@ public class OAuth2AuthenticationProviderImpl
     }
 
     @Override
-    public AuthenticationResult authenticateViaAuthorizationCode(final String authorizationCode, final String redirectUri, NamedAddressSpace addressSpace)
+    public AuthenticationResult authenticateViaAuthorizationCode(final String authorizationCode,
+                                                                 final String redirectUri,
+                                                                 final NamedAddressSpace addressSpace)
     {
-        URL tokenEndpoint;
-        HttpURLConnection connection;
-        byte[] body;
+        final URI tokenEndpoint = getTokenEndpointURI(addressSpace);
         try
         {
-            tokenEndpoint = getTokenEndpointURI(addressSpace).toURL();
-
-
-            ConnectionBuilder connectionBuilder = new ConnectionBuilder(tokenEndpoint);
-            connectionBuilder.setConnectTimeout(_connectTimeout).setReadTimeout(_readTimeout);
-            if (getTrustStore() != null)
-            {
-                try
-                {
-                    connectionBuilder.setTrustMangers(getTrustStore().getTrustManagers());
-                }
-                catch (GeneralSecurityException e)
-                {
-                    throw new ServerScopedRuntimeException("Cannot initialise TLS", e);
-                }
-            }
-            connectionBuilder.setTlsProtocolAllowList(getTlsProtocolAllowList())
-                    .setTlsProtocolDenyList(getTlsProtocolDenyList())
-                    .setTlsCipherSuiteAllowList(getTlsCipherSuiteAllowList())
-                    .setTlsCipherSuiteDenyList(getTlsCipherSuiteDenyList());
             LOGGER.debug("About to call token endpoint '{}'", tokenEndpoint);
-            connection = connectionBuilder.build();
-
-            connection.setDoOutput(true); // makes sure to use POST
-            connection.setRequestProperty("Accept-Charset", UTF_8.name());
-            connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded;charset=" + UTF_8.name());
-            connection.setRequestProperty("Accept", "application/json");
-
-            Map<String, String> requestBody = new HashMap<>();
-            String clientSecret = getClientSecret() == null ? "" : getClientSecret();
+            final HttpRequest.Builder requestBuilder = _httpClientTransport.newRequestBuilder(tokenEndpoint)
+                    .header("Accept", "application/json")
+                    .header("Content-Type", "application/x-www-form-urlencoded");
+            final Map<String, String> requestBody = new HashMap<>();
+            final String clientSecret = getClientSecret() == null ? "" : getClientSecret();
             if (getTokenEndpointNeedsAuth())
             {
-                String encoded = Base64.getEncoder().encodeToString((getClientId() + ":" + clientSecret).getBytes(UTF_8));
-                connection.setRequestProperty("Authorization", "Basic " + encoded);
+                requestBuilder.header("Authorization",
+                                      OAuth2Utils.buildBasicAuthorization(getClientId(), clientSecret));
             }
             else
             {
@@ -293,45 +309,45 @@ public class OAuth2AuthenticationProviderImpl
             requestBody.put("redirect_uri", redirectUri);
             requestBody.put("grant_type", "authorization_code");
             requestBody.put("response_type", "token");
-            body = OAuth2Utils.buildRequestQuery(requestBody).getBytes(UTF_8);
-            connection.connect();
+            final HttpRequest request = requestBuilder
+                    .POST(HttpRequest.BodyPublishers.ofString(OAuth2Utils.buildRequestQuery(requestBody), UTF_8))
+                    .build();
+            final HttpResponse<byte[]> response = _httpClientTransport.send(request);
+            final int responseCode = response.statusCode();
+            LOGGER.debug("Call to token endpoint '{}' complete, response code : {}", tokenEndpoint, responseCode);
 
-            try (OutputStream output = connection.getOutputStream())
+            try
             {
-                output.write(body);
-            }
-
-            try (InputStream input = OAuth2Utils.getResponseStream(connection))
-            {
-                final int responseCode = connection.getResponseCode();
-                LOGGER.debug("Call to token endpoint '{}' complete, response code : {}", tokenEndpoint, responseCode);
-
-                Map<String, Object> responseMap = _objectMapper.readValue(input, Map.class);
+                final Map<String, Object> responseMap = _objectMapper.readValue(response.body(), Map.class);
                 if (responseCode != 200 || responseMap.containsKey("error"))
                 {
-                    IllegalStateException e = new IllegalStateException(String.format("Token endpoint failed, response code %d, error '%s', description '%s'",
-                                                                                      responseCode,
-                                                                                      responseMap.get("error"),
-                                                                                      responseMap.get("error_description")));
+                    final IllegalStateException e = new IllegalStateException(
+                            String.format("Token endpoint failed, response code %d, error '%s', description '%s'",
+                                          responseCode,
+                                          responseMap.get("error"),
+                                          responseMap.get("error_description")));
                     LOGGER.error(e.getMessage());
                     return new AuthenticationResult(AuthenticationResult.AuthenticationStatus.ERROR, e);
                 }
 
-                Object accessTokenObject = responseMap.get("access_token");
+                final Object accessTokenObject = responseMap.get("access_token");
                 if (accessTokenObject == null)
                 {
-                    IllegalStateException e = new IllegalStateException("Token endpoint response did not include 'access_token'");
+                    final IllegalStateException e =
+                            new IllegalStateException("Token endpoint response did not include 'access_token'");
                     LOGGER.error("Unexpected token endpoint response", e);
                     return new AuthenticationResult(AuthenticationResult.AuthenticationStatus.ERROR, e);
                 }
-                String accessToken = String.valueOf(accessTokenObject);
+                final String accessToken = String.valueOf(accessTokenObject);
 
                 return authenticateViaAccessToken(accessToken, addressSpace);
             }
             catch (JacksonException e)
             {
-                IllegalStateException ise = new IllegalStateException(String.format("Token endpoint '%s' did not return json",
-                                                                                    tokenEndpoint), e);
+                final IllegalStateException ise =
+                        new IllegalStateException(String.format("Token endpoint '%s' did not return json",
+                                                               tokenEndpoint),
+                                                  e);
                 LOGGER.error("Unexpected token endpoint response", e);
                 return new AuthenticationResult(AuthenticationResult.AuthenticationStatus.ERROR, ise);
             }
@@ -344,6 +360,12 @@ public class OAuth2AuthenticationProviderImpl
     }
 
     @Override
+    public HttpClientTransport getHttpClientTransport()
+    {
+        return _httpClientTransport;
+    }
+
+    @Override
     public AuthenticationResult authenticateViaAccessToken(final String accessToken,
                                                            final NamedAddressSpace addressSpace)
     {
@@ -351,8 +373,14 @@ public class OAuth2AuthenticationProviderImpl
         {
             try
             {
-                final Principal userPrincipal = _identityResolverService.getUserPrincipal(OAuth2AuthenticationProviderImpl.this, accessToken, addressSpace);
-                OAuth2UserPrincipal oauthUserPrincipal = new OAuth2UserPrincipal(userPrincipal.getName(), accessToken, OAuth2AuthenticationProviderImpl.this);
+                final Principal userPrincipal =
+                        _identityResolverService.getUserPrincipal(OAuth2AuthenticationProviderImpl.this,
+                                                                  accessToken,
+                                                                  addressSpace);
+                final OAuth2UserPrincipal oauthUserPrincipal =
+                        new OAuth2UserPrincipal(userPrincipal.getName(),
+                                                accessToken,
+                                                OAuth2AuthenticationProviderImpl.this);
                 return new AuthenticationResult(oauthUserPrincipal);
             }
             catch (IOException | IdentityResolverException e)
@@ -370,7 +398,7 @@ public class OAuth2AuthenticationProviderImpl
     }
 
     @Override
-    public URI getAuthorizationEndpointURI(NamedAddressSpace addressSpace)
+    public URI getAuthorizationEndpointURI(final NamedAddressSpace addressSpace)
     {
         return getUriForAddressSpace(getAuthorizationEndpointURI(), addressSpace);
     }
@@ -383,7 +411,7 @@ public class OAuth2AuthenticationProviderImpl
     }
 
     @Override
-    public URI getTokenEndpointURI(NamedAddressSpace addressSpace)
+    public URI getTokenEndpointURI(final NamedAddressSpace addressSpace)
     {
 
         return getUriForAddressSpace(getTokenEndpointURI(), addressSpace);
@@ -396,27 +424,27 @@ public class OAuth2AuthenticationProviderImpl
     }
 
     @Override
-    public URI getIdentityResolverEndpointURI(NamedAddressSpace addressSpace)
+    public URI getIdentityResolverEndpointURI(final NamedAddressSpace addressSpace)
     {
         return getUriForAddressSpace(getIdentityResolverEndpointURI(), addressSpace);
     }
 
-    private URI getUriForAddressSpace(URI uri, final NamedAddressSpace addressSpace)
+    private URI getUriForAddressSpace(final URI uri, final NamedAddressSpace addressSpace)
     {
         try
         {
-            String vhostName = URLEncoder.encode(addressSpace == null
-                                                         ? ""
-                                                         : addressSpace.getName(),
-                                                 UTF_8.name());
+            final String vhostName = URLEncoder.encode(addressSpace == null
+                                                               ? ""
+                                                               : addressSpace.getName(),
+                                                       UTF_8);
 
-            final Strings.MapResolver virtualhostResolver = new Strings.MapResolver(Collections.singletonMap("virtualhost",
-                                                                                                         vhostName));
+            final Strings.MapResolver virtualhostResolver =
+                    new Strings.MapResolver(Collections.singletonMap("virtualhost", vhostName));
 
-            String substitutedURI = Strings.expand(uri.toString(), false, virtualhostResolver);
-            uri = new URI(substitutedURI);
+            final String substitutedURI = Strings.expand(uri.toString(), false, virtualhostResolver);
+            return new URI(substitutedURI);
         }
-        catch (UnsupportedEncodingException | URISyntaxException e)
+        catch (URISyntaxException e)
         {
             LOGGER.error("Error when attempting to build URI from address space: ", e);
         }
@@ -455,7 +483,7 @@ public class OAuth2AuthenticationProviderImpl
     }
 
     @Override
-    public TrustStore getTrustStore()
+    public TrustStore<?> getTrustStore()
     {
         return _trustStore;
     }
@@ -470,15 +498,19 @@ public class OAuth2AuthenticationProviderImpl
     public URI getDefaultAuthorizationEndpointURI()
     {
         final OAuth2IdentityResolverService identityResolverService =
-                new QpidServiceLoader().getInstancesByType(OAuth2IdentityResolverService.class).get(getIdentityResolverType());
-        return identityResolverService == null ? null : identityResolverService.getDefaultAuthorizationEndpointURI(this);
+                new QpidServiceLoader().getInstancesByType(OAuth2IdentityResolverService.class)
+                        .get(getIdentityResolverType());
+        return identityResolverService == null
+                ? null
+                : identityResolverService.getDefaultAuthorizationEndpointURI(this);
     }
 
     @Override
     public URI getDefaultTokenEndpointURI()
     {
         final OAuth2IdentityResolverService identityResolverService =
-                new QpidServiceLoader().getInstancesByType(OAuth2IdentityResolverService.class).get(getIdentityResolverType());
+                new QpidServiceLoader().getInstancesByType(OAuth2IdentityResolverService.class)
+                        .get(getIdentityResolverType());
         return identityResolverService == null ? null : identityResolverService.getDefaultTokenEndpointURI(this);
     }
 
@@ -486,16 +518,21 @@ public class OAuth2AuthenticationProviderImpl
     public URI getDefaultIdentityResolverEndpointURI()
     {
         final OAuth2IdentityResolverService identityResolverService =
-                new QpidServiceLoader().getInstancesByType(OAuth2IdentityResolverService.class).get(getIdentityResolverType());
-        return identityResolverService == null ? null : identityResolverService.getDefaultIdentityResolverEndpointURI(this);
+                new QpidServiceLoader().getInstancesByType(OAuth2IdentityResolverService.class)
+                        .get(getIdentityResolverType());
+        return identityResolverService == null
+                ? null
+                : identityResolverService.getDefaultIdentityResolverEndpointURI(this);
     }
 
     @Override
     public String getDefaultScope()
     {
         final OAuth2IdentityResolverService identityResolverService =
-                new QpidServiceLoader().getInstancesByType(OAuth2IdentityResolverService.class).get(getIdentityResolverType());
-        return identityResolverService == null ? null : identityResolverService.getDefaultScope(this);    }
+                new QpidServiceLoader().getInstancesByType(OAuth2IdentityResolverService.class)
+                        .get(getIdentityResolverType());
+        return identityResolverService == null ? null : identityResolverService.getDefaultScope(this);
+    }
 
     @Override
     public List<String> getTlsProtocolAllowList()

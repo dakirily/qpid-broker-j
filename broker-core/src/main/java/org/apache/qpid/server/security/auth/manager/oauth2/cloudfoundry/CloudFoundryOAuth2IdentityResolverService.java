@@ -23,14 +23,10 @@ package org.apache.qpid.server.security.auth.manager.oauth2.cloudfoundry;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.net.HttpURLConnection;
 import java.net.URI;
-import java.net.URL;
-import java.security.GeneralSecurityException;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.security.Principal;
-import java.util.Base64;
 import java.util.Collections;
 import java.util.Map;
 
@@ -43,15 +39,13 @@ import tools.jackson.databind.json.JsonMapper;
 
 import org.apache.qpid.server.configuration.IllegalConfigurationException;
 import org.apache.qpid.server.model.NamedAddressSpace;
-import org.apache.qpid.server.model.TrustStore;
 import org.apache.qpid.server.plugin.PluggableService;
 import org.apache.qpid.server.security.auth.UsernamePrincipal;
 import org.apache.qpid.server.security.auth.manager.oauth2.IdentityResolverException;
 import org.apache.qpid.server.security.auth.manager.oauth2.OAuth2AuthenticationProvider;
 import org.apache.qpid.server.security.auth.manager.oauth2.OAuth2IdentityResolverService;
 import org.apache.qpid.server.security.auth.manager.oauth2.OAuth2Utils;
-import org.apache.qpid.server.util.ConnectionBuilder;
-import org.apache.qpid.server.util.ServerScopedRuntimeException;
+import org.apache.qpid.server.util.HttpClientTransport;
 
 @PluggableService
 public class CloudFoundryOAuth2IdentityResolverService implements OAuth2IdentityResolverService
@@ -76,82 +70,53 @@ public class CloudFoundryOAuth2IdentityResolverService implements OAuth2Identity
     @Override
     public Principal getUserPrincipal(final OAuth2AuthenticationProvider<?> authenticationProvider,
                                       final String accessToken,
-                                      final NamedAddressSpace addressSpace) throws IOException, IdentityResolverException
+                                      final NamedAddressSpace addressSpace)
+            throws IOException, IdentityResolverException
     {
-        URL checkTokenEndpoint = authenticationProvider.getIdentityResolverEndpointURI(addressSpace).toURL();
-        TrustStore trustStore = authenticationProvider.getTrustStore();
-        String clientId = authenticationProvider.getClientId();
-        String clientSecret = authenticationProvider.getClientSecret();
-
-        ConnectionBuilder connectionBuilder = new ConnectionBuilder(checkTokenEndpoint);
-        connectionBuilder.setConnectTimeout(authenticationProvider.getConnectTimeout())
-                         .setReadTimeout(authenticationProvider.getReadTimeout());
-        if (trustStore != null)
-        {
-            try
-            {
-                connectionBuilder.setTrustMangers(trustStore.getTrustManagers());
-            }
-            catch (GeneralSecurityException e)
-            {
-                throw new ServerScopedRuntimeException("Cannot initialise TLS", e);
-            }
-        }
-        connectionBuilder.setTlsProtocolAllowList(authenticationProvider.getTlsProtocolAllowList())
-                         .setTlsProtocolDenyList(authenticationProvider.getTlsProtocolDenyList())
-                         .setTlsCipherSuiteAllowList(authenticationProvider.getTlsCipherSuiteAllowList())
-                         .setTlsCipherSuiteDenyList(authenticationProvider.getTlsCipherSuiteDenyList());
-
+        final URI checkTokenEndpoint = authenticationProvider.getIdentityResolverEndpointURI(addressSpace);
+        final String clientId = authenticationProvider.getClientId();
+        final String clientSecret = authenticationProvider.getClientSecret();
         LOGGER.debug("About to call identity service '{}'", checkTokenEndpoint);
-        HttpURLConnection connection = connectionBuilder.build();
+        final Map<String, String> requestParameters = Collections.singletonMap("token", accessToken);
+        final HttpClientTransport transport = authenticationProvider.getHttpClientTransport();
+        final HttpRequest request = transport.newRequestBuilder(checkTokenEndpoint)
+                .header("Accept", "application/json")
+                .header("Content-Type", "application/x-www-form-urlencoded")
+                .header("Authorization", OAuth2Utils.buildBasicAuthorization(clientId, clientSecret))
+                .POST(HttpRequest.BodyPublishers.ofString(OAuth2Utils.buildRequestQuery(requestParameters), UTF_8))
+                .build();
+        final HttpResponse<byte[]> response = transport.send(request);
+        final int responseCode = response.statusCode();
+        LOGGER.debug("Call to identity service '{}' complete, response code : {}",
+                     checkTokenEndpoint,
+                     responseCode);
 
-        connection.setDoOutput(true); // makes sure to use POST
-        connection.setRequestProperty("Accept-Charset", UTF_8.name());
-        connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded;charset=" + UTF_8.name());
-        connection.setRequestProperty("Accept", "application/json");
-        String encoded = Base64.getEncoder().encodeToString((clientId + ":" + clientSecret).getBytes(UTF_8));
-        connection.setRequestProperty("Authorization", "Basic " + encoded);
-
-        final Map<String,String> requestParameters = Collections.singletonMap("token", accessToken);
-
-        connection.connect();
-
-        try (OutputStream output = connection.getOutputStream())
+        final Map<String, String> responseMap;
+        try
         {
-            output.write(OAuth2Utils.buildRequestQuery(requestParameters).getBytes(UTF_8));
-            output.close();
-
-            try (InputStream input = OAuth2Utils.getResponseStream(connection))
-            {
-                int responseCode = connection.getResponseCode();
-                LOGGER.debug("Call to identity service '{}' complete, response code : {}", checkTokenEndpoint, responseCode);
-
-                Map<String, String> responseMap = null;
-                try
-                {
-                    responseMap = _objectMapper.readValue(input, Map.class);
-                }
-                catch (JacksonException e)
-                {
-                    throw new IOException(String.format("Identity resolver '%s' did not return json", checkTokenEndpoint), e);
-                }
-                if (responseCode != 200)
-                {
-                    throw new IdentityResolverException(String.format("Identity resolver '%s' failed, response code %d, error '%s', description '%s'",
-                                                                      checkTokenEndpoint,
-                                                                      responseCode,
-                                                                      responseMap.get("error"),
-                                                                      responseMap.get("error_description")));
-                }
-                final String userName = responseMap.get("user_name");
-                if (userName == null)
-                {
-                    throw new IdentityResolverException(String.format("Identity resolver '%s' failed, response did not include 'user_name'",
-                                                                      checkTokenEndpoint));
-                }
-                return new UsernamePrincipal(userName, authenticationProvider);
-            }
+            responseMap = _objectMapper.readValue(response.body(), Map.class);
         }
+        catch (JacksonException e)
+        {
+            throw new IOException(String.format("Identity resolver '%s' did not return json", checkTokenEndpoint), e);
+        }
+        if (responseCode != 200)
+        {
+            throw new IdentityResolverException(
+                    String.format("Identity resolver '%s' failed, response code %d, error '%s', description '%s'",
+                                  checkTokenEndpoint,
+                                  responseCode,
+                                  responseMap.get("error"),
+                                  responseMap.get("error_description")));
+        }
+        final String userName = responseMap.get("user_name");
+        if (userName == null)
+        {
+            throw new IdentityResolverException(
+                    String.format("Identity resolver '%s' failed, response did not include 'user_name'",
+                                  checkTokenEndpoint));
+        }
+        return new UsernamePrincipal(userName, authenticationProvider);
     }
 
     @Override
@@ -167,7 +132,8 @@ public class CloudFoundryOAuth2IdentityResolverService implements OAuth2Identity
     }
 
     @Override
-    public URI getDefaultIdentityResolverEndpointURI(final OAuth2AuthenticationProvider<?> oAuth2AuthenticationProvider)
+    public URI getDefaultIdentityResolverEndpointURI(
+            final OAuth2AuthenticationProvider<?> oAuth2AuthenticationProvider)
     {
         return null;
     }

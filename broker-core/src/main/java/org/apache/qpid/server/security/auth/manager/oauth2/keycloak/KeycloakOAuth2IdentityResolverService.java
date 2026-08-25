@@ -22,13 +22,10 @@
 package org.apache.qpid.server.security.auth.manager.oauth2.keycloak;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.net.URL;
-import java.nio.charset.StandardCharsets;
-import java.security.GeneralSecurityException;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.security.Principal;
 import java.util.Map;
 import java.util.stream.Stream;
@@ -42,15 +39,12 @@ import tools.jackson.databind.json.JsonMapper;
 
 import org.apache.qpid.server.configuration.IllegalConfigurationException;
 import org.apache.qpid.server.model.NamedAddressSpace;
-import org.apache.qpid.server.model.TrustStore;
 import org.apache.qpid.server.plugin.PluggableService;
 import org.apache.qpid.server.security.auth.UsernamePrincipal;
 import org.apache.qpid.server.security.auth.manager.oauth2.IdentityResolverException;
 import org.apache.qpid.server.security.auth.manager.oauth2.OAuth2AuthenticationProvider;
 import org.apache.qpid.server.security.auth.manager.oauth2.OAuth2IdentityResolverService;
-import org.apache.qpid.server.security.auth.manager.oauth2.OAuth2Utils;
-import org.apache.qpid.server.util.ConnectionBuilder;
-import org.apache.qpid.server.util.ServerScopedRuntimeException;
+import org.apache.qpid.server.util.HttpClientTransport;
 
 /**
  * An identity resolver that calls Google's userinfo endpoint https://www.googleapis.com/oauth2/v3/userinfo.
@@ -66,7 +60,6 @@ import org.apache.qpid.server.util.ServerScopedRuntimeException;
 public class KeycloakOAuth2IdentityResolverService implements OAuth2IdentityResolverService
 {
     private static final Logger LOGGER = LoggerFactory.getLogger(KeycloakOAuth2IdentityResolverService.class);
-    private static final String UTF8 = StandardCharsets.UTF_8.name();
 
     public static final String TYPE = "KeycloakOpenID";
 
@@ -83,83 +76,64 @@ public class KeycloakOAuth2IdentityResolverService implements OAuth2IdentityReso
     {
         if (Stream.of(authProvider.getScope().split("\\s")).noneMatch("openid"::equals))
         {
-            throw new IllegalConfigurationException("This identity resolver requires that scope 'openid' is included in"
-                                               + " the authentication request.");
+            throw new IllegalConfigurationException(
+                    "This identity resolver requires that scope 'openid' is included in"
+                    + " the authentication request.");
         }
     }
 
     @Override
     public Principal getUserPrincipal(final OAuth2AuthenticationProvider<?> authenticationProvider,
-                                      String accessToken,
-                                      final NamedAddressSpace addressSpace) throws IOException, IdentityResolverException
+                                      final String accessToken,
+                                      final NamedAddressSpace addressSpace)
+            throws IOException, IdentityResolverException
     {
-        URL userInfoEndpoint = authenticationProvider.getIdentityResolverEndpointURI(addressSpace).toURL();
-        TrustStore trustStore = authenticationProvider.getTrustStore();
-
-        ConnectionBuilder connectionBuilder = new ConnectionBuilder(userInfoEndpoint);
-        connectionBuilder.setConnectTimeout(authenticationProvider.getConnectTimeout())
-                         .setReadTimeout(authenticationProvider.getReadTimeout());
-        if (trustStore != null)
-        {
-            try
-            {
-                connectionBuilder.setTrustMangers(trustStore.getTrustManagers());
-            }
-            catch (GeneralSecurityException e)
-            {
-                throw new ServerScopedRuntimeException("Cannot initialise TLS", e);
-            }
-        }
-        connectionBuilder.setTlsProtocolAllowList(authenticationProvider.getTlsProtocolAllowList())
-                         .setTlsProtocolDenyList(authenticationProvider.getTlsProtocolDenyList())
-                         .setTlsCipherSuiteAllowList(authenticationProvider.getTlsCipherSuiteAllowList())
-                         .setTlsCipherSuiteDenyList(authenticationProvider.getTlsCipherSuiteDenyList());
-
+        final URI userInfoEndpoint = authenticationProvider.getIdentityResolverEndpointURI(addressSpace);
         LOGGER.debug("About to call identity service '{}'", userInfoEndpoint);
-        HttpURLConnection connection = connectionBuilder.build();
+        final HttpClientTransport transport = authenticationProvider.getHttpClientTransport();
+        final HttpRequest request = transport.newRequestBuilder(userInfoEndpoint)
+                .header("Accept", "application/json")
+                .header("Authorization", "Bearer " + accessToken)
+                .GET()
+                .build();
+        final HttpResponse<byte[]> response = transport.send(request);
+        final int responseCode = response.statusCode();
+        LOGGER.debug("Call to identity service '{}' complete, response code : {}",
+                     userInfoEndpoint,
+                     responseCode);
 
-        connection.setRequestProperty("Accept-Charset", UTF8);
-        connection.setRequestProperty("Accept", "application/json");
-        connection.setRequestProperty("Authorization", "Bearer " + accessToken);
-
-        connection.connect();
-
-        try (InputStream input = OAuth2Utils.getResponseStream(connection))
+        final Map<String, String> responseMap;
+        try
         {
-            int responseCode = connection.getResponseCode();
-            LOGGER.debug("Call to identity service '{}' complete, response code : {}",
-                         userInfoEndpoint, responseCode);
+            responseMap = _objectMapper.readValue(response.body(), Map.class);
+        }
+        catch (JacksonException e)
+        {
+            throw new IOException(String.format("Identity resolver '%s' did not return json",
+                                                userInfoEndpoint), e);
+        }
+        if (responseCode != 200)
+        {
+            throw new IdentityResolverException(String.format(
+                    "Identity resolver '%s' failed, response code %d",
+                    userInfoEndpoint, responseCode));
+        }
 
-            Map<String, String> responseMap;
-            try
-            {
-                responseMap = _objectMapper.readValue(input, Map.class);
-            }
-            catch (JacksonException e)
-            {
-                throw new IOException(String.format("Identity resolver '%s' did not return json",
-                                                    userInfoEndpoint), e);
-            }
-            if (responseCode != 200)
+        final String preferredUsername = responseMap.get("preferred_username");
+        if (preferredUsername == null)
+        {
+            final String subject = responseMap.get("sub");
+            if (subject == null)
             {
                 throw new IdentityResolverException(String.format(
-                        "Identity resolver '%s' failed, response code %d",
-                        userInfoEndpoint, responseCode));
+                        "Identity resolver '%s' failed, response did not include 'sub'",
+                        userInfoEndpoint));
             }
-
-            String username = responseMap.get("preferred_username");
-            if (username == null)
-            {
-                username = responseMap.get("sub");
-                if (username == null)
-                {
-
-                    throw new IdentityResolverException(String.format(
-                            "Identity resolver '%s' failed, response did not include 'sub'",
-                            userInfoEndpoint));
-                }
-            }
-            return new UsernamePrincipal(username, authenticationProvider);
+            return new UsernamePrincipal(subject, authenticationProvider);
+        }
+        else
+        {
+            return new UsernamePrincipal(preferredUsername, authenticationProvider);
         }
     }
 
@@ -178,8 +152,8 @@ public class KeycloakOAuth2IdentityResolverService implements OAuth2IdentityReso
 
     private String getEndpointPrefix(final OAuth2AuthenticationProvider<?> oAuth2AuthenticationProvider)
     {
-        String baseUrl = oAuth2AuthenticationProvider.getContextValue(String.class, "keycloak.baseUrl");
-        String domain = oAuth2AuthenticationProvider.getContextValue(String.class, "keycloak.domain");
+        final String baseUrl = oAuth2AuthenticationProvider.getContextValue(String.class, "keycloak.baseUrl");
+        final String domain = oAuth2AuthenticationProvider.getContextValue(String.class, "keycloak.domain");
         return baseUrl + "/auth/realms/" + domain + "/";
     }
 
@@ -197,7 +171,8 @@ public class KeycloakOAuth2IdentityResolverService implements OAuth2IdentityReso
     }
 
     @Override
-    public URI getDefaultIdentityResolverEndpointURI(final OAuth2AuthenticationProvider<?> oAuth2AuthenticationProvider)
+    public URI getDefaultIdentityResolverEndpointURI(
+            final OAuth2AuthenticationProvider<?> oAuth2AuthenticationProvider)
     {
         try
         {

@@ -20,64 +20,70 @@
  */
 package org.apache.qpid.server.security.auth.manager.oauth2;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.UnsupportedEncodingException;
-import java.net.HttpURLConnection;
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
-import java.util.Iterator;
+import java.security.GeneralSecurityException;
+import java.util.Base64;
 import java.util.Map;
+import java.util.Objects;
+import java.util.StringJoiner;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
+import org.apache.qpid.server.model.TrustStore;
+import org.apache.qpid.server.util.HttpClientTransport;
 import org.apache.qpid.server.util.ServerScopedRuntimeException;
 
-public class OAuth2Utils
+public final class OAuth2Utils
 {
-    private static final Logger LOGGER = LoggerFactory.getLogger(OAuth2Utils.class);
+    private OAuth2Utils()
+    {
+    }
 
     public static String buildRequestQuery(final Map<String, String> requestBodyParameters)
     {
-        try
+        final StringJoiner query = new StringJoiner("&");
+        for (final Map.Entry<String, String> entry : requestBodyParameters.entrySet())
         {
-            final String charset = StandardCharsets.UTF_8.name();
-            StringBuilder bodyBuilder = new StringBuilder();
-            Iterator<Map.Entry<String, String>> iterator = requestBodyParameters.entrySet().iterator();
-            while (iterator.hasNext())
-            {
-                Map.Entry<String, String> entry = iterator.next();
-                bodyBuilder.append(URLEncoder.encode(entry.getKey(), charset));
-                bodyBuilder.append("=");
-                bodyBuilder.append(URLEncoder.encode(entry.getValue(), charset));
-                if (iterator.hasNext())
-                {
-                    bodyBuilder.append("&");
-                }
-            }
-            return bodyBuilder.toString();
+            query.add(formEncode(entry.getKey()) + "=" + formEncode(entry.getValue()));
         }
-        catch (UnsupportedEncodingException e)
-        {
-            throw new ServerScopedRuntimeException("Failed to encode as UTF-8", e);
-        }
+        return query.toString();
     }
 
-    public static InputStream getResponseStream(final HttpURLConnection connection) throws IOException
+    public static String buildBasicAuthorization(final String clientId, final String clientSecret)
     {
-        try
+        final String encodedClientId = formEncode(Objects.requireNonNull(clientId, "clientId"));
+        final String encodedClientSecret = formEncode(clientSecret == null ? "" : clientSecret);
+        final String credentials = encodedClientId + ":" + encodedClientSecret;
+        return "Basic " + Base64.getEncoder().encodeToString(credentials.getBytes(UTF_8));
+    }
+
+    public static HttpClientTransport createHttpClientTransport(
+            final OAuth2AuthenticationProvider<?> authenticationProvider)
+    {
+        final HttpClientTransport.Builder builder = HttpClientTransport.newBuilder()
+                .setConnectTimeout(authenticationProvider.getConnectTimeout())
+                .setRequestTimeout(authenticationProvider.getReadTimeout())
+                .setTlsProtocolAllowList(authenticationProvider.getTlsProtocolAllowList())
+                .setTlsProtocolDenyList(authenticationProvider.getTlsProtocolDenyList())
+                .setTlsCipherSuiteAllowList(authenticationProvider.getTlsCipherSuiteAllowList())
+                .setTlsCipherSuiteDenyList(authenticationProvider.getTlsCipherSuiteDenyList());
+        final TrustStore<?> trustStore = authenticationProvider.getTrustStore();
+        if (trustStore != null)
         {
-            return connection.getInputStream();
-        }
-        catch (IOException ioe)
-        {
-            InputStream errorStream = connection.getErrorStream();
-            if (errorStream != null)
+            try
             {
-                return errorStream;
+                builder.setTrustManagers(trustStore.getTrustManagers());
             }
-            throw ioe;
+            catch (GeneralSecurityException e)
+            {
+                throw new ServerScopedRuntimeException("Cannot initialise TLS", e);
+            }
         }
+        return builder.build();
+    }
+
+    private static String formEncode(final String value)
+    {
+        return URLEncoder.encode(value, UTF_8);
     }
 }

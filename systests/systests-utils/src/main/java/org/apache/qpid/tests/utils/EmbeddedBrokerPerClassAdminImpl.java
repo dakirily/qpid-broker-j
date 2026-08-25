@@ -41,10 +41,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
-import javax.net.ssl.HostnameVerifier;
-import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLContext;
-import javax.net.ssl.SSLSession;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
 import javax.security.auth.Subject;
@@ -505,11 +502,14 @@ public class EmbeddedBrokerPerClassAdminImpl implements BrokerAdmin
         final String TEST_IDENTITY_RESOLVER_ENDPOINT_PATH = "/testidresolver";
         final String TEST_POST_LOGOUT_PATH = "/testpostlogout";
 
-        OAuth2MockEndpointHolder server;
+        final OAuth2MockEndpointHolder server;
+        final SSLContext originalSslContext;
         try (final TlsResource tlsResource = new TlsResource())
         {
-            final Path keyStore = tlsResource.createSelfSignedKeyStore("CN=127.0.0.1");
-            server = new OAuth2MockEndpointHolder(keyStore.toFile().getAbsolutePath(), tlsResource.getSecret(), tlsResource.getKeyStoreType());
+            final Path keyStore = tlsResource.createSelfSignedKeyStore("CN=localhost");
+            server = new OAuth2MockEndpointHolder(keyStore.toFile().getAbsolutePath(),
+                                                  tlsResource.getSecret(),
+                                                  tlsResource.getKeyStoreType());
 
             final OAuth2MockEndpoint identityResolverEndpoint = new OAuth2MockEndpoint();
             identityResolverEndpoint.putExpectedParameter("token", "A".repeat(10_0000));
@@ -524,8 +524,8 @@ public class EmbeddedBrokerPerClassAdminImpl implements BrokerAdmin
 
             final SSLContext sc = SSLContext.getInstance("TLSv1.3");
             sc.init(null, trustingTrustManager, new java.security.SecureRandom());
-            HttpsURLConnection.setDefaultSSLSocketFactory(sc.getSocketFactory());
-            HttpsURLConnection.setDefaultHostnameVerifier(new BlindHostnameVerifier());
+            originalSslContext = SSLContext.getDefault();
+            SSLContext.setDefault(sc);
         }
         catch (Exception e)
         {
@@ -533,25 +533,38 @@ public class EmbeddedBrokerPerClassAdminImpl implements BrokerAdmin
         }
 
         final Map<String, Object> authProviderAttributes = new HashMap<>();
-        String testOAuthProvider = "testOAuthProvider";
+        final String testOAuthProvider = "testOAuthProvider";
         authProviderAttributes.put(ConfiguredObject.NAME, testOAuthProvider);
         authProviderAttributes.put(ConfiguredObject.TYPE, "OAuth2");
         authProviderAttributes.put("clientId", TEST_CLIENT_ID);
         authProviderAttributes.put("clientSecret", TEST_CLIENT_SECRET);
         authProviderAttributes.put("identityResolverType", TEST_IDENTITY_RESOLVER_TYPE);
         authProviderAttributes.put("authorizationEndpointURI",
-                String.format(TEST_URI_PATTERN, TEST_ENDPOINT_HOST, server.getPort(), TEST_AUTHORIZATION_ENDPOINT_PATH));
+                                   String.format(TEST_URI_PATTERN,
+                                                 TEST_ENDPOINT_HOST,
+                                                 server.getPort(),
+                                                 TEST_AUTHORIZATION_ENDPOINT_PATH));
         authProviderAttributes.put("tokenEndpointURI",
                 String.format(TEST_URI_PATTERN, TEST_ENDPOINT_HOST, server.getPort(), TEST_TOKEN_ENDPOINT_PATH));
         authProviderAttributes.put("tokenEndpointNeedsAuth", TEST_AUTHORIZATION_ENDPOINT_NEEDS_AUTH);
         authProviderAttributes.put("identityResolverEndpointURI",
-                String.format(TEST_URI_PATTERN, TEST_ENDPOINT_HOST, server.getPort(), TEST_IDENTITY_RESOLVER_ENDPOINT_PATH));
+                                   String.format(TEST_URI_PATTERN,
+                                                 TEST_ENDPOINT_HOST,
+                                                 server.getPort(),
+                                                 TEST_IDENTITY_RESOLVER_ENDPOINT_PATH));
         authProviderAttributes.put("postLogoutURI",
                 String.format(TEST_URI_PATTERN, TEST_ENDPOINT_HOST, server.getPort(), TEST_POST_LOGOUT_PATH));
         authProviderAttributes.put("scope", TEST_SCOPE);
         authProviderAttributes.put("trustStore", TEST_TRUST_STORE_NAME);
         authProviderAttributes.put("secureOnlyMechanisms", List.of());
-        final AuthenticationProvider<?> auth = _broker.createChild(AuthenticationProvider.class, authProviderAttributes);
+        try
+        {
+            _broker.createChild(AuthenticationProvider.class, authProviderAttributes);
+        }
+        finally
+        {
+            SSLContext.setDefault(originalSslContext);
+        }
         final AmqpPort<?> port = (AmqpPort<?>) _broker.getPorts().stream().filter(p -> "AMQP".equals(p.getName()))
                 .findFirst().orElse(null);
         if (port != null)
@@ -686,14 +699,4 @@ public class EmbeddedBrokerPerClassAdminImpl implements BrokerAdmin
         }
     }
 
-    // sonar: hostname verifier is used for test purposes
-    @SuppressWarnings("java:S5527")
-    private static final class BlindHostnameVerifier implements HostnameVerifier
-    {
-        @Override
-        public boolean verify(final String arg0, final SSLSession arg1)
-        {
-            return true;
-        }
-    }
 }

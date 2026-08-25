@@ -33,10 +33,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import javax.net.ssl.HostnameVerifier;
-import javax.net.ssl.HttpsURLConnection;
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.SSLSession;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
 
@@ -50,6 +46,7 @@ import org.apache.qpid.server.model.BrokerTestHelper;
 import org.apache.qpid.server.model.ConfiguredObject;
 import org.apache.qpid.server.model.NamedAddressSpace;
 import org.apache.qpid.server.model.State;
+import org.apache.qpid.server.model.TrustStore;
 import org.apache.qpid.server.security.auth.AuthenticationResult;
 import org.apache.qpid.server.security.auth.manager.CachingAuthenticationProvider;
 import org.apache.qpid.server.security.auth.manager.oauth2.cloudfoundry.CloudFoundryOAuth2IdentityResolverService;
@@ -77,7 +74,6 @@ public class OAuth2AuthenticationProviderImplTest extends UnitTestBase
     private static final String TEST_IDENTITY_RESOLVER_ENDPOINT_URI_PATTERN = "https://%s:%d%s";
     private static final String TEST_POST_LOGOUT_URI_PATTERN = "https://%s:%d%s";
     private static final String TEST_SCOPE = "testScope";
-    private static final String TEST_TRUST_STORE_NAME = null;
     private static final String TEST_VALID_AUTHORIZATION_CODE = "validAuthorizationCode";
     private static final String TEST_INVALID_AUTHORIZATION_CODE = "invalidAuthorizationCode";
     private static final String TEST_VALID_ACCESS_TOKEN = "validAccessToken";
@@ -125,19 +121,14 @@ public class OAuth2AuthenticationProviderImplTest extends UnitTestBase
                                                  _server.getPort(),
                                                  TEST_POST_LOGOUT_PATH));
         authProviderAttributes.put("scope", TEST_SCOPE);
-        authProviderAttributes.put("trustStore", TEST_TRUST_STORE_NAME);
+        final TrustStore<?> trustStore = mock(TrustStore.class);
+        when(trustStore.getTrustManagers()).thenReturn(new TrustManager[] { new TrustingTrustManager() });
+        authProviderAttributes.put("trustStore", trustStore);
 
         setTestSystemProperty(CachingAuthenticationProvider.AUTHENTICATION_CACHE_MAX_SIZE, "0");
         _authProvider = new OAuth2AuthenticationProviderImpl(authProviderAttributes, broker);
         _authProvider.open();
         assertEquals(State.ACTIVE, _authProvider.getState(), "Could not successfully open authProvider");
-
-        final TrustManager[] trustingTrustManager = new TrustManager[] {new TrustingTrustManager() };
-
-        final SSLContext sc = SSLContext.getInstance("TLSv1.3");
-        sc.init(null, trustingTrustManager, new java.security.SecureRandom());
-        HttpsURLConnection.setDefaultSSLSocketFactory(sc.getSocketFactory());
-        HttpsURLConnection.setDefaultHostnameVerifier(new BlindHostnameVerifier());
     }
 
     @AfterAll
@@ -161,7 +152,8 @@ public class OAuth2AuthenticationProviderImplTest extends UnitTestBase
     {
         _server.setEndpoints(Map.of(TEST_IDENTITY_RESOLVER_ENDPOINT_PATH, createMockIdentityResolverEndpoint()));
         final SaslNegotiator negotiator = _authProvider.createSaslNegotiator(OAuth2Negotiator.MECHANISM, null, null);
-        final AuthenticationResult authenticationResult = negotiator.handleResponse(("auth=Bearer " + TEST_VALID_ACCESS_TOKEN + "\1\1").getBytes(UTF8));
+        final AuthenticationResult authenticationResult =
+                negotiator.handleResponse(("auth=Bearer " + TEST_VALID_ACCESS_TOKEN + "\1\1").getBytes(UTF8));
 
         assertSuccess(authenticationResult);
     }
@@ -175,14 +167,16 @@ public class OAuth2AuthenticationProviderImplTest extends UnitTestBase
         _server.setEndpoints(Map.of(TEST_IDENTITY_RESOLVER_ENDPOINT_PATH, mockIdentityResolverEndpoint));
 
         final SaslNegotiator negotiator = _authProvider.createSaslNegotiator(OAuth2Negotiator.MECHANISM, null, null);
-        final AuthenticationResult authenticationResult = negotiator.handleResponse(("auth=Bearer " + TEST_INVALID_ACCESS_TOKEN + "\1\1").getBytes(UTF8));
+        final AuthenticationResult authenticationResult =
+                negotiator.handleResponse(("auth=Bearer " + TEST_INVALID_ACCESS_TOKEN + "\1\1").getBytes(UTF8));
         assertFailure(authenticationResult, "invalid_token");
     }
 
     @Test
     public void testAuthenticateViaAuthorizationCode()
     {
-        final Map<String, OAuth2MockEndpoint> mockEndpoints = Map.of(TEST_TOKEN_ENDPOINT_PATH, createMockTokenEndpoint(),
+        final Map<String, OAuth2MockEndpoint> mockEndpoints = Map.of(
+                TEST_TOKEN_ENDPOINT_PATH, createMockTokenEndpoint(),
                 TEST_IDENTITY_RESOLVER_ENDPOINT_PATH, createMockIdentityResolverEndpoint());
         _server.setEndpoints(mockEndpoints);
 
@@ -200,7 +194,11 @@ public class OAuth2AuthenticationProviderImplTest extends UnitTestBase
     {
         final OAuth2MockEndpoint mockTokenEndpoint = createMockTokenEndpoint();
         mockTokenEndpoint.putExpectedParameter("code", TEST_INVALID_AUTHORIZATION_CODE);
-        mockTokenEndpoint.setResponse(400, "{\"error\":\"invalid_grant\",\"error_description\":\"authorization grant is not valid\"}");
+        mockTokenEndpoint.setResponse(
+                400,
+                "{\"error\":\"invalid_grant\","
+                + "\"error_description\":"
+                + "\"authorization grant is not valid\"}");
         final Map<String, OAuth2MockEndpoint> mockEndpoints = Map.of(TEST_TOKEN_ENDPOINT_PATH, mockTokenEndpoint,
                 TEST_IDENTITY_RESOLVER_ENDPOINT_PATH, createMockIdentityResolverEndpoint());
         _server.setEndpoints(mockEndpoints);
@@ -219,8 +217,8 @@ public class OAuth2AuthenticationProviderImplTest extends UnitTestBase
     {
         _server.setEndpoints(Map.of(TEST_IDENTITY_RESOLVER_ENDPOINT_PATH, createMockIdentityResolverEndpoint()));
 
-        final AuthenticationResult authenticationResult = _authProvider.authenticateViaAccessToken(TEST_VALID_ACCESS_TOKEN,
-                                                                                             null);
+        final AuthenticationResult authenticationResult =
+                _authProvider.authenticateViaAccessToken(TEST_VALID_ACCESS_TOKEN, null);
         assertSuccess(authenticationResult);
     }
 
@@ -293,16 +291,7 @@ public class OAuth2AuthenticationProviderImplTest extends UnitTestBase
         @Override
         public X509Certificate[] getAcceptedIssuers()
         {
-            return null;
-        }
-    }
-
-    private static final class BlindHostnameVerifier implements HostnameVerifier
-    {
-        @Override
-        public boolean verify(final String arg0, final SSLSession arg1)
-        {
-            return true;
+            return new X509Certificate[0];
         }
     }
 }

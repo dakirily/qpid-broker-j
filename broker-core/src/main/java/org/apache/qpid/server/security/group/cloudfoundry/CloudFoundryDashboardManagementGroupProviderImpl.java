@@ -20,19 +20,17 @@
  */
 package org.apache.qpid.server.security.group.cloudfoundry;
 
-import static org.apache.qpid.server.configuration.CommonProperties.QPID_SECURITY_TLS_CIPHER_SUITE_DENY_LIST;
 import static org.apache.qpid.server.configuration.CommonProperties.QPID_SECURITY_TLS_CIPHER_SUITE_ALLOW_LIST;
-import static org.apache.qpid.server.configuration.CommonProperties.QPID_SECURITY_TLS_PROTOCOL_DENY_LIST;
+import static org.apache.qpid.server.configuration.CommonProperties.QPID_SECURITY_TLS_CIPHER_SUITE_DENY_LIST;
 import static org.apache.qpid.server.configuration.CommonProperties.QPID_SECURITY_TLS_PROTOCOL_ALLOW_LIST;
+import static org.apache.qpid.server.configuration.CommonProperties.QPID_SECURITY_TLS_PROTOCOL_DENY_LIST;
 import static org.apache.qpid.server.util.ParameterizedTypes.LIST_OF_STRINGS;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.net.HttpURLConnection;
 import java.net.SocketTimeoutException;
 import java.net.URI;
-import java.net.URL;
-import java.nio.charset.StandardCharsets;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.security.GeneralSecurityException;
 import java.security.Principal;
 import java.util.Collections;
@@ -60,9 +58,9 @@ import org.apache.qpid.server.model.StateTransition;
 import org.apache.qpid.server.model.TrustStore;
 import org.apache.qpid.server.security.auth.manager.oauth2.OAuth2UserPrincipal;
 import org.apache.qpid.server.security.group.GroupPrincipal;
-import org.apache.qpid.server.util.ConnectionBuilder;
 import org.apache.qpid.server.util.ExternalServiceException;
 import org.apache.qpid.server.util.ExternalServiceTimeoutException;
+import org.apache.qpid.server.util.HttpClientTransport;
 import org.apache.qpid.server.util.ServerScopedRuntimeException;
 
 /*
@@ -71,11 +69,13 @@ import org.apache.qpid.server.util.ServerScopedRuntimeException;
  * See the CloudFoundry docs for more information:
  * http://docs.cloudfoundry.org/services/dashboard-sso.html#checking-user-permissions
  */
-public class CloudFoundryDashboardManagementGroupProviderImpl extends AbstractConfiguredObject<CloudFoundryDashboardManagementGroupProviderImpl>
+public class CloudFoundryDashboardManagementGroupProviderImpl
+        extends AbstractConfiguredObject<CloudFoundryDashboardManagementGroupProviderImpl>
         implements CloudFoundryDashboardManagementGroupProvider<CloudFoundryDashboardManagementGroupProviderImpl>
 {
-    private static final Logger LOGGER = LoggerFactory.getLogger(CloudFoundryDashboardManagementGroupProviderImpl.class);
-    private static final String UTF8 = StandardCharsets.UTF_8.name();
+    private static final Logger LOGGER =
+            LoggerFactory.getLogger(CloudFoundryDashboardManagementGroupProviderImpl.class);
+    private static final String TRUST_STORE_ATTRIBUTE = "trustStore";
 
     private final ObjectMapper _objectMapper = JsonMapper.builder().build();
 
@@ -83,7 +83,7 @@ public class CloudFoundryDashboardManagementGroupProviderImpl extends AbstractCo
     private URI _cloudFoundryEndpointURI;
 
     @ManagedAttributeField
-    private TrustStore _trustStore;
+    private TrustStore<?> _trustStore;
 
     @ManagedAttributeField
     private Map<String, String> _serviceToManagementGroupMapping;
@@ -94,9 +94,11 @@ public class CloudFoundryDashboardManagementGroupProviderImpl extends AbstractCo
     private List<String> _tlsCipherSuiteDenyList;
     private int _connectTimeout;
     private int _readTimeout;
+    private volatile HttpClientTransport _httpClientTransport;
 
     @ManagedObjectFactoryConstructor
-    public CloudFoundryDashboardManagementGroupProviderImpl(Map<String, Object> attributes, Container<?> container)
+    public CloudFoundryDashboardManagementGroupProviderImpl(final Map<String, Object> attributes,
+                                                            final Container<?> container)
     {
         super(container, attributes);
     }
@@ -107,17 +109,31 @@ public class CloudFoundryDashboardManagementGroupProviderImpl extends AbstractCo
         super.onOpen();
         _tlsProtocolAllowList = getContextValue(List.class, LIST_OF_STRINGS, QPID_SECURITY_TLS_PROTOCOL_ALLOW_LIST);
         _tlsProtocolDenyList = getContextValue(List.class, LIST_OF_STRINGS, QPID_SECURITY_TLS_PROTOCOL_DENY_LIST);
-        _tlsCipherSuiteAllowList = getContextValue(List.class, LIST_OF_STRINGS, QPID_SECURITY_TLS_CIPHER_SUITE_ALLOW_LIST);
-        _tlsCipherSuiteDenyList = getContextValue(List.class, LIST_OF_STRINGS, QPID_SECURITY_TLS_CIPHER_SUITE_DENY_LIST);
+        _tlsCipherSuiteAllowList =
+                getContextValue(List.class, LIST_OF_STRINGS, QPID_SECURITY_TLS_CIPHER_SUITE_ALLOW_LIST);
+        _tlsCipherSuiteDenyList =
+                getContextValue(List.class, LIST_OF_STRINGS, QPID_SECURITY_TLS_CIPHER_SUITE_DENY_LIST);
         _connectTimeout = getContextValue(Integer.class, QPID_GROUPPROVIDER_CLOUDFOUNDRY_CONNECT_TIMEOUT);
         _readTimeout = getContextValue(Integer.class, QPID_GROUPPROVIDER_CLOUDFOUNDRY_READ_TIMEOUT);
+        _httpClientTransport = createHttpClientTransport();
+    }
+
+    @Override
+    protected void postSetAttributes(final Set<String> actualUpdatedAttributes)
+    {
+        super.postSetAttributes(actualUpdatedAttributes);
+        if (_httpClientTransport != null && actualUpdatedAttributes.contains(TRUST_STORE_ATTRIBUTE))
+        {
+            _httpClientTransport = createHttpClientTransport();
+        }
     }
 
     @Override
     protected void validateChange(final ConfiguredObject<?> proxyForValidation, final Set<String> changedAttributes)
     {
         super.validateChange(proxyForValidation, changedAttributes);
-        final CloudFoundryDashboardManagementGroupProvider<?> validationProxy = (CloudFoundryDashboardManagementGroupProvider<?>) proxyForValidation;
+        final CloudFoundryDashboardManagementGroupProvider<?> validationProxy =
+                (CloudFoundryDashboardManagementGroupProvider<?>) proxyForValidation;
         validateSecureEndpoint(validationProxy);
         validateMapping(validationProxy);
     }
@@ -134,14 +150,15 @@ public class CloudFoundryDashboardManagementGroupProviderImpl extends AbstractCo
     {
         if (!"https".equals(provider.getCloudFoundryEndpointURI().getScheme()))
         {
-            throw new IllegalConfigurationException(String.format("CloudFoundryDashboardManagementEndpoint is not secure: '%s'",
-                                                                  provider.getCloudFoundryEndpointURI()));
+            throw new IllegalConfigurationException(
+                    String.format("CloudFoundryDashboardManagementEndpoint is not secure: '%s'",
+                                  provider.getCloudFoundryEndpointURI()));
         }
     }
 
     private void validateMapping(final CloudFoundryDashboardManagementGroupProvider<?> provider)
     {
-        for(Map.Entry<String, String> entry : provider.getServiceToManagementGroupMapping().entrySet())
+        for (final Map.Entry<String, String> entry : provider.getServiceToManagementGroupMapping().entrySet())
         {
             if ("".equals(entry.getKey()))
             {
@@ -156,7 +173,7 @@ public class CloudFoundryDashboardManagementGroupProviderImpl extends AbstractCo
     }
 
     @Override
-    public Set<Principal> getGroupPrincipalsForUser(Principal userPrincipal)
+    public Set<Principal> getGroupPrincipalsForUser(final Principal userPrincipal)
     {
         if (!(userPrincipal instanceof OAuth2UserPrincipal))
         {
@@ -164,17 +181,18 @@ public class CloudFoundryDashboardManagementGroupProviderImpl extends AbstractCo
         }
         if (_serviceToManagementGroupMapping == null)
         {
-            throw new IllegalConfigurationException("CloudFoundryDashboardManagementGroupProvider serviceToManagementGroupMapping may not be null");
+            throw new IllegalConfigurationException(
+                    "CloudFoundryDashboardManagementGroupProvider serviceToManagementGroupMapping may not be null");
         }
 
-        OAuth2UserPrincipal oauth2UserPrincipal = (OAuth2UserPrincipal) userPrincipal;
-        String accessToken = oauth2UserPrincipal.getAccessToken();
-        Set<Principal> groupPrincipals = new HashSet<>();
+        final OAuth2UserPrincipal oauth2UserPrincipal = (OAuth2UserPrincipal) userPrincipal;
+        final String accessToken = oauth2UserPrincipal.getAccessToken();
+        final Set<Principal> groupPrincipals = new HashSet<>();
 
-        for (Map.Entry<String, String> entry : _serviceToManagementGroupMapping.entrySet())
+        for (final Map.Entry<String, String> entry : _serviceToManagementGroupMapping.entrySet())
         {
-            String serviceInstanceId = entry.getKey();
-            String managementGroupName = entry.getValue();
+            final String serviceInstanceId = entry.getKey();
+            final String managementGroupName = entry.getValue();
             if (mayManageServiceInstance(serviceInstanceId, accessToken))
             {
                 LOGGER.debug("Adding group '{}' to the set of Principals", managementGroupName);
@@ -182,7 +200,10 @@ public class CloudFoundryDashboardManagementGroupProviderImpl extends AbstractCo
             }
             else
             {
-                LOGGER.debug("CloudFoundryDashboardManagementEndpoint denied management permission for service instance '{}'", serviceInstanceId);
+                LOGGER.debug(
+                        "CloudFoundryDashboardManagementEndpoint denied management permission"
+                        + " for service instance '{}'",
+                        serviceInstanceId);
             }
         }
         return groupPrincipals;
@@ -190,80 +211,88 @@ public class CloudFoundryDashboardManagementGroupProviderImpl extends AbstractCo
 
     private boolean mayManageServiceInstance(final String serviceInstanceId, final String accessToken)
     {
-        HttpURLConnection connection;
-        String cloudFoundryEndpoint = String.format("%s/v2/service_instances/%s/permissions",
-                                                    getCloudFoundryEndpointURI().toString(), serviceInstanceId);
+        final String cloudFoundryEndpoint = String.format("%s/v2/service_instances/%s/permissions",
+                                                          getCloudFoundryEndpointURI(),
+                                                          serviceInstanceId);
+        final URI cloudFoundryEndpointUri = URI.create(cloudFoundryEndpoint);
         try
         {
-            ConnectionBuilder connectionBuilder = new ConnectionBuilder(new URL(cloudFoundryEndpoint));
-            connectionBuilder.setConnectTimeout(_connectTimeout).setReadTimeout(_readTimeout);
-            if (_trustStore != null)
-            {
-                try
-                {
-                    connectionBuilder.setTrustMangers(_trustStore.getTrustManagers());
-                }
-                catch (GeneralSecurityException e)
-                {
-                    throw new ServerScopedRuntimeException("Cannot initialise TLS", e);
-                }
-            }
-            connectionBuilder.setTlsProtocolAllowList(_tlsProtocolAllowList)
-                             .setTlsProtocolDenyList(_tlsProtocolDenyList)
-                             .setTlsCipherSuiteAllowList(_tlsCipherSuiteAllowList)
-                             .setTlsCipherSuiteDenyList(_tlsCipherSuiteDenyList);
-
             LOGGER.debug("About to call CloudFoundryDashboardManagementEndpoint '{}'", cloudFoundryEndpoint);
-            connection = connectionBuilder.build();
+            final HttpRequest request = _httpClientTransport.newRequestBuilder(cloudFoundryEndpointUri)
+                    .header("Accept", "application/json")
+                    .header("Authorization", "Bearer " + accessToken)
+                    .GET()
+                    .build();
+            final HttpResponse<byte[]> response = _httpClientTransport.send(request);
+            final int responseCode = response.statusCode();
+            LOGGER.debug("Call to CloudFoundryDashboardManagementEndpoint '{}' complete, response code : {}",
+                         cloudFoundryEndpoint,
+                         responseCode);
+            if (responseCode < 200 || responseCode >= 300)
+            {
+                throw new ExternalServiceException(
+                        String.format("CloudFoundryDashboardManagementEndpoint '%s' failed, response code %d.",
+                                      cloudFoundryEndpoint,
+                                      responseCode));
+            }
 
-            connection.setRequestProperty("Accept-Charset", UTF8);
-            connection.setRequestProperty("Accept", "application/json");
-            connection.setRequestProperty("Authorization", "Bearer " + accessToken);
-
-            connection.connect();
-        }
-        catch (SocketTimeoutException e)
-        {
-            throw new ExternalServiceTimeoutException(String.format("Timed out trying to connect to CloudFoundryDashboardManagementEndpoint '%s'.",
-                                                             cloudFoundryEndpoint), e);
-        }
-        catch (IOException e)
-        {
-            throw new ExternalServiceException(String.format("Could not connect to CloudFoundryDashboardManagementEndpoint '%s'.",
-                                                             cloudFoundryEndpoint), e);
-        }
-
-        try (InputStream input = connection.getInputStream())
-        {
-            final int responseCode = connection.getResponseCode();
-            LOGGER.debug("Call to CloudFoundryDashboardManagementEndpoint '{}' complete, response code : {}", cloudFoundryEndpoint, responseCode);
-
-            Map<String, Object> responseMap = _objectMapper.readValue(input, Map.class);
-            Object mayManageObject = responseMap.get("manage");
+            final Map<String, Object> responseMap = _objectMapper.readValue(response.body(), Map.class);
+            final Object mayManageObject = responseMap.get("manage");
             if (mayManageObject == null || !(mayManageObject instanceof Boolean))
             {
-                throw new ExternalServiceException("CloudFoundryDashboardManagementEndpoint response did not contain \"manage\" entry.");
+                throw new ExternalServiceException(
+                        "CloudFoundryDashboardManagementEndpoint response did not contain a 'manage' entry.");
             }
             return (boolean) mayManageObject;
         }
         catch (JacksonException e)
         {
-            throw new ExternalServiceException(String.format("CloudFoundryDashboardManagementEndpoint '%s' did not return json.",
-                                                                     cloudFoundryEndpoint), e);
+            throw new ExternalServiceException(
+                    String.format("CloudFoundryDashboardManagementEndpoint '%s' did not return json.",
+                                  cloudFoundryEndpoint),
+                    e);
         }
         catch (SocketTimeoutException e)
         {
-            throw new ExternalServiceTimeoutException(String.format("Timed out reading from CloudFoundryDashboardManagementEndpoint '%s'.",
-                                    cloudFoundryEndpoint), e);
+            throw new ExternalServiceTimeoutException(
+                    String.format("Timed out calling CloudFoundryDashboardManagementEndpoint '%s'.",
+                                  cloudFoundryEndpoint),
+                    e);
         }
         catch (IOException e)
         {
-            throw new ExternalServiceException(String.format("Connection to CloudFoundryDashboardManagementEndpoint '%s' failed.",
-                                                                     cloudFoundryEndpoint), e);
+            throw new ExternalServiceException(
+                    String.format("Connection to CloudFoundryDashboardManagementEndpoint '%s' failed.",
+                                  cloudFoundryEndpoint),
+                    e);
         }
     }
 
-    @StateTransition( currentState = { State.UNINITIALIZED, State.QUIESCED, State.ERRORED }, desiredState = State.ACTIVE )
+    private HttpClientTransport createHttpClientTransport()
+    {
+        final HttpClientTransport.Builder builder = HttpClientTransport.newBuilder()
+                .setConnectTimeout(_connectTimeout)
+                .setRequestTimeout(_readTimeout)
+                .setTlsProtocolAllowList(_tlsProtocolAllowList)
+                .setTlsProtocolDenyList(_tlsProtocolDenyList)
+                .setTlsCipherSuiteAllowList(_tlsCipherSuiteAllowList)
+                .setTlsCipherSuiteDenyList(_tlsCipherSuiteDenyList);
+        if (_trustStore != null)
+        {
+            try
+            {
+                builder.setTrustManagers(_trustStore.getTrustManagers());
+            }
+            catch (GeneralSecurityException e)
+            {
+                throw new ServerScopedRuntimeException("Cannot initialise TLS", e);
+            }
+        }
+        return builder.build();
+    }
+
+    @StateTransition( currentState = { State.UNINITIALIZED, State.QUIESCED, State.ERRORED },
+            desiredState = State.ACTIVE )
     private CompletableFuture<Void> activate()
     {
         setState(State.ACTIVE);
@@ -277,7 +306,7 @@ public class CloudFoundryDashboardManagementGroupProviderImpl extends AbstractCo
     }
 
     @Override
-    public TrustStore getTrustStore()
+    public TrustStore<?> getTrustStore()
     {
         return _trustStore;
     }

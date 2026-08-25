@@ -22,13 +22,10 @@
 package org.apache.qpid.server.security.auth.manager.oauth2.facebook;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.net.URL;
-import java.nio.charset.StandardCharsets;
-import java.security.GeneralSecurityException;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.security.Principal;
 import java.util.Map;
 
@@ -41,15 +38,12 @@ import tools.jackson.databind.json.JsonMapper;
 
 import org.apache.qpid.server.configuration.IllegalConfigurationException;
 import org.apache.qpid.server.model.NamedAddressSpace;
-import org.apache.qpid.server.model.TrustStore;
 import org.apache.qpid.server.plugin.PluggableService;
 import org.apache.qpid.server.security.auth.UsernamePrincipal;
 import org.apache.qpid.server.security.auth.manager.oauth2.IdentityResolverException;
 import org.apache.qpid.server.security.auth.manager.oauth2.OAuth2AuthenticationProvider;
 import org.apache.qpid.server.security.auth.manager.oauth2.OAuth2IdentityResolverService;
-import org.apache.qpid.server.security.auth.manager.oauth2.OAuth2Utils;
-import org.apache.qpid.server.util.ConnectionBuilder;
-import org.apache.qpid.server.util.ServerScopedRuntimeException;
+import org.apache.qpid.server.util.HttpClientTransport;
 
 /**
  * An identity resolver that calls GitHubs's user API https://developer.github.com/v3/users/
@@ -61,7 +55,6 @@ import org.apache.qpid.server.util.ServerScopedRuntimeException;
 public class FacebookIdentityResolverService implements OAuth2IdentityResolverService
 {
     private static final Logger LOGGER = LoggerFactory.getLogger(FacebookIdentityResolverService.class);
-    private static final String UTF8 = StandardCharsets.UTF_8.name();
 
     public static final String TYPE = "Facebook";
 
@@ -80,72 +73,49 @@ public class FacebookIdentityResolverService implements OAuth2IdentityResolverSe
 
     @Override
     public Principal getUserPrincipal(final OAuth2AuthenticationProvider<?> authenticationProvider,
-                                      String accessToken,
-                                      final NamedAddressSpace addressSpace) throws IOException, IdentityResolverException
+                                      final String accessToken,
+                                      final NamedAddressSpace addressSpace)
+            throws IOException, IdentityResolverException
     {
-        URL userInfoEndpoint = authenticationProvider.getIdentityResolverEndpointURI(addressSpace).toURL();
-        TrustStore trustStore = authenticationProvider.getTrustStore();
-
-        ConnectionBuilder connectionBuilder = new ConnectionBuilder(userInfoEndpoint);
-        connectionBuilder.setConnectTimeout(authenticationProvider.getConnectTimeout())
-                         .setReadTimeout(authenticationProvider.getReadTimeout());
-        if (trustStore != null)
-        {
-            try
-            {
-                connectionBuilder.setTrustMangers(trustStore.getTrustManagers());
-            }
-            catch (GeneralSecurityException e)
-            {
-                throw new ServerScopedRuntimeException("Cannot initialise TLS", e);
-            }
-        }
-        connectionBuilder.setTlsProtocolAllowList(authenticationProvider.getTlsProtocolAllowList())
-                         .setTlsProtocolDenyList(authenticationProvider.getTlsProtocolDenyList())
-                         .setTlsCipherSuiteAllowList(authenticationProvider.getTlsCipherSuiteAllowList())
-                         .setTlsCipherSuiteDenyList(authenticationProvider.getTlsCipherSuiteDenyList());
-
+        final URI userInfoEndpoint = authenticationProvider.getIdentityResolverEndpointURI(addressSpace);
         LOGGER.debug("About to call identity service '{}'", userInfoEndpoint);
-        HttpURLConnection connection = connectionBuilder.build();
+        final HttpClientTransport transport = authenticationProvider.getHttpClientTransport();
+        final HttpRequest request = transport.newRequestBuilder(userInfoEndpoint)
+                .header("Accept", "application/json")
+                .header("Authorization", "Bearer " + accessToken)
+                .GET()
+                .build();
+        final HttpResponse<byte[]> response = transport.send(request);
+        final int responseCode = response.statusCode();
+        LOGGER.debug("Call to identity service '{}' complete, response code : {}",
+                     userInfoEndpoint,
+                     responseCode);
 
-        connection.setRequestProperty("Accept-Charset", UTF8);
-        connection.setRequestProperty("Accept", "application/json");
-        connection.setRequestProperty("Authorization", "Bearer " + accessToken);
-
-        connection.connect();
-
-        try (InputStream input = OAuth2Utils.getResponseStream(connection))
+        final Map<String, String> responseMap;
+        try
         {
-            int responseCode = connection.getResponseCode();
-            LOGGER.debug("Call to identity service '{}' complete, response code : {}",
-                         userInfoEndpoint, responseCode);
-
-            Map<String, String> responseMap;
-            try
-            {
-                responseMap = _objectMapper.readValue(input, Map.class);
-            }
-            catch (JacksonException e)
-            {
-                throw new IOException(String.format("Identity resolver '%s' did not return json",
-                                                    userInfoEndpoint), e);
-            }
-            if (responseCode != 200)
-            {
-                throw new IdentityResolverException(String.format(
-                        "Identity resolver '%s' failed, response code %d",
-                        userInfoEndpoint, responseCode));
-            }
-
-            final String facebookId = responseMap.get("id");
-            if (facebookId == null)
-            {
-                throw new IdentityResolverException(String.format(
-                        "Identity resolver '%s' failed, response did not include 'id'",
-                        userInfoEndpoint));
-            }
-            return new UsernamePrincipal(facebookId, authenticationProvider);
+            responseMap = _objectMapper.readValue(response.body(), Map.class);
         }
+        catch (JacksonException e)
+        {
+            throw new IOException(String.format("Identity resolver '%s' did not return json",
+                                                userInfoEndpoint), e);
+        }
+        if (responseCode != 200)
+        {
+            throw new IdentityResolverException(String.format(
+                    "Identity resolver '%s' failed, response code %d",
+                    userInfoEndpoint, responseCode));
+        }
+
+        final String facebookId = responseMap.get("id");
+        if (facebookId == null)
+        {
+            throw new IdentityResolverException(String.format(
+                    "Identity resolver '%s' failed, response did not include 'id'",
+                    userInfoEndpoint));
+        }
+        return new UsernamePrincipal(facebookId, authenticationProvider);
     }
 
     @Override
@@ -175,7 +145,8 @@ public class FacebookIdentityResolverService implements OAuth2IdentityResolverSe
     }
 
     @Override
-    public URI getDefaultIdentityResolverEndpointURI(final OAuth2AuthenticationProvider<?> oAuth2AuthenticationProvider)
+    public URI getDefaultIdentityResolverEndpointURI(
+            final OAuth2AuthenticationProvider<?> oAuth2AuthenticationProvider)
     {
         try
         {
