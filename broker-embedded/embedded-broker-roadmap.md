@@ -22,9 +22,11 @@
 This document is a design and delivery roadmap. It does not claim that the current embedded broker API is safe for
 multiple concurrent brokers in one JVM.
 
-Commit 1, the initial embedded-path characterization, was completed on 2026-08-25. Its executable baseline and measured
-results are documented in [Embedded Broker Isolation Baseline Results](embedded-broker-baseline-results.md). The next
-step is commit 2, which completes the full standalone and cross-JDK baseline before runtime construction changes begin.
+Commits 1 and 2 established the characterization boundary on 2026-08-25. The initial measurements are documented in
+[Embedded Broker Isolation Baseline Results](embedded-broker-baseline-results.md), and the real-process, full-provider,
+and CI extension is documented in
+[Embedded Broker Compatibility Baseline Results](embedded-broker-compatibility-baseline-results.md). Runtime
+construction changes begin with commit 3.
 
 The roadmap addresses the embedding problems described by
 [QPID-8670](https://issues.apache.org/jira/browse/QPID-8670) and the broader runtime isolation issues found in the
@@ -150,12 +152,12 @@ This proves functional coexistence for one minimal configuration, not runtime is
 
 Roadmap progress is reported through four independent gates. Passing one gate must not be presented as passing another.
 
-| Gate | Definition | Commit 1 result |
+| Gate | Definition | Commit 2 result |
 |---|---|---|
-| Functional coexistence | Multiple brokers start, bind distinct ports, remain usable, and close independently | Passes for two minimal AMQP 1.0 memory-store brokers |
+| Functional coexistence | Multiple brokers start, bind distinct ports, remain usable, and close independently | Passes as an enabled test for two minimal AMQP 1.0 memory-store brokers, including a TCP connection to the survivor after the other closes |
 | Host-JVM isolation | Startup, operation, failure, and close do not mutate host-global state | Fails on properties, URL handler registration, and live shutdown hooks |
 | Lightweight resource budget | A minimal broker stays within the agreed thread and memory budgets | Fails the thread target with 81 live threads on the measured host |
-| Provider/model/allocator isolation | Runtimes can use conflicting providers and settings without visibility or ownership crossing | Not yet testable through the public API |
+| Provider/model/allocator isolation | Runtimes can use conflicting providers and settings without visibility or ownership crossing | Minimal and standalone provider sets are characterized separately; conflicting per-runtime sets are not yet testable through the public API |
 
 Milestones and release claims must name the gates they satisfy. In particular, functional coexistence is useful
 compatibility evidence but is not a substitute for host-JVM or provider isolation.
@@ -318,7 +320,7 @@ functional coexistence passed for two minimal brokers. See
 
 Exit criterion: met for the embedded path. Full standalone distribution and cross-JDK coverage is completed by commit 2.
 
-#### Commit 2 - test/docs: extend standalone and cross-JDK compatibility baselines
+#### Commit 2 - test/docs: extend standalone and cross-JDK compatibility baselines (implemented)
 
 Close the remaining characterization gaps before changing runtime construction:
 
@@ -331,8 +333,17 @@ Close the remaining characterization gaps before changing runtime construction:
 - distinguish machine-independent compatibility assertions from diagnostic timing, thread, and heap measurements;
 - retain the four progress gates as separate CI and reporting outcomes.
 
-Exit criterion: both the minimal embedded path and the full standalone assembly have passing compatibility baselines on
-supported JDKs, while the desired host-isolation contract remains explicitly red.
+Result: the concurrent lifecycle scenario is now an enabled embedded compatibility test and verifies that the surviving
+broker still accepts a TCP connection. Tests in the <code>broker</code> assembly root launch the real
+<code>Main</code>, characterize command-line, JVM property, property-file, and environment precedence, and freeze
+normal, failed, and externally terminated process behaviour. Full standalone protocol, system-configuration, and
+transport provider sets are recorded separately from the minimal embedded pack. Portable assertions remain distinct
+from machine-specific measurements. Linux CI already exercises Java 17 and 21; Windows CI now does the same. See
+[Embedded Broker Compatibility Baseline Results](embedded-broker-compatibility-baseline-results.md).
+
+Exit criterion: the focused minimal and standalone compatibility baselines pass locally on Windows with Java 17. The
+Java 17 and 21 Linux and Windows jobs enforce the complete cross-platform criterion when the commit is submitted to CI.
+The desired host-isolation contract remains opt-in and explicitly red.
 
 ### Phase 1 - Introduce the runtime seam
 

@@ -46,11 +46,13 @@ public class EmbeddedBrokerBaselineTest extends UnitTestBase
     private static final String BASELINE_OUTPUT_PROPERTY = "qpid.embedded.baseline.output";
 
     private static Map<String, Object> _baseline;
+    private static Map<String, Object> _concurrentBaseline;
 
     @BeforeAll
     public static void createFreshJvmBaseline() throws Exception
     {
         _baseline = FreshJvmBrokerProbe.run("sequential");
+        _concurrentBaseline = FreshJvmBrokerProbe.run("concurrent");
         final Map<String, Object> first = map(_baseline.get("firstBroker"));
         final Map<String, Object> second = map(_baseline.get("secondBroker"));
         System.out.printf("Embedded broker baseline: first startup=%d ms, threads=%d; " +
@@ -81,6 +83,20 @@ public class EmbeddedBrokerBaselineTest extends UnitTestBase
         final Map<String, Object> second = map(_baseline.get("secondBroker"));
         assertBrokerLifecycle(first);
         assertBrokerLifecycle(second);
+    }
+
+    @Test
+    public void testConcurrentBrokerLifecycleBaseline()
+    {
+        assertTrue(number(_concurrentBaseline.get("firstPort")) > 0L);
+        assertTrue(number(_concurrentBaseline.get("secondPort")) > 0L);
+        assertEquals(Boolean.TRUE, _concurrentBaseline.get("portsAreDistinct"));
+        assertEquals(Boolean.TRUE, _concurrentBaseline.get("secondBrokerRunningAfterFirstClose"));
+        assertEquals(Boolean.TRUE, _concurrentBaseline.get("secondBrokerAcceptsConnectionAfterFirstClose"));
+        assertEquals(Boolean.TRUE, _concurrentBaseline.get("firstWorkDirectoryRemoved"));
+        assertEquals(Boolean.TRUE, _concurrentBaseline.get("secondWorkDirectoryRemoved"));
+        assertTrue(strings(_concurrentBaseline.get("closedRuntimeAttributedThreads")).isEmpty(),
+                   "Concurrent broker threads should be released after both brokers close");
     }
 
     @Test

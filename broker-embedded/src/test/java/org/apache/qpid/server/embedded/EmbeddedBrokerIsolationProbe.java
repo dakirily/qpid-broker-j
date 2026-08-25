@@ -20,9 +20,12 @@
  */
 package org.apache.qpid.server.embedded;
 
+import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.net.InetSocketAddress;
+import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -156,6 +159,7 @@ public final class EmbeddedBrokerIsolationProbe
         int firstPort = -1;
         int secondPort = -1;
         boolean secondRunningAfterFirstClose = false;
+        boolean secondAcceptsConnectionAfterFirstClose = false;
         Path firstWorkDirectory = null;
         Path secondWorkDirectory = null;
         try
@@ -174,6 +178,7 @@ public final class EmbeddedBrokerIsolationProbe
 
             first.close();
             secondRunningAfterFirstClose = second.isRunning();
+            secondAcceptsConnectionAfterFirstClose = canConnect(secondPort);
             Thread.sleep(ACTIVE_SETTLE_MILLIS);
             afterFirstCloseState = GlobalState.capture();
             second.close();
@@ -199,6 +204,7 @@ public final class EmbeddedBrokerIsolationProbe
         result.put("secondPort", secondPort);
         result.put("portsAreDistinct", firstPort > 0 && secondPort > 0 && firstPort != secondPort);
         result.put("secondBrokerRunningAfterFirstClose", secondRunningAfterFirstClose);
+        result.put("secondBrokerAcceptsConnectionAfterFirstClose", secondAcceptsConnectionAfterFirstClose);
         result.put("firstWorkDirectoryRemoved",
                    firstWorkDirectory != null && !Files.exists(firstWorkDirectory));
         result.put("secondWorkDirectoryRemoved",
@@ -213,6 +219,20 @@ public final class EmbeddedBrokerIsolationProbe
         result.put("closedRuntimeAttributedThreads",
                    attributedThreads(initialState, finalState, runtimeMarkers, true));
         return result;
+    }
+
+    private static boolean canConnect(final int port)
+    {
+        try (Socket socket = new Socket())
+        {
+            socket.connect(new InetSocketAddress("127.0.0.1", port), 5000);
+            return true;
+        }
+        catch (final IOException ignore)
+        {
+            // Connection failure is reported through the probe result
+            return false;
+        }
     }
 
     private static Map<String, Object> runBroker(final String brokerName,

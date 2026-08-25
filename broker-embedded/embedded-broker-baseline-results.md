@@ -32,6 +32,11 @@ This is a characterization baseline, not evidence that the current implementatio
 deliberately preserve existing standalone-compatible behaviour and identify known side effects. The desired isolation
 contract is executable but opt-in because it is expected to fail until later roadmap commits remove the global state.
 
+Commit 2 subsequently promoted concurrent functional coexistence into the enabled suite and added real standalone
+process, full-provider, and cross-JDK/OS coverage. Those results are recorded in
+[Embedded Broker Compatibility Baseline Results](embedded-broker-compatibility-baseline-results.md). The measurements
+below remain the commit 1 reference point.
+
 ## What was added
 
 The baseline consists of four test-side components:
@@ -258,7 +263,7 @@ The opt-in test run reported three failing tests:
 These failures are the initial red contract. Later roadmap commits should make them green rather than weakening their
 assertions.
 
-## Interpretation and next priorities
+## Commit 1 interpretation and next priorities
 
 The results refine the roadmap ordering:
 

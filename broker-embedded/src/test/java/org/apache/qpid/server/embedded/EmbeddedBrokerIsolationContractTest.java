@@ -55,6 +55,8 @@ public class EmbeddedBrokerIsolationContractTest extends UnitTestBase
         assertAll("concurrent broker function",
                   () -> assertEquals(Boolean.TRUE, result.get("portsAreDistinct")),
                   () -> assertEquals(Boolean.TRUE, result.get("secondBrokerRunningAfterFirstClose")),
+                  () -> assertEquals(Boolean.TRUE,
+                                     result.get("secondBrokerAcceptsConnectionAfterFirstClose")),
                   () -> assertEquals(Boolean.TRUE, result.get("firstWorkDirectoryRemoved")),
                   () -> assertEquals(Boolean.TRUE, result.get("secondWorkDirectoryRemoved")));
         assertNoGlobalMutation(map(result.get("activeGlobalDifference")));
