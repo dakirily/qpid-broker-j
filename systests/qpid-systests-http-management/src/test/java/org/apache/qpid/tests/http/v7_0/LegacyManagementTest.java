@@ -29,16 +29,14 @@ import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 
-import org.apache.qpid.tests.http.HttpRequestConfig;
 import org.apache.qpid.tests.http.HttpTestBase;
 
-@HttpRequestConfig(useVirtualHostAsHost = false)
 public class LegacyManagementTest extends HttpTestBase
 {
     @Test
     public void testModelVersion() throws Exception
     {
-        final Map<String, Object> brokerAttributes = getHelper().getJsonAsMap("/api/v7.0/broker");
+        final Map<String, Object> brokerAttributes = getBrokerHelper().getJsonAsMap("/api/v7.0/broker");
         assertThat(brokerAttributes, is(notNullValue()));
         assertThat(brokerAttributes.get("modelVersion"), equalTo("7.0"));
     }

@@ -31,7 +31,6 @@ import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.nullValue;
 import static org.hamcrest.MatcherAssert.assertThat;
 
-import java.io.FileNotFoundException;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -40,16 +39,12 @@ import javax.jms.Connection;
 import javax.jms.JMSException;
 import javax.jms.Session;
 
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import tools.jackson.core.type.TypeReference;
 
-import org.apache.qpid.tests.http.HttpRequestConfig;
 import org.apache.qpid.tests.http.HttpTestBase;
-import org.apache.qpid.tests.http.HttpTestHelper;
 
-@HttpRequestConfig
 public class OperationTest extends HttpTestBase
 {
     // TODO multipart posts
@@ -61,7 +56,7 @@ public class OperationTest extends HttpTestBase
     @Test
     public void invokeNoParameters() throws Exception
     {
-        Map<String, Object> response = getHelper().postJson("virtualhost/getStatistics",
+        Map<String, Object> response = getVirtualHostHelper().postJson("virtualhost/getStatistics",
                                                             Map.of(),
                                                             MAP_TYPE_REF, SC_OK);
         assertThat(response.size(), is(greaterThan(1)));
@@ -72,7 +67,7 @@ public class OperationTest extends HttpTestBase
     {
         Map<Object, Object> params = Map.of("statistics", List.of("connectionCount"));
 
-        Map<String, Object> response = getHelper().postJson("virtualhost/getStatistics",
+        Map<String, Object> response = getVirtualHostHelper().postJson("virtualhost/getStatistics",
                                                             params,
                                                             MAP_TYPE_REF, SC_OK);
         assertThat(response.size(), is(equalTo(1)));
@@ -81,8 +76,10 @@ public class OperationTest extends HttpTestBase
     @Test
     public void invokeGetWithParameters() throws Exception
     {
-        Map<String, Object> response = getHelper().getJson("virtualhost/getStatistics?statistics=bytesIn&statistics=bytesOut",
-                                                            MAP_TYPE_REF, SC_OK);
+        Map<String, Object> response = getVirtualHostHelper().getJson(
+                "virtualhost/getStatistics?statistics=bytesIn&statistics=bytesOut",
+                MAP_TYPE_REF,
+                SC_OK);
         assertThat(response.size(), is(equalTo(2)));
     }
 
@@ -91,7 +88,7 @@ public class OperationTest extends HttpTestBase
     {
         Map<String, Object> params = Map.of("unknown", Map.of());
 
-        getHelper().submitRequest("virtualhost/getStatistics", "POST", params, SC_UNPROCESSABLE_ENTITY);
+        getVirtualHostHelper().submitRequest("virtualhost/getStatistics", "POST", params, SC_UNPROCESSABLE_ENTITY);
     }
 
     @Test
@@ -100,7 +97,7 @@ public class OperationTest extends HttpTestBase
         final Connection connection = getConnection();
         try
         {
-            final Map<String, Object> result = getHelper().postJson("virtualhost/closeIdleConnections",
+            final Map<String, Object> result = getVirtualHostHelper().postJson("virtualhost/closeIdleConnections",
                     Map.of("idleTimeMillis", 600000L), MAP_TYPE_REF, SC_OK);
 
             assertThat(result.get("matchedCount"), is(equalTo(0)));
@@ -123,7 +120,7 @@ public class OperationTest extends HttpTestBase
         {
             Thread.sleep(10L);
 
-            final Map<String, Object> result = getHelper().postJson("virtualhost/closeIdleConnections",
+            final Map<String, Object> result = getVirtualHostHelper().postJson("virtualhost/closeIdleConnections",
                     Map.of("idleTimeMillis", 0L, "waitForClose", true, "timeoutMillis", 5000L), MAP_TYPE_REF, SC_OK);
 
             assertThat(result.get("matchedCount"), is(equalTo(1)));
@@ -133,7 +130,7 @@ public class OperationTest extends HttpTestBase
             assertThat(connections.size(), is(equalTo(1)));
             assertThat(((Map<?, ?>) connections.get(0)).get("status"), is(equalTo("CLOSED")));
 
-            final Map<String, Object> statistics = getHelper().postJson("virtualhost/getStatistics",
+            final Map<String, Object> statistics = getVirtualHostHelper().postJson("virtualhost/getStatistics",
                     Map.of("statistics", List.of("connectionCount")), MAP_TYPE_REF, SC_OK);
             assertThat(((Number) statistics.get("connectionCount")).intValue(), is(equalTo(0)));
         }
@@ -146,56 +143,43 @@ public class OperationTest extends HttpTestBase
     @Test
     public void closeIdleConnectionsRejectsNegativeIdleTime() throws Exception
     {
-        getHelper().submitRequest("virtualhost/closeIdleConnections", "POST", Map.of("idleTimeMillis", -1L),
+        getVirtualHostHelper().submitRequest("virtualhost/closeIdleConnections", "POST", Map.of("idleTimeMillis", -1L),
                 SC_UNPROCESSABLE_ENTITY);
     }
 
     @Test
     public void operationNotFound() throws Exception
     {
-        getHelper().submitRequest("virtualhost/notfound", "POST", Map.of(), SC_NOT_FOUND);
+        getVirtualHostHelper().submitRequest("virtualhost/notfound", "POST", Map.of(), SC_NOT_FOUND);
     }
 
     @Test
     public void invokeOperationReturningVoid() throws Exception
     {
-        final HttpTestHelper brokerHelper = new HttpTestHelper(getBrokerAdmin());
-        final Void response = brokerHelper.postJson("broker/performGC",
-                                                    Map.of(),
-                                                    new TypeReference<Void>()
-                                                    {
-                                                    },
-                                                    SC_OK);
+        final Void response = getBrokerHelper().postJson("broker/performGC",
+                                                         Map.of(),
+                                                         new TypeReference<Void>()
+                                                         {
+                                                         },
+                                                         SC_OK);
         assertThat(response, is(nullValue()));
     }
 
     @Test
     public void invokeOperationForUnknownCategory() throws Exception
     {
-
-        try
-        {
-            getHelper().postJson("broker/performGC",
-                                 Map.of(),
-                                 new TypeReference<Void>()
-                                 {
-                                 },
-                                 SC_NOT_FOUND);
-            Assertions.fail(
-                    "The request is executed against root object VirtualHost. Thus, any broker request should fail.");
-        }
-        catch (FileNotFoundException e)
-        {
-            //pass
-        }
-
+        getVirtualHostHelper().postJson("broker/performGC",
+                                        Map.of(),
+                                        new TypeReference<Void>()
+                                        {
+                                        },
+                                        SC_NOT_FOUND);
     }
 
     @Test
     public void invokeOperationWithReservedParameter() throws Exception
     {
-        final HttpTestHelper brokerHelper = new HttpTestHelper(getBrokerAdmin());
-        final byte[] response = brokerHelper.getBytes(
+        final byte[] response = getBrokerHelper().getBytes(
                 "broker/getThreadStackTraces?contentDispositionAttachmentFilename=stack-traces.txt&appendToLog=false");
         assertThat(response, is(notNullValue()));
         assertThat(new String(response, UTF_8).contains("Full thread dump captured"), is(equalTo(true)));

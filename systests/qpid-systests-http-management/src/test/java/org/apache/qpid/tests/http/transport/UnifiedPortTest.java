@@ -51,7 +51,7 @@ public class UnifiedPortTest extends HttpTestBase
 
     private void doTestSlowConnect(final boolean useTls) throws Exception
     {
-        final int port = getBrokerAdmin().getBrokerAddress(BrokerAdmin.PortType.HTTP).getPort();
+        final int port = getBrokerAdmin().getBrokerAddress(BrokerAdmin.PortType.HTTP_BROKER).getPort();
         try(TCPTunneler tunneler = new TCPTunneler(0, "localhost",
                                                    port, 1, 2))
         {
@@ -60,11 +60,11 @@ public class UnifiedPortTest extends HttpTestBase
             tunneler.addClientListener(new PreambleDelayingListener());
             tunneler.start();
 
-            HttpTestHelper _restTestHelper = new HttpTestHelper(getBrokerAdmin(), null, tunneler.getLocalPort());
-            _restTestHelper.setTls(useTls);
+            final HttpTestHelper restTestHelper = new HttpTestHelper(getBrokerAdmin(), tunneler.getLocalPort());
+            restTestHelper.setTls(useTls);
 
-            Map<String, Object> metadata = _restTestHelper.getJsonAsMap("broker/getConnectionMetaData");
-            String transport = String.valueOf(metadata.get("transport"));
+            final Map<String, Object> metadata = restTestHelper.getJsonAsMap("broker/getConnectionMetaData");
+            final String transport = String.valueOf(metadata.get("transport"));
             final String expected = useTls ? "SSL" : "TCP";
             assertThat("Unexpected protocol", transport, CoreMatchers.is(equalTo(expected)));
         }

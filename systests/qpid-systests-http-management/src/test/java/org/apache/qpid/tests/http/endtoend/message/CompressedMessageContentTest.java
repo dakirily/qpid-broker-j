@@ -26,10 +26,10 @@ import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
-import java.io.ByteArrayOutputStream;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.HttpURLConnection;
+import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.List;
@@ -42,7 +42,6 @@ import javax.jms.MessageProducer;
 import javax.jms.Session;
 import javax.jms.TextMessage;
 
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -50,11 +49,9 @@ import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 
 import org.apache.qpid.server.model.Protocol;
-import org.apache.qpid.tests.http.HttpRequestConfig;
 import org.apache.qpid.tests.http.HttpTestBase;
 import org.apache.qpid.tests.utils.ConfigItem;
 
-@HttpRequestConfig
 @ConfigItem(name = BROKER_MESSAGE_COMPRESSION_ENABLED, value = "true")
 public class CompressedMessageContentTest extends HttpTestBase
 {
@@ -65,15 +62,7 @@ public class CompressedMessageContentTest extends HttpTestBase
     {
         assumeTrue(is(not(equalTo(Protocol.AMQP_1_0))).matches(getProtocol()));
         getBrokerAdmin().createQueue(TEST_QUEUE);
-        getHelper().createKeyStoreAndSetItOnPort(getFullTestName());
-    }
-
-    @AfterEach
-    public void afterEach() throws Exception
-    {
-        assumeTrue(is(not(equalTo(Protocol.AMQP_1_0))).matches(getProtocol()));
-        getHelper().setAcceptEncoding("Identity");
-        getHelper().removeKeyStoreFromPort(getFullTestName());
+        getVirtualHostHelper().setTls(true);
     }
 
     @Test
@@ -83,17 +72,21 @@ public class CompressedMessageContentTest extends HttpTestBase
 
         String queueRelativePath = String.format("queue/%s", TEST_QUEUE);
 
-        List<Map<String, Object>> messages = getHelper().getJsonAsList(queueRelativePath + "/getMessageInfo");
+        final List<Map<String, Object>> messages =
+                getVirtualHostHelper().getJsonAsList(queueRelativePath + "/getMessageInfo");
         assertThat(messages.size(), is(equalTo(1)));
         final Map<String, Object> message = messages.get(0);
         assertThat(message.get("encoding"), is(equalTo("gzip")));
         long id = ((Number) message.get("id")).longValue();
 
-        byte[] messageBytes = getHelper().getBytes(queueRelativePath + "/getMessageContent?messageId=" + id);
+        byte[] messageBytes = getVirtualHostHelper().getBytes(queueRelativePath + "/getMessageContent?messageId=" + id);
         String content = new String(messageBytes, StandardCharsets.UTF_8);
         assertThat("Unexpected message content", content, is(equalTo(messageText)));
 
-        messageBytes = getHelper().getBytes(queueRelativePath + "/getMessageContent?limit=1024&decompressBeforeLimiting=true&messageId=" + id);
+        messageBytes = getVirtualHostHelper().getBytes(
+                queueRelativePath
+                        + "/getMessageContent?limit=1024&decompressBeforeLimiting=true&messageId="
+                        + id);
         content = new String(messageBytes, StandardCharsets.UTF_8);
         assertThat("Unexpected limited message content", content, is(equalTo(messageText.substring(0, 1024))));
     }
@@ -105,14 +98,15 @@ public class CompressedMessageContentTest extends HttpTestBase
 
         String queueRelativePath = String.format("queue/%s", TEST_QUEUE);
 
-        List<Map<String, Object>> messages = getHelper().getJsonAsList(queueRelativePath + "/getMessageInfo");
+        final List<Map<String, Object>> messages =
+                getVirtualHostHelper().getJsonAsList(queueRelativePath + "/getMessageInfo");
         assertThat(messages.size(), is(equalTo(1)));
 
         final Map<String, Object> message = messages.get(0);
         assertThat(message.get("encoding"), is(equalTo("gzip")));
         long id = ((Number) message.get("id")).longValue();
 
-        getHelper().setAcceptEncoding("gzip, deflate, br");
+        getVirtualHostHelper().setAcceptEncoding("gzip, deflate, br");
         String content = getDecompressedContent(queueRelativePath + "/getMessageContent?messageId=" + id);
         assertThat("Unexpected message content", content, is(equalTo(messageText)));
 
@@ -127,7 +121,8 @@ public class CompressedMessageContentTest extends HttpTestBase
 
         String queueRelativePath = String.format("queue/%s", TEST_QUEUE);
 
-        List<Map<String, Object>> messages = getHelper().getJsonAsList(queueRelativePath + "/getMessageInfo");
+        final List<Map<String, Object>> messages =
+                getVirtualHostHelper().getJsonAsList(queueRelativePath + "/getMessageInfo");
         assertThat(messages.size(), is(equalTo(1)));
 
         final Map<String, Object> message = messages.get(0);
@@ -135,7 +130,8 @@ public class CompressedMessageContentTest extends HttpTestBase
         long id = ((Number) message.get("id")).longValue();
 
 
-        Map<String, Object> content = getHelper().getJsonAsMap(queueRelativePath + "/getMessageContent?returnJson=true&messageId=" + id);
+        final Map<String, Object> content = getVirtualHostHelper().getJsonAsMap(
+                queueRelativePath + "/getMessageContent?returnJson=true&messageId=" + id);
         assertThat("Unexpected message content: difference ", new HashMap<>(content), is(equalTo(new HashMap<>(mapToSend))));
     }
 
@@ -146,46 +142,36 @@ public class CompressedMessageContentTest extends HttpTestBase
 
         String queueRelativePath = String.format("queue/%s", TEST_QUEUE);
 
-        List<Map<String, Object>> messages = getHelper().getJsonAsList(queueRelativePath + "/getMessageInfo");
+        final List<Map<String, Object>> messages =
+                getVirtualHostHelper().getJsonAsList(queueRelativePath + "/getMessageInfo");
         assertThat(messages.size(), is(equalTo(1)));
 
         final Map<String, Object> message = messages.get(0);
         assertThat(message.get("encoding"), is(equalTo("gzip")));
         long id = ((Number) message.get("id")).longValue();
 
-        getHelper().setAcceptEncoding("gzip, deflate, br");
-        HttpURLConnection connection =
-                getHelper().openManagementConnection(queueRelativePath
-                                                     + "/getMessageContent?returnJson=true&messageId="
-                                                     + id,
-                                                     "GET");
-        connection.connect();
-
-        String content = decompressInputStream(connection);
-        Map<String, Object> mapContent = new ObjectMapper().readValue(content, new TypeReference<Map<String, Object>>() {});
+        getVirtualHostHelper().setAcceptEncoding("gzip, deflate, br");
+        final HttpResponse<byte[]> response = getVirtualHostHelper().send(getVirtualHostHelper().createRequest(
+                queueRelativePath + "/getMessageContent?returnJson=true&messageId=" + id, "GET"));
+        final String content = decompress(response.body());
+        final Map<String, Object> mapContent =
+                new ObjectMapper().readValue(content, new TypeReference<Map<String, Object>>() {});
 
         assertThat("Unexpected message content ", new HashMap<>(mapContent), is(equalTo(new HashMap<>(mapToSend))));
     }
 
     private String getDecompressedContent(final String url) throws IOException
     {
-        HttpURLConnection connection = getHelper().openManagementConnection(url, "GET");
-        connection.connect();
-        return decompressInputStream(connection);
+        final HttpResponse<byte[]> response =
+                getVirtualHostHelper().send(getVirtualHostHelper().createRequest(url, "GET"));
+        return decompress(response.body());
     }
 
-    private String decompressInputStream(final HttpURLConnection connection) throws IOException
+    private String decompress(final byte[] content) throws IOException
     {
-        try (InputStream is = new GZIPInputStream(connection.getInputStream());
-             ByteArrayOutputStream baos = new ByteArrayOutputStream())
+        try (InputStream inputStream = new GZIPInputStream(new ByteArrayInputStream(content)))
         {
-            byte[] buffer = new byte[1024];
-            int len;
-            while ((len = is.read(buffer)) != -1)
-            {
-                baos.write(buffer, 0, len);
-            }
-            return new String(baos.toByteArray(), StandardCharsets.UTF_8);
+            return new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
         }
     }
 

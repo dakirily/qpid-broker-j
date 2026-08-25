@@ -20,38 +20,32 @@
  */
 package org.apache.qpid.tests.http;
 
-import static jakarta.servlet.http.HttpServletResponse.SC_CREATED;
-import static jakarta.servlet.http.HttpServletResponse.SC_OK;
-
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
+import java.net.URI;
 import java.net.URL;
-import java.nio.charset.StandardCharsets;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.security.GeneralSecurityException;
 import java.security.KeyManagementException;
 import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.UnrecoverableKeyException;
-import java.security.cert.X509Certificate;
+import java.time.Duration;
 import java.util.Base64;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
-import javax.net.ssl.TrustManager;
-import javax.net.ssl.X509TrustManager;
+import javax.net.ssl.TrustManagerFactory;
 
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -61,13 +55,7 @@ import org.slf4j.LoggerFactory;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 
-import org.apache.qpid.server.model.Port;
-import org.apache.qpid.server.security.NonJavaKeyStore;
 import org.apache.qpid.server.transport.network.security.ssl.SSLUtil;
-import org.apache.qpid.server.util.DataUrlUtils;
-import org.apache.qpid.test.utils.tls.PemUtils;
-import org.apache.qpid.test.utils.tls.KeyCertificatePair;
-import org.apache.qpid.test.utils.tls.TlsResourceBuilder;
 import org.apache.qpid.tests.utils.BrokerAdmin;
 
 public class HttpTestHelper
@@ -78,37 +66,39 @@ public class HttpTestHelper
 
     private static final TypeReference<Map<String, Object>> TYPE_MAP = new TypeReference<>() { };
 
-    private static final TypeReference<Boolean> TYPE_BOOLEAN = new TypeReference<>() { };
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     private static final String API_BASE = "/api/latest/";
+
     private final int _httpPort;
-    private String _username;
-    private String _password;
-    private String _requestHostName;
     private final int _connectTimeout = Integer.getInteger("qpid.resttest_connection_timeout", 30000);
 
+    private String _username;
+    private String _password;
     private String _acceptEncoding;
     private boolean _tls = false;
-
     private KeyStore _keyStore;
     private String _keyStorePassword;
+    private KeyStore _trustStore;
+    private HttpClient _httpClient;
 
     public HttpTestHelper(final BrokerAdmin admin)
     {
-        this(admin, null);
+        this(admin, BrokerAdmin.PortType.HTTP_BROKER);
     }
 
-    public HttpTestHelper(BrokerAdmin admin, final String requestHostName)
+    public HttpTestHelper(final BrokerAdmin admin, final BrokerAdmin.PortType portType)
     {
-        this(admin, requestHostName, admin.getBrokerAddress(BrokerAdmin.PortType.HTTP).getPort());
+        this(admin, admin.getBrokerAddress(portType).getPort());
     }
 
-    public HttpTestHelper(BrokerAdmin admin, final String requestHostName, final int httpPort)
+    public HttpTestHelper(final BrokerAdmin admin, final int httpPort)
     {
         _httpPort = httpPort;
         _username = admin.getValidUsername();
         _password = admin.getValidPassword();
-        _requestHostName = requestHostName;
+        _trustStore = admin.getHttpManagementTrustStore();
+        _httpClient = createHttpClient();
     }
 
     public void setTls(final boolean tls)
@@ -131,217 +121,197 @@ public class HttpTestHelper
         return (_tls ? "https" : "http") + "://" + getHostName() + ":" + getHttpPort();
     }
 
-    private URL getManagementURL(String path) throws MalformedURLException
+    private URI getManagementURI(final String path)
     {
-        return new URL(getManagementURL() + path);
+        final String resolvedPath = path.startsWith("/") ? path : API_BASE + path;
+        return URI.create(getManagementURL() + resolvedPath);
     }
 
-    public HttpURLConnection openManagementConnection(String path, String method) throws IOException
+    public HttpRequest.Builder createRequest(final String path, final String method)
     {
-        if (!path.startsWith("/"))
-        {
-            path = API_BASE + path;
-        }
-        final URL url = getManagementURL(path);
-        LOGGER.debug("Opening connection : {} {}", method, url);
-        HttpURLConnection httpCon = (HttpURLConnection) url.openConnection();
-        if (httpCon instanceof HttpsURLConnection)
-        {
-            HttpsURLConnection httpsCon = (HttpsURLConnection) httpCon;
-            try
-            {
-                SSLContext sslContext = SSLUtil.tryGetSSLContext();
-                TrustManager[] trustAllCerts = new TrustManager[] {new TrustAllTrustManager()};
+        final URI uri = getManagementURI(path);
+        LOGGER.debug("Creating request : {} {}", method, uri);
 
-                KeyManager[] keyManagers = null;
-                if (_keyStore != null)
-                {
-                    char[] keyStoreCharPassword = _keyStorePassword == null ? null : _keyStorePassword.toCharArray();
-                    KeyManagerFactory kmf = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
-                    kmf.init(_keyStore, keyStoreCharPassword);
-                    keyManagers = kmf.getKeyManagers();
-                }
-                sslContext.init(keyManagers, trustAllCerts, null);
-                httpsCon.setSSLSocketFactory(sslContext.getSocketFactory());
-                httpsCon.setHostnameVerifier((s, sslSession) -> true);
-            }
-            catch (KeyStoreException | UnrecoverableKeyException | KeyManagementException | NoSuchAlgorithmException e)
-            {
-                throw new RuntimeException(e);
-            }
-        }
-        httpCon.setConnectTimeout(_connectTimeout);
-        if (_requestHostName != null)
+        final HttpRequest.Builder builder = HttpRequest.newBuilder(uri)
+                .timeout(Duration.ofMillis(_connectTimeout))
+                .method(method, HttpRequest.BodyPublishers.noBody());
+        if (_username != null)
         {
-            httpCon.setRequestProperty("Host", _requestHostName);
+            final String credentials = _username + ":" + _password;
+            final String encoded = Base64.getEncoder().encodeToString(credentials.getBytes(UTF_8));
+            builder.header("Authorization", "Basic " + encoded);
         }
-
-        if(_username != null)
+        if (_acceptEncoding != null && !_acceptEncoding.isEmpty())
         {
-            String encoded = Base64.getEncoder().encodeToString((_username + ":" + _password).getBytes(UTF_8));
-            httpCon.setRequestProperty("Authorization", "Basic " + encoded);
+            builder.header("Accept-Encoding", _acceptEncoding);
         }
-
-        if (_acceptEncoding != null && !"".equals(_acceptEncoding))
-        {
-            httpCon.setRequestProperty("Accept-Encoding", _acceptEncoding);
-        }
-
-        httpCon.setDoOutput(true);
-        httpCon.setRequestMethod(method);
-        return httpCon;
+        return builder;
     }
 
-    public Map<String, Object> readJsonResponseAsMap(HttpURLConnection connection) throws IOException
+    public HttpResponse<byte[]> send(final HttpRequest.Builder builder) throws IOException
     {
-        byte[] data = readConnectionInputStream(connection);
-
-        ObjectMapper mapper = new ObjectMapper();
-        return mapper.readValue(new ByteArrayInputStream(data), TYPE_MAP);
+        return send(builder.build());
     }
 
-    private byte[] readConnectionInputStream(HttpURLConnection connection) throws IOException
+    public HttpResponse<byte[]> send(final HttpRequest request) throws IOException
     {
-        try (InputStream is = connection.getInputStream())
+        try
         {
-            final byte[] bytes = is.readAllBytes();
+            final HttpResponse<byte[]> response =
+                    _httpClient.send(request, HttpResponse.BodyHandlers.ofByteArray());
             if (LOGGER.isTraceEnabled())
             {
-                LOGGER.trace("RESPONSE:" + new String(bytes, UTF_8));
+                LOGGER.trace("RESPONSE:{}", new String(response.body(), UTF_8));
             }
-            return bytes;
+            return response;
         }
-    }
-
-    private void writeJsonRequest(HttpURLConnection connection, Object data) throws IOException
-    {
-        try (OutputStream outputStream = connection.getOutputStream())
+        catch (final InterruptedException e)
         {
-            new ObjectMapper().writeValue(outputStream, data);
+            Thread.currentThread().interrupt();
+            throw new IOException("Interrupted while waiting for HTTP response from " + request.uri(), e);
         }
     }
 
-    public Map<String, Object> getJsonAsSingletonList(String path) throws IOException
+    private HttpClient createHttpClient()
     {
-        List<Map<String, Object>> response = getJsonAsList(path);
+        try
+        {
+            final SSLContext sslContext = SSLUtil.tryGetSSLContext();
+            KeyManager[] keyManagers = null;
+            if (_keyStore != null)
+            {
+                final char[] password =
+                        _keyStorePassword == null ? null : _keyStorePassword.toCharArray();
+                final KeyManagerFactory factory =
+                        KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
+                factory.init(_keyStore, password);
+                keyManagers = factory.getKeyManagers();
+            }
+            final TrustManagerFactory trustManagerFactory =
+                    TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+            trustManagerFactory.init(_trustStore);
+            sslContext.init(keyManagers, trustManagerFactory.getTrustManagers(), null);
+            return HttpClient.newBuilder()
+                    .connectTimeout(Duration.ofMillis(_connectTimeout))
+                    .followRedirects(HttpClient.Redirect.NEVER)
+                    .sslContext(sslContext)
+                    .version(HttpClient.Version.HTTP_1_1)
+                    .build();
+        }
+        catch (final KeyStoreException
+                | UnrecoverableKeyException
+                | KeyManagementException
+                | NoSuchAlgorithmException e)
+        {
+            throw new IllegalStateException("Cannot create HTTP test client", e);
+        }
+    }
+
+    public Map<String, Object> readJsonResponseAsMap(final HttpResponse<byte[]> response) throws IOException
+    {
+        return OBJECT_MAPPER.readValue(response.body(), TYPE_MAP);
+    }
+
+    public Map<String, Object> getJsonAsSingletonList(final String path) throws IOException
+    {
+        final List<Map<String, Object>> response = getJsonAsList(path);
 
         assertNotNull(response, "Response cannot be null");
         assertEquals(1, response.size(), "Unexpected response from " + path);
         return response.get(0);
     }
 
-    public List<Map<String, Object>> getJsonAsList(String path) throws IOException
+    public List<Map<String, Object>> getJsonAsList(final String path) throws IOException
     {
         return getJson(path, TYPE_LIST_OF_MAPS, HttpServletResponse.SC_OK);
     }
 
-    public Map<String, Object> getJsonAsMap(String path) throws IOException
+    public Map<String, Object> getJsonAsMap(final String path) throws IOException
     {
         return getJson(path, TYPE_MAP, HttpServletResponse.SC_OK);
     }
 
-    public <T> T getJson(String path, final TypeReference<T> valueTypeRef, int expectedResponseCode) throws IOException
+    public <T> T getJson(final String path,
+                         final TypeReference<T> valueTypeRef,
+                         final int expectedResponseCode)
+            throws IOException
     {
-        int responseCode = -1;
-        HttpURLConnection connection = openManagementConnection(path, "GET");
-        try
-        {
-            connection.connect();
-            responseCode = connection.getResponseCode();
-            assertEquals(expectedResponseCode, responseCode, String.format("Unexpected response code from : %s", path));
+        final HttpResponse<byte[]> response = send(createRequest(path, "GET"));
+        assertEquals(expectedResponseCode, response.statusCode(),
+                     String.format("Unexpected response code from : %s", path));
 
-            byte[] data = readConnectionInputStream(connection);
-            LOGGER.debug("Response : {}", new String(data, StandardCharsets.UTF_8));
-            return new ObjectMapper().readValue(new ByteArrayInputStream(data), valueTypeRef);
-        }
-        finally
-        {
-
-            LOGGER.debug("URL request completed : {}", responseCode);
-            connection.disconnect();
-        }
+        LOGGER.debug("Response : {}", new String(response.body(), UTF_8));
+        return OBJECT_MAPPER.readValue(response.body(), valueTypeRef);
     }
 
-    public <T> T postJson(String path, final Object data, final TypeReference<T> valueTypeRef, int expectedResponseCode) throws IOException
+    public <T> T postJson(final String path,
+                          final Object data,
+                          final TypeReference<T> valueTypeRef,
+                          final int expectedResponseCode)
+            throws IOException
     {
-        int responseCode = -1;
-        HttpURLConnection connection = openManagementConnection(path, "POST");
+        final byte[] requestBody = OBJECT_MAPPER.writeValueAsBytes(data);
+        final HttpRequest.Builder request = createRequest(path, "POST")
+                .header("Content-Type", "application/json")
+                .method("POST", HttpRequest.BodyPublishers.ofByteArray(requestBody));
+        final HttpResponse<byte[]> response = send(request);
+        assertEquals(expectedResponseCode, response.statusCode(),
+                     String.format("Unexpected response code from : %s", path));
 
-        try
-        {
-            connection.connect();
-            writeJsonRequest(connection, data);
-            responseCode = connection.getResponseCode();
-            assertEquals(expectedResponseCode, responseCode, String.format("Unexpected response code from : %s", path));
-
-            byte[] buf = readConnectionInputStream(connection);
-            LOGGER.debug("Response data: {}", new String(buf, StandardCharsets.UTF_8));
-            return new ObjectMapper().readValue(new ByteArrayInputStream(buf), valueTypeRef);
-        }
-        finally
-        {
-            LOGGER.debug("URL request completed : {}", responseCode);
-            connection.disconnect();
-        }
+        LOGGER.debug("Response data: {}", new String(response.body(), UTF_8));
+        return OBJECT_MAPPER.readValue(response.body(), valueTypeRef);
     }
 
-    public int submitRequest(String url, String method, Object data) throws IOException
+    public int submitRequest(final String url, final String method, final Object data) throws IOException
     {
         return submitRequest(url, method, data, null);
     }
 
-    public int submitRequest(String url, String method) throws IOException
+    public int submitRequest(final String url, final String method) throws IOException
     {
         return submitRequest(url, method, null, null);
     }
 
-    public void submitRequest(String url, String method, Object data, int expectedResponseCode) throws IOException
+    public void submitRequest(final String url,
+                              final String method,
+                              final Object data,
+                              final int expectedResponseCode)
+            throws IOException
     {
-        Map<String, List<String>> headers = new HashMap<>();
-        int responseCode = submitRequest(url, method, data, headers);
+        final int responseCode = submitRequest(url, method, data, null);
         assertEquals(expectedResponseCode, responseCode, "Unexpected response code from " + method + " " + url);
     }
 
-    public void submitRequest(String url, String method, int expectedResponseCode) throws IOException
+    public void submitRequest(final String url, final String method, final int expectedResponseCode) throws IOException
     {
         submitRequest(url, method, null, expectedResponseCode);
     }
 
-    public int submitRequest(String url, String method, Object data, Map<String, List<String>> responseHeadersToCapture) throws IOException
+    public int submitRequest(final String url,
+                             final String method,
+                             final Object data,
+                             final Map<String, List<String>> responseHeadersToCapture)
+            throws IOException
     {
-        HttpURLConnection connection = openManagementConnection(url, method);
-        int responseCode = -1;
-        try
+        final HttpRequest.Builder request = createRequest(url, method);
+        if (data != null)
         {
-            if (data != null)
-            {
-                writeJsonRequest(connection, data);
-            }
-            responseCode = connection.getResponseCode();
-            if (responseHeadersToCapture != null)
-            {
-                responseHeadersToCapture.putAll(connection.getHeaderFields());
-            }
-            return responseCode;
+            final byte[] requestBody = OBJECT_MAPPER.writeValueAsBytes(data);
+            request.header("Content-Type", "application/json")
+                    .method(method, HttpRequest.BodyPublishers.ofByteArray(requestBody));
         }
-        finally
+        final HttpResponse<byte[]> response = send(request);
+        if (responseHeadersToCapture != null)
         {
-            LOGGER.debug("URL request completed : {}", responseCode);
-            connection.disconnect();
+            responseHeadersToCapture.putAll(response.headers().map());
         }
+        LOGGER.debug("URL request completed : {}", response.statusCode());
+        return response.statusCode();
     }
 
-    public byte[] getBytes(String path) throws IOException
+    public byte[] getBytes(final String path) throws IOException
     {
-        HttpURLConnection connection = openManagementConnection(path, "GET");
-        try
-        {
-            return readConnectionInputStream(connection);
-        }
-        finally
-        {
-            connection.disconnect();
-        }
+        return send(createRequest(path, "GET")).body();
     }
 
     public String getAcceptEncoding()
@@ -349,7 +319,7 @@ public class HttpTestHelper
         return _acceptEncoding;
     }
 
-    public void setAcceptEncoding(String acceptEncoding)
+    public void setAcceptEncoding(final String acceptEncoding)
     {
         _acceptEncoding = acceptEncoding;
     }
@@ -357,22 +327,31 @@ public class HttpTestHelper
     public void setKeyStore(final String keystore, final String password) throws Exception
     {
         _keyStorePassword = password;
+        _keyStore = loadKeyStore(keystore, password);
+        _httpClient = createHttpClient();
+    }
 
-        if (keystore != null)
+    public void setTrustStore(final String trustStore, final String password) throws Exception
+    {
+        _trustStore = loadKeyStore(trustStore, password);
+        _httpClient = createHttpClient();
+    }
+
+    private KeyStore loadKeyStore(final String store, final String password)
+            throws IOException, GeneralSecurityException
+    {
+        if (store == null)
         {
-            try
-            {
-                URL ks = new URL(keystore);
-                _keyStore = SSLUtil.getInitializedKeyStore(ks, password, KeyStore.getDefaultType());
-            }
-            catch (MalformedURLException e)
-            {
-                _keyStore = SSLUtil.getInitializedKeyStore(keystore, password, KeyStore.getDefaultType());
-            }
+            return null;
         }
-        else
+        try
         {
-            _keyStore = null;
+            final URL url = new URL(store);
+            return SSLUtil.getInitializedKeyStore(url, password, KeyStore.getDefaultType());
+        }
+        catch (final MalformedURLException e)
+        {
+            return SSLUtil.getInitializedKeyStore(store, password, KeyStore.getDefaultType());
         }
     }
 
@@ -386,71 +365,4 @@ public class HttpTestHelper
         _username = username;
     }
 
-    /**
-     * System tests use "Host" header to supply virtualhost name (which is build from test class name and test method
-     * name). This leads to invalid SNI error on Jetty side when using HTTPS connection.
-     * This method provides workaround by generating new keystore containing certificate with the correct CN and replacing
-     * the default keystore with the generated one.
-     *
-     * @param cn CN Certificate CN (consists of test class name and test method name)
-     *
-     * @throws Exception
-     */
-    public void createKeyStoreAndSetItOnPort(final String cn) throws Exception
-    {
-        final KeyCertificatePair keyCertPair = TlsResourceBuilder.createSelfSigned("CN=" + cn);
-        final String privateKey = DataUrlUtils.getDataUrlForBytes(PemUtils.toPEM(keyCertPair.privateKey())
-                .getBytes(UTF_8));
-        final String certificate = DataUrlUtils.getDataUrlForBytes(PemUtils.toPEM(keyCertPair.certificate())
-                .getBytes(UTF_8));
-        final Map<String, Object> attributes = Map.of(
-                NonJavaKeyStore.NAME, cn,
-                NonJavaKeyStore.PRIVATE_KEY_URL, privateKey,
-                NonJavaKeyStore.CERTIFICATE_URL, certificate,
-                NonJavaKeyStore.TYPE, "NonJavaKeyStore");
-
-        final String requestHostName = _requestHostName;
-        _requestHostName = "localhost";
-        setTls(false);
-        submitRequest("keystore/" + cn, "PUT", attributes, SC_CREATED);
-        submitRequest("port/HTTP", "POST", Map.of(Port.KEY_STORE, cn), SC_OK);
-        postJson("port/HTTP/updateTLS", Map.of(), TYPE_BOOLEAN, SC_OK);
-        setTls(true);
-        _requestHostName = requestHostName;
-    }
-
-    /**
-     * System tests use "Host" header to supply virtualhost name (which is build from test class name and test method
-     * name). This leads to invalid SNI error on Jetty side when using HTTPS connection.
-     * This method removes previously generated keystore and replaces it with the default one.
-     *
-     * @param cn CN Certificate CN (consists of test class name and test method name)
-     *
-     * @throws Exception
-     */
-    public void removeKeyStoreFromPort(final String cn) throws Exception
-    {
-        submitRequest("port/HTTP", "POST", Map.of(Port.KEY_STORE, "systestsKeyStore"), SC_OK);
-        submitRequest("keystore/" + cn, "DELETE", Map.of(), SC_OK);
-        postJson("port/HTTP/updateTLS", Map.of(), TYPE_BOOLEAN, SC_OK);
-        setTls(false);
-    }
-
-    private static class TrustAllTrustManager implements X509TrustManager
-    {
-        public X509Certificate[] getAcceptedIssuers()
-        {
-            return new X509Certificate[0];
-        }
-
-        @Override
-        public void checkClientTrusted(X509Certificate[] certs, String authType)
-        {
-        }
-
-        @Override
-        public void checkServerTrusted(X509Certificate[] certs, String authType)
-        {
-        }
-    }
 }

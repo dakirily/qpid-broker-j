@@ -47,10 +47,8 @@ import org.apache.qpid.server.model.ConfiguredObject;
 import org.apache.qpid.server.model.VirtualHost;
 import org.apache.qpid.server.virtualhost.ProvidedStoreVirtualHostImpl;
 import org.apache.qpid.systests.Utils;
-import org.apache.qpid.tests.http.HttpRequestConfig;
 import org.apache.qpid.tests.http.HttpTestBase;
 
-@HttpRequestConfig(useVirtualHostAsHost = false)
 public class SplitStoreTest extends HttpTestBase
 {
     private static final String TEST_QUEUE = "testQueue";
@@ -65,13 +63,13 @@ public class SplitStoreTest extends HttpTestBase
     public void splitStore() throws Exception
     {
         final String url = String.format("virtualhost/%s/%s", getVirtualHostNode(), getVirtualHost());
-        getHelper().submitRequest(url, "DELETE", SC_OK);
+        getBrokerHelper().submitRequest(url, "DELETE", SC_OK);
 
         final Map<String, Object> attributes = new HashMap<>();
         attributes.put(VirtualHost.TYPE, System.getProperty("virtualhostnode.type"));
-        getHelper().submitRequest(url, "PUT", attributes, SC_CREATED);
+        getBrokerHelper().submitRequest(url, "PUT", attributes, SC_CREATED);
 
-        final Map<String, Object> virtualHost = getHelper().getJson(url, new TypeReference<>() {}, SC_OK);
+        final Map<String, Object> virtualHost = getBrokerHelper().getJson(url, new TypeReference<>() {}, SC_OK);
         final String storePath = (String) virtualHost.get("storePath");
         assertThat(new File(storePath).exists(), is(equalTo(true)));
 
@@ -82,11 +80,11 @@ public class SplitStoreTest extends HttpTestBase
 
         verifyMessagesOnQueue(sentMessage);
 
-        getHelper().submitRequest(url, "DELETE", SC_OK);
+        getBrokerHelper().submitRequest(url, "DELETE", SC_OK);
         assertThat(new File(storePath).exists(), is(equalTo(false)));
 
         attributes.put(VirtualHost.TYPE, ProvidedStoreVirtualHostImpl.VIRTUAL_HOST_TYPE);
-        getHelper().submitRequest(url, "PUT", attributes, SC_CREATED);
+        getBrokerHelper().submitRequest(url, "PUT", attributes, SC_CREATED);
 
         getBrokerAdmin().createQueue(TEST_QUEUE);
         verifyMessagesOnQueue( putMessageOnQueue());
@@ -130,12 +128,12 @@ public class SplitStoreTest extends HttpTestBase
     private void changeState(final String url, final String desiredState) throws Exception
     {
         Map<String, Object> attributes = Map.of(ConfiguredObject.DESIRED_STATE, desiredState);
-        getHelper().submitRequest(url, "POST", attributes, SC_OK);
+        getBrokerHelper().submitRequest(url, "POST", attributes, SC_OK);
     }
 
     private void assertState(final String url, final String expectedActualState) throws Exception
     {
-        Map<String, Object> object = getHelper().getJson(url, new TypeReference<>() {}, SC_OK);
+        Map<String, Object> object = getBrokerHelper().getJson(url, new TypeReference<>() {}, SC_OK);
         final String actualState = (String) object.get(ConfiguredObject.STATE);
         assertThat(actualState, is(equalTo(expectedActualState)));
     }

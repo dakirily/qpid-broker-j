@@ -19,6 +19,7 @@
  */
 package org.apache.qpid.tests.http.endtoend.statistics;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static jakarta.servlet.http.HttpServletResponse.SC_CREATED;
 import static jakarta.servlet.http.HttpServletResponse.SC_OK;
 import static org.hamcrest.CoreMatchers.is;
@@ -26,16 +27,13 @@ import static org.hamcrest.CoreMatchers.notNullValue;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.MatcherAssert.assertThat;
 
-import java.io.BufferedReader;
 import java.io.File;
-import java.io.InputStreamReader;
-import java.net.HttpURLConnection;
+import java.net.http.HttpResponse;
 import java.util.HashMap;
 import java.util.Map;
 
 import javax.jms.Connection;
 import javax.jms.Session;
-
 
 import org.junit.jupiter.api.Test;
 
@@ -47,11 +45,9 @@ import org.apache.qpid.server.model.Broker;
 import org.apache.qpid.server.model.ConfiguredObject;
 import org.apache.qpid.server.virtualhost.QueueManagingVirtualHost;
 import org.apache.qpid.systests.Utils;
-import org.apache.qpid.tests.http.HttpRequestConfig;
 import org.apache.qpid.tests.http.HttpTestBase;
 import org.apache.qpid.tests.http.HttpTestHelper;
 
-@HttpRequestConfig()
 public class StatisticsReportingTest extends HttpTestBase
 {
     private static final long STATISTICS_REPORTING_PERIOD_IN_SEC = 1L;
@@ -62,7 +58,8 @@ public class StatisticsReportingTest extends HttpTestBase
     @Test
     public void virtualHostStatisticsReporting() throws Exception
     {
-        String hostLogDownloadUrl = configureLogger(true);
+        final HttpTestHelper helper = getVirtualHostHelper();
+        final String hostLogDownloadUrl = configureLogger(helper, true);
 
         Connection conn = getConnection();
         try
@@ -79,10 +76,10 @@ public class StatisticsReportingTest extends HttpTestBase
                     "queueDepthBytes=${queueDepthBytes:byteunit}");
             arguments.put(ConfiguredObject.CONTEXT, context);
 
-            getHelper().submitRequest("virtualhost", "POST", arguments, SC_OK);
+            helper.submitRequest("virtualhost", "POST", arguments, SC_OK);
 
             assertThat("Pre-enqueue queue1 statistics report not found",
-                       countLogFileMatches(hostLogDownloadUrl,
+                       countLogFileMatches(helper, hostLogDownloadUrl,
                                            String.format("%s/%s: queueDepthMessages=0, queueDepthBytes=0 B",
                                                          getVirtualHost(),
                                                          QUEUE1_NAME), LOG_TIMEOUT_IN_MS), is(greaterThan(0)));
@@ -91,14 +88,15 @@ public class StatisticsReportingTest extends HttpTestBase
             Utils.sendMessages(session, session.createQueue(QUEUE1_NAME), 1);
 
             assertThat("Post-enqueue queue1 statistics report not found",
-                       countLogFileMatches(hostLogDownloadUrl, String.format("%s/%s: queueDepthMessages=1",
+                       countLogFileMatches(helper, hostLogDownloadUrl,
+                                           String.format("%s/%s: queueDepthMessages=1",
                                                                               getVirtualHost(),
                                                                               QUEUE1_NAME), LOG_TIMEOUT_IN_MS), is(greaterThan(0)));
 
             getBrokerAdmin().createQueue(QUEUE2_NAME);
 
             assertThat("Initial queue2 statistics report not found",
-                       countLogFileMatches(hostLogDownloadUrl,
+                       countLogFileMatches(helper, hostLogDownloadUrl,
                                            String.format("%s/%s: queueDepthMessages=0, queueDepthBytes=0 B",
                                                          getVirtualHost(),
                                                          QUEUE2_NAME), LOG_TIMEOUT_IN_MS), is(greaterThan(0)));
@@ -109,10 +107,12 @@ public class StatisticsReportingTest extends HttpTestBase
                     "${ancestor:virtualhost:name}/${ancestor:queue:name}: " +
                     "oldestMessageAge=${oldestMessageAge:duration}");
 
-            getHelper().submitRequest(String.format("queue/%s", QUEUE2_NAME), "POST", Map.of(ConfiguredObject.CONTEXT, queue2Context), SC_OK);
+            helper.submitRequest(String.format("queue/%s", QUEUE2_NAME), "POST",
+                                 Map.of(ConfiguredObject.CONTEXT, queue2Context), SC_OK);
 
             assertThat("Post-enqueue queue2 statistics report not found",
-                       countLogFileMatches(hostLogDownloadUrl, String.format("%s/%s: oldestMessageAge=PT",
+                       countLogFileMatches(helper, hostLogDownloadUrl,
+                                           String.format("%s/%s: oldestMessageAge=PT",
                                                                               getVirtualHost(),
                                                                               QUEUE2_NAME), LOG_TIMEOUT_IN_MS), is(greaterThan(0)));
         }
@@ -125,10 +125,11 @@ public class StatisticsReportingTest extends HttpTestBase
     @Test
     public void virtualHostConnectionStatistics() throws Exception
     {
-        String hostLogDownloadUrl = configureLogger(true);
+        final HttpTestHelper helper = getVirtualHostHelper();
+        final String hostLogDownloadUrl = configureLogger(helper, true);
 
-        HttpTestHelper brokerHelper = new HttpTestHelper(getBrokerAdmin());
-        Connection conn = getConnection();
+        final HttpTestHelper brokerHelper = getBrokerHelper();
+        final Connection conn = getConnection();
 
         try
         {
@@ -138,21 +139,20 @@ public class StatisticsReportingTest extends HttpTestBase
             brokerHelper.submitRequest("broker/setContextVariable", "POST", args, SC_OK);
 
             getBrokerAdmin().createQueue(QUEUE1_NAME);
-            Session session = conn.createSession(true, Session.SESSION_TRANSACTED);
+            final Session session = conn.createSession(true, Session.SESSION_TRANSACTED);
 
             // Enable Virtual Host Statistics Reporting
             final Map<String, Object> arguments = new HashMap<>();
             arguments.put(QueueManagingVirtualHost.STATISTICS_REPORTING_PERIOD, STATISTICS_REPORTING_PERIOD_IN_SEC);
-            Map<String, String> context = Map.of("qpid.connection.statisticsReportPattern",
-                    "${ancestor:connection:principal}: " +
-                    "messagesIn=${messagesIn}, " +
-                    "lastIoTime=${lastIoTime:datetime}");
+            final Map<String, String> context = Map.of(
+                    "qpid.connection.statisticsReportPattern",
+                    "${ancestor:connection:principal}: messagesIn=${messagesIn}, lastIoTime=${lastIoTime:datetime}");
             arguments.put(ConfiguredObject.CONTEXT, context);
 
-            getHelper().submitRequest("virtualhost", "POST", arguments, SC_OK);
+            helper.submitRequest("virtualhost", "POST", arguments, SC_OK);
 
             assertThat("Pre-enqueue connection statistics report not found",
-                       countLogFileMatches(hostLogDownloadUrl,
+                       countLogFileMatches(helper, hostLogDownloadUrl,
                                            String.format("%s: messagesIn=0", getBrokerAdmin().getValidUsername()),
                                            LOG_TIMEOUT_IN_MS),
                        is(greaterThan(0)));
@@ -161,7 +161,7 @@ public class StatisticsReportingTest extends HttpTestBase
             Utils.sendMessages(session, session.createQueue(QUEUE1_NAME), 1);
 
             assertThat("Post-enqueue connection statistics report not found",
-                       countLogFileMatches(hostLogDownloadUrl,
+                       countLogFileMatches(helper, hostLogDownloadUrl,
                                            String.format("%s: messagesIn=1", getBrokerAdmin().getValidUsername()),
                                            LOG_TIMEOUT_IN_MS),
                                                          is(greaterThan(0)));
@@ -175,56 +175,60 @@ public class StatisticsReportingTest extends HttpTestBase
     }
 
     @Test
-    @HttpRequestConfig(useVirtualHostAsHost = false)
     public void brokerStatistics() throws Exception
     {
-        String logDownloadUrl = configureLogger(false);
+        final HttpTestHelper helper = getBrokerHelper();
+        final String logDownloadUrl = configureLogger(helper, false);
 
-        Connection conn = getConnection();
+        final Connection conn = getConnection();
 
         try
         {
             final Map<String, Object> args1 = new HashMap<>();
             args1.put("name", "qpid.broker.statisticsReportPattern");
             args1.put("value", "messagesIn=${messagesIn}");
-            getHelper().submitRequest("broker/setContextVariable", "POST", args1, SC_OK);
+            helper.submitRequest("broker/setContextVariable", "POST", args1, SC_OK);
 
-            final Map<String, Object> attrs = Map.of(Broker.STATISTICS_REPORTING_PERIOD, STATISTICS_REPORTING_PERIOD_IN_SEC);
-            getHelper().submitRequest("broker", "POST", attrs, SC_OK);
+            final Map<String, Object> attrs =
+                    Map.of(Broker.STATISTICS_REPORTING_PERIOD, STATISTICS_REPORTING_PERIOD_IN_SEC);
+            helper.submitRequest("broker", "POST", attrs, SC_OK);
 
             getBrokerAdmin().createQueue(QUEUE1_NAME);
             Session session = conn.createSession(true, Session.SESSION_TRANSACTED);
 
             assertThat("Pre-enqueue statistics report not found",
-                       countLogFileMatches(logDownloadUrl, "messagesIn=0", LOG_TIMEOUT_IN_MS),
+                       countLogFileMatches(helper, logDownloadUrl, "messagesIn=0", LOG_TIMEOUT_IN_MS),
                        is(greaterThan(0)));
 
             // Enqueue a single message to queue 1
             Utils.sendMessages(session, session.createQueue(QUEUE1_NAME), 1);
 
             assertThat("Post-enqueue statistics report not found",
-                       countLogFileMatches(logDownloadUrl, "messagesIn=1", LOG_TIMEOUT_IN_MS),
+                       countLogFileMatches(helper, logDownloadUrl, "messagesIn=1", LOG_TIMEOUT_IN_MS),
                        is(greaterThan(0)));
         }
         finally
         {
-            getHelper().submitRequest("broker/removeContextVariable", "POST",
-                                      Map.of("name", "qpid.broker.statisticsReportPattern"), SC_OK);
-            getHelper().submitRequest("broker/removeContextVariable", "POST",
-                                      Map.of("name", Broker.STATISTICS_REPORTING_PERIOD), SC_OK);
-            getHelper().submitRequest("brokerlogger/statslogger", "DELETE", SC_OK);
+            helper.submitRequest("broker/removeContextVariable", "POST",
+                                 Map.of("name", "qpid.broker.statisticsReportPattern"), SC_OK);
+            helper.submitRequest("broker/removeContextVariable", "POST",
+                                 Map.of("name", Broker.STATISTICS_REPORTING_PERIOD), SC_OK);
+            helper.submitRequest("brokerlogger/statslogger", "DELETE", SC_OK);
             conn.close();
         }
     }
 
-    private int countLogFileMatches(final String logDownloadUrl, final String searchTerm, final long timeout)
+    private int countLogFileMatches(final HttpTestHelper helper,
+                                    final String logDownloadUrl,
+                                    final String searchTerm,
+                                    final long timeout)
             throws Exception
     {
         final long endTime = System.currentTimeMillis() + timeout;
         int matches;
         do
         {
-            matches = countLogFileMatches(logDownloadUrl, searchTerm);
+            matches = countLogFileMatches(helper, logDownloadUrl, searchTerm);
 
             if (matches == 0)
             {
@@ -235,7 +239,7 @@ public class StatisticsReportingTest extends HttpTestBase
         return matches;
     }
 
-    private String configureLogger(final boolean virtualHost) throws Exception
+    private String configureLogger(final HttpTestHelper helper, final boolean virtualHost) throws Exception
     {
         final String loggerUrl;
         final String loggerRuleUrl;
@@ -267,32 +271,28 @@ public class StatisticsReportingTest extends HttpTestBase
         Map<String, Object> loggerAttributes = new HashMap<>();
         loggerAttributes.put(ConfiguredObject.TYPE, loggerType);
 
-        getHelper().submitRequest(loggerUrl, "PUT", loggerAttributes, SC_CREATED);
+        helper.submitRequest(loggerUrl, "PUT", loggerAttributes, SC_CREATED);
 
         Map<String, Object> ruleAttributes = new HashMap<>();
         ruleAttributes.put(ConfiguredObject.TYPE, loggerInclusionRuleType);
         ruleAttributes.put(loggerNameAttr, "qpid.statistics.*");
 
-        getHelper().submitRequest(loggerRuleUrl, "PUT", ruleAttributes, SC_CREATED);
+        helper.submitRequest(loggerRuleUrl, "PUT", ruleAttributes, SC_CREATED);
 
-        Map<String, Object> loggerData = getHelper().getJsonAsMap(loggerUrl);
-        String logFileLocation = String.valueOf(loggerData.get(loggerFileNameAttr));
+        final Map<String, Object> loggerData = helper.getJsonAsMap(loggerUrl);
+        final String logFileLocation = String.valueOf(loggerData.get(loggerFileNameAttr));
         assertThat(logFileLocation, is(notNullValue()));
         final File logFile = new File(logFileLocation);
 
         return String.format("%s/getFile?fileName=%s", loggerUrl, logFile.getName());
     }
 
-    private int countLogFileMatches(final String url, final String searchTerm) throws Exception
+    private int countLogFileMatches(final HttpTestHelper helper, final String url, final String searchTerm)
+            throws Exception
     {
-        HttpURLConnection httpCon = getHelper().openManagementConnection(url, "GET");
-        httpCon.connect();
-
-        try (final BufferedReader reader = new BufferedReader(new InputStreamReader(httpCon.getInputStream())))
-        {
-            return (int) reader.lines()
-                    .filter(line -> line.contains(searchTerm))
-                    .count();
-        }
+        final HttpResponse<byte[]> response = helper.send(helper.createRequest(url, "GET"));
+        return (int) new String(response.body(), UTF_8).lines()
+                .filter(line -> line.contains(searchTerm))
+                .count();
     }
 }

@@ -44,9 +44,7 @@ import org.apache.qpid.server.logging.logback.VirtualHostFileLogger;
 import org.apache.qpid.server.logging.logback.VirtualHostNameAndLevelLogInclusionRule;
 import org.apache.qpid.server.model.ConfiguredObject;
 import org.apache.qpid.tests.http.HttpTestBase;
-import org.apache.qpid.tests.http.HttpRequestConfig;
 
-@HttpRequestConfig
 public class CreateTest extends HttpTestBase
 {
     private static final String UTF_8 = StandardCharsets.UTF_8.toString();
@@ -55,8 +53,8 @@ public class CreateTest extends HttpTestBase
     public void create() throws Exception
     {
         final String queueUrl = "queue/myqueue";
-        getHelper().submitRequest(queueUrl, "PUT", Map.of(), SC_CREATED);
-        final Map<String, Object> queue = getHelper().getJsonAsMap(queueUrl);
+        getVirtualHostHelper().submitRequest(queueUrl, "PUT", Map.of(), SC_CREATED);
+        final Map<String, Object> queue = getVirtualHostHelper().getJsonAsMap(queueUrl);
 
         assertThat(queue.get(ConfiguredObject.NAME), is(equalTo("myqueue")));
         assertThat(queue.get(ConfiguredObject.CREATED_TIME), is(instanceOf(Long.class)));
@@ -68,9 +66,9 @@ public class CreateTest extends HttpTestBase
     {
         final String queueUrl = "queue/myqueue";
         Map<String, List<String>> headers = new HashMap<>();
-        int responseCode = getHelper().submitRequest(queueUrl, "PUT", Map.of(), headers);
+        int responseCode = getVirtualHostHelper().submitRequest(queueUrl, "PUT", Map.of(), headers);
         assertThat(responseCode, is(equalTo(SC_CREATED)));
-        List<String> location = headers.get("Location");
+        List<String> location = headers.get("location");
         assertThat(location.size(), is(equalTo(1)));
         assertThat(location.get(0), endsWith(queueUrl));
     }
@@ -81,9 +79,12 @@ public class CreateTest extends HttpTestBase
         final String parentUrl = "queue";
         final String queueUrl = "queue/myqueue";
         Map<String, List<String>> headers = new HashMap<>();
-        int responseCode = getHelper().submitRequest(parentUrl, "PUT", Map.of(ConfiguredObject.NAME, "myqueue"), headers);
+        int responseCode = getVirtualHostHelper().submitRequest(parentUrl,
+                                                                "PUT",
+                                                                Map.of(ConfiguredObject.NAME, "myqueue"),
+                                                                headers);
         assertThat(responseCode, is(equalTo(SC_CREATED)));
-        List<String> location = headers.get("Location");
+        List<String> location = headers.get("location");
         assertThat(location.size(), is(equalTo(1)));
         assertThat(location.get(0), endsWith(queueUrl));
     }
@@ -93,8 +94,8 @@ public class CreateTest extends HttpTestBase
     {
         final String queueUrl = "queue/myqueue";
         final Map<String, Object> attrs = Map.of(ConfiguredObject.TYPE, "priority");
-        getHelper().submitRequest(queueUrl, "PUT", attrs, SC_CREATED);
-        final Map<String, Object> queue = getHelper().getJsonAsMap(queueUrl);
+        getVirtualHostHelper().submitRequest(queueUrl, "PUT", attrs, SC_CREATED);
+        final Map<String, Object> queue = getVirtualHostHelper().getJsonAsMap(queueUrl);
 
         assertThat(queue.get(ConfiguredObject.NAME), is(equalTo("myqueue")));
         assertThat(queue.get(ConfiguredObject.TYPE), is(equalTo("priority")));
@@ -117,8 +118,8 @@ public class CreateTest extends HttpTestBase
     {
         final String queueUrl = "queue/myqueue";
         final Map<String, Object> attrs = Map.of(ConfiguredObject.TYPE, "unknown");
-        getHelper().submitRequest(queueUrl, "PUT", attrs, SC_UNPROCESSABLE_ENTITY);
-        getHelper().submitRequest(queueUrl, "GET", SC_NOT_FOUND);
+        getVirtualHostHelper().submitRequest(queueUrl, "PUT", attrs, SC_UNPROCESSABLE_ENTITY);
+        getVirtualHostHelper().submitRequest(queueUrl, "GET", SC_NOT_FOUND);
     }
 
     @Test
@@ -126,8 +127,8 @@ public class CreateTest extends HttpTestBase
     {
         final String queueUrl = "unknown/myobj";
         final Map<Object, Object> attrs = Map.of(ConfiguredObject.TYPE, "unknown");
-        getHelper().submitRequest(queueUrl, "PUT", attrs, SC_METHOD_NOT_ALLOWED);
-        getHelper().submitRequest(queueUrl, "GET", SC_NOT_FOUND);
+        getVirtualHostHelper().submitRequest(queueUrl, "PUT", attrs, SC_METHOD_NOT_ALLOWED);
+        getVirtualHostHelper().submitRequest(queueUrl, "GET", SC_NOT_FOUND);
     }
 
     @Test
@@ -136,11 +137,11 @@ public class CreateTest extends HttpTestBase
         final String parentUrl = "virtualhostlogger/mylogger";
         Map<String, Object> parentAttrs = Map.of(ConfiguredObject.TYPE, VirtualHostFileLogger.TYPE);
 
-        getHelper().submitRequest(parentUrl, "PUT", parentAttrs, SC_CREATED);
+        getVirtualHostHelper().submitRequest(parentUrl, "PUT", parentAttrs, SC_CREATED);
 
         final String childUrl = "virtualhostloginclusionrule/mylogger/myrule";
         Map<String, Object> childAttrs = Map.of(ConfiguredObject.TYPE, VirtualHostNameAndLevelLogInclusionRule.TYPE);
-        getHelper().submitRequest(childUrl, "PUT", childAttrs, SC_CREATED);
+        getVirtualHostHelper().submitRequest(childUrl, "PUT", childAttrs, SC_CREATED);
     }
 
     @Test
@@ -148,7 +149,7 @@ public class CreateTest extends HttpTestBase
     {
         final String childUrl = "virtualhostloginclusionrule/unknown/myrule";
         Map<String, Object> childAttrs = Map.of(ConfiguredObject.TYPE, VirtualHostNameAndLevelLogInclusionRule.TYPE);
-        getHelper().submitRequest(childUrl, "PUT", childAttrs, SC_UNPROCESSABLE_ENTITY);
+        getVirtualHostHelper().submitRequest(childUrl, "PUT", childAttrs, SC_UNPROCESSABLE_ENTITY);
     }
 
     @Test
@@ -160,13 +161,13 @@ public class CreateTest extends HttpTestBase
         String queueUrl = "queue/" + queueNameDoubleEncoded;
 
         Map<String, List<String>> headers = new HashMap<>();
-        int responseCode = getHelper().submitRequest(queueUrl, "PUT", Map.of(), headers);
+        int responseCode = getVirtualHostHelper().submitRequest(queueUrl, "PUT", Map.of(), headers);
         assertThat(responseCode, is(equalTo(SC_CREATED)));
-        List<String> location = headers.get("Location");
+        List<String> location = headers.get("location");
         assertThat(location.size(), is(equalTo(1)));
         assertThat(location.get(0), endsWith(queueUrl));
 
-        final Map<String, Object> queue = getHelper().getJson(queueUrl,
+        final Map<String, Object> queue = getVirtualHostHelper().getJson(queueUrl,
                                                               new TypeReference<Map<String, Object>>() {}, SC_OK);
 
         assertThat(queue.get(ConfiguredObject.NAME), is(equalTo(queueName)));
@@ -177,8 +178,9 @@ public class CreateTest extends HttpTestBase
         final String parentUrl = "queue";
         final String queueName = "myqueue";
         final Map<Object, Object> attrs = Map.of(ConfiguredObject.NAME, queueName);
-        getHelper().submitRequest(parentUrl, method, attrs, SC_CREATED);
-        final Map<String, Object> queue = getHelper().getJsonAsMap(String.format("%s/%s", parentUrl, queueName));
+        getVirtualHostHelper().submitRequest(parentUrl, method, attrs, SC_CREATED);
+        final Map<String, Object> queue =
+                getVirtualHostHelper().getJsonAsMap(String.format("%s/%s", parentUrl, queueName));
 
         assertThat(queue.get(ConfiguredObject.NAME), is(equalTo(queueName)));
     }

@@ -44,7 +44,7 @@ public class StructureTest extends HttpTestBase
     {
         String nodeName = getVirtualHostNode();
         String hostName = getVirtualHost();
-        HttpTestHelper helper = getHelper();
+        HttpTestHelper helper = getBrokerHelper();
         Map<String, Object> structure = helper.getJsonAsMap("/service/structure");
 
         assertNotNull(structure, "Structure data cannot be null");
@@ -77,7 +77,8 @@ public class StructureTest extends HttpTestBase
         Map<String, Object> amqpPort = assertPresent("AMQP", ports);
         assertNotNull(amqpPort, "Port AMQP is not found");
         assertPresent("Port ANONYMOUS_AMQP is not found", "ANONYMOUS_AMQP", ports);
-        assertPresent("Port HTTP is not found", "HTTP", ports);
+        assertPresent("Port HTTP_BROKER is not found", "HTTP_BROKER", ports);
+        assertPresent("Port HTTP_VIRTUAL_HOST is not found", "HTTP_VIRTUAL_HOST", ports);
 
         List<Map<String, Object>> aliases = (List<Map<String, Object>>) amqpPort.get("virtualhostaliases");
         assertNotNull(aliases, "Virtual host aliases not found");

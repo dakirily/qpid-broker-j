@@ -38,10 +38,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import org.apache.qpid.server.filter.AMQPFilterTypes;
-import org.apache.qpid.tests.http.HttpRequestConfig;
 import org.apache.qpid.tests.http.HttpTestBase;
 
-@HttpRequestConfig
 public class BindingTest extends HttpTestBase
 {
     private static final String QUEUE_NAME = "myqueue";
@@ -56,11 +54,11 @@ public class BindingTest extends HttpTestBase
     public void bind() throws Exception
     {
         Map<String, String> arguments = Map.of(AMQPFilterTypes.JMS_SELECTOR.getValue(), "1<2");
-        getHelper().submitRequest("/api/v6.1/binding/amq.direct/myqueue/foo",
+        getVirtualHostHelper().submitRequest("/api/v6.1/binding/amq.direct/myqueue/foo",
                                   "PUT",
                                   Map.of("arguments", arguments),
                                   SC_CREATED);
-        List<Map<String, Object>> bindings = getHelper().getJsonAsList("queue/myqueue/getPublishingLinks");
+        List<Map<String, Object>> bindings = getVirtualHostHelper().getJsonAsList("queue/myqueue/getPublishingLinks");
         assertThat(bindings, is(notNullValue()));
 
         Map<String, Object> binding = findBindingByName(bindings, "foo");
@@ -87,11 +85,12 @@ public class BindingTest extends HttpTestBase
         bindOperationArguments.put("destination", "myqueue");
         bindOperationArguments.put("bindingKey", "foo");
         bindOperationArguments.put("arguments", arguments);
-        getHelper().submitRequest("exchange/amq.direct/bind",
+        getVirtualHostHelper().submitRequest("exchange/amq.direct/bind",
                                   "POST",
                                   bindOperationArguments,
                                   SC_OK);
-        List<Map<String, Object>> bindings = getHelper().getJsonAsList("/api/v6.1/binding/amq.direct/myqueue/foo");
+        List<Map<String, Object>> bindings =
+                getVirtualHostHelper().getJsonAsList("/api/v6.1/binding/amq.direct/myqueue/foo");
         assertThat(bindings, is(notNullValue()));
         assertThat(bindings.size(), is(equalTo(1)));
 
@@ -114,12 +113,12 @@ public class BindingTest extends HttpTestBase
         bindOperationArguments.put("destination", "myqueue");
         bindOperationArguments.put("bindingKey", "foo");
         bindOperationArguments.put("arguments", arguments);
-        getHelper().submitRequest("exchange/amq.direct/bind",
+        getVirtualHostHelper().submitRequest("exchange/amq.direct/bind",
                                   "POST",
                                   bindOperationArguments,
                                   SC_OK);
-        getHelper().submitRequest("/api/v6.1/binding/amq.direct/myqueue/foo", "DELETE");
-        List<Map<String, Object>> bindings = getHelper().getJsonAsList("queue/myqueue/getPublishingLinks");
+        getVirtualHostHelper().submitRequest("/api/v6.1/binding/amq.direct/myqueue/foo", "DELETE");
+        List<Map<String, Object>> bindings = getVirtualHostHelper().getJsonAsList("queue/myqueue/getPublishingLinks");
         assertThat(bindings, is(notNullValue()));
         Map<String, Object> binding = findBindingByName(bindings, "foo");
         assertThat(binding, is(nullValue()));

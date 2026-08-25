@@ -29,10 +29,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import org.apache.qpid.server.model.ConfiguredObject;
-import org.apache.qpid.tests.http.HttpRequestConfig;
 import org.apache.qpid.tests.http.HttpTestBase;
 
-@HttpRequestConfig
 public class DeleteTest extends HttpTestBase
 {
     private static final String QUEUE1_NAME = "myqueue1";
@@ -50,34 +48,36 @@ public class DeleteTest extends HttpTestBase
     @Test
     public void delete() throws Exception
     {
-        getHelper().submitRequest(QUEUE1_URL, "GET", SC_OK);
-        getHelper().submitRequest(QUEUE1_URL, "DELETE", SC_OK);
-        getHelper().submitRequest(QUEUE1_URL, "GET", SC_NOT_FOUND);
+        getVirtualHostHelper().submitRequest(QUEUE1_URL, "GET", SC_OK);
+        getVirtualHostHelper().submitRequest(QUEUE1_URL, "DELETE", SC_OK);
+        getVirtualHostHelper().submitRequest(QUEUE1_URL, "GET", SC_NOT_FOUND);
     }
 
     @Test
     public void notFound() throws Exception
     {
         final String queueUrl = "queue/unknown";
-        getHelper().submitRequest(queueUrl, "DELETE", SC_NOT_FOUND);
+        getVirtualHostHelper().submitRequest(queueUrl, "DELETE", SC_NOT_FOUND);
     }
 
     @Test
     public void deleteAll() throws Exception
     {
-        getHelper().submitRequest("queue/", "DELETE", SC_OK);
-        getHelper().submitRequest(QUEUE1_URL, "GET", SC_NOT_FOUND);
-        getHelper().submitRequest(QUEUE2_URL, "GET", SC_NOT_FOUND);
+        getVirtualHostHelper().submitRequest("queue/", "DELETE", SC_OK);
+        getVirtualHostHelper().submitRequest(QUEUE1_URL, "GET", SC_NOT_FOUND);
+        getVirtualHostHelper().submitRequest(QUEUE2_URL, "GET", SC_NOT_FOUND);
     }
 
     @Test
     public void deleteFilter() throws Exception
     {
-        final Map<String, Object> queue1 = getHelper().getJsonAsMap(QUEUE1_URL);
+        final Map<String, Object> queue1 = getVirtualHostHelper().getJsonAsMap(QUEUE1_URL);
 
-        getHelper().submitRequest(String.format("queue/?%s=%s", ConfiguredObject.ID, queue1.get(ConfiguredObject.ID)),
-                                  "DELETE", SC_OK);
-        getHelper().submitRequest(QUEUE1_URL, "GET", SC_NOT_FOUND);
-        getHelper().submitRequest(QUEUE2_URL, "GET", SC_OK);
+        getVirtualHostHelper().submitRequest(
+                String.format("queue/?%s=%s", ConfiguredObject.ID, queue1.get(ConfiguredObject.ID)),
+                "DELETE",
+                SC_OK);
+        getVirtualHostHelper().submitRequest(QUEUE1_URL, "GET", SC_NOT_FOUND);
+        getVirtualHostHelper().submitRequest(QUEUE2_URL, "GET", SC_OK);
     }
 }

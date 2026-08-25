@@ -55,12 +55,12 @@ public class HttpPortTest extends HttpTestBase
         createPort(portName, authenticationProvider);
         String portUrl = "port/" + portName;
 
-        Map<String, Object> attributes = getHelper().getJsonAsMap(portUrl);
+        Map<String, Object> attributes = getBrokerHelper().getJsonAsMap(portUrl);
         assertTrue(attributes.containsKey("boundPort"));
         assertTrue(attributes.get("boundPort") instanceof Number);
 
         HttpTestHelper helper =
-                new HttpTestHelper(getBrokerAdmin(), null, ((Number) attributes.get("boundPort")).intValue());
+                new HttpTestHelper(getBrokerAdmin(), ((Number) attributes.get("boundPort")).intValue());
 
         Map<String, Object> ownAttributes = helper.getJsonAsMap(portUrl);
         assertEquals(attributes, ownAttributes);
@@ -75,12 +75,12 @@ public class HttpPortTest extends HttpTestBase
         createPort(portName, authenticationProvider);
         String portUrl = "port/" + portName;
 
-        Map<String, Object> attributes = getHelper().getJsonAsMap(portUrl);
+        Map<String, Object> attributes = getBrokerHelper().getJsonAsMap(portUrl);
         assertTrue(attributes.containsKey("boundPort"));
         assertTrue(attributes.get("boundPort") instanceof Number);
 
         HttpTestHelper helper =
-                new HttpTestHelper(getBrokerAdmin(), null, ((Number) attributes.get("boundPort")).intValue());
+                new HttpTestHelper(getBrokerAdmin(), ((Number) attributes.get("boundPort")).intValue());
 
         try
         {
@@ -102,14 +102,14 @@ public class HttpPortTest extends HttpTestBase
         port.put(Port.TYPE, "HTTP");
         port.put(Port.PORT, 0);
 
-        getHelper().submitRequest("port/" + portName, "PUT",
+        getBrokerHelper().submitRequest("port/" + portName, "PUT",
                                   port, SC_CREATED);
     }
 
     private void createAnonymousAuthenticationProvider(final String providerName) throws IOException
     {
         Map<String, Object> data = Map.of(ConfiguredObject.TYPE, AnonymousAuthenticationManager.PROVIDER_TYPE);
-        getHelper().submitRequest("authenticationprovider/" + providerName,
+        getBrokerHelper().submitRequest("authenticationprovider/" + providerName,
                                   "PUT",
                                   data,
                                   SC_CREATED);

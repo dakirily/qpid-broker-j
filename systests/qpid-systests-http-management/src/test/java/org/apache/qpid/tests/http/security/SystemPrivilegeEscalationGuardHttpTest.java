@@ -29,9 +29,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import org.apache.qpid.tests.http.HttpRequestConfig;
 import org.apache.qpid.tests.http.HttpTestBase;
 import org.apache.qpid.tests.http.HttpTestHelper;
+import org.apache.qpid.tests.utils.BrokerAdmin;
 import org.apache.qpid.tests.utils.ConfigItem;
 
 @ConfigItem(
@@ -39,7 +39,6 @@ import org.apache.qpid.tests.utils.ConfigItem;
         value = "classpath:config-http-management-tests-system-privilege-guard.json",
         jvm = true
 )
-@HttpRequestConfig
 public class SystemPrivilegeEscalationGuardHttpTest extends HttpTestBase
 {
     private static final String QUEUE_1 = "queue1";
@@ -56,10 +55,11 @@ public class SystemPrivilegeEscalationGuardHttpTest extends HttpTestBase
     public void guestCannotDeleteQueueEvenIfSystemRuleWouldAllow() throws Exception
     {
         // Admin sees queue exists
-        getHelper().submitRequest("queue/" + QUEUE_1, "GET", SC_OK);
+        getVirtualHostHelper().submitRequest("queue/" + QUEUE_1, "GET", SC_OK);
 
         // Guest tries to delete
-        HttpTestHelper guest = new HttpTestHelper(getBrokerAdmin(), getVirtualHost());
+        final HttpTestHelper guest =
+                new HttpTestHelper(getBrokerAdmin(), BrokerAdmin.PortType.HTTP_VIRTUAL_HOST);
         guest.setUserName("guest");
         guest.setPassword("guest");
 
@@ -67,14 +67,15 @@ public class SystemPrivilegeEscalationGuardHttpTest extends HttpTestBase
         assertEquals(SC_FORBIDDEN, rc, "Guest must not be able to delete queue");
 
         // Queue must still exist (admin checks)
-        getHelper().submitRequest("queue/" + QUEUE_1, "GET", SC_OK);
+        getVirtualHostHelper().submitRequest("queue/" + QUEUE_1, "GET", SC_OK);
     }
 
     @Test
     public void guestCannotBulkDeleteQueues() throws Exception
     {
         // Guest tries to delete all queues
-        HttpTestHelper guest = new HttpTestHelper(getBrokerAdmin(), getVirtualHost());
+        final HttpTestHelper guest =
+                new HttpTestHelper(getBrokerAdmin(), BrokerAdmin.PortType.HTTP_VIRTUAL_HOST);
         guest.setUserName("guest");
         guest.setPassword("guest");
 
@@ -82,14 +83,15 @@ public class SystemPrivilegeEscalationGuardHttpTest extends HttpTestBase
         assertEquals(SC_FORBIDDEN, rc, "Guest must not be able to bulk delete queues");
 
         // Both queues must still exist
-        getHelper().submitRequest("queue/" + QUEUE_1, "GET", SC_OK);
-        getHelper().submitRequest("queue/" + QUEUE_2, "GET", SC_OK);
+        getVirtualHostHelper().submitRequest("queue/" + QUEUE_1, "GET", SC_OK);
+        getVirtualHostHelper().submitRequest("queue/" + QUEUE_2, "GET", SC_OK);
     }
 
     @Test
     public void adminCanDeleteQueue() throws Exception
     {
-        HttpTestHelper admin = new HttpTestHelper(getBrokerAdmin(), getVirtualHost());
+        final HttpTestHelper admin =
+                new HttpTestHelper(getBrokerAdmin(), BrokerAdmin.PortType.HTTP_VIRTUAL_HOST);
         admin.setUserName("admin");
         admin.setPassword("admin");
 

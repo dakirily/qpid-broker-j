@@ -42,10 +42,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
-import org.apache.qpid.tests.http.HttpRequestConfig;
 import org.apache.qpid.tests.http.HttpTestBase;
 
-@HttpRequestConfig
 public class TimeToLiveTest extends HttpTestBase
 {
     private static final String QUEUE_NAME = "testQueue";
@@ -85,14 +83,14 @@ public class TimeToLiveTest extends HttpTestBase
             connection.close();
         }
 
-        getHelper().submitRequest(String.format("queue/%s", QUEUE_NAME),
+        getVirtualHostHelper().submitRequest(String.format("queue/%s", QUEUE_NAME),
                                   "POST",
                                   Map.of("maximumMessageTtl", 1),
                                   SC_OK);
 
         Thread.sleep(HOUSE_KEEPING_CHECK_PERIOD * 2);
 
-        getHelper().submitRequest(String.format("queue/%s", QUEUE_NAME),
+        getVirtualHostHelper().submitRequest(String.format("queue/%s", QUEUE_NAME),
                                   "POST",
                                   Map.of("maximumMessageTtl", 0),
                                   SC_OK);

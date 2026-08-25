@@ -25,9 +25,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
-import java.net.HttpURLConnection;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.zip.GZIPInputStream;
@@ -71,57 +71,42 @@ public class CompressedResponsesTest extends HttpTestBase
     {
         final boolean expectCompression = allowCompression && acceptCompressed;
 
-        getHelper().submitRequest("plugin/httpManagement", "POST", Map.of("compressResponses", expectCompression), SC_OK);
+        getBrokerHelper().submitRequest("plugin/httpManagement",
+                                        "POST",
+                                        Map.of("compressResponses", expectCompression),
+                                        SC_OK);
 
 
-        HttpURLConnection conn = getHelper().openManagementConnection("/service/metadata", "GET");
-        try
+        final HttpRequest.Builder request = getBrokerHelper().createRequest("/service/metadata", "GET");
+        if (acceptCompressed)
         {
-            if (acceptCompressed)
-            {
-                conn.setRequestProperty("Accept-Encoding", "gzip");
-            }
-
-            conn.connect();
-
-            String contentEncoding = conn.getHeaderField("Content-Encoding");
-
-            if (expectCompression)
-            {
-                assertEquals("gzip", contentEncoding);
-            }
-            else
-            {
-                if (contentEncoding != null)
-                {
-                    assertEquals("identity", contentEncoding);
-                }
-            }
-
-            byte[] bytes;
-            try(ByteArrayOutputStream contentBuffer = new ByteArrayOutputStream())
-            {
-                conn.getInputStream().transferTo(contentBuffer);
-                bytes = contentBuffer.toByteArray();
-            }
-            try (InputStream jsonStream = expectCompression
-                    ? new GZIPInputStream(new ByteArrayInputStream(bytes))
-                    : new ByteArrayInputStream(bytes))
-            {
-                ObjectMapper mapper = new ObjectMapper();
-                try
-                {
-                    mapper.readValue(jsonStream, LinkedHashMap.class);
-                }
-                catch (JacksonException e)
-                {
-                    fail("Message was not in correct format");
-                }
-            }
+            request.header("Accept-Encoding", "gzip");
         }
-        finally
+        final HttpResponse<byte[]> response = getBrokerHelper().send(request);
+        final String contentEncoding = response.headers().firstValue("Content-Encoding").orElse(null);
+
+        if (expectCompression)
         {
-            conn.disconnect();
+            assertEquals("gzip", contentEncoding);
+        }
+        else if (contentEncoding != null)
+        {
+            assertEquals("identity", contentEncoding);
+        }
+
+        try (InputStream jsonStream = expectCompression
+                ? new GZIPInputStream(new ByteArrayInputStream(response.body()))
+                : new ByteArrayInputStream(response.body()))
+        {
+            final ObjectMapper mapper = new ObjectMapper();
+            try
+            {
+                mapper.readValue(jsonStream, LinkedHashMap.class);
+            }
+            catch (JacksonException e)
+            {
+                fail("Message was not in correct format");
+            }
         }
     }
 }

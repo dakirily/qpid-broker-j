@@ -42,8 +42,8 @@ import tools.jackson.core.type.TypeReference;
 
 import org.apache.qpid.server.model.ConfiguredObject;
 import org.apache.qpid.systests.Utils;
-import org.apache.qpid.tests.http.HttpRequestConfig;
 import org.apache.qpid.tests.http.HttpTestBase;
+import org.apache.qpid.tests.http.HttpTestHelper;
 
 public class VirtualHostRecoveryTest extends HttpTestBase
 {
@@ -57,33 +57,31 @@ public class VirtualHostRecoveryTest extends HttpTestBase
     }
 
     @Test
-    @HttpRequestConfig()
     public void virtualHostRestart() throws Exception
     {
         final TextMessage sentMessage = putMessageOnQueue();
 
         final String url = "virtualhost";
-        changeState(url, "STOPPED");
-        assertState(url, "STOPPED");
+        changeState(getVirtualHostHelper(), url, "STOPPED");
+        assertState(getVirtualHostHelper(), url, "STOPPED");
 
-        changeState(url, "ACTIVE");
-        assertState(url, "ACTIVE");
+        changeState(getVirtualHostHelper(), url, "ACTIVE");
+        assertState(getVirtualHostHelper(), url, "ACTIVE");
 
         verifyMessagesOnQueue(sentMessage);
     }
 
     @Test
-    @HttpRequestConfig(useVirtualHostAsHost = false)
     public void virtualHostNodeRestart() throws Exception
     {
         final TextMessage sentMessage = putMessageOnQueue();
 
         final String url = String.format("virtualhostnode/%s", getVirtualHostNode());
-        changeState(url, "STOPPED");
-        assertState(url, "STOPPED");
+        changeState(getBrokerHelper(), url, "STOPPED");
+        assertState(getBrokerHelper(), url, "STOPPED");
 
-        changeState(url, "ACTIVE");
-        assertState(url, "ACTIVE");
+        changeState(getBrokerHelper(), url, "ACTIVE");
+        assertState(getBrokerHelper(), url, "ACTIVE");
 
         verifyMessagesOnQueue(sentMessage);
     }
@@ -123,15 +121,17 @@ public class VirtualHostRecoveryTest extends HttpTestBase
         }
     }
 
-    private void changeState(final String url, final String desiredState) throws Exception
+    private void changeState(final HttpTestHelper helper, final String url, final String desiredState) throws Exception
     {
-        Map<String, Object> attributes = Map.of(ConfiguredObject.DESIRED_STATE, desiredState);
-        getHelper().submitRequest(url, "POST", attributes, SC_OK);
+        final Map<String, Object> attributes = Map.of(ConfiguredObject.DESIRED_STATE, desiredState);
+        helper.submitRequest(url, "POST", attributes, SC_OK);
     }
 
-    private void assertState(final String url, final String expectedActualState) throws Exception
+    private void assertState(final HttpTestHelper helper,
+                             final String url,
+                             final String expectedActualState) throws Exception
     {
-        Map<String, Object> object = getHelper().getJson(url, new TypeReference<>() {}, SC_OK);
+        final Map<String, Object> object = helper.getJson(url, new TypeReference<>() {}, SC_OK);
         final String actualState = (String) object.get(ConfiguredObject.STATE);
         assertThat(actualState, is(equalTo(expectedActualState)));
     }

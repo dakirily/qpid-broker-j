@@ -36,10 +36,8 @@ import org.junit.jupiter.api.Test;
 
 import org.apache.qpid.server.model.ConfiguredObject;
 import org.apache.qpid.server.model.Queue;
-import org.apache.qpid.tests.http.HttpRequestConfig;
 import org.apache.qpid.tests.http.HttpTestBase;
 
-@HttpRequestConfig
 public class UpdateTest extends HttpTestBase
 {
     private static final String QUEUE_NAME = "myqueue";
@@ -57,8 +55,8 @@ public class UpdateTest extends HttpTestBase
         final String newDescription = "newDescription";
         Map<String, Object> updatedAttrs = Map.of(ConfiguredObject.DESCRIPTION, newDescription);
 
-        getHelper().submitRequest(QUEUE_URL, "PUT", updatedAttrs, SC_OK);
-        final Map<String, Object> queue = getHelper().getJsonAsMap(QUEUE_URL);
+        getVirtualHostHelper().submitRequest(QUEUE_URL, "PUT", updatedAttrs, SC_OK);
+        final Map<String, Object> queue = getVirtualHostHelper().getJsonAsMap(QUEUE_URL);
 
         assertThat(queue.get(ConfiguredObject.NAME), is(equalTo(QUEUE_NAME)));
         assertThat(queue.get(ConfiguredObject.DESCRIPTION), is(equalTo(newDescription)));
@@ -68,33 +66,33 @@ public class UpdateTest extends HttpTestBase
     public void typeError() throws Exception
     {
         Map<String, Object> updatedAttrs = Map.of(Queue.MAXIMUM_QUEUE_DEPTH_MESSAGES, "notNumber");
-        getHelper().submitRequest(QUEUE_URL, "PUT", updatedAttrs, SC_UNPROCESSABLE_ENTITY);
+        getVirtualHostHelper().submitRequest(QUEUE_URL, "PUT", updatedAttrs, SC_UNPROCESSABLE_ENTITY);
     }
 
     @Test
     public void emptyUpdate() throws Exception
     {
-        getHelper().submitRequest(QUEUE_URL, "PUT", Map.of(), SC_OK);
+        getVirtualHostHelper().submitRequest(QUEUE_URL, "PUT", Map.of(), SC_OK);
     }
 
     @Test
     public void notFound() throws Exception
     {
         final String queueUrl = "queue/unknown";
-        getHelper().submitRequest(queueUrl, "POST", Map.of(), SC_NOT_FOUND);
+        getVirtualHostHelper().submitRequest(queueUrl, "POST", Map.of(), SC_NOT_FOUND);
     }
 
     @Test
     public void immutableAttributeRejected() throws Exception
     {
-        final Map<String, Object> before = getHelper().getJsonAsMap(QUEUE_URL);
+        final Map<String, Object> before = getVirtualHostHelper().getJsonAsMap(QUEUE_URL);
         String originalId = (String) before.get(ConfiguredObject.ID);
         assertThat(originalId, is(notNullValue()));
 
         Map<String, Object> updatedAttrs = Map.of(ConfiguredObject.ID, UUID.randomUUID());
 
-        getHelper().submitRequest(QUEUE_URL, "POST", updatedAttrs, SC_UNPROCESSABLE_ENTITY);
-        final Map<String, Object> queue = getHelper().getJsonAsMap(QUEUE_URL);
+        getVirtualHostHelper().submitRequest(QUEUE_URL, "POST", updatedAttrs, SC_UNPROCESSABLE_ENTITY);
+        final Map<String, Object> queue = getVirtualHostHelper().getJsonAsMap(QUEUE_URL);
 
         assertThat(queue.get(ConfiguredObject.ID), is(equalTo(before.get(ConfiguredObject.ID))));
     }

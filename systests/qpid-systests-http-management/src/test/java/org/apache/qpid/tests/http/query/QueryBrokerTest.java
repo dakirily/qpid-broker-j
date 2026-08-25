@@ -33,24 +33,29 @@ public class QueryBrokerTest extends HttpTestBase
     @Test
     public void testInvalidOrderBy() throws Exception
     {
-        getHelper().submitRequest("querybroker/port?select=id&orderBy=0", "GET", AbstractServlet.SC_UNPROCESSABLE_ENTITY);
+        getBrokerHelper().submitRequest("querybroker/port?select=id&orderBy=0",
+                                        "GET",
+                                        AbstractServlet.SC_UNPROCESSABLE_ENTITY);
     }
 
     @Test
     public void testInvalidSelectSyntax() throws Exception
     {
-        getHelper().submitRequest("querybroker/port?select=,,(", "GET", HttpServletResponse.SC_BAD_REQUEST);
+        getBrokerHelper().submitRequest("querybroker/port?select=,,(", "GET", HttpServletResponse.SC_BAD_REQUEST);
     }
 
     @Test
     public void testInvalidWhereSyntax() throws Exception
     {
-        getHelper().submitRequest("querybroker/port?where=id in(", "GET", HttpServletResponse.SC_BAD_REQUEST);
+        getBrokerHelper().submitRequest(
+                "querybroker/port?where=id%20in%28", "GET", HttpServletResponse.SC_BAD_REQUEST);
     }
 
     @Test
     public void testInvalidWhere() throws Exception
     {
-        getHelper().submitRequest("querybroker/port?where=transports>1", "GET", AbstractServlet.SC_UNPROCESSABLE_ENTITY);
+        getBrokerHelper().submitRequest("querybroker/port?where=transports%3E1",
+                                        "GET",
+                                        AbstractServlet.SC_UNPROCESSABLE_ENTITY);
     }
 }

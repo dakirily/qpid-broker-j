@@ -63,12 +63,14 @@ import org.apache.qpid.server.security.NonJavaKeyStore;
 import org.apache.qpid.server.security.auth.manager.AnonymousAuthenticationManager;
 import org.apache.qpid.server.util.DataUrlUtils;
 import org.apache.qpid.systests.ConnectionBuilder;
-import org.apache.qpid.test.utils.tls.TlsResourceExtension;
+import org.apache.qpid.test.utils.tls.AltNameType;
+import org.apache.qpid.test.utils.tls.AlternativeName;
 import org.apache.qpid.test.utils.tls.CertificateEntry;
-import org.apache.qpid.test.utils.tls.PemUtils;
-import org.apache.qpid.test.utils.tls.TlsResourceBuilder;
 import org.apache.qpid.test.utils.tls.KeyCertificatePair;
+import org.apache.qpid.test.utils.tls.PemUtils;
 import org.apache.qpid.test.utils.tls.TlsResource;
+import org.apache.qpid.test.utils.tls.TlsResourceBuilder;
+import org.apache.qpid.test.utils.tls.TlsResourceExtension;
 import org.apache.qpid.tests.http.HttpTestBase;
 import org.apache.qpid.tests.http.HttpTestHelper;
 
@@ -212,18 +214,18 @@ public class PortTest extends HttpTestBase
     {
         final int port = createHttpPort();
 
-        HttpTestHelper helper = new HttpTestHelper(getBrokerAdmin(), null, port);
+        final HttpTestHelper helper = new HttpTestHelper(getBrokerAdmin(), port);
         helper.setTls(true);
-        helper.setKeyStore(_storeFile.getAbsolutePath(), tls.getSecret());
+        helper.setTrustStore(_storeFile.getAbsolutePath(), tls.getSecret());
 
-        final Map<String, Object> attributes = getHelper().getJsonAsMap("port/" + _portName);
+        final Map<String, Object> attributes = getBrokerHelper().getJsonAsMap("port/" + _portName);
         final Map<String, Object> ownAttributes = helper.getJsonAsMap("port/" + _portName);
         assertEquals(attributes, ownAttributes);
 
         final File storeFile = createNewKeyStoreAndSetItOnPort(tls);
-        helper.setKeyStore(storeFile.getAbsolutePath(), tls.getSecret());
+        helper.setTrustStore(storeFile.getAbsolutePath(), tls.getSecret());
 
-        final Map<String, Object> attributes2 = getHelper().getJsonAsMap("port/" + _portName);
+        final Map<String, Object> attributes2 = getBrokerHelper().getJsonAsMap("port/" + _portName);
         final Map<String, Object> ownAttributes2 = helper.getJsonAsMap("port/" + _portName);
         assertEquals(attributes2, ownAttributes2);
     }
@@ -231,7 +233,7 @@ public class PortTest extends HttpTestBase
     private void createAnonymousAuthenticationProvider() throws IOException
     {
         final Map<String, Object> data = Map.of(ConfiguredObject.TYPE, AnonymousAuthenticationManager.PROVIDER_TYPE);
-        getHelper().submitRequest("authenticationprovider/" + _authenticationProvider, "PUT", data, SC_CREATED);
+        getBrokerHelper().submitRequest("authenticationprovider/" + _authenticationProvider, "PUT", data, SC_CREATED);
     }
 
     private void submitKeyStoreAttributes(final String keyStoreName,
@@ -247,7 +249,7 @@ public class PortTest extends HttpTestBase
                        DataUrlUtils.getDataUrlForBytes(PemUtils.toPEM(keyCertPair.certificate()).getBytes(UTF_8)));
         attributes.put(NonJavaKeyStore.TYPE, "NonJavaKeyStore");
 
-        getHelper().submitRequest("keystore/" + keyStoreName, "PUT", attributes, status);
+        getBrokerHelper().submitRequest("keystore/" + keyStoreName, "PUT", attributes, status);
     }
 
     private ConnectionBuilder createConnectionBuilder(final TlsResource tls, final int port, final String absolutePath)
@@ -285,14 +287,14 @@ public class PortTest extends HttpTestBase
         port.put(Port.KEY_STORE, _keyStoreName);
         port.put(Port.TRANSPORTS, Set.of(transport));
 
-        getHelper().submitRequest("port/" + _portName, "PUT", port, SC_CREATED);
+        getBrokerHelper().submitRequest("port/" + _portName, "PUT", port, SC_CREATED);
 
         return getBoundPort();
     }
 
     private int getBoundPort() throws IOException
     {
-        final Map<String, Object> attributes = getHelper().getJsonAsMap("port/" + _portName);
+        final Map<String, Object> attributes = getBrokerHelper().getJsonAsMap("port/" + _portName);
         assertTrue(attributes.containsKey("boundPort"));
         assertTrue(attributes.get("boundPort") instanceof Number);
 
@@ -301,7 +303,8 @@ public class PortTest extends HttpTestBase
 
     private KeyCertificatePair generateSelfSignedCertificate() throws Exception
     {
-        return TlsResourceBuilder.createSelfSigned("CN=localhost");
+        final AlternativeName localhost = new AlternativeName(AltNameType.DNS_NAME, "localhost");
+        return TlsResourceBuilder.createSelfSigned("CN=localhost", localhost);
     }
 
     private void assertMessage(final Message messageA, final String a) throws JMSException
@@ -316,7 +319,7 @@ public class PortTest extends HttpTestBase
         String newKeyStoreName = _keyStoreName + "_2";
         final KeyCertificatePair keyCertPair = generateSelfSignedCertificate();
         submitKeyStoreAttributes(newKeyStoreName, SC_CREATED, keyCertPair);
-        getHelper().submitRequest("port/" + _portName,"POST", Map.of(Port.KEY_STORE, newKeyStoreName), SC_OK);
+        getBrokerHelper().submitRequest("port/" + _portName,"POST", Map.of(Port.KEY_STORE, newKeyStoreName), SC_OK);
         updatePortTls();
         return createTrustStore(tls, keyCertPair);
     }
@@ -338,7 +341,8 @@ public class PortTest extends HttpTestBase
 
     private void updatePortTls() throws Exception
     {
-        final boolean response = getHelper().postJson("port/" + _portName + "/updateTLS", Map.of(), BOOLEAN, SC_OK);
+        final boolean response =
+                getBrokerHelper().postJson("port/" + _portName + "/updateTLS", Map.of(), BOOLEAN, SC_OK);
         assertTrue(response);
     }
 }

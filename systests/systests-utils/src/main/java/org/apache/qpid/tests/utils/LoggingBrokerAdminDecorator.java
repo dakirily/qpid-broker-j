@@ -22,6 +22,7 @@ package org.apache.qpid.tests.utils;
 
 import java.lang.reflect.Method;
 import java.net.InetSocketAddress;
+import java.security.KeyStore;
 import java.util.concurrent.CompletableFuture;
 
 import ch.qos.logback.classic.LoggerContext;
@@ -88,6 +89,12 @@ public class LoggingBrokerAdminDecorator implements BrokerAdmin
     public InetSocketAddress getBrokerAddress(final PortType portType)
     {
         return _delegate.getBrokerAddress(portType);
+    }
+
+    @Override
+    public KeyStore getHttpManagementTrustStore()
+    {
+        return _delegate.getHttpManagementTrustStore();
     }
 
     @Override

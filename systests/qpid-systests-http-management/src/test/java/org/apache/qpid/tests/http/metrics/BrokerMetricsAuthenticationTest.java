@@ -25,25 +25,23 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.junit.jupiter.api.Test;
 
 import org.apache.qpid.server.management.plugin.HttpManagement;
-import org.apache.qpid.tests.http.HttpRequestConfig;
 import org.apache.qpid.tests.http.HttpTestBase;
 import org.apache.qpid.tests.http.HttpTestHelper;
 import org.apache.qpid.tests.utils.ConfigItem;
 
-@HttpRequestConfig(useVirtualHostAsHost = false)
 @ConfigItem(name = HttpManagement.HTTP_MANAGEMENT_ENABLE_CONTENT_AUTHENTICATION, value = "true")
 public class BrokerMetricsAuthenticationTest extends HttpTestBase
 {
     @Test
     public void testBrokerMetricsForAuthenticatedUser() throws Exception
     {
-        getHelper().submitRequest("/metrics", "GET", HttpServletResponse.SC_OK);
+        getBrokerHelper().submitRequest("/metrics", "GET", HttpServletResponse.SC_OK);
     }
 
     @Test
     public void testBrokerMetricsForUnauthenticatedUser() throws Exception
     {
-        final HttpTestHelper helper = new HttpTestHelper(getBrokerAdmin(), null);
+        final HttpTestHelper helper = new HttpTestHelper(getBrokerAdmin());
         helper.setUserName(null);
         helper.setPassword(null);
         helper.submitRequest("/metrics", "GET", HttpServletResponse.SC_UNAUTHORIZED);

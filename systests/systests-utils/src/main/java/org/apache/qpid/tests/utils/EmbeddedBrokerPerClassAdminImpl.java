@@ -25,6 +25,7 @@ import java.lang.reflect.Method;
 import java.net.InetSocketAddress;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.KeyStore;
 import java.security.Principal;
 import java.security.cert.X509Certificate;
 import java.text.SimpleDateFormat;
@@ -72,7 +73,14 @@ import org.apache.qpid.server.store.MemoryConfigurationStore;
 import org.apache.qpid.server.util.FileUtils;
 import org.apache.qpid.server.virtualhost.QueueManagingVirtualHost;
 import org.apache.qpid.server.virtualhostnode.JsonVirtualHostNode;
+import org.apache.qpid.test.utils.tls.AltNameType;
+import org.apache.qpid.test.utils.tls.AlternativeName;
+import org.apache.qpid.test.utils.tls.CertificateEntry;
+import org.apache.qpid.test.utils.tls.KeyCertificatePair;
+import org.apache.qpid.test.utils.tls.PrivateKeyEntry;
 import org.apache.qpid.test.utils.tls.TlsResource;
+import org.apache.qpid.test.utils.tls.TlsResourceBuilder;
+import org.apache.qpid.test.utils.tls.TlsResourceHelper;
 
 @SuppressWarnings({"java:S116", "unchecked", "unused"})
 // sonar complains about variable names
@@ -80,6 +88,7 @@ import org.apache.qpid.test.utils.tls.TlsResource;
 public class EmbeddedBrokerPerClassAdminImpl implements BrokerAdmin
 {
     private static final Logger LOGGER = LoggerFactory.getLogger(EmbeddedBrokerPerClassAdminImpl.class);
+    private static final String HTTP_MANAGEMENT_TEST_CONFIG = "config-http-management-tests.json";
     public static final String TYPE = "EMBEDDED_BROKER_PER_CLASS";
     private final Map<String, Integer> _ports = new HashMap<>();
     private String _tempAuthProvider;
@@ -89,6 +98,8 @@ public class EmbeddedBrokerPerClassAdminImpl implements BrokerAdmin
     private String _currentWorkDirectory;
     private boolean _isPersistentStore;
     private Map<String, String> _preservedProperties;
+    private TlsResource _httpTlsResource;
+    private KeyStore _httpManagementTrustStore;
 
     @Override
     public void beforeTestClass(final Class testClass)
@@ -111,6 +122,7 @@ public class EmbeddedBrokerPerClassAdminImpl implements BrokerAdmin
             context.putAll(Arrays.stream(configItems)
                     .filter(i -> !i.jvm())
                     .collect(Collectors.toMap(ConfigItem::name, ConfigItem::value, (name, value) -> value)));
+            configureHttpManagementTls(context);
 
             Map<String,Object> systemConfigAttributes = new HashMap<>();
             systemConfigAttributes.put(ConfiguredObject.CONTEXT, context);
@@ -134,6 +146,7 @@ public class EmbeddedBrokerPerClassAdminImpl implements BrokerAdmin
         }
         catch (Exception e)
         {
+            closeHttpTlsResource();
             throw new BrokerAdminException("Failed to start broker for test class", e);
         }
     }
@@ -214,23 +227,31 @@ public class EmbeddedBrokerPerClassAdminImpl implements BrokerAdmin
     @Override
     public void afterTestClass(final Class testClass)
     {
-        _systemLauncher.shutdown();
-        _ports.clear();
-        if (Boolean.getBoolean("broker.clean.between.tests"))
+        try
         {
-            FileUtils.delete(new File(_currentWorkDirectory), true);
+            _systemLauncher.shutdown();
         }
+        finally
+        {
+            _ports.clear();
+            if (Boolean.getBoolean("broker.clean.between.tests"))
+            {
+                FileUtils.delete(new File(_currentWorkDirectory), true);
+            }
 
-        _preservedProperties.forEach((k,v)-> {
-            if (v == null)
+            _preservedProperties.forEach((key, value) ->
             {
-                System.clearProperty(k);
-            }
-            else
-            {
-                System.setProperty(k, v);
-            }
-        });
+                if (value == null)
+                {
+                    System.clearProperty(key);
+                }
+                else
+                {
+                    System.setProperty(key, value);
+                }
+            });
+            closeHttpTlsResource();
+        }
     }
 
     @Override
@@ -242,6 +263,12 @@ public class EmbeddedBrokerPerClassAdminImpl implements BrokerAdmin
             throw new IllegalStateException(String.format("Could not find port with name '%s' on the Broker", portType.name()));
         }
         return InetSocketAddress.createUnresolved("localhost", port);
+    }
+
+    @Override
+    public KeyStore getHttpManagementTrustStore()
+    {
+        return _httpManagementTrustStore;
     }
 
     @Override
@@ -485,6 +512,40 @@ public class EmbeddedBrokerPerClassAdminImpl implements BrokerAdmin
                 .filter(queue -> queue.getName().equals(queueName))
                 .findFirst()
                 .orElseThrow(() -> new NotFoundException(String.format("Queue '%s' not found", queueName)));
+    }
+
+    private void configureHttpManagementTls(final Map<String, String> context) throws Exception
+    {
+        final String initialConfiguration = System.getProperty("qpid.initialConfigurationLocation", "");
+        if (!initialConfiguration.endsWith(HTTP_MANAGEMENT_TEST_CONFIG))
+        {
+            return;
+        }
+
+        _httpTlsResource = new TlsResource();
+        final AlternativeName localhost = new AlternativeName(AltNameType.DNS_NAME, "localhost");
+        final KeyCertificatePair keyCertificatePair =
+                TlsResourceBuilder.createSelfSigned("CN=localhost", localhost);
+        final Path keyStore = _httpTlsResource.createKeyStore(
+                new PrivateKeyEntry("http-management", keyCertificatePair));
+        _httpManagementTrustStore = TlsResourceHelper.createKeyStore(
+                _httpTlsResource.getKeyStoreType(),
+                _httpTlsResource.getSecretAsCharacters(),
+                new CertificateEntry("http-management", keyCertificatePair.certificate()));
+
+        context.put("qpid.tests.http.keyStoreUrl", keyStore.toUri().toString());
+        context.put("qpid.tests.http.keyStorePassword", _httpTlsResource.getSecret());
+        context.put("qpid.tests.http.keyStoreType", _httpTlsResource.getKeyStoreType());
+    }
+
+    private void closeHttpTlsResource()
+    {
+        if (_httpTlsResource != null)
+        {
+            _httpTlsResource.close();
+            _httpTlsResource = null;
+            _httpManagementTrustStore = null;
+        }
     }
 
     private void createOAuth2AuthenticationManager()

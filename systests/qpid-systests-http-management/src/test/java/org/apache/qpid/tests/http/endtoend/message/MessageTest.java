@@ -53,17 +53,14 @@ import javax.jms.Session;
 import javax.jms.StreamMessage;
 import javax.jms.TextMessage;
 
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import tools.jackson.core.type.TypeReference;
 
 import org.apache.qpid.server.model.Protocol;
-import org.apache.qpid.tests.http.HttpRequestConfig;
 import org.apache.qpid.tests.http.HttpTestBase;
 
-@HttpRequestConfig
 public class MessageTest extends HttpTestBase
 {
     private static final String QUEUE_NAME = "myqueue";
@@ -75,13 +72,7 @@ public class MessageTest extends HttpTestBase
     public void setUp() throws Exception
     {
         getBrokerAdmin().createQueue(QUEUE_NAME);
-        getHelper().createKeyStoreAndSetItOnPort(getFullTestName());
-    }
-
-    @AfterEach
-    public void afterEach() throws Exception
-    {
-        getHelper().removeKeyStoreFromPort(getFullTestName());
+        getVirtualHostHelper().setTls(true);
     }
 
     @Test
@@ -104,7 +95,7 @@ public class MessageTest extends HttpTestBase
             connection.close();
         }
 
-        List<Map<String, Object>> messages = getHelper().postJson("queue/myqueue/getMessageInfo",
+        List<Map<String, Object>> messages = getVirtualHostHelper().postJson("queue/myqueue/getMessageInfo",
                                                                   Map.of("includeHeaders", Boolean.TRUE),
                                                                   LIST_MAP_TYPE_REF, SC_OK);
         assertThat(messages.size(), is(equalTo(1)));
@@ -134,7 +125,7 @@ public class MessageTest extends HttpTestBase
             connection.close();
         }
 
-        List<Map<String, Object>> messages = getHelper().postJson("queue/myqueue/getMessageInfo",
+        List<Map<String, Object>> messages = getVirtualHostHelper().postJson("queue/myqueue/getMessageInfo",
                                                                   Map.of("includeHeaders", Boolean.FALSE),
                                                                   LIST_MAP_TYPE_REF, SC_OK);
         assertThat(messages.size(), is(equalTo(1)));
@@ -159,7 +150,7 @@ public class MessageTest extends HttpTestBase
             Message jmsMessage = session.createMessage();
             producer.send(jmsMessage);
 
-            List<Map<String, Object>> messages = getHelper().postJson("queue/myqueue/getMessageInfo",
+            List<Map<String, Object>> messages = getVirtualHostHelper().postJson("queue/myqueue/getMessageInfo",
                                                                       Map.of("includeHeaders", Boolean.FALSE),
                                                                       LIST_MAP_TYPE_REF, SC_OK);
             assertThat(messages.size(), is(equalTo(1)));
@@ -171,8 +162,10 @@ public class MessageTest extends HttpTestBase
             jmsMessage = consumer.receive(getReceiveTimeout());
             assertThat(jmsMessage, is(notNullValue()));
 
-            messages = getHelper().postJson("queue/myqueue/getMessageInfo", Map.of("includeHeaders", Boolean.FALSE),
-                    LIST_MAP_TYPE_REF, SC_OK);
+            messages = getVirtualHostHelper().postJson("queue/myqueue/getMessageInfo",
+                                                       Map.of("includeHeaders", Boolean.FALSE),
+                                                       LIST_MAP_TYPE_REF,
+                                                       SC_OK);
             assertThat(messages.size(), is(equalTo(1)));
 
             message = messages.get(0);
@@ -205,7 +198,7 @@ public class MessageTest extends HttpTestBase
             connection.close();
         }
 
-        List<Map<String, Object>> messages = getHelper().postJson("queue/myqueue/getMessageInfo",
+        List<Map<String, Object>> messages = getVirtualHostHelper().postJson("queue/myqueue/getMessageInfo",
                                                                   Map.of("includeHeaders", Boolean.TRUE),
                                                                   LIST_MAP_TYPE_REF, SC_OK);
         assertThat(messages.size(), is(equalTo(1)));
@@ -216,7 +209,7 @@ public class MessageTest extends HttpTestBase
         contentParams.put("messageId", messageId);
         contentParams.put("returnJson", Boolean.TRUE);
 
-        Map<String, Object> content = getHelper().postJson("queue/myqueue/getMessageContent",
+        Map<String, Object> content = getVirtualHostHelper().postJson("queue/myqueue/getMessageContent",
                                                            contentParams,
                                                            MAP_TYPE_REF, SC_OK);
         assertThat(content.size(), is(equalTo(1)));
@@ -242,7 +235,7 @@ public class MessageTest extends HttpTestBase
             connection.close();
         }
 
-        List<Map<String, Object>> messages = getHelper().postJson("queue/myqueue/getMessageInfo",
+        List<Map<String, Object>> messages = getVirtualHostHelper().postJson("queue/myqueue/getMessageInfo",
                                                                   Map.of("includeHeaders", Boolean.TRUE),
                                                                   LIST_MAP_TYPE_REF, SC_OK);
         assertThat(messages.size(), is(equalTo(1)));
@@ -253,7 +246,7 @@ public class MessageTest extends HttpTestBase
         contentParams.put("messageId", messageId);
         contentParams.put("returnJson", Boolean.TRUE);
 
-        List<Object> content = getHelper().postJson("queue/myqueue/getMessageContent",
+        List<Object> content = getVirtualHostHelper().postJson("queue/myqueue/getMessageContent",
                                                     contentParams,
                                                     LIST_TYPE_REF, SC_OK);
         assertThat(content.size(), is(equalTo(3)));
@@ -282,14 +275,14 @@ public class MessageTest extends HttpTestBase
             connection.close();
         }
 
-        List<Map<String, Object>> messages = getHelper().postJson("queue/myqueue/getMessageInfo",
+        List<Map<String, Object>> messages = getVirtualHostHelper().postJson("queue/myqueue/getMessageInfo",
                                                                   Map.of("includeHeaders", Boolean.TRUE),
                                                                   LIST_MAP_TYPE_REF, SC_OK);
         assertThat(messages.size(), is(equalTo(1)));
         Map<String, Object> message = messages.get(0);
         int messageId = (int) message.get("id");
 
-        byte[] receivedContent = getHelper().getBytes(String.format(
+        byte[] receivedContent = getVirtualHostHelper().getBytes(String.format(
                 "queue/myqueue/getMessageContent?messageId=%d", messageId));
 
         assumeTrue(is(not(equalTo(Protocol.AMQP_1_0))).matches(getProtocol()), "AMQP1.0 messages return the AMQP type");
@@ -303,7 +296,7 @@ public class MessageTest extends HttpTestBase
         Map<String, Object> messageBody = new HashMap<>();
         messageBody.put("address", QUEUE_NAME);
 
-        getHelper().submitRequest("virtualhost/publishMessage",
+        getVirtualHostHelper().submitRequest("virtualhost/publishMessage",
                                   "POST",
                                   Map.of("message", messageBody),
                                   SC_OK);
@@ -340,7 +333,7 @@ public class MessageTest extends HttpTestBase
         messageBody.put("address", QUEUE_NAME);
         messageBody.put("headers", headers);
 
-        getHelper().submitRequest("virtualhost/publishMessage",
+        getVirtualHostHelper().submitRequest("virtualhost/publishMessage",
                                   "POST",
                                   Map.of("message", messageBody),
                                   SC_OK);
@@ -376,7 +369,7 @@ public class MessageTest extends HttpTestBase
         messageBody.put("messageId", messageId);
         messageBody.put("expiration", expiration);
 
-        getHelper().submitRequest("virtualhost/publishMessage",
+        getVirtualHostHelper().submitRequest("virtualhost/publishMessage",
                                   "POST",
                                   Map.of("message", messageBody),
                                   SC_OK);
@@ -449,7 +442,7 @@ public class MessageTest extends HttpTestBase
         messageBody.put("address", QUEUE_NAME);
         messageBody.put("content", content);
 
-        getHelper().submitRequest("virtualhost/publishMessage",
+        getVirtualHostHelper().submitRequest("virtualhost/publishMessage",
                                   "POST",
                                   Map.of("message", messageBody),
                                   SC_OK);

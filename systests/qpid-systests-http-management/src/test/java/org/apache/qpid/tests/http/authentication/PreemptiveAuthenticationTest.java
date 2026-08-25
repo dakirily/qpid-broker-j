@@ -21,19 +21,19 @@
 package org.apache.qpid.tests.http.authentication;
 
 import static jakarta.servlet.http.HttpServletResponse.SC_CREATED;
+import static jakarta.servlet.http.HttpServletResponse.SC_MOVED_TEMPORARILY;
 import static jakarta.servlet.http.HttpServletResponse.SC_OK;
 import static jakarta.servlet.http.HttpServletResponse.SC_UNAUTHORIZED;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThan;
-import static org.hamcrest.Matchers.hasKey;
 import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.startsWith;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.io.IOException;
-import java.net.HttpURLConnection;
 import java.net.InetAddress;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.security.KeyStore;
 import java.util.ArrayDeque;
 import java.util.Base64;
@@ -42,12 +42,12 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import jakarta.servlet.http.HttpServletResponse;
 
-import org.junit.jupiter.api.Assertions;
-
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import tools.jackson.core.type.TypeReference;
@@ -63,6 +63,7 @@ import org.apache.qpid.server.security.auth.manager.ExternalAuthenticationManage
 import org.apache.qpid.server.util.BaseAction;
 import org.apache.qpid.test.utils.tls.AltNameType;
 import org.apache.qpid.test.utils.tls.AlternativeName;
+import org.apache.qpid.test.utils.tls.CertificateEntry;
 import org.apache.qpid.test.utils.tls.KeyCertificatePair;
 import org.apache.qpid.test.utils.tls.PrivateKeyEntry;
 import org.apache.qpid.test.utils.tls.TlsResourceBuilder;
@@ -83,7 +84,7 @@ public class PreemptiveAuthenticationTest extends HttpTestBase
         if (_tearDownActions != null)
         {
             Exception exception = null;
-            while(!_tearDownActions.isEmpty())
+            while (!_tearDownActions.isEmpty())
             {
                 try
                 {
@@ -105,40 +106,38 @@ public class PreemptiveAuthenticationTest extends HttpTestBase
     @Test
     public void clientAuthSuccess() throws Exception
     {
-        HttpTestHelper helper = configForClientAuth("CN=localhost");
+        final HttpTestHelper helper = configForClientAuth("CN=localhost");
 
-        String userId = helper.getJson("broker/getUser", STRING_TYPE_REF, SC_OK);
+        final String userId = helper.getJson("broker/getUser", STRING_TYPE_REF, SC_OK);
         assertThat(userId, startsWith("localhost@"));
     }
 
     @Test
     public void clientAuthenticationWebManagementConsole() throws Exception
     {
-        HttpTestHelper helper = configForClientAuth("CN=localhost");
+        final HttpTestHelper helper = configForClientAuth("CN=localhost");
 
-        HttpURLConnection authenticateConnection = helper.openManagementConnection(HttpManagement.DEFAULT_LOGIN_URL, "GET");
-        authenticateConnection.setInstanceFollowRedirects(false);
+        final HttpResponse<byte[]> redirect =
+                helper.send(helper.createRequest(HttpManagement.DEFAULT_LOGIN_URL, "GET"));
+        final String cookies = redirect.headers().allValues("Set-Cookie").stream()
+                .map(value -> value.split(";", 2)[0])
+                .collect(Collectors.joining("; "));
 
-        int status = authenticateConnection.getResponseCode();
-        final String cookies = authenticateConnection.getHeaderField("Set-Cookie");
-        authenticateConnection.disconnect();
+        assertThat(redirect.statusCode(), is(equalTo(SC_MOVED_TEMPORARILY)));
 
-        assertThat(status, is(equalTo(HttpURLConnection.HTTP_MOVED_TEMP)));
+        final HttpRequest.Builder authenticatedRequest =
+                helper.createRequest(HttpManagement.DEFAULT_LOGIN_URL, "GET").header("Cookie", cookies);
+        final HttpResponse<byte[]> authenticatedResponse = helper.send(authenticatedRequest);
 
-        authenticateConnection = helper.openManagementConnection(HttpManagement.DEFAULT_LOGIN_URL, "GET");
-        authenticateConnection.setRequestProperty("Cookie", cookies);
-        status = authenticateConnection.getResponseCode();
-        authenticateConnection.disconnect();
-
-        assertThat(status, is(equalTo(HttpURLConnection.HTTP_OK)));
+        assertThat(authenticatedResponse.statusCode(), is(equalTo(SC_OK)));
     }
 
     @Test
     public void clientAuthUnrecognisedCert() throws Exception
     {
-        HttpTestHelper helper = configForClientAuth("CN=foo");
+        final HttpTestHelper helper = configForClientAuth("CN=foo");
 
-        String keyStore = createKeyStoreDataUrl(getKeyCertPair("CN=bar"));
+        final String keyStore = createKeyStoreDataUrl(getKeyCertPair("CN=bar"));
         helper.setKeyStore(keyStore, STORE_PASSWORD);
 
         try
@@ -161,7 +160,7 @@ public class PreemptiveAuthenticationTest extends HttpTestBase
     @Test
     public void basicAuthWrongPassword() throws Exception
     {
-        getHelper().setPassword("badpassword");
+        getBrokerHelper().setPassword("badpassword");
 
         verifyGetBroker(HttpServletResponse.SC_UNAUTHORIZED);
     }
@@ -181,43 +180,52 @@ public class PreemptiveAuthenticationTest extends HttpTestBase
     @Test
     public void anonymousTest() throws Exception
     {
-        HttpTestHelper helper = configForAnonymous();
+        final HttpTestHelper helper = configForAnonymous();
 
-        String userId = helper.getJson("broker/getUser", STRING_TYPE_REF, SC_OK);
+        final String userId = helper.getJson("broker/getUser", STRING_TYPE_REF, SC_OK);
         assertThat(userId, startsWith("ANONYMOUS@"));
     }
 
     @Test
     public void noSessionCreated() throws Exception
     {
-        final HttpURLConnection conn = getHelper().openManagementConnection("broker", "GET");
-        assertThat("Unexpected server response", conn.getResponseCode(), is(equalTo(SC_OK)));
-        assertThat("Unexpected cookie", conn.getHeaderFields(), not(hasKey("Set-Cookie")));
+        final HttpResponse<byte[]> response =
+                getBrokerHelper().send(getBrokerHelper().createRequest("broker", "GET"));
+        assertThat("Unexpected server response", response.statusCode(), is(equalTo(SC_OK)));
+        Assertions.assertTrue(response.headers().firstValue("Set-Cookie").isEmpty(), "Unexpected cookie");
     }
 
-    private void verifyGetBroker(int expectedResponseCode) throws Exception
+    private void verifyGetBroker(final int expectedResponseCode) throws Exception
     {
-        assertThat(getHelper().submitRequest("broker", "GET"), is(equalTo(expectedResponseCode)));
+        assertThat(getBrokerHelper().submitRequest("broker", "GET"), is(equalTo(expectedResponseCode)));
     }
 
     private void doBasicAuthDisabledTest(final boolean tls) throws Exception
     {
-        HttpTestHelper configHelper = new HttpTestHelper(getBrokerAdmin());
+        final HttpTestHelper configHelper = new HttpTestHelper(getBrokerAdmin());
         configHelper.setTls(!tls);
-        final String authEnabledAttrName = tls ? HttpManagement.HTTPS_BASIC_AUTHENTICATION_ENABLED : HttpManagement.HTTP_BASIC_AUTHENTICATION_ENABLED;
+        final String authEnabledAttrName = tls
+                ? HttpManagement.HTTPS_BASIC_AUTHENTICATION_ENABLED
+                : HttpManagement.HTTP_BASIC_AUTHENTICATION_ENABLED;
         try
         {
-            HttpTestHelper helper = new HttpTestHelper(getBrokerAdmin());
+            final HttpTestHelper helper = new HttpTestHelper(getBrokerAdmin());
             helper.setTls(tls);
             assertThat(helper.submitRequest("broker", "GET"), is(equalTo(SC_OK)));
 
-            configHelper.submitRequest("plugin/httpManagement", "POST", Map.of(authEnabledAttrName, Boolean.FALSE), SC_OK);
+            configHelper.submitRequest("plugin/httpManagement",
+                                       "POST",
+                                       Map.of(authEnabledAttrName, Boolean.FALSE),
+                                       SC_OK);
 
             assertThat(helper.submitRequest("broker", "GET"), is(equalTo(SC_UNAUTHORIZED)));
         }
         finally
         {
-            configHelper.submitRequest("plugin/httpManagement", "POST", Map.of(authEnabledAttrName, Boolean.TRUE), SC_OK);
+            configHelper.submitRequest("plugin/httpManagement",
+                                       "POST",
+                                       Map.of(authEnabledAttrName, Boolean.TRUE),
+                                       SC_OK);
         }
     }
 
@@ -229,16 +237,18 @@ public class PreemptiveAuthenticationTest extends HttpTestBase
 
         final KeyCertificatePair brokerKeyCertPair = getKeyCertPair(x500Name);
         final String brokerKeyStore = createKeyStoreDataUrl(brokerKeyCertPair);
+        final String brokerTrustStore = createTrustStoreDataUrl(brokerKeyCertPair);
 
-        final Deque<BaseAction<Void,Exception>> deleteActions = new ArrayDeque<>();
+        final Deque<BaseAction<Void, Exception>> deleteActions = new ArrayDeque<>();
 
         final Map<String, Object> authAttr = new HashMap<>();
         authAttr.put(ExternalAuthenticationManager.TYPE, "External");
         authAttr.put(ExternalAuthenticationManager.ATTRIBUTE_USE_FULL_DN, false);
 
-        getHelper().submitRequest("authenticationprovider/myexternal","PUT", authAttr, SC_CREATED);
+        getBrokerHelper().submitRequest("authenticationprovider/myexternal", "PUT", authAttr, SC_CREATED);
 
-        deleteActions.add(object -> getHelper().submitRequest("authenticationprovider/myexternal", "DELETE", SC_OK));
+        deleteActions.add(object ->
+                getBrokerHelper().submitRequest("authenticationprovider/myexternal", "DELETE", SC_OK));
 
         final Map<String, Object> keystoreAttr = new HashMap<>();
         keystoreAttr.put(FileKeyStore.TYPE, "FileKeyStore");
@@ -246,8 +256,8 @@ public class PreemptiveAuthenticationTest extends HttpTestBase
         keystoreAttr.put(FileKeyStore.PASSWORD, STORE_PASSWORD);
         keystoreAttr.put(FileKeyStore.KEY_STORE_TYPE, KeyStore.getDefaultType());
 
-        getHelper().submitRequest("keystore/mykeystore","PUT", keystoreAttr, SC_CREATED);
-        deleteActions.add(object -> getHelper().submitRequest("keystore/mykeystore", "DELETE", SC_OK));
+        getBrokerHelper().submitRequest("keystore/mykeystore", "PUT", keystoreAttr, SC_CREATED);
+        deleteActions.add(object -> getBrokerHelper().submitRequest("keystore/mykeystore", "DELETE", SC_OK));
 
         final Map<String, Object> truststoreAttr = new HashMap<>();
         truststoreAttr.put(ManagedPeerCertificateTrustStore.TYPE, ManagedPeerCertificateTrustStore.TYPE_NAME);
@@ -255,8 +265,8 @@ public class PreemptiveAuthenticationTest extends HttpTestBase
                 List.of(Base64.getEncoder().encodeToString(clientCertificate)));
 
 
-        getHelper().submitRequest("truststore/mytruststore","PUT", truststoreAttr, SC_CREATED);
-        deleteActions.add(object -> getHelper().submitRequest("truststore/mytruststore", "DELETE", SC_OK));
+        getBrokerHelper().submitRequest("truststore/mytruststore", "PUT", truststoreAttr, SC_CREATED);
+        deleteActions.add(object -> getBrokerHelper().submitRequest("truststore/mytruststore", "DELETE", SC_OK));
 
         final Map<String, Object> portAttr = new HashMap<>();
         portAttr.put(Port.TYPE, "HTTP");
@@ -268,32 +278,33 @@ public class PreemptiveAuthenticationTest extends HttpTestBase
         portAttr.put(Port.KEY_STORE, "mykeystore");
         portAttr.put(Port.TRUST_STORES, List.of("mytruststore"));
 
-        getHelper().submitRequest("port/myport","PUT", portAttr, SC_CREATED);
-        deleteActions.add(object -> getHelper().submitRequest("port/myport", "DELETE", SC_OK));
+        getBrokerHelper().submitRequest("port/myport", "PUT", portAttr, SC_CREATED);
+        deleteActions.add(object -> getBrokerHelper().submitRequest("port/myport", "DELETE", SC_OK));
 
-        Map<String, Object> clientAuthPort = getHelper().getJsonAsMap("port/myport");
-        int boundPort = Integer.parseInt(String.valueOf(clientAuthPort.get("boundPort")));
+        final Map<String, Object> clientAuthPort = getBrokerHelper().getJsonAsMap("port/myport");
+        final int boundPort = Integer.parseInt(String.valueOf(clientAuthPort.get("boundPort")));
 
         assertThat(boundPort, is(greaterThan(0)));
 
         _tearDownActions = deleteActions;
 
-        HttpTestHelper helper = new HttpTestHelper(getBrokerAdmin(), null, boundPort);
+        final HttpTestHelper helper = new HttpTestHelper(getBrokerAdmin(), boundPort);
         helper.setTls(true);
         helper.setKeyStore(clientKeyStore, STORE_PASSWORD);
+        helper.setTrustStore(brokerTrustStore, STORE_PASSWORD);
         return helper;
     }
 
     private HttpTestHelper configForAnonymous() throws Exception
     {
-        final Deque<BaseAction<Void,Exception>> deleteActions = new ArrayDeque<>();
+        final Deque<BaseAction<Void, Exception>> deleteActions = new ArrayDeque<>();
 
         final Map<String, Object> authAttr = new HashMap<>();
         authAttr.put(AnonymousAuthenticationManager.TYPE, AnonymousAuthenticationManager.PROVIDER_TYPE);
 
-        getHelper().submitRequest("authenticationprovider/myanon","PUT", authAttr, SC_CREATED);
+        getBrokerHelper().submitRequest("authenticationprovider/myanon", "PUT", authAttr, SC_CREATED);
 
-        deleteActions.add(object -> getHelper().submitRequest("authenticationprovider/myanon", "DELETE", SC_OK));
+        deleteActions.add(object -> getBrokerHelper().submitRequest("authenticationprovider/myanon", "DELETE", SC_OK));
 
         final Map<String, Object> portAttr = new HashMap<>();
         portAttr.put(Port.TYPE, "HTTP");
@@ -302,21 +313,20 @@ public class PreemptiveAuthenticationTest extends HttpTestBase
         portAttr.put(Port.PROTOCOLS, Set.of(Protocol.HTTP));
         portAttr.put(Port.TRANSPORTS, Set.of(Transport.TCP));
 
-        getHelper().submitRequest("port/myport","PUT", portAttr, SC_CREATED);
-        deleteActions.add(object -> getHelper().submitRequest("port/myport", "DELETE", SC_OK));
+        getBrokerHelper().submitRequest("port/myport", "PUT", portAttr, SC_CREATED);
+        deleteActions.add(object -> getBrokerHelper().submitRequest("port/myport", "DELETE", SC_OK));
 
-        Map<String, Object> clientAuthPort = getHelper().getJsonAsMap("port/myport");
-        int boundPort = Integer.parseInt(String.valueOf(clientAuthPort.get("boundPort")));
+        final Map<String, Object> clientAuthPort = getBrokerHelper().getJsonAsMap("port/myport");
+        final int boundPort = Integer.parseInt(String.valueOf(clientAuthPort.get("boundPort")));
 
         assertThat(boundPort, is(greaterThan(0)));
 
         _tearDownActions = deleteActions;
 
-        HttpTestHelper helper = new HttpTestHelper(getBrokerAdmin(), null, boundPort);
+        final HttpTestHelper helper = new HttpTestHelper(getBrokerAdmin(), boundPort);
         helper.setPassword(null);
         helper.setUserName(null);
         return helper;
-
     }
 
     private String createKeyStoreDataUrl(final KeyCertificatePair keyCertPair) throws Exception
@@ -326,11 +336,20 @@ public class PreemptiveAuthenticationTest extends HttpTestBase
                 new PrivateKeyEntry("key1", keyCertPair));
     }
 
+    private String createTrustStoreDataUrl(final KeyCertificatePair keyCertPair) throws Exception
+    {
+        return TlsResourceHelper.createKeyStoreAsDataUrl(KeyStore.getDefaultType(),
+                                                         STORE_PASSWORD.toCharArray(),
+                                                         new CertificateEntry("certificate",
+                                                                              keyCertPair.certificate()));
+    }
+
     private KeyCertificatePair getKeyCertPair(final String x500Name) throws Exception
     {
         final String loopbackAddress = InetAddress.getLoopbackAddress().getHostAddress();
-        final AlternativeName alternativeName = new AlternativeName(AltNameType.IP_ADDRESS, loopbackAddress);
-        return TlsResourceBuilder.createSelfSigned(x500Name, alternativeName);
+        final AlternativeName ipAddress = new AlternativeName(AltNameType.IP_ADDRESS, loopbackAddress);
+        final AlternativeName localhost = new AlternativeName(AltNameType.DNS_NAME, "localhost");
+        return TlsResourceBuilder.createSelfSigned(x500Name, ipAddress, localhost);
     }
 
 }

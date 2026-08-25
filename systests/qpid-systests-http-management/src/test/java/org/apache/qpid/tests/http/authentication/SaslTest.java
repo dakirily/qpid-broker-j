@@ -20,6 +20,7 @@
  */
 package org.apache.qpid.tests.http.authentication;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static jakarta.servlet.http.HttpServletResponse.SC_EXPECTATION_FAILED;
 import static jakarta.servlet.http.HttpServletResponse.SC_OK;
 import static jakarta.servlet.http.HttpServletResponse.SC_UNAUTHORIZED;
@@ -31,12 +32,14 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
-import java.io.OutputStream;
-import java.net.HttpURLConnection;
+import java.net.URLEncoder;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -54,6 +57,7 @@ public class SaslTest extends HttpTestBase
 {
     private static final String SASL_SERVICE = "/service/sasl";
     private static final String SET_COOKIE_HEADER = "Set-Cookie";
+
     private String _userName;
     private String _userPassword;
 
@@ -67,16 +71,16 @@ public class SaslTest extends HttpTestBase
     @Test
     public void requestSASLMechanisms() throws Exception
     {
-        Map<String, Object> saslData = getHelper().getJsonAsMap(SASL_SERVICE);
+        final Map<String, Object> saslData = getBrokerHelper().getJsonAsMap(SASL_SERVICE);
         assertNotNull(saslData.get("mechanisms"), "mechanisms attribute is not found");
 
         @SuppressWarnings("unchecked")
-        List<String> mechanisms = (List<String>) saslData.get("mechanisms");
-        String[] expectedMechanisms = {PlainNegotiator.MECHANISM,
+        final List<String> mechanisms = (List<String>) saslData.get("mechanisms");
+        final String[] expectedMechanisms = {PlainNegotiator.MECHANISM,
                 CramMd5Negotiator.MECHANISM,
                 ScramSHA1AuthenticationManager.MECHANISM,
                 ScramSHA256AuthenticationManager.MECHANISM};
-        for (String mechanism : expectedMechanisms)
+        for (final String mechanism : expectedMechanisms)
         {
             assertTrue(mechanisms.contains(mechanism), String.format("Mechanism '%s' is not found", mechanism));
         }
@@ -86,88 +90,56 @@ public class SaslTest extends HttpTestBase
     @Test
     public void requestUnsupportedSASLMechanism() throws Exception
     {
-        HttpURLConnection connection = requestSASLAuthentication("UNSUPPORTED");
-        try
-        {
-            assertEquals(SC_EXPECTATION_FAILED, connection.getResponseCode(), "Unexpected response");
-        }
-        finally
-        {
-            connection.disconnect();
-        }
+        final HttpResponse<byte[]> response = requestSASLAuthentication("UNSUPPORTED");
+        assertEquals(SC_EXPECTATION_FAILED, response.statusCode(), "Unexpected response");
     }
 
     @Test
     public void plainSASLAuthenticationWithoutInitialResponse() throws Exception
     {
-        HttpURLConnection connection = requestSASLAuthentication(PlainNegotiator.MECHANISM);
-        try
-        {
-            assertEquals(SC_OK, connection.getResponseCode(), "Unexpected response");
-            handleChallengeAndSendResponse(connection, _userName, _userPassword, PlainNegotiator.MECHANISM, SC_OK);
-
-            assertAuthenticatedUser(_userName, connection.getHeaderFields().get(SET_COOKIE_HEADER));
-        }
-        finally
-        {
-            connection.disconnect();
-        }
+        final HttpResponse<byte[]> response = requestSASLAuthentication(PlainNegotiator.MECHANISM);
+        assertEquals(SC_OK, response.statusCode(), "Unexpected response");
+        handleChallengeAndSendResponse(response, _userName, _userPassword, PlainNegotiator.MECHANISM, SC_OK);
+        assertAuthenticatedUser(_userName, getCookies(response));
     }
 
     @Test
     public void plainSASLAuthenticationWithMalformedInitialResponse() throws Exception
     {
-        byte[] responseBytes = "null".getBytes();
-        String responseData = Base64.getEncoder().encodeToString(responseBytes);
-        String parameters = String.format("mechanism=%s&response=%s", PlainNegotiator.MECHANISM, responseData);
-
-        HttpURLConnection connection = getHelper().openManagementConnection(SASL_SERVICE, "POST");
-        try
-        {
-            try (OutputStream os = connection.getOutputStream())
-            {
-                os.write(parameters.getBytes());
-                os.flush();
-
-                assertEquals(SC_UNAUTHORIZED, connection.getResponseCode(), "Unexpected response code");
-
-                assertAuthenticatedUser(null, connection.getHeaderFields().get(SET_COOKIE_HEADER));
-            }
-        }
-        finally
-        {
-            connection.disconnect();
-        }
+        final String responseData = Base64.getEncoder().encodeToString("null".getBytes(UTF_8));
+        final HttpResponse<byte[]> response =
+                postForm(Map.of("mechanism", PlainNegotiator.MECHANISM, "response", responseData), List.of());
+        assertEquals(SC_UNAUTHORIZED, response.statusCode(), "Unexpected response code");
+        assertAuthenticatedUser(null, getCookies(response));
     }
 
     @Test
     public void plainSASLAuthenticationWithValidCredentials() throws Exception
     {
-        List<String> cookies = plainSASLAuthenticationWithInitialResponse(_userName, _userPassword, SC_OK);
-
+        final List<String> cookies = plainSASLAuthenticationWithInitialResponse(_userName, _userPassword, SC_OK);
         assertAuthenticatedUser(_userName, cookies);
     }
 
     @Test
     public void plainSASLAuthenticationWithIncorrectPassword() throws Exception
     {
-        List<String> cookies = plainSASLAuthenticationWithInitialResponse(_userName, "incorrect", SC_UNAUTHORIZED);
-
+        final List<String> cookies =
+                plainSASLAuthenticationWithInitialResponse(_userName, "incorrect", SC_UNAUTHORIZED);
         assertAuthenticatedUser(null, cookies);
     }
 
     @Test
     public void plainSASLAuthenticationWithUnknownUser() throws Exception
     {
-        List<String> cookies = plainSASLAuthenticationWithInitialResponse("unknown", _userPassword, SC_UNAUTHORIZED);
-
+        final List<String> cookies =
+                plainSASLAuthenticationWithInitialResponse("unknown", _userPassword, SC_UNAUTHORIZED);
         assertAuthenticatedUser(null, cookies);
     }
 
     @Test
     public void cramMD5SASLAuthenticationForValidCredentials() throws Exception
     {
-        List<String> cookies =
+        final List<String> cookies =
                 challengeResponseAuthentication(_userName, _userPassword, CramMd5Negotiator.MECHANISM, SC_OK);
         assertAuthenticatedUser(_userName, cookies);
     }
@@ -175,231 +147,178 @@ public class SaslTest extends HttpTestBase
     @Test
     public void cramMD5SASLAuthenticationForIncorrectPassword() throws Exception
     {
-        List<String> cookies =
-                challengeResponseAuthentication(_userName, "incorrect", CramMd5Negotiator.MECHANISM, SC_UNAUTHORIZED);
+        final List<String> cookies =
+                challengeResponseAuthentication(_userName, "incorrect",
+                                                CramMd5Negotiator.MECHANISM, SC_UNAUTHORIZED);
         assertAuthenticatedUser(null, cookies);
     }
 
     @Test
     public void cramMD5SASLAuthenticationForNonExistingUser() throws Exception
     {
-        List<String> cookies =
-                challengeResponseAuthentication("unknown", _userPassword, CramMd5Negotiator.MECHANISM, SC_UNAUTHORIZED);
+        final List<String> cookies =
+                challengeResponseAuthentication("unknown", _userPassword,
+                                                CramMd5Negotiator.MECHANISM, SC_UNAUTHORIZED);
         assertAuthenticatedUser(null, cookies);
     }
 
     @Test
     public void cramMD5SASLAuthenticationResponseNotProvided() throws Exception
     {
-        HttpURLConnection connection = requestSASLAuthentication(CramMd5Negotiator.MECHANISM);
-        try
-        {
-            Map<String, Object> response = getHelper().readJsonResponseAsMap(connection);
-            String challenge = (String) response.get("challenge");
-            assertNotNull(challenge, "Challenge is not found");
+        final HttpResponse<byte[]> response = requestSASLAuthentication(CramMd5Negotiator.MECHANISM);
+        final Map<String, Object> responseData = getBrokerHelper().readJsonResponseAsMap(response);
+        final String challenge = (String) responseData.get("challenge");
+        assertNotNull(challenge, "Challenge is not found");
 
-            List<String> cookies = connection.getHeaderFields().get(SET_COOKIE_HEADER);
-
-            String requestParameters = (String.format("id=%s", response.get("id")));
-            postResponse(cookies, requestParameters, SC_UNAUTHORIZED);
-
-            assertAuthenticatedUser(null, cookies);
-        }
-        finally
-        {
-            connection.disconnect();
-        }
+        final List<String> cookies = getCookies(response);
+        postResponse(cookies, Map.of("id", String.valueOf(responseData.get("id"))), SC_UNAUTHORIZED);
+        assertAuthenticatedUser(null, cookies);
     }
 
     @Test
     public void cramMD5SASLAuthenticationWithMalformedResponse() throws Exception
     {
-        HttpURLConnection connection = requestSASLAuthentication(CramMd5Negotiator.MECHANISM);
-        try
-        {
-            Map<String, Object> response = getHelper().readJsonResponseAsMap(connection);
-            String challenge = (String) response.get("challenge");
-            assertNotNull(challenge, "Challenge is not found");
+        final HttpResponse<byte[]> response = requestSASLAuthentication(CramMd5Negotiator.MECHANISM);
+        final Map<String, Object> responseData = getBrokerHelper().readJsonResponseAsMap(response);
+        final String challenge = (String) responseData.get("challenge");
+        assertNotNull(challenge, "Challenge is not found");
 
-            List<String> cookies = connection.getHeaderFields().get(SET_COOKIE_HEADER);
-
-            String responseData = Base64.getEncoder().encodeToString("null".getBytes());
-            String requestParameters = String.format("id=%s&response=%s", response.get("id"), responseData);
-
-            postResponse(cookies, requestParameters, SC_UNAUTHORIZED);
-
-            assertAuthenticatedUser(null, cookies);
-        }
-        finally
-        {
-            connection.disconnect();
-        }
+        final List<String> cookies = getCookies(response);
+        final String malformedResponse = Base64.getEncoder().encodeToString("null".getBytes(UTF_8));
+        postResponse(cookies,
+                     Map.of("id", String.valueOf(responseData.get("id")), "response", malformedResponse),
+                     SC_UNAUTHORIZED);
+        assertAuthenticatedUser(null, cookies);
     }
 
     @Test
     public void cramMD5SASLAuthenticationWithInvalidId() throws Exception
     {
-        HttpURLConnection connection = requestSASLAuthentication(CramMd5Negotiator.MECHANISM);
-        try
-        {
-            Map<String, Object> response = getHelper().readJsonResponseAsMap(connection);
-            String challenge = (String) response.get("challenge");
-            assertNotNull(challenge, "Challenge is not found");
+        final HttpResponse<byte[]> response = requestSASLAuthentication(CramMd5Negotiator.MECHANISM);
+        final Map<String, Object> responseData = getBrokerHelper().readJsonResponseAsMap(response);
+        final String challenge = (String) responseData.get("challenge");
+        assertNotNull(challenge, "Challenge is not found");
 
-            List<String> cookies = connection.getHeaderFields().get(SET_COOKIE_HEADER);
-
-            byte[] challengeBytes = Base64.getDecoder().decode(challenge);
-            byte[] responseBytes =
-                    generateClientResponse(CramMd5Negotiator.MECHANISM, _userName, _userPassword, challengeBytes);
-            String responseData = Base64.getEncoder().encodeToString(responseBytes);
-            String requestParameters = (String.format("id=%s&response=%s", UUID.randomUUID(), responseData));
-
-            postResponse(cookies, requestParameters, SC_EXPECTATION_FAILED);
-
-            assertAuthenticatedUser(null, cookies);
-        }
-        finally
-        {
-            connection.disconnect();
-        }
+        final byte[] challengeBytes = Base64.getDecoder().decode(challenge);
+        final byte[] clientResponse =
+                generateClientResponse(CramMd5Negotiator.MECHANISM, _userName, _userPassword, challengeBytes);
+        final String encodedResponse = Base64.getEncoder().encodeToString(clientResponse);
+        final List<String> cookies = getCookies(response);
+        postResponse(cookies,
+                     Map.of("id", UUID.randomUUID().toString(), "response", encodedResponse),
+                     SC_EXPECTATION_FAILED);
+        assertAuthenticatedUser(null, cookies);
     }
 
     private List<String> plainSASLAuthenticationWithInitialResponse(final String userName,
                                                                     final String userPassword,
                                                                     final int expectedResponseCode) throws Exception
     {
-        byte[] responseBytes = generatePlainClientResponse(userName, userPassword);
-        String responseData = Base64.getEncoder().encodeToString(responseBytes);
-        String parameters = String.format("mechanism=%s&response=%s", PlainNegotiator.MECHANISM, responseData);
-
-        HttpURLConnection connection = getHelper().openManagementConnection(SASL_SERVICE, "POST");
-        try
-        {
-            try (OutputStream os = connection.getOutputStream())
-            {
-                os.write(parameters.getBytes());
-                os.flush();
-
-                assertEquals(expectedResponseCode, connection.getResponseCode(), "Unexpected response code");
-            }
-            return connection.getHeaderFields().get(SET_COOKIE_HEADER);
-        }
-        finally
-        {
-            connection.disconnect();
-        }
+        final byte[] responseBytes = generatePlainClientResponse(userName, userPassword);
+        final String responseData = Base64.getEncoder().encodeToString(responseBytes);
+        final HttpResponse<byte[]> response =
+                postForm(Map.of("mechanism", PlainNegotiator.MECHANISM, "response", responseData), List.of());
+        assertEquals(expectedResponseCode, response.statusCode(), "Unexpected response code");
+        return getCookies(response);
     }
 
     private List<String> challengeResponseAuthentication(final String userName,
                                                          final String userPassword,
                                                          final String mechanism,
-                                                         final int expectedResponseCode)
-            throws Exception
+                                                         final int expectedResponseCode) throws Exception
     {
-        HttpURLConnection connection = requestSASLAuthentication(mechanism);
-        try
-        {
-            handleChallengeAndSendResponse(connection, userName, userPassword, mechanism, expectedResponseCode);
-            return connection.getHeaderFields().get(SET_COOKIE_HEADER);
-        }
-        finally
-        {
-            connection.disconnect();
-        }
+        final HttpResponse<byte[]> response = requestSASLAuthentication(mechanism);
+        handleChallengeAndSendResponse(response, userName, userPassword, mechanism, expectedResponseCode);
+        return getCookies(response);
     }
 
-
-    private void handleChallengeAndSendResponse(HttpURLConnection requestChallengeConnection,
-                                                String userName,
-                                                String userPassword,
-                                                String mechanism,
-                                                final int expectedResponseCode)
-            throws Exception
+    private void handleChallengeAndSendResponse(final HttpResponse<byte[]> challengeResponse,
+                                                final String userName,
+                                                final String userPassword,
+                                                final String mechanism,
+                                                final int expectedResponseCode) throws Exception
     {
-        Map<String, Object> response = getHelper().readJsonResponseAsMap(requestChallengeConnection);
-        String challenge = (String) response.get("challenge");
+        final Map<String, Object> responseData = getBrokerHelper().readJsonResponseAsMap(challengeResponse);
+        final String challenge = (String) responseData.get("challenge");
         assertNotNull(challenge, "Challenge is not found");
 
-        byte[] challengeBytes = Base64.getDecoder().decode(challenge);
-        byte[] responseBytes = generateClientResponse(mechanism, userName, userPassword, challengeBytes);
-        String responseData = Base64.getEncoder().encodeToString(responseBytes);
-        String requestParameters = (String.format("id=%s&response=%s", response.get("id"), responseData));
-
-        postResponse(requestChallengeConnection.getHeaderFields().get(SET_COOKIE_HEADER),
-                     requestParameters,
+        final byte[] challengeBytes = Base64.getDecoder().decode(challenge);
+        final byte[] clientResponse = generateClientResponse(mechanism, userName, userPassword, challengeBytes);
+        final String encodedResponse = Base64.getEncoder().encodeToString(clientResponse);
+        postResponse(getCookies(challengeResponse),
+                     Map.of("id", String.valueOf(responseData.get("id")), "response", encodedResponse),
                      expectedResponseCode);
     }
 
     private void postResponse(final List<String> cookies,
-                              final String requestParameters,
+                              final Map<String, String> parameters,
                               final int expectedResponseCode) throws IOException
     {
-        HttpURLConnection authenticateConnection = getHelper().openManagementConnection(SASL_SERVICE, "POST");
-        try
-        {
-            applyCookiesToConnection(cookies, authenticateConnection);
-            try (OutputStream os = authenticateConnection.getOutputStream())
-            {
-                os.write(requestParameters.getBytes());
-                os.flush();
-                assertEquals(expectedResponseCode, authenticateConnection.getResponseCode(), "Unexpected response code");
-            }
-        }
-        finally
-        {
-            authenticateConnection.disconnect();
-        }
+        final HttpResponse<byte[]> response = postForm(parameters, cookies);
+        assertEquals(expectedResponseCode, response.statusCode(), "Unexpected response code");
     }
 
-    private byte[] generateClientResponse(String mechanism, String userName, String userPassword, byte[] challengeBytes)
-            throws Exception
+    private HttpResponse<byte[]> postForm(final Map<String, String> parameters, final List<String> cookies)
+            throws IOException
     {
-        byte[] responseBytes;
+        final String formData = parameters.entrySet().stream()
+                .map(entry -> encode(entry.getKey()) + "=" + encode(entry.getValue()))
+                .collect(Collectors.joining("&"));
+        final HttpRequest.Builder request = getBrokerHelper().createRequest(SASL_SERVICE, "POST")
+                .header("Content-Type", "application/x-www-form-urlencoded")
+                .method("POST", HttpRequest.BodyPublishers.ofString(formData, UTF_8));
+        applyCookies(cookies, request);
+        return getBrokerHelper().send(request);
+    }
+
+    private byte[] generateClientResponse(final String mechanism,
+                                          final String userName,
+                                          final String userPassword,
+                                          final byte[] challengeBytes) throws Exception
+    {
         if (PlainNegotiator.MECHANISM.equals(mechanism))
         {
-            responseBytes = generatePlainClientResponse(_userName, _userPassword);
+            return generatePlainClientResponse(userName, userPassword);
         }
         else if (CramMd5Negotiator.MECHANISM.equalsIgnoreCase(mechanism))
         {
-            responseBytes = generateCramMD5ClientResponse(userName, userPassword, challengeBytes);
+            return generateCramMD5ClientResponse(userName, userPassword, challengeBytes);
         }
-        else
-        {
-            throw new RuntimeException("Not implemented test mechanism " + mechanism);
-        }
-        return responseBytes;
+        throw new IllegalArgumentException("Unsupported test mechanism " + mechanism);
     }
 
-
-    private void applyCookiesToConnection(List<String> cookies, HttpURLConnection connection)
+    private void applyCookies(final List<String> cookies, final HttpRequest.Builder request)
     {
-        for (String cookie : cookies)
+        final String cookieHeader = cookies.stream()
+                .map(cookie -> cookie.split(";", 2)[0])
+                .collect(Collectors.joining("; "));
+        if (!cookieHeader.isEmpty())
         {
-            connection.addRequestProperty("Cookie", cookie.split(";", 2)[0]);
+            request.header("Cookie", cookieHeader);
         }
     }
 
-    private HttpURLConnection requestSASLAuthentication(String mechanism) throws IOException
+    private List<String> getCookies(final HttpResponse<?> response)
     {
-        HttpURLConnection connection = getHelper().openManagementConnection(SASL_SERVICE, "POST");
-        OutputStream os = connection.getOutputStream();
-        os.write(String.format("mechanism=%s", mechanism).getBytes());
-        os.flush();
-        return connection;
+        return response.headers().allValues(SET_COOKIE_HEADER);
+    }
+
+    private HttpResponse<byte[]> requestSASLAuthentication(final String mechanism) throws IOException
+    {
+        return postForm(Map.of("mechanism", mechanism), List.of());
     }
 
     private void assertAuthenticatedUser(final String userName, final List<String> cookies) throws IOException
     {
-        HttpURLConnection connection = getHelper().openManagementConnection(SASL_SERVICE, "GET");
-        try
-        {
-            applyCookiesToConnection(cookies, connection);
-            Map<String, Object> response = getHelper().readJsonResponseAsMap(connection);
-            assertEquals(userName, response.get("user"), "Unexpected user");
-        }
-        finally
-        {
-            connection.disconnect();
-        }
+        final HttpRequest.Builder request = getBrokerHelper().createRequest(SASL_SERVICE, "GET");
+        applyCookies(cookies, request);
+        final Map<String, Object> response =
+                getBrokerHelper().readJsonResponseAsMap(getBrokerHelper().send(request));
+        assertEquals(userName, response.get("user"), "Unexpected user");
+    }
+
+    private String encode(final String value)
+    {
+        return URLEncoder.encode(value, UTF_8);
     }
 }

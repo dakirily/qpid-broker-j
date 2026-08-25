@@ -35,7 +35,6 @@ import javax.jms.MessageConsumer;
 import javax.jms.Session;
 import javax.jms.TextMessage;
 
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -43,26 +42,17 @@ import tools.jackson.core.type.TypeReference;
 
 import org.apache.qpid.server.model.VirtualHost;
 import org.apache.qpid.systests.Utils;
-import org.apache.qpid.tests.http.HttpRequestConfig;
 import org.apache.qpid.tests.http.HttpTestBase;
 import org.apache.qpid.server.util.DataUrlUtils;
 
-@HttpRequestConfig
 public class ExportImportMessagesTest extends HttpTestBase
 {
     private static final String TEST_QUEUE = "testQueue";
 
     @BeforeEach
-    public void setUp() throws Exception
+    public void setUp()
     {
-        getHelper().createKeyStoreAndSetItOnPort(getFullTestName());
-    }
-
-    @AfterEach
-    public void afterEach() throws Exception
-    {
-        getHelper().setAcceptEncoding("Identity");
-        getHelper().removeKeyStoreFromPort(getFullTestName());
+        getVirtualHostHelper().setTls(true);
     }
 
     @Test
@@ -76,7 +66,7 @@ public class ExportImportMessagesTest extends HttpTestBase
 
         changeVirtualHostState("STOPPED");
 
-        byte[] extractedBytes = getHelper().getBytes("virtualhost/exportMessageStore");
+        byte[] extractedBytes = getVirtualHostHelper().getBytes("virtualhost/exportMessageStore");
         String extractedBytesAsDataUrl = DataUrlUtils.getDataUrlForBytes(extractedBytes);
 
         changeVirtualHostState("ACTIVE");
@@ -87,7 +77,10 @@ public class ExportImportMessagesTest extends HttpTestBase
         changeVirtualHostState("STOPPED");
 
         Map<String, Object> importArgs = Map.of("source", extractedBytesAsDataUrl);
-        getHelper().postJson("virtualhost/importMessageStore", importArgs, new TypeReference<Void>() {}, SC_OK);
+        getVirtualHostHelper().postJson("virtualhost/importMessageStore",
+                                        importArgs,
+                                        new TypeReference<Void>() { },
+                                        SC_OK);
 
         changeVirtualHostState("ACTIVE");
         verifyMessagesOnQueue(sentMessage);
@@ -96,7 +89,7 @@ public class ExportImportMessagesTest extends HttpTestBase
     private void changeVirtualHostState(final String desiredState) throws Exception
     {
         Map<String, Object> attributes = Map.of(VirtualHost.DESIRED_STATE, desiredState);
-        getHelper().submitRequest("virtualhost", "POST", attributes, SC_OK);
+        getVirtualHostHelper().submitRequest("virtualhost", "POST", attributes, SC_OK);
     }
 
     private TextMessage putMessageOnQueue() throws Exception

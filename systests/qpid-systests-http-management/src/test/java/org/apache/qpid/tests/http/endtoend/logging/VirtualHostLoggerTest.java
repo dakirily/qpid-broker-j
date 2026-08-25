@@ -19,6 +19,7 @@
  */
 package org.apache.qpid.tests.http.endtoend.logging;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static jakarta.servlet.http.HttpServletResponse.SC_CREATED;
 import static jakarta.servlet.http.HttpServletResponse.SC_NOT_FOUND;
 import static jakarta.servlet.http.HttpServletResponse.SC_OK;
@@ -28,10 +29,8 @@ import static org.hamcrest.CoreMatchers.notNullValue;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
-import java.io.BufferedReader;
 import java.io.File;
-import java.io.InputStreamReader;
-import java.net.HttpURLConnection;
+import java.net.http.HttpResponse;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -41,10 +40,8 @@ import org.apache.qpid.server.logging.logback.VirtualHostFileLogger;
 import org.apache.qpid.server.logging.logback.VirtualHostNameAndLevelLogInclusionRule;
 import org.apache.qpid.server.model.ConfiguredObject;
 import org.apache.qpid.server.model.State;
-import org.apache.qpid.tests.http.HttpRequestConfig;
 import org.apache.qpid.tests.http.HttpTestBase;
 
-@HttpRequestConfig(useVirtualHostAsHost = true)
 public class VirtualHostLoggerTest extends HttpTestBase
 {
     private static final String LOGGER_NAME = "testLogger1";
@@ -57,7 +54,7 @@ public class VirtualHostLoggerTest extends HttpTestBase
         loggerAttributes.put(ConfiguredObject.NAME, LOGGER_NAME);
         loggerAttributes.put(ConfiguredObject.TYPE, VirtualHostFileLogger.TYPE);
 
-        getHelper().submitRequest(String.format("virtualhostlogger/%s", LOGGER_NAME),
+        getVirtualHostHelper().submitRequest(String.format("virtualhostlogger/%s", LOGGER_NAME),
                                   "PUT",
                                   loggerAttributes,
                                   SC_CREATED);
@@ -68,8 +65,8 @@ public class VirtualHostLoggerTest extends HttpTestBase
 
         String loggerRuleRestUrl = String.format("virtualhostloginclusionrule/%s/%s", LOGGER_NAME, LOGGER_RULE);
 
-        getHelper().submitRequest(loggerRuleRestUrl, "PUT", ruleAttributes, SC_CREATED);
-        getHelper().submitRequest(loggerRuleRestUrl, "GET", SC_OK);
+        getVirtualHostHelper().submitRequest(loggerRuleRestUrl, "PUT", ruleAttributes, SC_CREATED);
+        getVirtualHostHelper().submitRequest(loggerRuleRestUrl, "GET", SC_OK);
     }
 
     @Test
@@ -82,7 +79,7 @@ public class VirtualHostLoggerTest extends HttpTestBase
         loggerAttributes.put(ConfiguredObject.NAME, LOGGER_NAME);
         loggerAttributes.put(ConfiguredObject.TYPE, VirtualHostFileLogger.TYPE);
 
-        getHelper().submitRequest(loggerUrl,
+        getVirtualHostHelper().submitRequest(loggerUrl,
                                   "PUT",
                                   loggerAttributes,
                                   SC_CREATED);
@@ -92,10 +89,10 @@ public class VirtualHostLoggerTest extends HttpTestBase
         ruleAttributes.put(ConfiguredObject.TYPE, VirtualHostNameAndLevelLogInclusionRule.TYPE);
         ruleAttributes.put("loggerName", "qpid.message.*");
 
-        getHelper().submitRequest(loggerRuleUrl, "PUT", ruleAttributes, SC_CREATED);
-        getHelper().submitRequest(loggerRuleUrl, "GET", SC_OK);
+        getVirtualHostHelper().submitRequest(loggerRuleUrl, "PUT", ruleAttributes, SC_CREATED);
+        getVirtualHostHelper().submitRequest(loggerRuleUrl, "GET", SC_OK);
 
-        Map<String, Object> loggerData = getHelper().getJsonAsMap(loggerUrl);
+        Map<String, Object> loggerData = getVirtualHostHelper().getJsonAsMap(loggerUrl);
         String logFileLocation = String.valueOf(loggerData.get(VirtualHostFileLogger.FILE_NAME));
         assertThat(logFileLocation, is(notNullValue()));
         final File logFile = new File(logFileLocation);
@@ -105,23 +102,23 @@ public class VirtualHostLoggerTest extends HttpTestBase
         final int queueCreateMatchesBefore = countLogFileMatches(downloadUrl, "QUE-1001");
         assertThat("Unexpected queue matches before queue creation", queueCreateMatchesBefore, is(equalTo(0)));
 
-        getHelper().submitRequest("queue/myqueue", "PUT", Map.of(), SC_CREATED);
+        getVirtualHostHelper().submitRequest("queue/myqueue", "PUT", Map.of(), SC_CREATED);
 
         final int queueCreateMatchesAfter = countLogFileMatches(downloadUrl, "QUE-1001");
         assertThat("Unexpected queue matches before queue creation", queueCreateMatchesAfter, is(equalTo(1)));
 
         ruleAttributes.put("level", "OFF");
-        getHelper().submitRequest(loggerRuleUrl, "PUT", ruleAttributes, SC_OK);
+        getVirtualHostHelper().submitRequest(loggerRuleUrl, "PUT", ruleAttributes, SC_OK);
 
-        getHelper().submitRequest("queue/myqueue2", "PUT", Map.of(), SC_CREATED);
+        getVirtualHostHelper().submitRequest("queue/myqueue2", "PUT", Map.of(), SC_CREATED);
 
         final int afterLevelChange = countLogFileMatches(downloadUrl, "QUE-1001");
         assertThat("Unexpected queue matches after level change", afterLevelChange, is(equalTo(queueCreateMatchesAfter)));
 
         ruleAttributes.put("level", "INFO");
-        getHelper().submitRequest(loggerRuleUrl, "PUT", ruleAttributes, SC_OK);
+        getVirtualHostHelper().submitRequest(loggerRuleUrl, "PUT", ruleAttributes, SC_OK);
 
-        getHelper().submitRequest("queue/myqueue3", "PUT", Map.of(), SC_CREATED);
+        getVirtualHostHelper().submitRequest("queue/myqueue3", "PUT", Map.of(), SC_CREATED);
 
         final int afterSecondLevelChange = countLogFileMatches(downloadUrl, "QUE-1001");
         assertThat("Unexpected queue matches after level change", afterSecondLevelChange, is(equalTo(afterLevelChange + 1)));
@@ -135,11 +132,11 @@ public class VirtualHostLoggerTest extends HttpTestBase
         attributes.put(ConfiguredObject.NAME, LOGGER_NAME);
         attributes.put(ConfiguredObject.TYPE, VirtualHostFileLogger.TYPE);
 
-        getHelper().submitRequest(loggerRestUrl, "PUT", attributes, SC_CREATED);
-        getHelper().submitRequest(loggerRestUrl, "GET", SC_OK);
+        getVirtualHostHelper().submitRequest(loggerRestUrl, "PUT", attributes, SC_CREATED);
+        getVirtualHostHelper().submitRequest(loggerRestUrl, "GET", SC_OK);
 
-        getHelper().submitRequest(loggerRestUrl, "DELETE", null, SC_OK);
-        getHelper().submitRequest(loggerRestUrl, "GET", SC_NOT_FOUND);
+        getVirtualHostHelper().submitRequest(loggerRestUrl, "DELETE", null, SC_OK);
+        getVirtualHostHelper().submitRequest(loggerRestUrl, "GET", SC_NOT_FOUND);
     }
 
     @Test
@@ -154,35 +151,33 @@ public class VirtualHostLoggerTest extends HttpTestBase
         Map<String, Object> loggerAttributes = new HashMap<>();
         loggerAttributes.put(ConfiguredObject.NAME, LOGGER_NAME);
         loggerAttributes.put(ConfiguredObject.TYPE, VirtualHostFileLogger.TYPE);
-        getHelper().submitRequest(loggerUrl, "PUT", loggerAttributes, SC_CREATED);
+        getVirtualHostHelper().submitRequest(loggerUrl, "PUT", loggerAttributes, SC_CREATED);
 
         Map<String, Object> ruleAttributes = new HashMap<>();
         ruleAttributes.put(ConfiguredObject.NAME, LOGGER_RULE);
         ruleAttributes.put(ConfiguredObject.TYPE, VirtualHostNameAndLevelLogInclusionRule.TYPE);
-        getHelper().submitRequest(loggerRuleUrl, "PUT", ruleAttributes, SC_CREATED);
+        getVirtualHostHelper().submitRequest(loggerRuleUrl, "PUT", ruleAttributes, SC_CREATED);
 
-        Map<String, Object> host = getHelper().getJsonAsMap(hostUrl);
+        Map<String, Object> host = getVirtualHostHelper().getJsonAsMap(hostUrl);
         assertThat(host.get(ConfiguredObject.STATE), is(equalTo(State.ACTIVE.name())));
-        assertThat(getHelper().getJsonAsList("virtualhostlogger").size(), is(equalTo(1)));
+        assertThat(getVirtualHostHelper().getJsonAsList("virtualhostlogger").size(), is(equalTo(1)));
 
-        getHelper().submitRequest(loggerUrl, "DELETE", SC_OK);
+        getVirtualHostHelper().submitRequest(loggerUrl, "DELETE", SC_OK);
 
         getBrokerAdmin().restart();
 
-        host = getHelper().getJsonAsMap(hostUrl);
+        host = getVirtualHostHelper().getJsonAsMap(hostUrl);
         assertThat(host.get(ConfiguredObject.STATE), is(equalTo(State.ACTIVE.name())));
 
-        assertThat(getHelper().getJsonAsList("virtualhostlogger").size(), is(equalTo(0)));
+        assertThat(getVirtualHostHelper().getJsonAsList("virtualhostlogger").size(), is(equalTo(0)));
     }
 
     private int countLogFileMatches(final String url, final String searchTerm) throws Exception
     {
-        HttpURLConnection httpCon = getHelper().openManagementConnection(url, "GET");
-        httpCon.connect();
-
-        try (final BufferedReader reader = new BufferedReader(new InputStreamReader(httpCon.getInputStream())))
-        {
-            return (int) reader.lines().filter(line -> line.contains(searchTerm)).count();
-        }
+        final HttpResponse<byte[]> response =
+                getVirtualHostHelper().send(getVirtualHostHelper().createRequest(url, "GET"));
+        return (int) new String(response.body(), UTF_8).lines()
+                .filter(line -> line.contains(searchTerm))
+                .count();
     }
 }

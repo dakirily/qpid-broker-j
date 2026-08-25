@@ -28,7 +28,6 @@ import javax.jms.Connection;
 import javax.jms.JMSException;
 import javax.naming.NamingException;
 
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 
 import org.apache.qpid.server.model.Protocol;
@@ -42,27 +41,17 @@ public abstract class HttpTestBase extends BrokerAdminUsingTestBase
 {
     public static final String DEFAULT_BROKER_CONFIG = "classpath:config-http-management-tests.json";
 
-    private HttpTestHelper _helper;
+    private HttpTestHelper _brokerHelper;
+    private HttpTestHelper _virtualHostHelper;
 
     private JmsProvider _jmsProvider;
 
     @BeforeEach
     public void setUpTestBase()
     {
-        System.setProperty("sun.net.http.allowRestrictedHeaders", "true");
-
-        HttpRequestConfig config = getHttpRequestConfig();
-
-        _helper = new HttpTestHelper(getBrokerAdmin(),
-                                     config != null && config.useVirtualHostAsHost() ? getVirtualHost() : null);
-
+        _brokerHelper = new HttpTestHelper(getBrokerAdmin(), BrokerAdmin.PortType.HTTP_BROKER);
+        _virtualHostHelper = new HttpTestHelper(getBrokerAdmin(), BrokerAdmin.PortType.HTTP_VIRTUAL_HOST);
         _jmsProvider = getJmsProvider();
-    }
-
-    @AfterEach
-    public void tearDownTestBase()
-    {
-        System.clearProperty("sun.net.http.allowRestrictedHeaders");
     }
 
     protected String getVirtualHost()
@@ -75,9 +64,14 @@ public abstract class HttpTestBase extends BrokerAdminUsingTestBase
         return getClass().getSimpleName() + "_" + getTestName();
     }
 
-    public HttpTestHelper getHelper()
+    public HttpTestHelper getBrokerHelper()
     {
-        return _helper;
+        return _brokerHelper;
+    }
+
+    public HttpTestHelper getVirtualHostHelper()
+    {
+        return _virtualHostHelper;
     }
 
     protected Connection getConnection() throws JMSException, NamingException
@@ -93,18 +87,6 @@ public abstract class HttpTestBase extends BrokerAdminUsingTestBase
                            .setPort(brokerAddress.getPort())
                            .setUsername(getBrokerAdmin().getValidUsername())
                            .setPassword(getBrokerAdmin().getValidPassword());
-    }
-
-    private HttpRequestConfig getHttpRequestConfig()
-    {
-        HttpRequestConfig config = _testInfo.getTestMethod()
-                .orElseThrow(() -> new RuntimeException("Failed to resolve test method"))
-                .getAnnotation(HttpRequestConfig.class);
-        if (config == null)
-        {
-            config = getClass().getAnnotation(HttpRequestConfig.class);
-        }
-        return config;
     }
 
     protected static long getReceiveTimeout()

@@ -51,14 +51,12 @@ import org.apache.qpid.server.model.ConfiguredObject;
 import org.apache.qpid.server.model.User;
 import org.apache.qpid.server.security.NonJavaKeyStore;
 import org.apache.qpid.server.security.NonJavaTrustStore;
-import org.apache.qpid.test.utils.tls.TlsResourceBuilder;
 import org.apache.qpid.server.util.DataUrlUtils;
 import org.apache.qpid.server.util.FileUtils;
 import org.apache.qpid.test.utils.tls.KeyCertificatePair;
-import org.apache.qpid.tests.http.HttpRequestConfig;
+import org.apache.qpid.test.utils.tls.TlsResourceBuilder;
 import org.apache.qpid.tests.http.HttpTestBase;
 
-@HttpRequestConfig
 public class ReadTest extends HttpTestBase
 {
     private static final String QUEUE1_NAME = "myqueue1";
@@ -76,7 +74,7 @@ public class ReadTest extends HttpTestBase
     @Test
     public void readObject() throws Exception
     {
-        final Map<String, Object> queue = getHelper().getJsonAsMap(QUEUE1_URL);
+        final Map<String, Object> queue = getVirtualHostHelper().getJsonAsMap(QUEUE1_URL);
         assertThat(queue.get(ConfiguredObject.NAME), is(equalTo(QUEUE1_NAME)));
         assertThat(queue.get(ConfiguredObject.ID), is(notNullValue()));
         assertThat(queue.get(ConfiguredObject.CREATED_TIME), is(instanceOf(Long.class)));
@@ -86,13 +84,14 @@ public class ReadTest extends HttpTestBase
     @Test
     public void notFound() throws Exception
     {
-        getHelper().submitRequest("queue/unknown", "GET", SC_NOT_FOUND);
+        getVirtualHostHelper().submitRequest("queue/unknown", "GET", SC_NOT_FOUND);
     }
 
     @Test
     public void readObjectResponseAsList() throws Exception
     {
-        final Map<String, Object> queue = getHelper().getJsonAsSingletonList(QUEUE1_URL + "?singletonModelObjectResponseAsList=true");
+        final Map<String, Object> queue = getVirtualHostHelper().getJsonAsSingletonList(
+                QUEUE1_URL + "?singletonModelObjectResponseAsList=true");
         assertThat(queue.get(ConfiguredObject.NAME), is(equalTo(QUEUE1_NAME)));
         assertThat(queue.get(ConfiguredObject.ID), is(notNullValue()));
         assertThat(queue.get(ConfiguredObject.CREATED_TIME), is(instanceOf(Long.class)));
@@ -102,7 +101,7 @@ public class ReadTest extends HttpTestBase
     @Test
     public void readAll() throws Exception
     {
-        List<Map<String, Object>> list = getHelper().getJsonAsList("queue");
+        List<Map<String, Object>> list = getVirtualHostHelper().getJsonAsList("queue");
         assertThat(list.size(), is(equalTo(2)));
         Set<String> queueNames = list.stream()
                                      .map(map -> (String) map.get(ConfiguredObject.NAME))
@@ -113,9 +112,9 @@ public class ReadTest extends HttpTestBase
     @Test
     public void readFilter() throws Exception
     {
-        final Map<String, Object> queue1 = getHelper().getJsonAsMap(QUEUE1_URL);
+        final Map<String, Object> queue1 = getVirtualHostHelper().getJsonAsMap(QUEUE1_URL);
 
-        List<Map<String, Object>> list = getHelper().getJsonAsList(String.format("queue/?%s=%s",
+        List<Map<String, Object>> list = getVirtualHostHelper().getJsonAsList(String.format("queue/?%s=%s",
                                                                                  ConfiguredObject.ID,
                                                                                  queue1.get(ConfiguredObject.ID)));
         assertThat(list.size(), is(equalTo(1)));
@@ -129,7 +128,7 @@ public class ReadTest extends HttpTestBase
     @Test
     public void filterNotFound() throws Exception
     {
-        List<Map<String, Object>> list = getHelper().getJsonAsList(String.format("queue/?%s=%s",
+        List<Map<String, Object>> list = getVirtualHostHelper().getJsonAsList(String.format("queue/?%s=%s",
                                                                                  ConfiguredObject.ID,
                                                                                  UUID.randomUUID()));
         assertThat(list.size(), is(equalTo(0)));
@@ -138,7 +137,7 @@ public class ReadTest extends HttpTestBase
     @Test
     public void readHierarchy() throws Exception
     {
-        final Map<String, Object> virtualHost = getHelper().getJsonAsMap("virtualhost?depth=2");
+        final Map<String, Object> virtualHost = getVirtualHostHelper().getJsonAsMap("virtualhost?depth=2");
         assertThat(virtualHost.get(ConfiguredObject.ID), is(notNullValue()));
         assertThat(virtualHost.get(ConfiguredObject.NAME), is(equalTo(getVirtualHost())));
 
@@ -153,20 +152,21 @@ public class ReadTest extends HttpTestBase
         final String hostContextKey = "myvhcontextvar";
         final String hostContextValue = UUID.randomUUID().toString();
         final Map<String, Object> hostUpdateAttrs = Map.of(ConfiguredObject.CONTEXT, Map.of(hostContextKey, hostContextValue));
-        getHelper().submitRequest("virtualhost", "POST", hostUpdateAttrs, SC_OK);
+        getVirtualHostHelper().submitRequest("virtualhost", "POST", hostUpdateAttrs, SC_OK);
 
         final String queueContextKey = "myqueuecontextvar";
         final String queueContextValue = UUID.randomUUID().toString();
         final Map<String, Object> queueUpdateAttrs = Map.of(ConfiguredObject.CONTEXT, Map.of(queueContextKey, queueContextValue));
-        getHelper().submitRequest(QUEUE1_URL, "POST", queueUpdateAttrs, SC_OK);
+        getVirtualHostHelper().submitRequest(QUEUE1_URL, "POST", queueUpdateAttrs, SC_OK);
 
-        final Map<String, Object> queue = getHelper().getJsonAsMap(QUEUE1_URL);
+        final Map<String, Object> queue = getVirtualHostHelper().getJsonAsMap(QUEUE1_URL);
         @SuppressWarnings("unchecked")
         Map<String, Object> context = (Map<String, Object>) queue.get("context");
         assertThat(context.size(), is(equalTo(1)));
         assertThat(context.get(queueContextKey), is(equalTo(queueContextValue)));
 
-        final Map<String, Object> queue2 = getHelper().getJsonAsMap(QUEUE1_URL + "?excludeInheritedContext=false");
+        final Map<String, Object> queue2 =
+                getVirtualHostHelper().getJsonAsMap(QUEUE1_URL + "?excludeInheritedContext=false");
         @SuppressWarnings("unchecked")
         Map<String, Object> context2 = (Map<String, Object>) queue2.get("context");
         assertThat(context2.size(), is(greaterThanOrEqualTo(2)));
@@ -183,13 +183,13 @@ public class ReadTest extends HttpTestBase
         final Map<String, Object> queueUpdateAttrs = new HashMap<>();
         queueUpdateAttrs.put(ConfiguredObject.DESCRIPTION, "${myqueuecontextvar}");
         queueUpdateAttrs.put(ConfiguredObject.CONTEXT, Map.of(queueContextKey, queueContextValue));
-        getHelper().submitRequest(QUEUE1_URL, "POST", queueUpdateAttrs, SC_OK);
+        getVirtualHostHelper().submitRequest(QUEUE1_URL, "POST", queueUpdateAttrs, SC_OK);
 
 
-        final Map<String, Object> queue = getHelper().getJsonAsMap(QUEUE1_URL);
+        final Map<String, Object> queue = getVirtualHostHelper().getJsonAsMap(QUEUE1_URL);
         assertThat(queue.get(ConfiguredObject.DESCRIPTION), is(equalTo(queueContextValue)));
 
-        final Map<String, Object> queueActuals = getHelper().getJsonAsMap(QUEUE1_URL + "?actuals=true");
+        final Map<String, Object> queueActuals = getVirtualHostHelper().getJsonAsMap(QUEUE1_URL + "?actuals=true");
         assertThat(queueActuals.get(ConfiguredObject.DESCRIPTION), is(equalTo("${myqueuecontextvar}")));
     }
 
@@ -201,7 +201,7 @@ public class ReadTest extends HttpTestBase
         String rule2A = createLoggerAndRule("mylogger2", "myinclusionruleA");
 
         {
-            List<Map<String, Object>> rules = getHelper().getJsonAsList("virtualhostloginclusionrule/*");
+            List<Map<String, Object>> rules = getVirtualHostHelper().getJsonAsList("virtualhostloginclusionrule/*");
             assertThat(rules.size(), is(equalTo(3)));
 
             Set<String> ids = rules.stream().map(ReadTest::getId).collect(Collectors.toSet());
@@ -209,7 +209,8 @@ public class ReadTest extends HttpTestBase
         }
 
         {
-            List<Map<String, Object>> rules = getHelper().getJsonAsList("virtualhostloginclusionrule/mylogger1/*");
+            List<Map<String, Object>> rules =
+                    getVirtualHostHelper().getJsonAsList("virtualhostloginclusionrule/mylogger1/*");
             assertThat(rules.size(), is(equalTo(2)));
 
             Set<String> ids = rules.stream().map(ReadTest::getId).collect(Collectors.toSet());
@@ -217,7 +218,8 @@ public class ReadTest extends HttpTestBase
         }
 
         {
-            List<Map<String, Object>> rules = getHelper().getJsonAsList("virtualhostloginclusionrule/*/myinclusionruleA");
+            List<Map<String, Object>> rules =
+                    getVirtualHostHelper().getJsonAsList("virtualhostloginclusionrule/*/myinclusionruleA");
             assertThat(rules.size(), is(equalTo(2)));
 
             Set<String> ids = rules.stream().map(ReadTest::getId).collect(Collectors.toSet());
@@ -226,17 +228,15 @@ public class ReadTest extends HttpTestBase
     }
 
     @Test
-    @HttpRequestConfig(useVirtualHostAsHost = false)
     public void secureAttributes() throws Exception
     {
         final String validUsername = getBrokerAdmin().getValidUsername();
-        final Map<String, Object> user = getHelper().getJsonAsMap("user/plain/" + validUsername);
+        final Map<String, Object> user = getBrokerHelper().getJsonAsMap("user/plain/" + validUsername);
         assertThat(user.get(User.NAME), is(equalTo(validUsername)));
         assertThat(user.get(User.PASSWORD), is(equalTo(AbstractConfiguredObject.SECURED_STRING_VALUE)));
     }
 
     @Test
-    @HttpRequestConfig(useVirtualHostAsHost = false)
     public void valueFilteredSecureAttributes() throws Exception
     {
 
@@ -260,13 +260,13 @@ public class ReadTest extends HttpTestBase
                 final String storeUrl = "keystore/mystoreDataUrl";
                 final Map<String, Object> attrs = new HashMap<>(base);
                 attrs.put(NonJavaKeyStore.PRIVATE_KEY_URL, privateKeyUrl);
-                getHelper().submitRequest(storeUrl, "PUT", attrs, SC_CREATED);
+                getBrokerHelper().submitRequest(storeUrl, "PUT", attrs, SC_CREATED);
 
-                final Map<String, Object> store = getHelper().getJsonAsMap(storeUrl);
+                final Map<String, Object> store = getBrokerHelper().getJsonAsMap(storeUrl);
                 assertThat(store.get(NonJavaKeyStore.PRIVATE_KEY_URL),
                            is(equalTo(AbstractConfiguredObject.SECURED_STRING_VALUE)));
 
-                getHelper().submitRequest(storeUrl, "DELETE", SC_OK);
+                getBrokerHelper().submitRequest(storeUrl, "DELETE", SC_OK);
             }
 
             {
@@ -275,12 +275,13 @@ public class ReadTest extends HttpTestBase
                 final Map<String, Object> attrs = new HashMap<>(base);
                 attrs.put(NonJavaKeyStore.TYPE, "NonJavaKeyStore");
                 attrs.put(NonJavaKeyStore.PRIVATE_KEY_URL, privateKeyFileUrl);
-                getHelper().submitRequest(storeUrl, "PUT", attrs, SC_CREATED);
+                getBrokerHelper().submitRequest(storeUrl, "PUT", attrs, SC_CREATED);
 
-                final Map<String, Object> store = getHelper().getJsonAsMap(String.format("%s?oversize=%d", storeUrl, privateKeyFileUrl.length()));
+                final Map<String, Object> store = getBrokerHelper().getJsonAsMap(
+                        String.format("%s?oversize=%d", storeUrl, privateKeyFileUrl.length()));
                 assertThat(store.get(NonJavaKeyStore.PRIVATE_KEY_URL), is(equalTo(privateKeyFileUrl)));
 
-                getHelper().submitRequest(storeUrl, "DELETE", SC_OK);
+                getBrokerHelper().submitRequest(storeUrl, "DELETE", SC_OK);
             }
         }
         finally
@@ -290,7 +291,6 @@ public class ReadTest extends HttpTestBase
     }
 
     @Test
-    @HttpRequestConfig(useVirtualHostAsHost = false)
     public void oversizeAttribute() throws Exception
     {
 
@@ -301,15 +301,16 @@ public class ReadTest extends HttpTestBase
         final Map<String, Object> attrs = new HashMap<>();
         attrs.put(NonJavaTrustStore.TYPE, "NonJavaTrustStore");
         attrs.put(NonJavaTrustStore.CERTIFICATES_URL, dataUrl);
-        getHelper().submitRequest(storeUrl, "PUT", attrs, SC_CREATED);
+        getBrokerHelper().submitRequest(storeUrl, "PUT", attrs, SC_CREATED);
 
-        final Map<String, Object> store = getHelper().getJsonAsMap(storeUrl);
+        final Map<String, Object> store = getBrokerHelper().getJsonAsMap(storeUrl);
         assertThat(store.get(NonJavaTrustStore.CERTIFICATES_URL), is(equalTo(AbstractConfiguredObject.OVER_SIZED_ATTRIBUTE_ALTERNATIVE_TEXT)));
 
-        final Map<String, Object> full = getHelper().getJsonAsMap(storeUrl +  String.format("?oversize=%d", dataUrl.length()));
+        final Map<String, Object> full = getBrokerHelper().getJsonAsMap(
+                storeUrl + String.format("?oversize=%d", dataUrl.length()));
         assertThat(full.get(NonJavaTrustStore.CERTIFICATES_URL), is(equalTo(dataUrl)));
 
-        getHelper().submitRequest(storeUrl, "DELETE", SC_OK);
+        getBrokerHelper().submitRequest(storeUrl, "DELETE", SC_OK);
     }
 
     private String createLoggerAndRule(final String loggerName, final String inclusionRuleName) throws Exception
@@ -317,14 +318,14 @@ public class ReadTest extends HttpTestBase
         final String parentUrl = String.format("virtualhostlogger/%s", loggerName);
         Map<String, Object> parentAttrs = Map.of(ConfiguredObject.TYPE, VirtualHostFileLogger.TYPE);
 
-        int response = getHelper().submitRequest(parentUrl, "PUT", parentAttrs);
+        int response = getVirtualHostHelper().submitRequest(parentUrl, "PUT", parentAttrs);
         assertThat(response, is(oneOf(SC_CREATED, SC_OK)));
 
         final String childUrl = String.format("virtualhostloginclusionrule/%s/%s", loggerName, inclusionRuleName);
         Map<String, Object> childAttrs = Map.of(ConfiguredObject.TYPE, VirtualHostNameAndLevelLogInclusionRule.TYPE);
-        getHelper().submitRequest(childUrl, "PUT", childAttrs, SC_CREATED);
+        getVirtualHostHelper().submitRequest(childUrl, "PUT", childAttrs, SC_CREATED);
 
-        final Map<String, Object> child = getHelper().getJsonAsMap(childUrl);
+        final Map<String, Object> child = getVirtualHostHelper().getJsonAsMap(childUrl);
         return (String) child.get(ConfiguredObject.ID);
 
     }

@@ -25,17 +25,15 @@ import static org.apache.qpid.tests.http.metrics.TestMetricsHelper.assertVirtual
 
 import org.junit.jupiter.api.Test;
 
-import org.apache.qpid.tests.http.HttpRequestConfig;
 import org.apache.qpid.tests.http.HttpTestBase;
 
-@HttpRequestConfig
 public class VirtualHostMetricsTest extends HttpTestBase
 {
     @Test
     public void testVirtualHostMetrics() throws Exception
     {
         getBrokerAdmin().createQueue(QUEUE_NAME);
-        final byte[] metricsBytes = getHelper().getBytes("/metrics");
+        final byte[] metricsBytes = getVirtualHostHelper().getBytes("/metrics");
         assertVirtualHostHierarchyMetrics(metricsBytes);
     }
 }

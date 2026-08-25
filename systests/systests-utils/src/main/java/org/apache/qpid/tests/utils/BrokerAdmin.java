@@ -22,6 +22,7 @@ package org.apache.qpid.tests.utils;
 
 import java.lang.reflect.Method;
 import java.net.InetSocketAddress;
+import java.security.KeyStore;
 import java.util.concurrent.CompletableFuture;
 
 import org.apache.qpid.server.plugin.Pluggable;
@@ -38,6 +39,11 @@ public interface BrokerAdmin extends Pluggable
     void afterTestClass(final Class testClass);
 
     InetSocketAddress getBrokerAddress(PortType portType);
+
+    default KeyStore getHttpManagementTrustStore()
+    {
+        return null;
+    }
 
     void createQueue(String queueName);
     void deleteQueue(String queueName);
@@ -71,6 +77,7 @@ public interface BrokerAdmin extends Pluggable
         ANONYMOUS_AMQP,
         ANONYMOUS_AMQPWS,
         AMQP,
-        HTTP
+        HTTP_BROKER,
+        HTTP_VIRTUAL_HOST
     }
 }

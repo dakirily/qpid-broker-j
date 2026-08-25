@@ -34,16 +34,14 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import org.junit.jupiter.api.Test;
 
-import org.apache.qpid.tests.http.HttpRequestConfig;
 import org.apache.qpid.tests.http.HttpTestBase;
 
-@HttpRequestConfig(useVirtualHostAsHost = false)
 public class LegacyManagementTest extends HttpTestBase
 {
     @Test
     public void testModelVersion() throws Exception
     {
-        final Map<String, Object> brokerAttributes = getHelper().getJsonAsMap("/api/v8.0/broker");
+        final Map<String, Object> brokerAttributes = getBrokerHelper().getJsonAsMap("/api/v8.0/broker");
         assertThat(brokerAttributes, is(notNullValue()));
         assertThat(brokerAttributes.get("modelVersion"), equalTo("8.0"));
     }
@@ -55,7 +53,10 @@ public class LegacyManagementTest extends HttpTestBase
         final Map<String, Object> authenticationProviderAttributes = new HashMap<>();
         authenticationProviderAttributes.put("type", "Anonymous");
         authenticationProviderAttributes.put("name", authenticationProviderName);
-        getHelper().submitRequest("/api/v8.0/authenticationprovider", "POST", authenticationProviderAttributes, HttpServletResponse.SC_CREATED);
+        getBrokerHelper().submitRequest("/api/v8.0/authenticationprovider",
+                                        "POST",
+                                        authenticationProviderAttributes,
+                                        HttpServletResponse.SC_CREATED);
 
         final Map<String, String> context = new HashMap<>();
         context.put("qpid.security.tls.protocolWhiteList", "TLSv1");
@@ -66,9 +67,9 @@ public class LegacyManagementTest extends HttpTestBase
         attributes.put("port", 0);
         attributes.put("context", context);
         attributes.put("authenticationProvider", authenticationProviderName);
-        getHelper().submitRequest("/api/v8.0/port", "POST", attributes, HttpServletResponse.SC_CREATED);
+        getBrokerHelper().submitRequest("/api/v8.0/port", "POST", attributes, HttpServletResponse.SC_CREATED);
 
-        final Map<String, Object> portAttributes = getHelper().getJsonAsMap("port/" + getTestName());
+        final Map<String, Object> portAttributes = getBrokerHelper().getJsonAsMap("port/" + getTestName());
         assertThat(portAttributes, is(notNullValue()));
         final Object portContext = portAttributes.get("context");
         assertThat(portContext, instanceOf(Map.class));
@@ -78,7 +79,7 @@ public class LegacyManagementTest extends HttpTestBase
         assertThat(portAttributes.get("tlsProtocolAllowList"),is(equalTo(List.of("TLSv1"))));
         assertThat(portAttributes.get("tlsProtocolDenyList"),is(equalTo(List.of("SSL.*"))));
 
-        final Map<String, Object> portAttributes8_0 = getHelper().getJsonAsMap("/api/v8.0/port/" + getTestName());
+        final Map<String, Object> portAttributes8_0 = getBrokerHelper().getJsonAsMap("/api/v8.0/port/" + getTestName());
         assertThat(portAttributes8_0, is(notNullValue()));
         final Object portContext8_0 = portAttributes8_0.get("context");
         assertThat(portContext8_0, instanceOf(Map.class));
@@ -97,9 +98,9 @@ public class LegacyManagementTest extends HttpTestBase
         context.put("qpid.security.tls.protocolBlackList", "");
         final Map<String, Object> attributes = new HashMap<>();
         attributes.put("context", context);
-        getHelper().submitRequest("/api/v8.0/broker", "POST", attributes, HttpServletResponse.SC_OK);
+        getBrokerHelper().submitRequest("/api/v8.0/broker", "POST", attributes, HttpServletResponse.SC_OK);
 
-        final Map<String, Object> brokerAttributes = getHelper().getJsonAsMap("broker");
+        final Map<String, Object> brokerAttributes = getBrokerHelper().getJsonAsMap("broker");
         assertThat(brokerAttributes, is(notNullValue()));
         final Object portContext = brokerAttributes.get("context");
         assertThat(portContext, instanceOf(Map.class));
@@ -107,7 +108,7 @@ public class LegacyManagementTest extends HttpTestBase
         assertThat(contextMap.get("qpid.security.tls.protocolAllowList"), is(equalTo("TLSv1")));
         assertThat(contextMap.get("qpid.security.tls.protocolDenyList"), is(equalTo("")));
 
-        final Map<String, Object> brokerAttributes8_0 = getHelper().getJsonAsMap("/api/v8.0/broker");
+        final Map<String, Object> brokerAttributes8_0 = getBrokerHelper().getJsonAsMap("/api/v8.0/broker");
         assertThat(brokerAttributes8_0, is(notNullValue()));
         final Object brokerContext8_0 = brokerAttributes8_0.get("context");
         assertThat(brokerContext8_0, instanceOf(Map.class));

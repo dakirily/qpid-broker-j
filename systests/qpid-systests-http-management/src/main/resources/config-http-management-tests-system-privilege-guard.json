@@ -73,18 +73,31 @@
       ]
     },
     {
-      "name": "HTTP",
+      "name": "HTTP_BROKER",
       "authenticationProvider": "plain",
       "port": "0",
       "protocols": ["HTTP"],
       "transports": ["TCP"],
       "threadPoolMinimum": 3,
       "threadPoolMaximum": 3,
+      "manageBrokerOnNoAliasMatch": true,
+      "virtualhostaliases": []
+    },
+    {
+      "name": "HTTP_VIRTUAL_HOST",
+      "authenticationProvider": "plain",
+      "port": "0",
+      "protocols": ["HTTP"],
+      "transports": ["TCP"],
+      "threadPoolMinimum": 3,
+      "threadPoolMaximum": 3,
+      "manageBrokerOnNoAliasMatch": false,
       "virtualhostaliases":
       [
         {
-          "name": "nameAlias",
-          "type": "nameAlias"
+          "name": "defaultVirtualHost",
+          "type": "patternMatchingAlias",
+          "pattern": ".*"
         }
       ]
     }

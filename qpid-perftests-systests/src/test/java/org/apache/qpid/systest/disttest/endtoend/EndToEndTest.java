@@ -85,7 +85,7 @@ public class EndToEndTest extends HttpTestBase
     public void setUp() throws Exception
     {
         System.setProperty("perftests.manangement-url", String.format("http://localhost:%d", getBrokerAdmin().getBrokerAddress(
-                BrokerAdmin.PortType.HTTP).getPort()));
+                BrokerAdmin.PortType.HTTP_BROKER).getPort()));
         System.setProperty("perftests.broker-virtualhostnode", getVirtualHost());
         System.setProperty("perftests.broker-virtualhost", getVirtualHost());
         System.setProperty(QpidQueueCreatorFactory.QUEUE_CREATOR_CLASS_NAME_SYSTEM_PROPERTY, QpidRestAPIQueueCreator.class.getName());

@@ -43,7 +43,6 @@ import java.util.stream.Stream;
 
 import jakarta.servlet.http.HttpServletResponse;
 
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -51,10 +50,8 @@ import tools.jackson.core.type.TypeReference;
 
 import org.apache.qpid.server.model.ConfiguredObject;
 import org.apache.qpid.server.queue.PriorityQueue;
-import org.apache.qpid.tests.http.HttpRequestConfig;
 import org.apache.qpid.tests.http.HttpTestBase;
 
-@HttpRequestConfig
 public class MessageManagementTest extends HttpTestBase
 {
     private static final String SOURCE_QUEUE_NAME = "sourceQueue";
@@ -67,8 +64,7 @@ public class MessageManagementTest extends HttpTestBase
     {
         getBrokerAdmin().createQueue(SOURCE_QUEUE_NAME);
         getBrokerAdmin().createQueue(DESTINATION_QUEUE_NAME);
-
-        getHelper().createKeyStoreAndSetItOnPort(getFullTestName());
+        getVirtualHostHelper().setTls(true);
 
         final Map<String, Object> odd = Map.of(INDEX, 1);
         final Map<String, Object> even = Map.of(INDEX, 0);
@@ -81,12 +77,6 @@ public class MessageManagementTest extends HttpTestBase
             publishMessage(SOURCE_QUEUE_NAME, uuid, i % 2 == 0 ? even : odd);
             i++;
         }
-    }
-
-    @AfterEach
-    public void afterEach() throws Exception
-    {
-        getHelper().removeKeyStoreFromPort(getFullTestName());
     }
 
     @Test
@@ -107,7 +97,7 @@ public class MessageManagementTest extends HttpTestBase
         parameters.put("messageIds", toMove);
         parameters.put("destination", DESTINATION_QUEUE_NAME);
 
-        getHelper().submitRequest(String.format("queue/%s/moveMessages", SOURCE_QUEUE_NAME),
+        getVirtualHostHelper().submitRequest(String.format("queue/%s/moveMessages", SOURCE_QUEUE_NAME),
                                   "POST",
                                   parameters,
                                   HttpServletResponse.SC_OK);
@@ -126,7 +116,7 @@ public class MessageManagementTest extends HttpTestBase
         parameters.put("selector", "index % 2 = 0");
         parameters.put("destination", DESTINATION_QUEUE_NAME);
 
-        getHelper().submitRequest(String.format("queue/%s/moveMessages", SOURCE_QUEUE_NAME),
+        getVirtualHostHelper().submitRequest(String.format("queue/%s/moveMessages", SOURCE_QUEUE_NAME),
                                   "POST",
                                   parameters,
                                   HttpServletResponse.SC_OK);
@@ -161,7 +151,7 @@ public class MessageManagementTest extends HttpTestBase
         Map<String, Object> parameters = new HashMap<>();
         parameters.put("destination", DESTINATION_QUEUE_NAME);
 
-        getHelper().submitRequest(String.format("queue/%s/copyMessages", SOURCE_QUEUE_NAME),
+        getVirtualHostHelper().submitRequest(String.format("queue/%s/copyMessages", SOURCE_QUEUE_NAME),
                                   "POST",
                                   parameters,
                                   HttpServletResponse.SC_OK);
@@ -182,7 +172,7 @@ public class MessageManagementTest extends HttpTestBase
 
         Map<String, Object> parameters = new HashMap<>();
         parameters.put("messageIds", toDelete);
-        getHelper().submitRequest(String.format("queue/%s/deleteMessages", SOURCE_QUEUE_NAME),
+        getVirtualHostHelper().submitRequest(String.format("queue/%s/deleteMessages", SOURCE_QUEUE_NAME),
                                   "POST",
                                   parameters,
                                   HttpServletResponse.SC_OK);
@@ -202,7 +192,7 @@ public class MessageManagementTest extends HttpTestBase
         Map<String, Object> parameters = new HashMap<>();
         parameters.put("limit", numberToMove);
 
-        getHelper().submitRequest(String.format("queue/%s/deleteMessages", SOURCE_QUEUE_NAME),
+        getVirtualHostHelper().submitRequest(String.format("queue/%s/deleteMessages", SOURCE_QUEUE_NAME),
                                   "POST",
                                   parameters,
                                   HttpServletResponse.SC_OK);
@@ -213,7 +203,7 @@ public class MessageManagementTest extends HttpTestBase
     @Test
     public void testClearQueue() throws Exception
     {
-        getHelper().submitRequest(String.format("queue/%s/clearQueue", SOURCE_QUEUE_NAME), "POST",
+        getVirtualHostHelper().submitRequest(String.format("queue/%s/clearQueue", SOURCE_QUEUE_NAME), "POST",
                 Map.of(), HttpServletResponse.SC_OK);
 
         assertThat(getBrokerAdmin().getQueueDepthMessages(SOURCE_QUEUE_NAME), is(equalTo(0)));
@@ -229,7 +219,7 @@ public class MessageManagementTest extends HttpTestBase
         publishPriorityMessage(queueName, "3", 1);
 
         final List<Map<String, Object>> messages =
-                getHelper().getJsonAsList(String.format("queue/%s/getMessageInfo", queueName));
+                getVirtualHostHelper().getJsonAsList(String.format("queue/%s/getMessageInfo", queueName));
 
         assertThat(messages.size(), is(equalTo(3)));
         final Map<String, Object> message1 = messages.get(0);
@@ -242,9 +232,10 @@ public class MessageManagementTest extends HttpTestBase
         final Map<String, Object> parameters = new HashMap<>();
         parameters.put("messageId", message3.get("id"));
         parameters.put("newPriority", 10);
-        Long result = getHelper().postJson(String.format("queue/%s/reenqueueMessageForPriorityChange", queueName),
-                                           parameters,
-                                           new TypeReference<Long>()
+        Long result = getVirtualHostHelper().postJson(
+                String.format("queue/%s/reenqueueMessageForPriorityChange", queueName),
+                parameters,
+                new TypeReference<Long>()
                                            {
                                            },
                                            HttpServletResponse.SC_OK);
@@ -252,7 +243,7 @@ public class MessageManagementTest extends HttpTestBase
         assertThat(result, is(not(equalTo(-1L))));
 
         final List<Map<String, Object>> messages2 =
-                getHelper().getJsonAsList(String.format("queue/%s/getMessageInfo", queueName));
+                getVirtualHostHelper().getJsonAsList(String.format("queue/%s/getMessageInfo", queueName));
 
         assertThat(messages.size(), is(equalTo(3)));
         final Map<String, Object> message1AfterChange = messages2.get(0);
@@ -274,7 +265,7 @@ public class MessageManagementTest extends HttpTestBase
         publishPriorityMessage(queueName, "3", 1);
 
         final List<Map<String, Object>> messages =
-                getHelper().getJsonAsList(String.format("queue/%s/getMessageInfo", queueName));
+                getVirtualHostHelper().getJsonAsList(String.format("queue/%s/getMessageInfo", queueName));
 
         assertThat(messages.size(), is(equalTo(3)));
         final Map<String, Object> message1 = messages.get(0);
@@ -290,9 +281,10 @@ public class MessageManagementTest extends HttpTestBase
                                                  message2.get("messageId")));
         parameters.put("newPriority", 10);
         final List<Long> result =
-                getHelper().postJson(String.format("queue/%s/reenqueueMessagesForPriorityChange", queueName),
-                                     parameters,
-                                     new TypeReference<List<Long>>()
+                getVirtualHostHelper().postJson(
+                        String.format("queue/%s/reenqueueMessagesForPriorityChange", queueName),
+                        parameters,
+                        new TypeReference<List<Long>>()
                                      {
                                      },
                                      HttpServletResponse.SC_OK);
@@ -300,7 +292,7 @@ public class MessageManagementTest extends HttpTestBase
         assertThat(result.size(), is(equalTo(2)));
 
         final List<Map<String, Object>> messages2 =
-                getHelper().getJsonAsList(String.format("queue/%s/getMessageInfo", queueName));
+                getVirtualHostHelper().getJsonAsList(String.format("queue/%s/getMessageInfo", queueName));
 
         assertThat(messages.size(), is(equalTo(3)));
         final Map<String, Object> message1AfterChange = messages2.get(0);
@@ -316,7 +308,7 @@ public class MessageManagementTest extends HttpTestBase
     private List<Map<String, Object>> getMessageDetails(final String queueName) throws IOException
     {
         List<Map<String, Object>> destQueueMessages =
-                getHelper().getJsonAsList(String.format("queue/%s/getMessageInfo?includeHeaders=true",
+                getVirtualHostHelper().getJsonAsList(String.format("queue/%s/getMessageInfo?includeHeaders=true",
                                                         queueName));
         assertThat(destQueueMessages, is(notNullValue()));
         return destQueueMessages;
@@ -325,7 +317,7 @@ public class MessageManagementTest extends HttpTestBase
     private Set<Long> getMesssageIds(final String queueName) throws IOException
     {
         List<Map<String, Object>> messages =
-                getHelper().getJsonAsList(String.format("queue/%s/getMessageInfo", queueName));
+                getVirtualHostHelper().getJsonAsList(String.format("queue/%s/getMessageInfo", queueName));
         Set<Long> ids = new HashSet<>();
         for (Map<String, Object> message : messages)
         {
@@ -341,7 +333,7 @@ public class MessageManagementTest extends HttpTestBase
         messageBody.put("messageId", messageId);
         messageBody.put("headers", headers);
 
-        getHelper().submitRequest("virtualhost/publishMessage",
+        getVirtualHostHelper().submitRequest("virtualhost/publishMessage",
                                   "POST",
                                   Map.of("message", messageBody),
                                   SC_OK);
@@ -355,7 +347,7 @@ public class MessageManagementTest extends HttpTestBase
         messageBody.put("headers", Map.of("id", messageId));
         messageBody.put("priority", priority);
 
-        getHelper().submitRequest("virtualhost/publishMessage",
+        getVirtualHostHelper().submitRequest("virtualhost/publishMessage",
                                   "POST",
                                   Map.of("message", messageBody),
                                   SC_OK);
@@ -366,6 +358,6 @@ public class MessageManagementTest extends HttpTestBase
         final Map<String, Object> data = new HashMap<>();
         data.put(ConfiguredObject.TYPE, "priority");
         data.put(PriorityQueue.PRIORITIES, priorities);
-        getHelper().submitRequest(String.format("queue/%s", queueName), "PUT", data, SC_CREATED);
+        getVirtualHostHelper().submitRequest(String.format("queue/%s", queueName), "PUT", data, SC_CREATED);
     }
 }
