@@ -48,6 +48,7 @@ public class StandaloneProcessBaselineTest extends UnitTestBase
     private static final String READY_MESSAGE = "BRK-1004 : Qpid Broker Ready";
     private static final String STOPPED_MESSAGE = "BRK-1005 : Stopped";
     private static final String CONFIG_STORE_FILE = "config.json";
+    private static final String BROKER_LOG_FILE = "broker.log";
 
     @Test
     public void testVersionReportsFullProtocolSetAndExitsNormally() throws Exception
@@ -113,7 +114,11 @@ public class StandaloneProcessBaselineTest extends UnitTestBase
             assertTerminationExitCode(process.terminate());
             if (!isWindows())
             {
-                assertTrue(process.getOutput().contains(STOPPED_MESSAGE));
+                final String brokerLog = Files.readString(workDirectory.resolve(BROKER_LOG_FILE),
+                                                          StandardCharsets.UTF_8);
+                assertTrue(brokerLog.contains(STOPPED_MESSAGE),
+                           () -> "Missing stopped message in broker log:" +
+                                 System.lineSeparator() + brokerLog);
             }
         }
         finally
@@ -208,8 +213,12 @@ public class StandaloneProcessBaselineTest extends UnitTestBase
     private static Path writeInitialConfiguration(final Path root) throws Exception
     {
         final Path initialConfiguration = root.resolve("initial-config.json");
-        final String configuration = "{\"name\":\"standalone-baseline\",\"modelVersion\":\"" +
-                BrokerModel.MODEL_VERSION + "\"}";
+        final String configuration =
+                "{\"name\":\"standalone-baseline\",\"modelVersion\":\"" + BrokerModel.MODEL_VERSION + "\"," +
+                "\"brokerloggers\":[{\"name\":\"baseline-log\",\"type\":\"File\"," +
+                "\"fileName\":\"${qpid.work_dir}${file.separator}" + BROKER_LOG_FILE + "\"," +
+                "\"brokerloginclusionrules\":[{\"name\":\"Operational\",\"type\":\"NameAndLevel\"," +
+                "\"level\":\"INFO\",\"loggerName\":\"qpid.message.*\"}]}]}";
         Files.writeString(initialConfiguration, configuration, StandardCharsets.UTF_8);
         return initialConfiguration;
     }

@@ -62,7 +62,7 @@ win discovery. Each process receives a clean Qpid environment plus only the valu
 | Invalid store type | Reports the startup exception and exits with code 1 |
 | Normal startup | Emits <code>BRK-1001</code> and reaches <code>BRK-1004</code> |
 | External termination on Windows | <code>Process.destroy()</code> produces exit code 1 |
-| External termination on POSIX | SIGTERM produces exit code 143 and emits <code>BRK-1005</code> |
+| POSIX termination | SIGTERM exits 143; the configured broker log records <code>BRK-1005</code> |
 | Work-directory precedence | CLI config property, JVM property, initial property file, then process environment |
 
 The precedence test uses four independent process starts and observes the selected value through the location of the
@@ -72,6 +72,10 @@ created JSON configuration store. Its exact ordering is:
         > -DQPID_WORK=...
         > --system-properties-file containing QPID_WORK=...
         > QPID_WORK in the child process environment
+
+The lifecycle case supplies a minimal file broker logger. Console output during bootstrap is provided by a temporary
+startup appender which is detached when startup completes, so the shutdown assertion reads the persistent broker log
+rather than depending on that bootstrap-only appender.
 
 The OS-specific termination assertions deliberately record current standalone behaviour. They do not prescribe the
 future in-process embedded close API, which must never terminate the host JVM.
