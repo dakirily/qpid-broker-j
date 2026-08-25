@@ -20,33 +20,30 @@
  */
 package org.apache.qpid.tools;
 
-import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.security.KeyManagementException;
-import java.security.NoSuchAlgorithmException;
+import java.net.URI;
+import java.net.URLEncoder;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.security.GeneralSecurityException;
+import java.security.SecureRandom;
 import java.security.cert.X509Certificate;
 import java.util.Arrays;
 import java.util.Base64;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
-import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
@@ -58,96 +55,73 @@ import org.apache.qpid.tools.util.ArgumentsParser;
 
 public class RestStressTestClient
 {
+    private static final char COMMAND_CONTINUATION = (char) 92;
 
-    public static void main(String[] args) throws Exception
+    public static void main(final String[] args) throws Exception
     {
-        ArgumentsParser parser = new ArgumentsParser();
-        Arguments arguments;
+        final ArgumentsParser parser = new ArgumentsParser();
+        final Arguments arguments;
         try
         {
             arguments = parser.parse(args, Arguments.class);
             arguments.validate();
         }
-        catch(IllegalArgumentException e)
+        catch (final IllegalArgumentException e)
         {
             System.out.println("Invalid argument:" + e.getMessage());
             parser.usage(Arguments.class, Arguments.REQUIRED);
-            System.out.println("\nRun examples:" );
-            System.out.println("  Using Basic authentication:" );
-            System.out.println("  java \\" );
-            System.out.println("    -Djavax.net.ssl.trustStore=java_client_truststore.jks \\");
-            System.out.println("    -Djavax.net.ssl.trustStorePassword=password \\");
-            System.out.println("    org.apache.qpid.tools.RestStressTestClient \\");
-            System.out.println("      repetitions=10 brokerUrl=https://localhost:8081 username=admin password=admin \\");
-            System.out.println("      virtualHost=default virtualHostNode=default createQueue=true bindQueue=true \\");
-            System.out.println("      deleteQueue=true uniqueQueues=true queueName=boo exchangeName=amq.fanout" );
-            System.out.println("  Using CRAM-MD5 SASL authentication:" );
-            System.out.println("  java \\" );
-            System.out.println("    org.apache.qpid.tools.RestStressTestClient saslMechanism=CRAM-MD5 \\");
-            System.out.println("      repetitions=10 brokerUrl=http://localhost:8080 username=admin password=admin \\");
-            System.out.println("      virtualHost=default virtualHostNode=default createQueue=true bindQueue=true \\");
-            System.out.println("      deleteQueue=true uniqueQueues=true queueName=boo exchangeName=amq.fanout" );
+            System.out.println("\nRun examples:");
+            System.out.println("  Using Basic authentication:");
+            printContinuedCommandLine("  java");
+            printContinuedCommandLine("    -Djavax.net.ssl.trustStore=java_client_truststore.jks");
+            printContinuedCommandLine("    -Djavax.net.ssl.trustStorePassword=password");
+            printContinuedCommandLine("    org.apache.qpid.tools.RestStressTestClient");
+            printContinuedCommandLine(
+                    "      repetitions=10 brokerUrl=https://localhost:8081 username=admin password=admin");
+            printContinuedCommandLine(
+                    "      virtualHost=default virtualHostNode=default createQueue=true bindQueue=true");
+            System.out.println("      deleteQueue=true uniqueQueues=true queueName=boo exchangeName=amq.fanout");
+            System.out.println("  Using CRAM-MD5 SASL authentication:");
+            printContinuedCommandLine("  java");
+            printContinuedCommandLine("    org.apache.qpid.tools.RestStressTestClient saslMechanism=CRAM-MD5");
+            printContinuedCommandLine(
+                    "      repetitions=10 brokerUrl=http://localhost:8080 username=admin password=admin");
+            printContinuedCommandLine(
+                    "      virtualHost=default virtualHostNode=default createQueue=true bindQueue=true");
+            System.out.println("      deleteQueue=true uniqueQueues=true queueName=boo exchangeName=amq.fanout");
             return;
         }
 
-        RestStressTestClient client = new RestStressTestClient();
+        final RestStressTestClient client = new RestStressTestClient();
         client.run(arguments);
     }
 
-    public void run(Arguments arguments) throws IOException
+    private static void printContinuedCommandLine(final String commandLine)
+    {
+        System.out.println(commandLine + " " + COMMAND_CONTINUATION);
+    }
+
+    public void run(final Arguments arguments) throws IOException
     {
         log(arguments.toString());
-        if (arguments.isTrustAll())
-        {
-            configureTrustAll();
-        }
+        final RestClient client = new RestClient(arguments.getBrokerUrl(), arguments.getUsername(),
+                                                 arguments.getPassword(), arguments.getSaslMechanism(),
+                                                 arguments.isTrustAll());
         for (int i = 0; i < arguments.getRepetitions(); i++)
         {
-            runIteration(arguments, i);
+            runIteration(arguments, i, client);
         }
     }
 
-    private void configureTrustAll()
-    {
-        TrustManager[] trustAllCerts = new TrustManager[]{
-                new X509TrustManager()
-                {
-                    public X509Certificate[] getAcceptedIssuers()
-                    {
-                        return null;
-                    }
-
-                    public void checkClientTrusted(X509Certificate[] certs, String authType)
-                    {
-                    }
-
-                    public void checkServerTrusted(X509Certificate[] certs, String authType)
-                    {
-                    }
-                }
-        };
-
-        try
-        {
-            SSLContext sc = SSLContext.getInstance("SSL");
-            sc.init(null, trustAllCerts, new java.security.SecureRandom());
-            HttpsURLConnection.setDefaultSSLSocketFactory(sc.getSocketFactory());
-        }
-        catch (NoSuchAlgorithmException | KeyManagementException e)
-        {
-            throw new RuntimeException("Failed to configure trust-all trust manager", e);
-        }
-    }
-
-    private void runIteration(Arguments arguments, int iteration) throws IOException
+    private void runIteration(final Arguments arguments, final int iteration, final RestClient client)
+            throws IOException
     {
         log("Iteration " + iteration);
 
-        RestClient client = new RestClient(arguments.getBrokerUrl(), arguments.getUsername(), arguments.getPassword(), arguments.getSaslMechanism());
         client.authenticateIfSaslAuthenticationRequested();
         try
         {
-            Map<String, Object> brokerData = client.get("/api/latest/broker?depth=0");
+            final Map<String, Object> brokerData = client.get("/api/latest/broker?depth=0");
             log("    Connected to broker " + brokerData.get("name"));
             createAndBindQueueIfRequired(arguments, client, iteration);
         }
@@ -160,17 +134,19 @@ public class RestStressTestClient
         }
     }
 
-    private void log(String logMessage)
+    private void log(final String logMessage)
     {
         System.out.println(logMessage);
     }
 
-    private void createAndBindQueueIfRequired(Arguments arguments, RestClient client, int iteration) throws IOException
+    private void createAndBindQueueIfRequired(final Arguments arguments,
+                                              final RestClient client,
+                                              final int iteration) throws IOException
     {
         if (arguments.isCreateQueue())
         {
-            String virtualHostNode = arguments.getVirtualHostNode();
-            String virtualHost = arguments.getVirtualHost();
+            final String virtualHostNode = arguments.getVirtualHostNode();
+            final String virtualHost = arguments.getVirtualHost();
             String queueName = arguments.getQueueName();
 
             if (queueName == null)
@@ -179,7 +155,7 @@ public class RestStressTestClient
             }
             else if (arguments.isUniqueQueues())
             {
-                queueName =  queueName + "-" + iteration;
+                queueName = queueName + "-" + iteration;
             }
 
             createQueue(client, virtualHostNode, virtualHost, queueName);
@@ -196,16 +172,19 @@ public class RestStressTestClient
         }
     }
 
-    private void createQueue(RestClient client, String virtualHostNode, String virtualHost, String queueName) throws IOException
+    private void createQueue(final RestClient client,
+                             final String virtualHostNode,
+                             final String virtualHost,
+                             final String queueName) throws IOException
     {
         log("    Create queue " + queueName);
 
-        String queueUrl = getQueueServiceUrl(virtualHostNode, virtualHost, queueName);
-        Map<String, Object> queueData = new HashMap<>();
+        final String queueUrl = getQueueServiceUrl(virtualHostNode, virtualHost, queueName);
+        final Map<String, Object> queueData = new HashMap<>();
         queueData.put("name", queueName);
         queueData.put("durable", true);
 
-        int result = client.put(queueUrl, queueData);
+        final int result = client.put(queueUrl, queueData);
 
         if (result != RestClient.RESPONSE_PUT_CREATE_OK)
         {
@@ -213,57 +192,71 @@ public class RestStressTestClient
         }
     }
 
-    private String getQueueServiceUrl(String virtualHostNode, String virtualHost, String queueName)
+    private String getQueueServiceUrl(final String virtualHostNode,
+                                      final String virtualHost,
+                                      final String queueName)
     {
         return "/api/latest/queue/" + virtualHostNode + "/" + virtualHost + "/" + queueName;
     }
 
-    private void deleteQueue(RestClient client, String virtualHostNode, String virtualHost, String queueName) throws IOException
+    private void deleteQueue(final RestClient client,
+                             final String virtualHostNode,
+                             final String virtualHost,
+                             final String queueName) throws IOException
     {
         log("    Delete queue " + queueName);
-        int result = client.delete(getQueueServiceUrl(virtualHostNode, virtualHost, queueName));
+        final int result = client.delete(getQueueServiceUrl(virtualHostNode, virtualHost, queueName));
         if (result != RestClient.RESPONSE_PUT_UPDATE_OK)
         {
             throw new RuntimeException(String.format("Failure (%d) to delete queue '%s'", result, queueName));
         }
     }
 
-    private void bindQueue(RestClient client, String virtualHostNode, String virtualHost, String queueName, String exchangeName)
-            throws IOException
+    private void bindQueue(final RestClient client,
+                           final String virtualHostNode,
+                           final String virtualHost,
+                           final String queueName,
+                           final String exchangeName) throws IOException
     {
-        if (exchangeName == null)
-        {
-            exchangeName = "amq.direct";
-        }
+        final String resolvedExchangeName = exchangeName == null ? "amq.direct" : exchangeName;
 
-        log("        Bind queue " + queueName + " to " + exchangeName + " using binding key " + queueName);
+        log("        Bind queue " + queueName + " to " + resolvedExchangeName + " using binding key " + queueName);
 
-        String args = "/api/latest/exchange/" + virtualHostNode + "/" + virtualHost + "/" + exchangeName + "/bind";
+        final String path = "/api/latest/exchange/" + virtualHostNode + "/" + virtualHost + "/" +
+                resolvedExchangeName + "/bind";
 
-        Map<String, String> bindingData = new HashMap<>();
+        final Map<String, String> bindingData = new HashMap<>();
         bindingData.put("bindingKey", queueName);
         bindingData.put("destination", queueName);
 
-        int result = client.post(args, bindingData);
+        final int result = client.post(path, bindingData);
 
         if (result != RestClient.RESPONSE_OK)
         {
-            throw new RuntimeException(String.format("Failure (%d) to to bind queue '%s' to exchange '%s'", result, queueName, exchangeName));
+            throw new RuntimeException(String.format("Failure (%d) to bind queue '%s' to exchange '%s'",
+                                                     result, queueName, resolvedExchangeName));
         }
     }
 
     public static class RestClient
     {
-        private static final TypeReference<LinkedHashMap<String, Object>> TYPE_HASH_MAP = new TypeReference<LinkedHashMap<String, Object>>()
-        {
-        };
-
         public static final int RESPONSE_PUT_CREATE_OK = 201;
         public static final int RESPONSE_PUT_UPDATE_OK = 200;
         public static final int RESPONSE_OK = 200;
         public static final int RESPONSE_AUTHENTICATION_REQUIRED = 401;
 
-        private final ObjectMapper _mapper;
+        private static final String CONTENT_TYPE = "Content-Type";
+        private static final String JSON_CONTENT_TYPE = "application/json";
+        private static final String FORM_CONTENT_TYPE = "application/x-www-form-urlencoded";
+        private static final String SET_COOKIE_HEADER = "Set-Cookie";
+
+        private static final TypeReference<LinkedHashMap<String, Object>> TYPE_HASH_MAP =
+                new TypeReference<>()
+                {
+                };
+        private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
+        private final HttpClient _httpClient;
         private final String _brokerUrl;
         private final String _username;
         private final String _password;
@@ -272,17 +265,30 @@ public class RestStressTestClient
 
         private List<String> _cookies;
 
-        public RestClient(String brokerUrl, String username, String password, String saslMechanism)
+        public RestClient(final String brokerUrl,
+                          final String username,
+                          final String password,
+                          final String saslMechanism)
         {
-            _mapper = new ObjectMapper();
-            _brokerUrl = brokerUrl;
-            _username = username;
-            _password = password;
+            this(brokerUrl, username, password, saslMechanism, false);
+        }
+
+        public RestClient(final String brokerUrl,
+                          final String username,
+                          final String password,
+                          final String saslMechanism,
+                          final boolean trustAll)
+        {
+            _brokerUrl = normalizeBrokerUrl(brokerUrl);
+            _username = Objects.requireNonNull(username, "Username must not be null");
+            _password = Objects.requireNonNull(password, "Password must not be null");
             _saslMechanism = saslMechanism;
+            _httpClient = createHttpClient(trustAll);
 
             if (saslMechanism == null)
             {
-                _authorizationHeader = "Basic " + Base64.getEncoder().encodeToString((_username + ":" + _password).getBytes(UTF_8));
+                final String credentials = _username + ":" + _password;
+                _authorizationHeader = "Basic " + Base64.getEncoder().encodeToString(credentials.getBytes(UTF_8));
             }
             else
             {
@@ -290,159 +296,54 @@ public class RestStressTestClient
             }
         }
 
-        public Map<String, Object> get(String restServiceUrl) throws IOException
+        public Map<String, Object> get(final String restServiceUrl) throws IOException
         {
-            HttpURLConnection connection = createConnection("GET", restServiceUrl, _cookies);
-            try
-            {
-                connection.connect();
-                byte[] data = readConnectionInputStream(connection);
-                checkResponseCode(connection);
-                return _mapper.readValue(new ByteArrayInputStream(data), TYPE_HASH_MAP);
-            }
-            finally
-            {
-                connection.disconnect();
-            }
+            final HttpRequest request = createRequest("GET", restServiceUrl, _cookies).build();
+            final HttpResponse<byte[]> response = send(request, HttpResponse.BodyHandlers.ofByteArray());
+            checkSuccessfulResponse(response);
+            return OBJECT_MAPPER.readValue(response.body(), TYPE_HASH_MAP);
         }
 
-        public int put(String restServiceUrl, Map<String, Object> attributes) throws IOException
+        public int put(final String restServiceUrl, final Map<String, Object> attributes) throws IOException
         {
-            HttpURLConnection connection = createConnection("PUT", restServiceUrl, _cookies);
-            try (OutputStream outputStream = connection.getOutputStream())
+            final HttpRequest.Builder request = createRequest("PUT", restServiceUrl, _cookies);
+            if (attributes != null)
             {
-                connection.connect();
-                if (attributes != null)
-                {
-                    ObjectMapper mapper = new ObjectMapper();
-                    mapper.writeValue(outputStream, attributes);
-                }
-                checkResponseCode(connection);
-                return connection.getResponseCode();
+                final byte[] requestBody = OBJECT_MAPPER.writeValueAsBytes(attributes);
+                request.header(CONTENT_TYPE, JSON_CONTENT_TYPE)
+                       .method("PUT", HttpRequest.BodyPublishers.ofByteArray(requestBody));
             }
-            finally
-            {
-                connection.disconnect();
-            }
+
+            final HttpResponse<Void> response = send(request.build(), HttpResponse.BodyHandlers.discarding());
+            checkAuthentication(response);
+            return response.statusCode();
         }
 
-        public int delete(String restServiceUrl) throws IOException
+        public int delete(final String restServiceUrl) throws IOException
         {
-            HttpURLConnection connection = createConnection("DELETE", restServiceUrl, _cookies);
-            try
-            {
-                checkResponseCode(connection);
-                return connection.getResponseCode();
-            }
-            finally
-            {
-                connection.disconnect();
-            }
+            final HttpRequest request = createRequest("DELETE", restServiceUrl, _cookies).build();
+            final HttpResponse<Void> response = send(request, HttpResponse.BodyHandlers.discarding());
+            checkAuthentication(response);
+            return response.statusCode();
         }
 
-        public int post(String restServiceUrl, Map<String, String> postData) throws  IOException
+        public int post(final String restServiceUrl, final Map<String, String> postData) throws IOException
         {
-            HttpURLConnection connection = createConnectionAndPostObject(restServiceUrl, postData, _cookies);
-            try
-            {
-                checkResponseCode(connection);
-                return connection.getResponseCode();
-            }
-            finally
-            {
-                connection.disconnect();
-            }
-        }
-
-        private HttpURLConnection createConnectionAndPostObject(final String restServiceUrl,
-                                                   final Object postData,
-                                                   final List<String> cookies) throws IOException
-        {
-            HttpURLConnection connection = createConnection("POST", restServiceUrl, cookies);
-            try (OutputStream os = connection.getOutputStream())
-            {
-                ObjectMapper mapper = new ObjectMapper();
-                mapper.writeValue(os, postData);
-                os.flush();
-            }
-            catch (IOException e)
-            {
-                connection.disconnect();
-                throw e;
-            }
-            return connection;
-        }
-
-        private HttpURLConnection createConnectionAndPostData(String restServiceUrl, Map<String, String> postData, List<String> cookies) throws IOException
-        {
-            String postParameters = getPostDataString(postData);
-            HttpURLConnection connection = createConnection("POST", restServiceUrl, cookies);
-            try (OutputStream os = connection.getOutputStream())
-            {
-                os.write(postParameters.getBytes(US_ASCII));
-                os.flush();
-            }
-            catch (IOException e)
-            {
-                connection.disconnect();
-                throw e;
-            }
-            return connection;
-        }
-
-        private void checkResponseCode(HttpURLConnection connection) throws IOException
-        {
-            if (connection.getResponseCode() == RESPONSE_AUTHENTICATION_REQUIRED)
-            {
-                _cookies = null;
-                throw new IllegalArgumentException("Authentication is required");
-            }
-        }
-
-        private String getPostDataString(Map<String, String> postData)
-        {
-            StringBuilder sb = new StringBuilder();
-            if (postData != null)
-            {
-                Iterator<String> iterator = postData.keySet().iterator();
-                while (iterator.hasNext())
-                {
-                    String key = iterator.next();
-                    sb.append(key).append("=").append(postData.get(key));
-                    if (iterator.hasNext())
-                    {
-                        sb.append("&");
-                    }
-                }
-            }
-            return sb.toString();
-        }
-
-        private HttpURLConnection createConnection(String method, String restServiceUrl, List<String> cookies) throws IOException
-        {
-            HttpURLConnection httpConnection = (HttpURLConnection) new URL(_brokerUrl + restServiceUrl).openConnection();
-            if (cookies != null)
-            {
-                for (String cookie : cookies)
-                {
-                    httpConnection.addRequestProperty("Cookie", cookie.split(";", 2)[0]);
-                }
-            }
-            if (_saslMechanism == null)
-            {
-                httpConnection.setRequestProperty("Authorization", _authorizationHeader);
-            }
-
-            httpConnection.setDoOutput(true);
-            httpConnection.setRequestMethod(method);
-            return httpConnection;
+            final byte[] requestBody = OBJECT_MAPPER.writeValueAsBytes(postData);
+            final HttpRequest request = createRequest("POST", restServiceUrl, _cookies)
+                    .header(CONTENT_TYPE, JSON_CONTENT_TYPE)
+                    .method("POST", HttpRequest.BodyPublishers.ofByteArray(requestBody))
+                    .build();
+            final HttpResponse<Void> response = send(request, HttpResponse.BodyHandlers.discarding());
+            checkAuthentication(response);
+            return response.statusCode();
         }
 
         public void authenticateIfSaslAuthenticationRequested() throws IOException
         {
             if (_saslMechanism == null)
             {
-                // basic authentication will be used with each request
+                // Basic authentication is sent with each request.
             }
             else if ("CRAM-MD5".equals(_saslMechanism))
             {
@@ -450,111 +351,150 @@ public class RestStressTestClient
             }
             else
             {
-                throw new IllegalArgumentException("Unsupported SASL mechanism :" + _saslMechanism);
+                throw new IllegalArgumentException("Unsupported SASL mechanism: " + _saslMechanism);
             }
         }
-
 
         public void logout() throws IOException
         {
             if (_cookies != null)
             {
-                HttpURLConnection connection = createConnection("GET", "/service/logout", _cookies);
-                try
-                {
-                    connection.connect();
-                    _cookies = null;
-                }
-                finally
-                {
-                    connection.disconnect();
-                }
+                final HttpRequest request = createRequest("GET", "/service/logout", _cookies).build();
+                send(request, HttpResponse.BodyHandlers.discarding());
+                _cookies = null;
             }
 
-            //TODO: we need to track sessions for basic auth in order to logout those
+            // TODO: track sessions for Basic authentication so they can be logged out.
         }
 
         private List<String> performCramMD5Authentication() throws IOException
         {
-            // request the challenge for CRAM-MD5
-            HttpURLConnection connection = createConnectionAndPostData("/service/sasl", Collections.singletonMap("mechanism", "CRAM-MD5"), null);
-            try
+            final HttpResponse<byte[]> challengeResponse =
+                    postForm("/service/sasl", Map.of("mechanism", "CRAM-MD5"), null);
+            checkSuccessfulResponse(challengeResponse);
+
+            final List<String> cookies = challengeResponse.headers().allValues(SET_COOKIE_HEADER);
+            final Map<String, Object> response = OBJECT_MAPPER.readValue(challengeResponse.body(), TYPE_HASH_MAP);
+            final String challenge = (String) response.get("challenge");
+            final String responseData =
+                    generateResponseForChallengeAndCredentials(challenge, _username, _password);
+
+            final Map<String, String> saslResponse = new HashMap<>();
+            saslResponse.put("id", (String) response.get("id"));
+            saslResponse.put("response", responseData);
+
+            final HttpResponse<byte[]> authenticationResponse = postForm("/service/sasl", saslResponse, cookies);
+            if (authenticationResponse.statusCode() != RESPONSE_OK)
             {
-                List<String> cookies = connection.getHeaderFields().get("Set-Cookie");
-
-                // get response
-                byte[] data = readConnectionInputStream(connection);
-                Map<String, Object> response = _mapper.readValue(new ByteArrayInputStream(data), TYPE_HASH_MAP);
-                String challenge = (String) response.get("challenge");
-
-                // generate the authentication response for the received challenge
-                String responseData = generateResponseForChallengeAndCredentials(challenge, _username, _password);
-
-                Map<String, String> saslResponse = new HashMap<>();
-                saslResponse.put("id", (String)response.get("id"));
-                saslResponse.put("response", responseData);
-
-                HttpURLConnection authenticateConnection = createConnectionAndPostData("/service/sasl", saslResponse, cookies);
-                try
-                {
-                    int code = authenticateConnection.getResponseCode();
-                    if (code != RESPONSE_OK)
-                    {
-                        throw new RuntimeException("Authentication failed");
-                    }
-                    else
-                    {
-                        return cookies;
-                    }
-                }
-                finally
-                {
-                    authenticateConnection.disconnect();
-                }
+                throw new RuntimeException("Authentication failed");
             }
-            finally
-            {
-                connection.disconnect();
-            }
+            return cookies;
         }
 
-        private String generateResponseForChallengeAndCredentials(String challenge, String username, String password)
+        private HttpResponse<byte[]> postForm(final String restServiceUrl,
+                                              final Map<String, String> postData,
+                                              final List<String> cookies) throws IOException
+        {
+            final String postParameters = getPostDataString(postData);
+            final HttpRequest request = createRequest("POST", restServiceUrl, cookies)
+                    .header(CONTENT_TYPE, FORM_CONTENT_TYPE)
+                    .method("POST", HttpRequest.BodyPublishers.ofString(postParameters, UTF_8))
+                    .build();
+            return send(request, HttpResponse.BodyHandlers.ofByteArray());
+        }
+
+        private HttpRequest.Builder createRequest(final String method,
+                                                  final String restServiceUrl,
+                                                  final List<String> cookies)
+        {
+            final HttpRequest.Builder request = HttpRequest.newBuilder(createRequestUri(restServiceUrl))
+                    .method(method, HttpRequest.BodyPublishers.noBody());
+            applyCookies(request, cookies);
+            if (_authorizationHeader != null)
+            {
+                request.header("Authorization", _authorizationHeader);
+            }
+            return request;
+        }
+
+        private URI createRequestUri(final String restServiceUrl)
+        {
+            Objects.requireNonNull(restServiceUrl, "REST service URL must not be null");
+            final String pathSeparator = restServiceUrl.startsWith("/") ? "" : "/";
+            return URI.create(_brokerUrl + pathSeparator + restServiceUrl);
+        }
+
+        private <T> HttpResponse<T> send(final HttpRequest request,
+                                         final HttpResponse.BodyHandler<T> bodyHandler) throws IOException
         {
             try
             {
-                byte[] challengeBytes = decodeBase64(challenge);
+                return _httpClient.send(request, bodyHandler);
+            }
+            catch (final InterruptedException e)
+            {
+                Thread.currentThread().interrupt();
+                throw new IOException("Interrupted while waiting for HTTP response from " + request.uri(), e);
+            }
+        }
 
-                String macAlgorithm = "HmacMD5";
-                Mac mac = Mac.getInstance(macAlgorithm);
+        private void checkAuthentication(final HttpResponse<?> response)
+        {
+            if (response.statusCode() == RESPONSE_AUTHENTICATION_REQUIRED)
+            {
+                _cookies = null;
+                throw new IllegalArgumentException("Authentication is required");
+            }
+        }
+
+        private void checkSuccessfulResponse(final HttpResponse<?> response) throws IOException
+        {
+            checkAuthentication(response);
+            if (response.statusCode() < 200 || response.statusCode() >= 300)
+            {
+                throw new IOException("HTTP request to " + response.uri() +
+                                      " failed with response code " + response.statusCode());
+            }
+        }
+
+        private String generateResponseForChallengeAndCredentials(final String challenge,
+                                                                  final String username,
+                                                                  final String password)
+        {
+            try
+            {
+                final byte[] challengeBytes = decodeBase64(challenge);
+                final String macAlgorithm = "HmacMD5";
+                final Mac mac = Mac.getInstance(macAlgorithm);
                 mac.init(new SecretKeySpec(password.getBytes(UTF_8), macAlgorithm));
                 final byte[] messageAuthenticationCode = mac.doFinal(challengeBytes);
-                String responseAsString = username + " " + toHex(messageAuthenticationCode);
-                byte[] responseBytes = responseAsString.getBytes(UTF_8);
-                return Base64.getEncoder().encodeToString(responseBytes);
+                final String responseAsString = username + " " + toHex(messageAuthenticationCode);
+                return Base64.getEncoder().encodeToString(responseAsString.getBytes(UTF_8));
             }
-            catch (Exception e)
+            catch (final GeneralSecurityException | IllegalArgumentException e)
             {
                 throw new IllegalArgumentException("Unexpected exception", e);
             }
         }
 
-        public static byte[] decodeBase64(String base64String)
+        public static byte[] decodeBase64(final String base64String)
         {
-            base64String = base64String.replaceAll("\\s","");
-            if(!base64String.matches("^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$"))
+            final String normalized = base64String.replaceAll("\\s", "");
+            if (!normalized.matches("^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$"))
             {
-                throw new IllegalArgumentException("Cannot convert string '"+ base64String+ "'to a byte[] - it does not appear to be base64 data");
+                throw new IllegalArgumentException("Cannot convert string '" + normalized +
+                                                   "' to a byte[] - it does not appear to be base64 data");
             }
 
-            return Base64.getDecoder().decode(base64String);
+            return Base64.getDecoder().decode(normalized);
         }
 
-        private String toHex(byte[] data)
+        private String toHex(final byte[] data)
         {
-            StringBuilder hash = new StringBuilder();
-            for (final byte aData : data)
+            final StringBuilder hash = new StringBuilder();
+            for (final byte value : data)
             {
-                String hex = Integer.toHexString(0xFF & aData);
+                final String hex = Integer.toHexString(0xFF & value);
                 if (hex.length() == 1)
                 {
                     hash.append('0');
@@ -564,26 +504,106 @@ public class RestStressTestClient
             return hash.toString();
         }
 
-        private byte[] readConnectionInputStream(HttpURLConnection connection) throws IOException
+        private static String getPostDataString(final Map<String, String> postData)
         {
-            if (connection.getResponseCode() == RESPONSE_AUTHENTICATION_REQUIRED)
+            if (postData == null)
             {
-                _cookies = null;
+                return "";
             }
+            return postData.entrySet().stream()
+                    .map(entry -> encodeFormValue(entry.getKey()) + "=" + encodeFormValue(entry.getValue()))
+                    .collect(Collectors.joining("&"));
+        }
 
-            try (InputStream is = connection.getInputStream();
-                 ByteArrayOutputStream baos = new ByteArrayOutputStream())
+        private static String encodeFormValue(final String value)
+        {
+            return URLEncoder.encode(value, UTF_8);
+        }
+
+        private static void applyCookies(final HttpRequest.Builder request, final List<String> cookies)
+        {
+            if (cookies != null)
             {
-                byte[] buffer = new byte[1024];
-                int len;
-                while ((len = is.read(buffer)) != -1)
+                final String cookieHeader = cookies.stream()
+                        .map(cookie -> cookie.split(";", 2)[0])
+                        .collect(Collectors.joining("; "));
+                if (!cookieHeader.isEmpty())
                 {
-                    baos.write(buffer, 0, len);
+                    request.header("Cookie", cookieHeader);
                 }
-                return baos.toByteArray();
             }
         }
 
+        private static String normalizeBrokerUrl(final String brokerUrl)
+        {
+            Objects.requireNonNull(brokerUrl, "Broker URL must not be null");
+            final URI uri = URI.create(brokerUrl);
+            final String scheme = uri.getScheme();
+            if (!"http".equalsIgnoreCase(scheme) && !"https".equalsIgnoreCase(scheme))
+            {
+                throw new IllegalArgumentException("Broker URL must use the HTTP or HTTPS scheme");
+            }
+            if (!uri.isAbsolute() || uri.getRawAuthority() == null)
+            {
+                throw new IllegalArgumentException("Broker URL must be absolute and include an authority");
+            }
+            if (uri.getRawQuery() != null || uri.getRawFragment() != null)
+            {
+                throw new IllegalArgumentException("Broker URL must not include a query or fragment");
+            }
+            return brokerUrl.endsWith("/") ? brokerUrl.substring(0, brokerUrl.length() - 1) : brokerUrl;
+        }
+
+        private static HttpClient createHttpClient(final boolean trustAll)
+        {
+            final HttpClient.Builder builder = HttpClient.newBuilder()
+                    .followRedirects(HttpClient.Redirect.NEVER)
+                    .version(HttpClient.Version.HTTP_1_1);
+            if (trustAll)
+            {
+                builder.sslContext(createTrustAllSslContext());
+            }
+            return builder.build();
+        }
+
+        @SuppressWarnings("java:S4830")
+        private static SSLContext createTrustAllSslContext()
+        {
+            final TrustManager[] trustAllCerts = new TrustManager[]
+            {
+                new X509TrustManager()
+                {
+                    @Override
+                    public X509Certificate[] getAcceptedIssuers()
+                    {
+                        return new X509Certificate[0];
+                    }
+
+                    @Override
+                    public void checkClientTrusted(final X509Certificate[] certs, final String authType)
+                    {
+                        // Explicit trust-all mode is intended only for stress-test environments.
+                    }
+
+                    @Override
+                    public void checkServerTrusted(final X509Certificate[] certs, final String authType)
+                    {
+                        // Explicit trust-all mode is intended only for stress-test environments.
+                    }
+                }
+            };
+
+            try
+            {
+                final SSLContext sslContext = SSLContext.getInstance("TLS");
+                sslContext.init(null, trustAllCerts, new SecureRandom());
+                return sslContext;
+            }
+            catch (final GeneralSecurityException e)
+            {
+                throw new IllegalStateException("Failed to configure trust-all trust manager", e);
+            }
+        }
     }
 
     public static class Arguments
@@ -617,29 +637,30 @@ public class RestStressTestClient
 
         public void validate()
         {
-            if (brokerUrl == null || brokerUrl.equals(""))
+            if (brokerUrl == null || brokerUrl.isEmpty())
             {
                 throw new IllegalArgumentException("Mandatory argument 'brokerUrl' is not specified");
             }
 
-            if (username == null || username.equals(""))
+            if (username == null || username.isEmpty())
             {
                 throw new IllegalArgumentException("Mandatory argument 'username' is not specified");
             }
 
-            if (password == null || password.equals(""))
+            if (password == null || password.isEmpty())
             {
                 throw new IllegalArgumentException("Mandatory argument 'password' is not specified");
             }
 
             if (createQueue)
             {
-                if (virtualHostNode == null || virtualHostNode.equals(""))
+                if (virtualHostNode == null || virtualHostNode.isEmpty())
                 {
-                    throw new IllegalArgumentException("Virtual host node name needs to be specified for queue creation");
+                    throw new IllegalArgumentException(
+                            "Virtual host node name needs to be specified for queue creation");
                 }
 
-                if (virtualHost == null || virtualHost.equals(""))
+                if (virtualHost == null || virtualHost.isEmpty())
                 {
                     throw new IllegalArgumentException("Virtual host name needs to be specified for queue creation");
                 }
@@ -696,7 +717,6 @@ public class RestStressTestClient
             return virtualHostNode;
         }
 
-
         public int getRepetitions()
         {
             return repetitions;
@@ -728,7 +748,7 @@ public class RestStressTestClient
             return "Arguments{" +
                     "brokerUrl='" + brokerUrl + '\'' +
                     ", username='" + username + '\'' +
-                    ", password='" + password + '\'' +
+                    ", password='<redacted>'" +
                     ", saslMechanism='" + saslMechanism + '\'' +
                     ", virtualHostNode='" + virtualHostNode + '\'' +
                     ", virtualHost='" + virtualHost + '\'' +
@@ -744,5 +764,4 @@ public class RestStressTestClient
                     '}';
         }
     }
-
 }
