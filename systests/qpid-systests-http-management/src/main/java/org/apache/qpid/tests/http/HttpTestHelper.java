@@ -70,9 +70,11 @@ public class HttpTestHelper
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     private static final String API_BASE = "/api/latest/";
+    private static final String REQUEST_TIMEOUT_PROPERTY = "qpid.resttest_request_timeout";
+    private static final int DEFAULT_REQUEST_TIMEOUT = 30_000;
 
     private final int _httpPort;
-    private final int _connectTimeout = Integer.getInteger("qpid.resttest_connection_timeout", 30000);
+    private final Duration _requestTimeout = getRequestTimeout();
 
     private String _username;
     private String _password;
@@ -134,8 +136,11 @@ public class HttpTestHelper
         LOGGER.debug("Creating request : {} {}", method, uri);
 
         final HttpRequest.Builder builder = HttpRequest.newBuilder(uri)
-                .timeout(Duration.ofMillis(_connectTimeout))
                 .method(method, HttpRequest.BodyPublishers.noBody());
+        if (!_requestTimeout.isZero())
+        {
+            builder.timeout(_requestTimeout);
+        }
         if (_username != null)
         {
             final String credentials = _username + ":" + _password;
@@ -192,12 +197,15 @@ public class HttpTestHelper
                     TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
             trustManagerFactory.init(_trustStore);
             sslContext.init(keyManagers, trustManagerFactory.getTrustManagers(), null);
-            return HttpClient.newBuilder()
-                    .connectTimeout(Duration.ofMillis(_connectTimeout))
+            final HttpClient.Builder httpClientBuilder = HttpClient.newBuilder()
                     .followRedirects(HttpClient.Redirect.NEVER)
                     .sslContext(sslContext)
-                    .version(HttpClient.Version.HTTP_1_1)
-                    .build();
+                    .version(HttpClient.Version.HTTP_1_1);
+            if (!_requestTimeout.isZero())
+            {
+                httpClientBuilder.connectTimeout(_requestTimeout);
+            }
+            return httpClientBuilder.build();
         }
         catch (final KeyStoreException
                 | UnrecoverableKeyException
@@ -206,6 +214,17 @@ public class HttpTestHelper
         {
             throw new IllegalStateException("Cannot create HTTP test client", e);
         }
+    }
+
+    private static Duration getRequestTimeout()
+    {
+        final int requestTimeout = Integer.getInteger(REQUEST_TIMEOUT_PROPERTY, DEFAULT_REQUEST_TIMEOUT);
+        if (requestTimeout < 0)
+        {
+            throw new IllegalArgumentException(
+                    "System property '" + REQUEST_TIMEOUT_PROPERTY + "' must not be negative: " + requestTimeout);
+        }
+        return Duration.ofMillis(requestTimeout);
     }
 
     public Map<String, Object> readJsonResponseAsMap(final HttpResponse<byte[]> response) throws IOException
