@@ -301,6 +301,7 @@ public class FileTrustStoreImpl extends AbstractTrustStore<FileTrustStoreImpl> i
         }
         _trustManagers = trustManagers;
         _certificates = certificates;
+        trustManagersChanged();
     }
 
     private TrustManager[] createTrustManagers(final KeyStore ts) throws KeyStoreException

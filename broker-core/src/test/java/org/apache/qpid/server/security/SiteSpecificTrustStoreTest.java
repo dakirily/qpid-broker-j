@@ -216,6 +216,7 @@ public class SiteSpecificTrustStoreTest extends UnitTestBase
 
         assertEquals(EXPECTED_SUBJECT, certificateDetails.getSubjectName(), "Unexpected certificate subject");
         assertEquals(EXPECTED_ISSUER, certificateDetails.getIssuerName(), "Unexpected certificate issuer");
+        final long trustManagersVersion = trustStore.getTrustManagersVersion();
 
         trustStore.refreshCertificate();
 
@@ -224,6 +225,7 @@ public class SiteSpecificTrustStoreTest extends UnitTestBase
 
         assertEquals(EXPECTED_SUBJECT, certificateDetails.getSubjectName(), "Unexpected certificate subject");
         assertEquals(EXPECTED_ISSUER, certificateDetails.getIssuerName(), "Unexpected certificate issuer");
+        assertTrue(trustStore.getTrustManagersVersion() > trustManagersVersion);
     }
 
     @SuppressWarnings({"rawtypes", "unchecked"})

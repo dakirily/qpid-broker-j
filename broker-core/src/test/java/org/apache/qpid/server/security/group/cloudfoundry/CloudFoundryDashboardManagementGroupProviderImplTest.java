@@ -44,6 +44,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
+import org.apache.qpid.server.configuration.IllegalConfigurationException;
 import org.apache.qpid.server.model.AuthenticationProvider;
 import org.apache.qpid.server.model.Broker;
 import org.apache.qpid.server.model.BrokerTestHelper;
@@ -107,6 +108,27 @@ public class CloudFoundryDashboardManagementGroupProviderImplTest extends UnitTe
 
         assertFalse(exception instanceof ExternalServiceTimeoutException);
         assertSame(cause, exception.getCause());
+    }
+
+    @Test
+    public void testMapsInvalidRuntimeUriToExternalServiceException()
+    {
+        final IllegalArgumentException cause = new IllegalArgumentException("invalid URI");
+        when(_transport.newRequestBuilder(any(URI.class))).thenThrow(cause);
+
+        final ExternalServiceException exception = assertThrows(
+                ExternalServiceException.class,
+                () -> _provider.getGroupPrincipalsForUser(_userPrincipal));
+
+        assertSame(cause, exception.getCause());
+    }
+
+    @Test
+    public void testRejectsEndpointWithoutHost()
+    {
+        assertThrows(IllegalConfigurationException.class,
+                     () -> _provider.setAttributes(
+                             Map.of("cloudFoundryEndpointURI", URI.create("https:/cloud-foundry"))));
     }
 
     @Test

@@ -385,12 +385,34 @@ public class FileTrustStoreTest extends UnitTestBase
         final FileTrustStore<?> trustStoreObject = createFileTrustStore(attributes);
         final X509Certificate certificate = getCertificate(trustStoreObject);
         assertEquals(DN_FOO, certificate.getIssuerX500Principal().getName());
+        final long trustManagersVersion = trustStoreObject.getTrustManagersVersion();
 
         Files.copy(keyStorePath2, keyStorePath, StandardCopyOption.REPLACE_EXISTING);
         trustStoreObject.reload();
 
         final X509Certificate certificate2 = getCertificate(trustStoreObject);
         assertEquals(DN_BAR, certificate2.getIssuerX500Principal().getName());
+        assertTrue(trustStoreObject.getTrustManagersVersion() > trustManagersVersion);
+    }
+
+    @Test
+    public void testTrustManagerVersionChangesWithValidationPolicy(final TlsResource tls) throws Exception
+    {
+        final Path keyStorePath = tls.createSelfSignedKeyStoreWithCertificate(DN_FOO);
+        final Map<String, Object> attributes = Map.of(FileTrustStore.NAME, getTestName(),
+                FileTrustStore.STORE_URL, keyStorePath.toFile().getAbsolutePath(),
+                FileTrustStore.PASSWORD, tls.getSecret());
+        final FileTrustStore<?> trustStore = createFileTrustStore(attributes);
+        final long trustManagersVersion = trustStore.getTrustManagersVersion();
+
+        trustStore.setAttributes(Map.of(FileTrustStore.TRUST_ANCHOR_VALIDITY_ENFORCED, true));
+
+        assertTrue(trustStore.getTrustManagersVersion() > trustManagersVersion);
+
+        final long updatedTrustManagersVersion = trustStore.getTrustManagersVersion();
+        trustStore.setAttributes(Map.of(FileTrustStore.CERTIFICATE_REVOCATION_CHECK_ENABLED, true));
+
+        assertTrue(trustStore.getTrustManagersVersion() > updatedTrustManagersVersion);
     }
 
     @SuppressWarnings("unchecked")

@@ -23,7 +23,6 @@ package org.apache.qpid.server.security.auth.manager.oauth2;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import java.net.URLEncoder;
-import java.security.GeneralSecurityException;
 import java.util.Base64;
 import java.util.Map;
 import java.util.Objects;
@@ -31,7 +30,6 @@ import java.util.StringJoiner;
 
 import org.apache.qpid.server.model.TrustStore;
 import org.apache.qpid.server.util.HttpClientTransport;
-import org.apache.qpid.server.util.ServerScopedRuntimeException;
 
 public final class OAuth2Utils
 {
@@ -70,14 +68,7 @@ public final class OAuth2Utils
         final TrustStore<?> trustStore = authenticationProvider.getTrustStore();
         if (trustStore != null)
         {
-            try
-            {
-                builder.setTrustManagers(trustStore.getTrustManagers());
-            }
-            catch (GeneralSecurityException e)
-            {
-                throw new ServerScopedRuntimeException("Cannot initialise TLS", e);
-            }
+            builder.setTrustManagerSource(trustStore::getTrustManagers, trustStore::getTrustManagersVersion);
         }
         return builder.build();
     }

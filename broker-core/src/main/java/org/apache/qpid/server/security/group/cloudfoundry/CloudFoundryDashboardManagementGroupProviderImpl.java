@@ -31,7 +31,6 @@ import java.net.SocketTimeoutException;
 import java.net.URI;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.security.GeneralSecurityException;
 import java.security.Principal;
 import java.util.Collections;
 import java.util.HashSet;
@@ -61,7 +60,6 @@ import org.apache.qpid.server.security.group.GroupPrincipal;
 import org.apache.qpid.server.util.ExternalServiceException;
 import org.apache.qpid.server.util.ExternalServiceTimeoutException;
 import org.apache.qpid.server.util.HttpClientTransport;
-import org.apache.qpid.server.util.ServerScopedRuntimeException;
 
 /*
  * This GroupProvider checks a CloudFoundry service dashboard to see whether a certain user (represented by an
@@ -148,11 +146,19 @@ public class CloudFoundryDashboardManagementGroupProviderImpl
 
     private void validateSecureEndpoint(final CloudFoundryDashboardManagementGroupProvider<?> provider)
     {
-        if (!"https".equals(provider.getCloudFoundryEndpointURI().getScheme()))
+        final URI endpoint = provider.getCloudFoundryEndpointURI();
+        try
+        {
+            HttpClientTransport.validateEndpointUri(endpoint);
+            if (endpoint.getRawQuery() != null)
+            {
+                throw new IllegalArgumentException("Cloud Foundry endpoint must not include a query");
+            }
+        }
+        catch (IllegalArgumentException e)
         {
             throw new IllegalConfigurationException(
-                    String.format("CloudFoundryDashboardManagementEndpoint is not secure: '%s'",
-                                  provider.getCloudFoundryEndpointURI()));
+                    String.format("CloudFoundryDashboardManagementEndpoint is invalid: '%s'", endpoint), e);
         }
     }
 
@@ -214,9 +220,9 @@ public class CloudFoundryDashboardManagementGroupProviderImpl
         final String cloudFoundryEndpoint = String.format("%s/v2/service_instances/%s/permissions",
                                                           getCloudFoundryEndpointURI(),
                                                           serviceInstanceId);
-        final URI cloudFoundryEndpointUri = URI.create(cloudFoundryEndpoint);
         try
         {
+            final URI cloudFoundryEndpointUri = URI.create(cloudFoundryEndpoint);
             LOGGER.debug("About to call CloudFoundryDashboardManagementEndpoint '{}'", cloudFoundryEndpoint);
             final HttpRequest request = _httpClientTransport.newRequestBuilder(cloudFoundryEndpointUri)
                     .header("Accept", "application/json")
@@ -252,6 +258,12 @@ public class CloudFoundryDashboardManagementGroupProviderImpl
                                   cloudFoundryEndpoint),
                     e);
         }
+        catch (IllegalArgumentException e)
+        {
+            throw new ExternalServiceException(
+                    String.format("CloudFoundryDashboardManagementEndpoint '%s' is invalid.", cloudFoundryEndpoint),
+                    e);
+        }
         catch (SocketTimeoutException e)
         {
             throw new ExternalServiceTimeoutException(
@@ -279,14 +291,7 @@ public class CloudFoundryDashboardManagementGroupProviderImpl
                 .setTlsCipherSuiteDenyList(_tlsCipherSuiteDenyList);
         if (_trustStore != null)
         {
-            try
-            {
-                builder.setTrustManagers(_trustStore.getTrustManagers());
-            }
-            catch (GeneralSecurityException e)
-            {
-                throw new ServerScopedRuntimeException("Cannot initialise TLS", e);
-            }
+            builder.setTrustManagerSource(_trustStore::getTrustManagers, _trustStore::getTrustManagersVersion);
         }
         return builder.build();
     }

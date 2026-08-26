@@ -22,6 +22,7 @@ package org.apache.qpid.server.model;
 
 import java.security.GeneralSecurityException;
 import java.security.cert.Certificate;
+import java.util.Date;
 import java.util.List;
 
 import javax.net.ssl.TrustManager;
@@ -106,6 +107,16 @@ public interface TrustStore<X extends TrustStore<X>> extends ConfiguredObject<X>
     int getCertificateExpiryCheckFrequency();
 
     TrustManager[] getTrustManagers() throws GeneralSecurityException;
+
+    /**
+     * Returns a value that changes whenever the TrustManager configuration changes.
+     * Implementations that can refresh trust material without changing a managed attribute must override this method.
+     */
+    default long getTrustManagersVersion()
+    {
+        final Date lastUpdatedTime = getLastUpdatedTime();
+        return lastUpdatedTime == null ? 0L : lastUpdatedTime.getTime();
+    }
 
     Certificate[] getCertificates() throws GeneralSecurityException;
 

@@ -147,6 +147,7 @@ public class NonJavaTrustStoreImpl
 
                 _trustManagers = getTrustManagers(inMemoryKeyStore);
                 _certificates = certs;
+                trustManagersChanged();
             }
 
         }

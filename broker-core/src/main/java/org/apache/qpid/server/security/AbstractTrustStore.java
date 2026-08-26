@@ -57,6 +57,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -89,8 +90,17 @@ public abstract class AbstractTrustStore<X extends AbstractTrustStore<X>>
 
     protected static final long ONE_DAY = 24L * 60L * 60L * 1000L;
 
+    private static final Set<String> TRUST_MANAGER_CONFIGURATION_ATTRIBUTES =
+            Set.of(TRUST_ANCHOR_VALIDITY_ENFORCED, CERTIFICATE_REVOCATION_CHECK_ENABLED,
+                   CERTIFICATE_REVOCATION_CHECK_WITH_IGNORING_SOFT_FAILURES,
+                   CERTIFICATE_REVOCATION_CHECK_WITH_PREFERRING_CERTIFICATE_REVOCATION_LIST,
+                   CERTIFICATE_REVOCATION_CHECK_WITH_NO_FALLBACK,
+                   CERTIFICATE_REVOCATION_CHECK_OF_ONLY_END_ENTITY_CERTIFICATES,
+                   CERTIFICATE_REVOCATION_LIST_URL);
+
     private final Broker<?> _broker;
     private final EventLogger _eventLogger;
+    private final AtomicLong _trustManagersVersion = new AtomicLong();
 
     @ManagedAttributeField
     private boolean _exposedAsMessageSource;
@@ -134,13 +144,24 @@ public abstract class AbstractTrustStore<X extends AbstractTrustStore<X>>
         return _eventLogger;
     }
 
+    @Override
+    public final long getTrustManagersVersion()
+    {
+        return _trustManagersVersion.get();
+    }
+
+    protected final void trustManagersChanged()
+    {
+        _trustManagersVersion.incrementAndGet();
+    }
+
     protected abstract void initialize();
 
     @Override
     protected void changeAttributes(final Map<String, Object> attributes)
     {
         super.changeAttributes(attributes);
-        if (attributes.containsKey(CERTIFICATE_REVOCATION_LIST_URL))
+        if (!Collections.disjoint(attributes.keySet(), TRUST_MANAGER_CONFIGURATION_ATTRIBUTES))
         {
             initialize();
         }

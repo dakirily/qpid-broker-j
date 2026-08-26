@@ -142,6 +142,7 @@ public class ManagedPeerCertificateTrustStoreImpl
             {
                 _trustManagers = trustManagersCol.toArray(new TrustManager[trustManagersCol.size()]);
             }
+            trustManagersChanged();
         }
         catch (IOException | GeneralSecurityException e)
         {

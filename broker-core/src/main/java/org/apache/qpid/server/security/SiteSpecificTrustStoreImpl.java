@@ -179,6 +179,7 @@ public class SiteSpecificTrustStoreImpl
                 if (error != null)
                 {
                     _trustManagers = new TrustManager[0];
+                    trustManagersChanged();
                     setState(State.ERRORED);
                     result.completeExceptionally(error);
                 }
@@ -204,7 +205,7 @@ public class SiteSpecificTrustStoreImpl
         State state = State.ERRORED;
         try
         {
-            generateTrustManagers();
+            initialize();
             state = State.ACTIVE;
             result.complete(null);
         }
@@ -290,15 +291,21 @@ public class SiteSpecificTrustStoreImpl
 
     private void generateTrustManagers()
     {
+        _trustManagers = createTrustManagers(_x509Certificate);
+        trustManagersChanged();
+    }
+
+    private TrustManager[] createTrustManagers(final X509Certificate certificate)
+    {
         try
         {
-            java.security.KeyStore inMemoryKeyStore = java.security.KeyStore.getInstance(java.security.KeyStore.getDefaultType());
+            final java.security.KeyStore inMemoryKeyStore =
+                    java.security.KeyStore.getInstance(java.security.KeyStore.getDefaultType());
 
             inMemoryKeyStore.load(null, null);
-            inMemoryKeyStore.setCertificateEntry("1", _x509Certificate);
+            inMemoryKeyStore.setCertificateEntry("1", certificate);
 
-            _trustManagers = getTrustManagers(inMemoryKeyStore);;
-
+            return getTrustManagers(inMemoryKeyStore);
         }
         catch (IOException | GeneralSecurityException e)
         {
@@ -314,7 +321,10 @@ public class SiteSpecificTrustStoreImpl
         final CompletableFuture<X509Certificate> certFuture = downloadCertificate(getSiteUrl());
         final CompletableFuture<Void> modelFuture = certFuture.thenApply(cert ->
         {
+            final TrustManager[] trustManagers = createTrustManagers(cert);
             _x509Certificate = cert;
+            _trustManagers = trustManagers;
+            trustManagersChanged();
             attributeSet(CERTIFICATE, currentCertificate, _x509Certificate);
             return null;
         });

@@ -22,6 +22,7 @@ package org.apache.qpid.server.util;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -40,10 +41,25 @@ import java.net.http.HttpTimeoutException;
 import java.nio.ByteBuffer;
 import java.time.Duration;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.Flow;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
+
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509TrustManager;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import org.apache.qpid.server.configuration.IllegalConfigurationException;
 import org.apache.qpid.test.utils.UnitTestBase;
@@ -84,6 +100,102 @@ public class HttpClientTransportTest extends UnitTestBase
 
         assertThrows(IllegalArgumentException.class,
                      () -> transport.newRequestBuilder(URI.create("https://user@example.org/resource")));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = { "https:/resource", "https://example.org/resource#fragment",
+            "https://example.org:0/resource", "https://example.org:65536/resource" })
+    public void testRejectsInvalidUri(final String uri)
+    {
+        final HttpClientTransport transport = HttpClientTransport.newBuilder().build();
+
+        assertThrows(IllegalArgumentException.class, () -> transport.newRequestBuilder(URI.create(uri)));
+    }
+
+    @Test
+    public void testRefreshesHttpClientWhenTrustManagersVersionChanges()
+    {
+        final AtomicLong version = new AtomicLong();
+        final AtomicReference<TrustManager[]> trustManagers =
+                new AtomicReference<>(new TrustManager[] { mock(X509TrustManager.class) });
+        final HttpClientTransport transport = HttpClientTransport.newBuilder()
+                .setTrustManagerSource(trustManagers::get, version::get)
+                .build();
+        final HttpClient initialClient = transport.getHttpClient();
+
+        assertSame(initialClient, transport.getHttpClient());
+
+        trustManagers.set(new TrustManager[] { mock(X509TrustManager.class) });
+        version.incrementAndGet();
+
+        final HttpClient refreshedClient = transport.getHttpClient();
+        assertNotSame(initialClient, refreshedClient);
+        assertNotSame(initialClient.sslContext(), refreshedClient.sslContext());
+        assertSame(refreshedClient, transport.getHttpClient());
+    }
+
+    @Test
+    public void testTrustManagerRefreshIsSharedByConcurrentRequests() throws Exception
+    {
+        final AtomicLong version = new AtomicLong();
+        final AtomicLong supplierCalls = new AtomicLong();
+        final CountDownLatch refreshStarted = new CountDownLatch(1);
+        final CountDownLatch concurrentRequestsStarted = new CountDownLatch(2);
+        final CountDownLatch continueRefresh = new CountDownLatch(1);
+        final AtomicBoolean refreshPending = new AtomicBoolean();
+        final Set<Thread> refreshThreads = ConcurrentHashMap.newKeySet();
+        final TrustManager[] trustManagers = { mock(X509TrustManager.class) };
+        final HttpClientTransport transport = HttpClientTransport.newBuilder()
+                .setTrustManagerSource(() ->
+                {
+                    if (supplierCalls.incrementAndGet() == 2L)
+                    {
+                        refreshStarted.countDown();
+                        try
+                        {
+                            if (!continueRefresh.await(5L, TimeUnit.SECONDS))
+                            {
+                                throw new AssertionError("Timed out waiting to continue the HTTP client refresh");
+                            }
+                        }
+                        catch (InterruptedException e)
+                        {
+                            Thread.currentThread().interrupt();
+                            throw new AssertionError(
+                                    "Interrupted while waiting to continue the HTTP client refresh", e);
+                        }
+                    }
+                    return trustManagers;
+                }, () ->
+                {
+                    if (refreshPending.get() && refreshThreads.add(Thread.currentThread()))
+                    {
+                        concurrentRequestsStarted.countDown();
+                    }
+                    return version.get();
+                })
+                .build();
+        version.incrementAndGet();
+        refreshPending.set(true);
+
+        final ExecutorService executor = Executors.newFixedThreadPool(2);
+        try
+        {
+            final Future<HttpClient> firstClient = executor.submit(transport::getHttpClient);
+            assertTrue(refreshStarted.await(5L, TimeUnit.SECONDS));
+            final Future<HttpClient> secondClient = executor.submit(transport::getHttpClient);
+            assertTrue(concurrentRequestsStarted.await(5L, TimeUnit.SECONDS));
+
+            continueRefresh.countDown();
+
+            assertSame(firstClient.get(5L, TimeUnit.SECONDS), secondClient.get(5L, TimeUnit.SECONDS));
+            assertEquals(2L, supplierCalls.get());
+        }
+        finally
+        {
+            continueRefresh.countDown();
+            executor.shutdownNow();
+        }
     }
 
     @Test

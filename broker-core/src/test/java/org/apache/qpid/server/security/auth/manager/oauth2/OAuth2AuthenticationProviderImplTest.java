@@ -22,10 +22,12 @@ package org.apache.qpid.server.security.auth.manager.oauth2;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.security.cert.X509Certificate;
@@ -41,6 +43,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
+import org.apache.qpid.server.configuration.IllegalConfigurationException;
 import org.apache.qpid.server.model.Broker;
 import org.apache.qpid.server.model.BrokerTestHelper;
 import org.apache.qpid.server.model.ConfiguredObject;
@@ -293,5 +296,12 @@ public class OAuth2AuthenticationProviderImplTest extends UnitTestBase
         {
             return new X509Certificate[0];
         }
+    }
+
+    @Test
+    public void testRejectsTokenEndpointWithoutHost()
+    {
+        assertThrows(IllegalConfigurationException.class,
+                     () -> _authProvider.setAttributes(Map.of("tokenEndpointURI", URI.create("https:/token"))));
     }
 }

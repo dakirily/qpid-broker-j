@@ -207,22 +207,21 @@ public class OAuth2AuthenticationProviderImpl
 
     private void validateSecureEndpoints(final OAuth2AuthenticationProvider<?> provider)
     {
-        if (!"https".equals(provider.getAuthorizationEndpointURI().getScheme()))
+        validateSecureEndpoint("Authorization", provider.getAuthorizationEndpointURI());
+        validateSecureEndpoint("Token", provider.getTokenEndpointURI());
+        validateSecureEndpoint("Identity resolver", provider.getIdentityResolverEndpointURI());
+    }
+
+    private void validateSecureEndpoint(final String endpointName, final URI endpoint)
+    {
+        try
         {
-            throw new IllegalConfigurationException(
-                    String.format("Authorization endpoint is not secure: '%s'",
-                                  provider.getAuthorizationEndpointURI()));
+            HttpClientTransport.validateEndpointUri(endpoint);
         }
-        if (!"https".equals(provider.getTokenEndpointURI().getScheme()))
+        catch (IllegalArgumentException e)
         {
             throw new IllegalConfigurationException(
-                    String.format("Token endpoint is not secure: '%s'", provider.getTokenEndpointURI()));
-        }
-        if (!"https".equals(provider.getIdentityResolverEndpointURI().getScheme()))
-        {
-            throw new IllegalConfigurationException(
-                    String.format("Identity resolver endpoint is not secure: '%s'",
-                                  provider.getIdentityResolverEndpointURI()));
+                    String.format("%s endpoint is invalid: '%s'", endpointName, endpoint), e);
         }
     }
 
@@ -352,7 +351,7 @@ public class OAuth2AuthenticationProviderImpl
                 return new AuthenticationResult(AuthenticationResult.AuthenticationStatus.ERROR, ise);
             }
         }
-        catch (IOException e)
+        catch (IOException | IllegalArgumentException e)
         {
             LOGGER.error("Call to token endpoint failed", e);
             return new AuthenticationResult(AuthenticationResult.AuthenticationStatus.ERROR, e);
@@ -383,7 +382,7 @@ public class OAuth2AuthenticationProviderImpl
                                                 OAuth2AuthenticationProviderImpl.this);
                 return new AuthenticationResult(oauthUserPrincipal);
             }
-            catch (IOException | IdentityResolverException e)
+            catch (IOException | IdentityResolverException | IllegalArgumentException e)
             {
                 LOGGER.error("Call to identity resolver failed", e);
                 return new AuthenticationResult(AuthenticationResult.AuthenticationStatus.ERROR, e);
