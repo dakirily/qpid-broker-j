@@ -217,6 +217,7 @@
     <module>bdbstore</module>
     <module>bdbstore/systests</module>
 
+    <!-- Deprecated and scheduled for removal in Broker-J 11.0.0. -->
     <module>joramtests</module>
     <module>tck</module>
 

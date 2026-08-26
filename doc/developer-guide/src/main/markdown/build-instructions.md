@@ -221,6 +221,11 @@ Execute the tests and produce code coverage report:
 
 ### Joram JMS Testsuite
 
+> **Deprecated:** The `joramtests` module is retained temporarily for existing explicit invocations and is scheduled
+> for removal in Broker-J 11.0.0. Use `systests/qpid-systests-jms_1.1` and
+> `systests/qpid-systests-jms_2.0` for JMS behavior, and the applicable `systests/protocol-tests-amqp-*` module for
+> AMQP protocol behavior. New test coverage must not be added to `joramtests`.
+
 The Joram JMS Testsuite is integrated into the Maven build but is disabled by default.
 It allows the Joram JMS test suite to be executed using the specified Qpid JMS client against Qpid Broker-J.
 The Broker must be running already.
@@ -237,7 +242,7 @@ To use the test suite, first configure the Qpid Broker-J to permit HTTP basic-au
 
 where `<jms client identifier>` is one of: `qpid-jms-client`, `qpid-amqp-1-0-client-jms`, `jms-client-0-9`, `jms-client-0-10`.
 
-The Maven failsafe plugin will run the tests. Unit output is produced into `joram-tests/target/failsafe-reports`
+The Maven failsafe plugin will run the tests. Unit output is produced into `joramtests/target/failsafe-reports`
  and the log from the client is written to `joramtests/target/joramtest.log`.
 
 To run a particular test use the failsafe plugin property `-Dit.test`:

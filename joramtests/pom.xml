@@ -29,8 +29,8 @@
     <modelVersion>4.0.0</modelVersion>
 
     <artifactId>joramtests</artifactId>
-    <name>Apache Qpid Joram JMS Tests</name>
-    <description>Integration test suite utilising the Joram JMS test suite.</description>
+    <name>Apache Qpid Joram JMS Tests (Deprecated)</name>
+    <description>Deprecated integration test suite utilising the legacy Joram JMS test suite; scheduled for removal in Broker-J 11.0.0.</description>
 
     <properties>
         <joram-jms-tests-version>1.0</joram-jms-tests-version>
@@ -125,24 +125,6 @@
                 </configuration>
             </plugin>
             <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-antrun-plugin</artifactId>
-                <executions>
-                    <execution>
-                        <id>output-test-properties</id>
-                        <phase>validate</phase>
-                        <goals>
-                            <goal>run</goal>
-                        </goals>
-                        <configuration>
-                            <target>
-                                <echo>Joram Integration Tests: To run define system property -Djoramtests to a name of a JMS client e.g. qpid-jms-client</echo>
-                            </target>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
-            <plugin>
                 <artifactId>maven-resources-plugin</artifactId>
                 <configuration>
                     <delimiters>
@@ -189,6 +171,24 @@
             <build>
                 <plugins>
 
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-antrun-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>warn-joramtests-deprecated</id>
+                                <phase>validate</phase>
+                                <goals>
+                                    <goal>run</goal>
+                                </goals>
+                                <configuration>
+                                    <target>
+                                        <echo level='warning'>DEPRECATED: The joramtests module is scheduled for removal in Apache Qpid Broker-J 11.0.0. Use the maintained JMS and AMQP protocol system-test modules for new and existing coverage.</echo>
+                                    </target>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-failsafe-plugin</artifactId>
