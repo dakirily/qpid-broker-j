@@ -89,6 +89,7 @@ public class EmbeddedBrokerPerClassAdminImpl implements BrokerAdmin
 {
     private static final Logger LOGGER = LoggerFactory.getLogger(EmbeddedBrokerPerClassAdminImpl.class);
     private static final String HTTP_MANAGEMENT_TEST_CONFIG = "config-http-management-tests.json";
+    private static final String INITIAL_CONFIGURATION_LOCATION = "qpid.initialConfigurationLocation";
     public static final String TYPE = "EMBEDDED_BROKER_PER_CLASS";
     private final Map<String, Integer> _ports = new HashMap<>();
     private String _tempAuthProvider;
@@ -516,7 +517,9 @@ public class EmbeddedBrokerPerClassAdminImpl implements BrokerAdmin
 
     private void configureHttpManagementTls(final Map<String, String> context) throws Exception
     {
-        final String initialConfiguration = System.getProperty("qpid.initialConfigurationLocation", "");
+        final String jvmInitialConfiguration = System.getProperty(INITIAL_CONFIGURATION_LOCATION, "");
+        final String initialConfiguration =
+                context.getOrDefault(INITIAL_CONFIGURATION_LOCATION, jvmInitialConfiguration);
         if (!initialConfiguration.endsWith(HTTP_MANAGEMENT_TEST_CONFIG))
         {
             return;

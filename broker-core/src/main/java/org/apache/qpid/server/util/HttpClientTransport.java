@@ -70,8 +70,17 @@ public final class HttpClientTransport
     private HttpClientTransport(final ClientConfiguration clientConfiguration, final Duration requestTimeout)
     {
         _clientConfiguration = Objects.requireNonNull(clientConfiguration, "clientConfiguration");
-        _httpClientState = clientConfiguration.createHttpClientState();
         _requestTimeout = requestTimeout;
+        if (clientConfiguration.hasDynamicTrustManagerSource())
+        {
+            // Managed trust stores are resolved before they attain their desired state during broker recovery.
+            // Validate independent TLS settings now and resolve trust managers on first use.
+            clientConfiguration.validateTlsConfiguration();
+        }
+        else
+        {
+            _httpClientState = clientConfiguration.createHttpClientState();
+        }
     }
 
     public static Builder newBuilder()
@@ -123,12 +132,14 @@ public final class HttpClientTransport
         }
 
         HttpClientState state = _httpClientState;
-        if (state.getTrustManagersVersion() != clientConfiguration.getTrustManagersVersion())
+        if (state == null ||
+                state.getTrustManagersVersion() != clientConfiguration.getTrustManagersVersion())
         {
             synchronized (_httpClientRefreshLock)
             {
                 state = _httpClientState;
-                if (state.getTrustManagersVersion() != clientConfiguration.getTrustManagersVersion())
+                if (state == null ||
+                        state.getTrustManagersVersion() != clientConfiguration.getTrustManagersVersion())
                 {
                     state = clientConfiguration.createHttpClientState();
                     _httpClientState = state;
@@ -287,6 +298,25 @@ public final class HttpClientTransport
             return _trustManagersVersionSupplier == null
                     ? STATIC_TRUST_MANAGERS_VERSION
                     : _trustManagersVersionSupplier.getAsLong();
+        }
+
+        private boolean hasDynamicTrustManagerSource()
+        {
+            return _trustManagerSupplier != null;
+        }
+
+        private void validateTlsConfiguration()
+        {
+            try
+            {
+                final SSLContext sslContext = SSLUtil.tryGetSSLContext();
+                sslContext.init(null, new TrustManager[0], null);
+                createSslParameters(sslContext);
+            }
+            catch (GeneralSecurityException e)
+            {
+                throw new ServerScopedRuntimeException("Cannot initialise TLS", e);
+            }
         }
 
         private HttpClientState createHttpClientState()

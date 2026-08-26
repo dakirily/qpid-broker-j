@@ -26,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -49,6 +50,7 @@ import org.apache.qpid.server.model.AuthenticationProvider;
 import org.apache.qpid.server.model.Broker;
 import org.apache.qpid.server.model.BrokerTestHelper;
 import org.apache.qpid.server.model.ConfiguredObject;
+import org.apache.qpid.server.model.TrustStore;
 import org.apache.qpid.server.security.auth.manager.oauth2.OAuth2UserPrincipal;
 import org.apache.qpid.server.util.ExternalServiceException;
 import org.apache.qpid.server.util.ExternalServiceTimeoutException;
@@ -71,8 +73,11 @@ public class CloudFoundryDashboardManagementGroupProviderImplTest extends UnitTe
         attributes.put(ConfiguredObject.NAME, "cloudFoundryGroups");
         attributes.put("cloudFoundryEndpointURI", URI.create("https://cloudfoundry.example.org"));
         attributes.put("serviceToManagementGroupMapping", Map.of("service-id", "managers"));
+        final TrustStore<?> trustStore = mock(TrustStore.class);
+        attributes.put("trustStore", trustStore);
         _provider = new CloudFoundryDashboardManagementGroupProviderImpl(attributes, broker);
         _provider.open();
+        verify(trustStore, never()).getTrustManagers();
 
         _transport = mock(HttpClientTransport.class);
         when(_transport.newRequestBuilder(any(URI.class)))

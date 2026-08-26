@@ -135,6 +135,33 @@ public class HttpClientTransportTest extends UnitTestBase
     }
 
     @Test
+    public void testDefersDynamicTrustManagerResolutionUntilClientIsRequested()
+    {
+        final AtomicBoolean trustStoreActive = new AtomicBoolean();
+        final AtomicLong supplierCalls = new AtomicLong();
+        final TrustManager[] trustManagers = { mock(X509TrustManager.class) };
+
+        final HttpClientTransport transport = HttpClientTransport.newBuilder()
+                .setTrustManagerSource(() ->
+                {
+                    supplierCalls.incrementAndGet();
+                    if (!trustStoreActive.get())
+                    {
+                        throw new IllegalStateException("Trust store is not active");
+                    }
+                    return trustManagers;
+                }, () -> 0L)
+                .build();
+
+        assertEquals(0L, supplierCalls.get());
+        trustStoreActive.set(true);
+
+        transport.getHttpClient();
+
+        assertEquals(1L, supplierCalls.get());
+    }
+
+    @Test
     public void testTrustManagerRefreshIsSharedByConcurrentRequests() throws Exception
     {
         final AtomicLong version = new AtomicLong();
@@ -175,6 +202,7 @@ public class HttpClientTransportTest extends UnitTestBase
                     return version.get();
                 })
                 .build();
+        transport.getHttpClient();
         version.incrementAndGet();
         refreshPending.set(true);
 
@@ -205,6 +233,23 @@ public class HttpClientTransportTest extends UnitTestBase
                      () -> HttpClientTransport.newBuilder()
                              .setTlsProtocolDenyList(List.of(".*"))
                              .build());
+    }
+
+    @Test
+    public void testValidatesTlsConfigurationWithoutResolvingDynamicTrustManagers()
+    {
+        final AtomicBoolean supplierCalled = new AtomicBoolean();
+
+        assertThrows(IllegalConfigurationException.class,
+                     () -> HttpClientTransport.newBuilder()
+                             .setTrustManagerSource(() ->
+                             {
+                                 supplierCalled.set(true);
+                                 return new TrustManager[] { mock(X509TrustManager.class) };
+                             }, () -> 0L)
+                             .setTlsProtocolDenyList(List.of(".*"))
+                             .build());
+        assertFalse(supplierCalled.get());
     }
 
     @Test

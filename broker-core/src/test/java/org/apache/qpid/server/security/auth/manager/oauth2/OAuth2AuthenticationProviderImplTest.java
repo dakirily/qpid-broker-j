@@ -25,6 +25,8 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.net.URI;
@@ -132,6 +134,7 @@ public class OAuth2AuthenticationProviderImplTest extends UnitTestBase
         _authProvider = new OAuth2AuthenticationProviderImpl(authProviderAttributes, broker);
         _authProvider.open();
         assertEquals(State.ACTIVE, _authProvider.getState(), "Could not successfully open authProvider");
+        verify(trustStore, never()).getTrustManagers();
     }
 
     @AfterAll

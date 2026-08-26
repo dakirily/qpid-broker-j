@@ -56,6 +56,7 @@ import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 
 import org.apache.qpid.server.transport.network.security.ssl.SSLUtil;
+import org.apache.qpid.server.util.urlstreamhandler.data.Handler;
 import org.apache.qpid.tests.utils.BrokerAdmin;
 
 public class HttpTestHelper
@@ -343,6 +344,11 @@ public class HttpTestHelper
         if (store == null)
         {
             return null;
+        }
+        if (store.startsWith("data:"))
+        {
+            final URL url = new URL(null, store, new Handler());
+            return SSLUtil.getInitializedKeyStore(url, password, KeyStore.getDefaultType());
         }
         try
         {
