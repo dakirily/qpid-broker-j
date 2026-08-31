@@ -339,10 +339,9 @@
                 <broker.clean.between.tests>${profile.broker.clean.between.tests}</broker.clean.between.tests>
                 <qpid.globalAddressDomains>[]</qpid.globalAddressDomains>
                 <test.output.dir>${test.output.dir}</test.output.dir>
-                <broker.clean.between.tests>true</broker.clean.between.tests>
                 <qpid.test_receive_timeout>${profile.test_receive_timeout}</qpid.test_receive_timeout>
                 <qpid.tests.mms.messagestore.persistence>${profile.qpid.tests.mms.messagestore.persistence}</qpid.tests.mms.messagestore.persistence>
-                <java.io.tmpdir>${java.io.tmpdir}</java.io.tmpdir>
+                <qpid.tests.work_dir>${java.io.tmpdir}</qpid.tests.work_dir>
               </systemPropertyVariables>
             </configuration>
             <executions>

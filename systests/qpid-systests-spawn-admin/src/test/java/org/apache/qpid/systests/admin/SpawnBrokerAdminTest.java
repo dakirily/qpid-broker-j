@@ -30,13 +30,16 @@ import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.notNullValue;
 import static org.hamcrest.MatcherAssert.assertThat;
-
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.io.File;
 import java.net.InetSocketAddress;
 import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.stream.Stream;
 
 import javax.jms.Connection;
 import javax.jms.DeliveryMode;
@@ -50,10 +53,14 @@ import javax.jms.TextMessage;
 
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.api.parallel.ResourceLock;
+import org.junit.jupiter.api.parallel.Resources;
 
 import org.apache.qpid.systests.AmqpManagementFacade;
 import org.apache.qpid.test.utils.UnitTestBase;
 import org.apache.qpid.tests.utils.BrokerAdmin;
+import org.apache.qpid.tests.utils.TestWorkDirectory;
 
 public class SpawnBrokerAdminTest extends UnitTestBase
 {
@@ -66,6 +73,41 @@ public class SpawnBrokerAdminTest extends UnitTestBase
         final String appendedClasspath = System.getProperty("path.separator")
                                          + System.getProperty("java.class.path");
         Files.write(new File(file).toPath(), appendedClasspath.getBytes(UTF_8), APPEND);
+    }
+
+    @Test
+    @ResourceLock(Resources.SYSTEM_PROPERTIES)
+    public void failedStartupRemovesWorkDirectory(@TempDir final Path workDirectoryRoot) throws Exception
+    {
+        final String originalClasspathFile = System.getProperty(SYSTEST_PROPERTY_BUILD_CLASSPATH_FILE);
+        final String originalWorkDirectoryRoot =
+                System.getProperty(TestWorkDirectory.WORK_DIRECTORY_ROOT_PROPERTY);
+        final String originalCleanBetweenTests = System.getProperty("broker.clean.between.tests");
+        try
+        {
+            System.setProperty(TestWorkDirectory.WORK_DIRECTORY_ROOT_PROPERTY, workDirectoryRoot.toString());
+            System.setProperty(SYSTEST_PROPERTY_BUILD_CLASSPATH_FILE,
+                               workDirectoryRoot.resolve("missing-classpath").toString());
+            System.setProperty("broker.clean.between.tests", "false");
+
+            try (SpawnBrokerAdmin admin = new SpawnBrokerAdmin())
+            {
+                assertThrows(BrokerAdminException.class,
+                             () -> admin.beforeTestClass(SpawnBrokerAdminTest.class));
+            }
+
+            try (Stream<Path> children = Files.list(workDirectoryRoot))
+            {
+                assertFalse(children.findAny().isPresent(),
+                            "Failed broker startup left files in its work-directory root");
+            }
+        }
+        finally
+        {
+            restoreProperty(SYSTEST_PROPERTY_BUILD_CLASSPATH_FILE, originalClasspathFile);
+            restoreProperty(TestWorkDirectory.WORK_DIRECTORY_ROOT_PROPERTY, originalWorkDirectoryRoot);
+            restoreProperty("broker.clean.between.tests", originalCleanBetweenTests);
+        }
     }
 
     @Test
@@ -337,6 +379,18 @@ public class SpawnBrokerAdminTest extends UnitTestBase
             admin.restart();
 
             assertThat(admin.getQueueDepthMessages(getTestName()), is(equalTo(0)));
+        }
+    }
+
+    private static void restoreProperty(final String name, final String value)
+    {
+        if (value == null)
+        {
+            System.clearProperty(name);
+        }
+        else
+        {
+            System.setProperty(name, value);
         }
     }
 }

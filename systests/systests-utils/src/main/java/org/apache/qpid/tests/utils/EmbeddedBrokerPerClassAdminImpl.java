@@ -23,7 +23,6 @@ package org.apache.qpid.tests.utils;
 import java.io.File;
 import java.lang.reflect.Method;
 import java.net.InetSocketAddress;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.Principal;
 import java.security.cert.X509Certificate;
@@ -72,7 +71,6 @@ import org.apache.qpid.server.security.SubjectExecutionContext;
 import org.apache.qpid.server.security.auth.TaskPrincipal;
 import org.apache.qpid.server.security.auth.manager.oauth2.cloudfoundry.CloudFoundryOAuth2IdentityResolverService;
 import org.apache.qpid.server.store.MemoryConfigurationStore;
-import org.apache.qpid.server.util.FileUtils;
 import org.apache.qpid.server.virtualhost.QueueManagingVirtualHost;
 import org.apache.qpid.server.virtualhostnode.JsonVirtualHostNode;
 import org.apache.qpid.test.utils.tls.TlsResource;
@@ -89,7 +87,7 @@ public class EmbeddedBrokerPerClassAdminImpl implements BrokerAdmin
     private SystemLauncher _systemLauncher;
     private Broker<?> _broker;
     private VirtualHostNode<?> _currentVirtualHostNode;
-    private String _currentWorkDirectory;
+    private Path _currentWorkDirectory;
     private boolean _isPersistentStore;
     private Map<String, String> _preservedProperties;
 
@@ -99,8 +97,10 @@ public class EmbeddedBrokerPerClassAdminImpl implements BrokerAdmin
         _preservedProperties = new HashMap<>();
         try
         {
-            String timestamp = new SimpleDateFormat("yyyyMMddHHmmss").format(new Date(System.currentTimeMillis()));
-            _currentWorkDirectory = Files.createTempDirectory(String.format("qpid-work-%s-%s-", timestamp, testClass.getSimpleName())).toString();
+            final String timestamp =
+                    new SimpleDateFormat("yyyyMMddHHmmss").format(new Date(System.currentTimeMillis()));
+            _currentWorkDirectory = TestWorkDirectory.create(
+                    String.format("qpid-work-%s-%s-", timestamp, testClass.getSimpleName()));
 
             ConfigItem[] configItems = (ConfigItem[]) testClass.getAnnotationsByType(ConfigItem.class);
             Arrays.stream(configItems).filter(ConfigItem::jvm).forEach(i ->
@@ -109,7 +109,7 @@ public class EmbeddedBrokerPerClassAdminImpl implements BrokerAdmin
                 System.setProperty(i.name(), i.value());
             });
             Map<String, String> context = new HashMap<>();
-            context.put("qpid.work_dir", _currentWorkDirectory);
+            context.put("qpid.work_dir", _currentWorkDirectory.toString());
             context.put("qpid.port.protocol_handshake_timeout", "1000000");
             context.putAll(Arrays.stream(configItems)
                     .filter(i -> !i.jvm())
@@ -137,7 +137,17 @@ public class EmbeddedBrokerPerClassAdminImpl implements BrokerAdmin
         }
         catch (Exception e)
         {
-            throw new BrokerAdminException("Failed to start broker for test class", e);
+            final BrokerAdminException startupFailure =
+                    new BrokerAdminException("Failed to start broker for test class", e);
+            try
+            {
+                cleanUpAfterTestClass();
+            }
+            catch (RuntimeException cleanupFailure)
+            {
+                startupFailure.addSuppressed(cleanupFailure);
+            }
+            throw startupFailure;
         }
     }
 
@@ -217,23 +227,7 @@ public class EmbeddedBrokerPerClassAdminImpl implements BrokerAdmin
     @Override
     public void afterTestClass(final Class testClass)
     {
-        _systemLauncher.shutdown();
-        _ports.clear();
-        if (Boolean.getBoolean("broker.clean.between.tests"))
-        {
-            FileUtils.delete(new File(_currentWorkDirectory), true);
-        }
-
-        _preservedProperties.forEach((k,v)-> {
-            if (v == null)
-            {
-                System.clearProperty(k);
-            }
-            else
-            {
-                System.setProperty(k, v);
-            }
-        });
+        cleanUpAfterTestClass();
     }
 
     @Override
@@ -488,6 +482,95 @@ public class EmbeddedBrokerPerClassAdminImpl implements BrokerAdmin
                 .filter(queue -> queue.getName().equals(queueName))
                 .findFirst()
                 .orElseThrow(() -> new NotFoundException(String.format("Queue '%s' not found", queueName)));
+    }
+
+    private void cleanUpAfterTestClass()
+    {
+        RuntimeException failure = null;
+        try
+        {
+            final SystemLauncher systemLauncher = _systemLauncher;
+            if (systemLauncher != null)
+            {
+                systemLauncher.shutdown();
+            }
+        }
+        catch (RuntimeException e)
+        {
+            failure = e;
+        }
+        finally
+        {
+            _systemLauncher = null;
+            _broker = null;
+            _currentVirtualHostNode = null;
+            _ports.clear();
+        }
+
+        try
+        {
+            TestWorkDirectory.delete(_currentWorkDirectory);
+        }
+        catch (RuntimeException e)
+        {
+            failure = addSuppressed(failure, e);
+        }
+        finally
+        {
+            _currentWorkDirectory = null;
+        }
+
+        try
+        {
+            restoreProperties();
+        }
+        catch (RuntimeException e)
+        {
+            failure = addSuppressed(failure, e);
+        }
+
+        if (failure != null)
+        {
+            throw failure;
+        }
+    }
+
+    private void restoreProperties()
+    {
+        if (_preservedProperties == null)
+        {
+            return;
+        }
+
+        try
+        {
+            _preservedProperties.forEach((name, value) ->
+            {
+                if (value == null)
+                {
+                    System.clearProperty(name);
+                }
+                else
+                {
+                    System.setProperty(name, value);
+                }
+            });
+        }
+        finally
+        {
+            _preservedProperties = null;
+        }
+    }
+
+    private static RuntimeException addSuppressed(final RuntimeException failure,
+                                                  final RuntimeException additionalFailure)
+    {
+        if (failure == null)
+        {
+            return additionalFailure;
+        }
+        failure.addSuppressed(additionalFailure);
+        return failure;
     }
 
     private void createOAuth2AuthenticationManager()

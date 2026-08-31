@@ -36,6 +36,7 @@ import java.io.OutputStream;
 import java.lang.reflect.Method;
 import java.net.InetSocketAddress;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -63,16 +64,15 @@ import javax.naming.NamingException;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
 
 import org.apache.qpid.server.plugin.PluggableService;
-import org.apache.qpid.server.util.FileUtils;
 import org.apache.qpid.server.util.SystemUtils;
 import org.apache.qpid.systests.AmqpManagementFacade;
 import org.apache.qpid.tests.utils.BrokerAdmin;
 import org.apache.qpid.tests.utils.ConfigItem;
+import org.apache.qpid.tests.utils.TestWorkDirectory;
 
 @SuppressWarnings("unused")
 @PluggableService
@@ -90,8 +90,9 @@ public class SpawnBrokerAdmin implements BrokerAdmin, Closeable
     private static final String AMQP_VIRTUAL_HOST_TYPE = "org.apache.qpid.VirtualHost";
 
     private static final AtomicLong COUNTER = new AtomicLong();
+    private static final long PROCESS_SHUTDOWN_TIMEOUT_SECONDS = 30L;
 
-    private String _currentWorkDirectory;
+    private Path _currentWorkDirectory;
     private ExecutorService _executorService;
     private Process _process;
     private Integer _pid;
@@ -589,16 +590,11 @@ public class SpawnBrokerAdmin implements BrokerAdmin, Closeable
 
     private void startBroker(final Class testClass)
     {
-        String timestamp = new SimpleDateFormat("yyyyMMddHHmmss").format(new Date(System.currentTimeMillis()));
-        boolean brokerStarted = false;
+        final String timestamp = new SimpleDateFormat("yyyyMMddHHmmss").format(new Date(System.currentTimeMillis()));
         try
         {
-            _currentWorkDirectory =
-                    Files.createTempDirectory(String.format("qpid-work-%d-%s-%s-",
-                            _id,
-                            testClass.getSimpleName(),
-                            timestamp))
-                            .toString();
+            _currentWorkDirectory = TestWorkDirectory.create(
+                    String.format("qpid-work-%d-%s-%s-", _id, testClass.getSimpleName(), timestamp));
 
             String readyLogPattern = "BRK-1004 : Qpid Broker Ready";
 
@@ -607,7 +603,8 @@ public class SpawnBrokerAdmin implements BrokerAdmin, Closeable
 
             LOGGER.debug("Spawning broker permitted start-up time: {}", startUpTime);
 
-            ProcessBuilder processBuilder = createBrokerProcessBuilder(_currentWorkDirectory, testClass);
+            final ProcessBuilder processBuilder =
+                    createBrokerProcessBuilder(_currentWorkDirectory.toString(), testClass);
             processBuilder.redirectErrorStream(true);
 
             Map<String, String> processEnvironment = processBuilder.environment();
@@ -669,41 +666,39 @@ public class SpawnBrokerAdmin implements BrokerAdmin, Closeable
                         System.currentTimeMillis() - startTime,
                         _pid);
             LOGGER.info("Broker ports: {}", _ports);
-            brokerStarted = true;
-        }
-        catch (RuntimeException e)
-        {
-            throw e;
         }
         catch (InterruptedException e)
         {
+            final BrokerAdminException startupFailure =
+                    new BrokerAdminException("Interrupted while waiting for broker startup", e);
+            cleanUpAfterFailedStart(startupFailure);
             Thread.currentThread().interrupt();
+            throw startupFailure;
+        }
+        catch (RuntimeException e)
+        {
+            throw cleanUpAfterFailedStart(e);
         }
         catch (Exception e)
         {
-            throw new BrokerAdminException(String.format("Unexpected exception on broker startup: %s", e), e);
-        }
-        finally
-        {
-            if (!brokerStarted)
-            {
-                LOGGER.warn("Broker failed to start");
-                if (_process != null)
-                {
-                    _process.destroy();
-                    _process = null;
-                }
-                if (_executorService != null)
-                {
-                    _executorService.shutdown();
-                    _executorService = null;
-                }
-                _ports = null;
-                _pid = null;
-            }
+            throw cleanUpAfterFailedStart(
+                    new BrokerAdminException(String.format("Unexpected exception on broker startup: %s", e), e));
         }
     }
 
+    private <T extends RuntimeException> T cleanUpAfterFailedStart(final T startupFailure)
+    {
+        LOGGER.warn("Broker failed to start");
+        try
+        {
+            shutdownBroker();
+        }
+        catch (RuntimeException cleanupFailure)
+        {
+            startupFailure.addSuppressed(cleanupFailure);
+        }
+        return startupFailure;
+    }
 
     private ProcessBuilder createBrokerProcessBuilder(String currentWorkDirectory, Class testClass) throws IOException
     {
@@ -750,7 +745,7 @@ public class SpawnBrokerAdmin implements BrokerAdmin, Closeable
 
         List<String> jvmArguments = new ArrayList<>();
         jvmArguments.add("java");
-        jvmArguments.add("-Djava.io.tmpdir=" + escape(System.getProperty("java.io.tmpdir")));
+        jvmArguments.add("-Djava.io.tmpdir=" + escape(currentWorkDirectory));
         jvmArguments.add("-Dlogback.configurationFile=default-broker-logback.xml");
         jvmArguments.add("-Dqpid.tests.mms.messagestore.persistence=true");
         jvmArguments.addAll(Arrays.stream(configItems)
@@ -806,6 +801,7 @@ public class SpawnBrokerAdmin implements BrokerAdmin, Closeable
 
     private void shutdownBroker()
     {
+        RuntimeException failure = null;
         try
         {
             if (SystemUtils.isWindows())
@@ -821,6 +817,10 @@ public class SpawnBrokerAdmin implements BrokerAdmin, Closeable
                 reapChildProcess();
             }
         }
+        catch (RuntimeException e)
+        {
+            failure = e;
+        }
         finally
         {
             if (_executorService != null)
@@ -835,14 +835,36 @@ public class SpawnBrokerAdmin implements BrokerAdmin, Closeable
             }
             _pid = null;
             _process = null;
-            if (_currentWorkDirectory != null && Boolean.getBoolean("broker.clean.between.tests"))
-            {
-                if (FileUtils.delete(new File(_currentWorkDirectory), true))
-                {
-                    _currentWorkDirectory = null;
-                }
-            }
         }
+
+        try
+        {
+            TestWorkDirectory.delete(_currentWorkDirectory);
+        }
+        catch (RuntimeException e)
+        {
+            failure = addSuppressed(failure, e);
+        }
+        finally
+        {
+            _currentWorkDirectory = null;
+        }
+
+        if (failure != null)
+        {
+            throw failure;
+        }
+    }
+
+    private static RuntimeException addSuppressed(final RuntimeException failure,
+                                                  final RuntimeException additionalFailure)
+    {
+        if (failure == null)
+        {
+            return additionalFailure;
+        }
+        failure.addSuppressed(additionalFailure);
+        return failure;
     }
 
     private void doWindowsKill()
@@ -881,13 +903,24 @@ public class SpawnBrokerAdmin implements BrokerAdmin, Closeable
     {
         try
         {
-            _process.waitFor();
+            if (!_process.waitFor(PROCESS_SHUTDOWN_TIMEOUT_SECONDS, TimeUnit.SECONDS))
+            {
+                LOGGER.warn("Broker did not exit within {} seconds; destroying it forcibly",
+                            PROCESS_SHUTDOWN_TIMEOUT_SECONDS);
+                _process.destroyForcibly();
+                if (!_process.waitFor(PROCESS_SHUTDOWN_TIMEOUT_SECONDS, TimeUnit.SECONDS))
+                {
+                    throw new BrokerAdminException(String.format(
+                            "Broker did not exit within %d seconds after it was destroyed forcibly",
+                            PROCESS_SHUTDOWN_TIMEOUT_SECONDS));
+                }
+            }
             LOGGER.info("broker exited: " + _process.exitValue());
         }
         catch (InterruptedException e)
         {
-            LOGGER.error("Interrupted whilst waiting for process shutdown");
             Thread.currentThread().interrupt();
+            throw new BrokerAdminException("Interrupted whilst waiting for process shutdown", e);
         }
         finally
         {
