@@ -24,11 +24,13 @@ package org.apache.qpid.server.management.amqp;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -36,6 +38,8 @@ import java.util.UUID;
 import javax.security.auth.Subject;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import org.apache.qpid.server.connection.ConnectionPrincipal;
 import org.apache.qpid.server.connection.SessionPrincipal;
@@ -45,8 +49,10 @@ import org.apache.qpid.server.model.Broker;
 import org.apache.qpid.server.model.BrokerModel;
 import org.apache.qpid.server.model.ConfiguredObject;
 import org.apache.qpid.server.model.Connection;
+import org.apache.qpid.server.model.Queue;
 import org.apache.qpid.server.plugin.SystemAddressSpaceCreator;
 import org.apache.qpid.server.protocol.converter.MessageConversionException;
+import org.apache.qpid.server.queue.CreatingLinkInfo;
 import org.apache.qpid.server.security.SubjectExecutionContext;
 import org.apache.qpid.server.session.AMQPSession;
 import org.apache.qpid.server.transport.AMQPConnection;
@@ -54,6 +60,48 @@ import org.apache.qpid.server.util.GZIPUtils.GZIPInflationLimitException;
 
 public class ManagementAddressSpaceTest
 {
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testLinkProxyAttributesRejectCreatingLinkInformation(final boolean nullValue) throws Exception
+    {
+        final ManagementAddressSpace addressSpace = new ManagementAddressSpace(createAddressSpaceRegistry());
+        final Subject subject = createSubjectWithSessionPrincipal();
+        final CreatingLinkInfo info = mock(CreatingLinkInfo.class);
+        final String testName = getTestName("testLinkProxyAttributesRejectCreatingLinkInformation");
+        final Map<String, Object> attributes = new HashMap<>();
+        attributes.put(ConfiguredObject.NAME, testName);
+        attributes.put(Queue.CREATING_LINK_INFO, nullValue ? null : info);
+
+        SubjectExecutionContext.withSubject(subject, () ->
+        {
+            assertThrows(IllegalArgumentException.class, () -> addressSpace.createLinkMessageSource(attributes, info));
+            assertThrows(IllegalArgumentException.class, () ->
+                    addressSpace.createLinkMessageDestination(attributes, info));
+            assertNull(addressSpace.getAttainedMessageSource(testName));
+            assertNull(addressSpace.getAttainedMessageDestination(testName, false));
+            return null;
+        });
+    }
+
+    @Test
+    public void linkProxyNodesUseTheSessionSubject() throws Exception
+    {
+        final ManagementAddressSpace addressSpace = new ManagementAddressSpace(createAddressSpaceRegistry());
+        final Subject subject = createSubjectWithSessionPrincipal();
+        final String testName = getTestName("linkProxyNodesUseTheSessionSubject");
+        final Map<String, Object> attributes = Map.of(ConfiguredObject.NAME, testName);
+        final CreatingLinkInfo creatingLinkInfo = mock(CreatingLinkInfo.class);
+
+        assertNull(SubjectExecutionContext.withSubject(null, () ->
+                addressSpace.createLinkMessageSource(attributes, creatingLinkInfo)));
+        assertNull(SubjectExecutionContext.withSubject(null, () ->
+                addressSpace.createLinkMessageDestination(attributes, creatingLinkInfo)));
+        assertNotNull(SubjectExecutionContext.withSubject(subject, () ->
+                addressSpace.createLinkMessageSource(attributes, creatingLinkInfo)));
+        assertNotNull(SubjectExecutionContext.withSubject(subject, () ->
+                addressSpace.createLinkMessageDestination(attributes, creatingLinkInfo)));
+    }
+
     @Test
     public void createProxyNodeWithoutSubjectReturnsNull() throws Exception
     {
@@ -169,5 +217,10 @@ public class ManagementAddressSpaceTest
 
         final SessionPrincipal sessionPrincipal = new SessionPrincipal(session);
         return new Subject(false, Set.of(sessionPrincipal), Set.of(), Set.of());
+    }
+
+    private String getTestName(final String methoDName)
+    {
+        return this.getClass().getSimpleName() + "#" + methoDName;
     }
 }

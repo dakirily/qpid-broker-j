@@ -1041,8 +1041,9 @@ public class Session_1_0 extends AbstractAMQPSession<Session_1_0, ConsumerTarget
                     attributes.put(Queue.EXCLUSIVE, ExclusivityPolicy.CONNECTION);
                 }
             }
-            return SubjectExecutionContext.withSubjectUnchecked(getSubjectWithAddedSystemRights(),
-                    () -> getAddressSpace().createMessageSource(MessageSource.class, attributes));
+            final CreatingLinkInfo creatingLinkInfo = (CreatingLinkInfo) attributes.remove(Queue.CREATING_LINK_INFO);
+            return SubjectExecutionContext.withSubjectUnchecked(getSubject(),
+                    () -> getAddressSpace().createLinkMessageSource(attributes, creatingLinkInfo));
         }
         catch (AccessDeniedException e)
         {
@@ -1061,25 +1062,27 @@ public class Session_1_0 extends AbstractAMQPSession<Session_1_0, ConsumerTarget
     {
         final Symbol[] capabilities = terminus.getCapabilities();
         final Set<Symbol> capabilitySet = capabilities == null ? Set.of() : Stream.of(capabilities).collect(Collectors.toSet());
-        boolean isTopic = capabilitySet.contains(Symbols.TEMPORARY_TOPIC) || capabilitySet.contains(Symbols.TOPIC);
+        final boolean isTopic = capabilitySet.contains(Symbols.TEMPORARY_TOPIC) || capabilitySet.contains(Symbols.TOPIC);
         final String destName = (isTopic ? "TempTopic" : "TempQueue") + UUID.randomUUID();
         try
         {
             final Map<String, Object> attributes = createDynamicNodeAttributes(link, terminus, destName);
 
 
-            Class<? extends MessageDestination> clazz = isTopic ? Exchange.class : MessageDestination.class;
             if (isTopic)
             {
                 attributes.put(Exchange.TYPE, ExchangeDefaults.FANOUT_EXCHANGE_CLASS);
+                return SubjectExecutionContext.withSubjectUnchecked(getSubjectWithAddedSystemRights(), () ->
+                        getAddressSpace().createMessageDestination(Exchange.class, attributes));
             }
-            else if (capabilitySet.contains(Symbols.TEMPORARY_QUEUE))
+            if (capabilitySet.contains(Symbols.TEMPORARY_QUEUE))
             {
                 attributes.put(Queue.EXCLUSIVE, ExclusivityPolicy.CONNECTION);
             }
 
-            return SubjectExecutionContext.withSubjectUnchecked(getSubjectWithAddedSystemRights(),
-                    () -> getAddressSpace().createMessageDestination(clazz, attributes));
+            final CreatingLinkInfo creatingLinkInfo = (CreatingLinkInfo) attributes.remove(Queue.CREATING_LINK_INFO);
+            return SubjectExecutionContext.withSubjectUnchecked(getSubject(), () ->
+                    getAddressSpace().createLinkMessageDestination(attributes, creatingLinkInfo));
         }
         catch (AccessDeniedException e)
         {

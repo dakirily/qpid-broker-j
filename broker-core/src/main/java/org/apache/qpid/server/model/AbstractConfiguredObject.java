@@ -3282,9 +3282,9 @@ public abstract class AbstractConfiguredObject<X extends ConfiguredObject<X>> im
         logCreated(getCategoryClass(), attributes, outcome);
     }
 
-    private void logCreated(final Class<? extends ConfiguredObject> categoryClass,
-                            final Map<String, Object> attributes,
-                            final Outcome outcome)
+    protected final void logCreated(final Class<? extends ConfiguredObject> categoryClass,
+                                    final Map<String, Object> attributes,
+                                    final Outcome outcome)
     {
         final EventLogger eventLogger = getEventLogger();
         if (eventLogger != null)

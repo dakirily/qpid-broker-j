@@ -22,6 +22,7 @@ package org.apache.qpid.server.model;
 
 import java.security.Principal;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -31,6 +32,7 @@ import org.apache.qpid.server.message.MessageDestination;
 import org.apache.qpid.server.message.MessageSource;
 import org.apache.qpid.server.model.port.AmqpPort;
 import org.apache.qpid.server.protocol.LinkModel;
+import org.apache.qpid.server.queue.CreatingLinkInfo;
 import org.apache.qpid.server.store.MessageStore;
 import org.apache.qpid.server.transport.AMQPConnection;
 import org.apache.qpid.server.txn.DtxRegistry;
@@ -73,6 +75,33 @@ public interface NamedAddressSpace extends Named
     <T extends MessageSource> T createMessageSource(Class<T> clazz, Map<String,Object> attributes);
     <T extends MessageDestination> T createMessageDestination(Class<T> clazz, Map<String,Object> attributes);
 
+    /**
+     * Creates a protocol-owned source. Queue-based address spaces authorize the current subject before
+     * initializing the protected link metadata supplied by the protocol implementation.
+     * The caller must supply creating-link information through the separate argument, never in attributes.
+     * Management address spaces retain their connection-owned proxy semantics.
+     *
+     * @throws IllegalArgumentException if attributes contains {@link Queue#CREATING_LINK_INFO}
+     */
+    default MessageSource createLinkMessageSource(final Map<String, Object> attributes,
+                                                  final CreatingLinkInfo creatingLinkInfo)
+    {
+        final Map<String, Object> sourceAttributes = prepareLinkNodeAttributes(attributes, creatingLinkInfo);
+        return createMessageSource(MessageSource.class, sourceAttributes);
+    }
+
+    /**
+     * Creates a protocol-owned destination, with the same authorization contract as createLinkMessageSource.
+     *
+     * @throws IllegalArgumentException if attributes contains {@link Queue#CREATING_LINK_INFO}
+     */
+    default MessageDestination createLinkMessageDestination(final Map<String, Object> attributes,
+                                                            final CreatingLinkInfo creatingLinkInfo)
+    {
+        final Map<String, Object> destinationAttributes = prepareLinkNodeAttributes(attributes, creatingLinkInfo);
+        return createMessageDestination(MessageDestination.class, destinationAttributes);
+    }
+
     boolean hasMessageSources();
 
     Collection<? extends Connection<?>> getConnections();
@@ -80,4 +109,19 @@ public interface NamedAddressSpace extends Named
     List<String> getGlobalAddressDomains();
 
     String getLocalAddress(String routingAddress);
+
+    static Map<String, Object> prepareLinkNodeAttributes(final Map<String, Object> attributes,
+                                                         final CreatingLinkInfo creatingLinkInfo)
+    {
+        if (attributes.containsKey(Queue.CREATING_LINK_INFO))
+        {
+            throw new IllegalArgumentException("Creating link information must be supplied separately");
+        }
+        final Map<String, Object> newAttributes = new HashMap<>(attributes);
+        if (creatingLinkInfo != null)
+        {
+            newAttributes.put(Queue.CREATING_LINK_INFO, creatingLinkInfo);
+        }
+        return newAttributes;
+    }
 }

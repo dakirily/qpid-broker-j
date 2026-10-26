@@ -414,8 +414,6 @@ public class MessagingACLTest extends JmsTestBase
     @Test
     public void testCreateTemporaryQueueFailed() throws Exception
     {
-        assumeTrue(!Objects.equals(getProtocol(), Protocol.AMQP_1_0), "QPID-7919");
-
         configureACL(String.format("ACL ALLOW-LOG %s ACCESS VIRTUALHOST", USER1),
                      String.format("ACL DENY-LOG %s CREATE QUEUE temporary=\"true\"", USER1));
 

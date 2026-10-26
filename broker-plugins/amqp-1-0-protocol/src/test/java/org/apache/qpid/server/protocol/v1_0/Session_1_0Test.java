@@ -31,8 +31,10 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.nullable;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -61,6 +63,8 @@ import javax.security.auth.Subject;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import org.mockito.ArgumentCaptor;
 import org.mockito.stubbing.Answer;
@@ -72,7 +76,6 @@ import org.apache.qpid.server.connection.SessionPrincipal;
 import org.apache.qpid.server.filter.AMQPFilterTypes;
 import org.apache.qpid.server.logging.EventLogger;
 import org.apache.qpid.server.logging.LogMessage;
-import org.apache.qpid.server.message.MessageDestination;
 import org.apache.qpid.server.model.Binding;
 import org.apache.qpid.server.model.BrokerModel;
 import org.apache.qpid.server.model.BrokerTestHelper;
@@ -120,8 +123,11 @@ import org.apache.qpid.server.protocol.v1_0.type.transport.Role;
 import org.apache.qpid.server.protocol.v1_0.type.transport.SessionError;
 import org.apache.qpid.server.protocol.v1_0.type.transport.Transfer;
 import org.apache.qpid.server.queue.QueueConsumer;
-import org.apache.qpid.server.security.SubjectExecutionContext;
+import org.apache.qpid.server.security.AccessControl;
+import org.apache.qpid.server.security.Result;
 import org.apache.qpid.server.security.SecurityToken;
+import org.apache.qpid.server.security.SubjectExecutionContext;
+import org.apache.qpid.server.security.access.Operation;
 import org.apache.qpid.server.transport.AggregateTicker;
 import org.apache.qpid.server.virtualhost.QueueManagingVirtualHost;
 import org.apache.qpid.server.virtualhost.TestMemoryVirtualHost;
@@ -180,7 +186,7 @@ class Session_1_0Test extends UnitTestBase
     }
 
     @Test
-    void createDynamicDestinationUsesSystemSubject() throws Exception
+    void createDynamicTopicDestinationUsesSystemSubject() throws Exception
     {
         final AMQPConnection_1_0<?> connection = createAmqpConnection_1_0();
         final NamedAddressSpace addressSpace = mock(NamedAddressSpace.class, withSettings().extraInterfaces(ConfiguredObject.class));
@@ -190,7 +196,7 @@ class Session_1_0Test extends UnitTestBase
         when(addressSpace.createMessageDestination(any(), any())).thenAnswer(invocation ->
         {
             capturedSubject.set(SubjectExecutionContext.currentSubject());
-            return mock(MessageDestination.class);
+            return mock(Exchange.class);
         });
         when(connection.getAddressSpace()).thenReturn(addressSpace);
 
@@ -201,6 +207,7 @@ class Session_1_0Test extends UnitTestBase
         when(link.getName()).thenReturn("link");
 
         final Target terminus = new Target();
+        terminus.setCapabilities(new Symbol[]{Symbols.TEMPORARY_TOPIC});
         final Method createDynamicDestination =
                 Session_1_0.class.getDeclaredMethod("createDynamicDestination", Link_1_0.class, Terminus.class);
         createDynamicDestination.setAccessible(true);
@@ -211,6 +218,40 @@ class Session_1_0Test extends UnitTestBase
         final Principal systemPrincipal =
                 ((BrokerTestHelper.TestableSystemPrincipalSource) connection).getSystemPrincipal();
         assertTrue(subject.getPrincipals().contains(systemPrincipal), "System principal missing");
+    }
+
+    @ParameterizedTest(name = "sender={0}, temporaryQueueCapability={1}")
+    @CsvSource({"true,false", "true,true", "false,false", "false,true"})
+    void dynamicQueueCreationRequiresPermission(final boolean sender, final boolean temporaryQueueCapability)
+    {
+        final Role role = sender ? Role.SENDER : Role.RECEIVER;
+        final AccessControl<?> accessControl =
+                ((BrokerTestHelper.TestableAccessControlSource) _virtualHost.getParent()).getAccessControl();
+        when(accessControl.authorise(any(), eq(Operation.CREATE),
+                argThat(object -> object != null && object.getCategoryClass() == Queue.class), any()))
+                .thenReturn(Result.DENIED, Result.ALLOWED);
+
+        final Attach denied = createDynamicQueueAttach("denied", role, temporaryQueueCapability);
+        _session.receiveAttach(denied);
+
+        assertDetachSent(_connection, _session, AmqpError.UNAUTHORIZED_ACCESS, 1);
+        assertTrue(_virtualHost.getChildren(Queue.class).isEmpty(), "Denied request created a queue");
+
+        final Attach allowed = createDynamicQueueAttach("allowed", role, temporaryQueueCapability);
+        _session.receiveAttach(allowed);
+
+        final ArgumentCaptor<FrameBody> frameCapture = ArgumentCaptor.forClass(FrameBody.class);
+        verify(_connection, atLeastOnce()).sendFrame(eq(_session.getChannelId()), frameCapture.capture());
+        final List<Attach> responses = frameCapture.getAllValues().stream()
+                .filter(Attach.class::isInstance).map(Attach.class::cast)
+                .filter(frame -> allowed.getName().equals(frame.getName())).toList();
+        assertEquals(1, responses.size(), "Allowed request should receive exactly one attach response");
+        final Attach response = responses.get(0);
+        assertEquals(role == Role.SENDER ? Role.RECEIVER : Role.SENDER, response.getRole());
+        final Terminus terminus = role == Role.SENDER ? (Target) response.getTarget() : (Source) response.getSource();
+        assertNotNull(terminus, "Allowed request did not establish a terminus");
+        assertEquals(1, _virtualHost.getChildren(Queue.class).size(), "Allowed request did not create one queue");
+        assertQueueDurability(terminus.getAddress(), false);
     }
 
     @Test
@@ -1367,6 +1408,34 @@ class Session_1_0Test extends UnitTestBase
         source.setDynamic(true);
         source.setDynamicNodeProperties(Map.of(Symbols.LIFETIME_POLICY, lifetimePolicy));
         return source;
+    }
+
+    private Attach createDynamicQueueAttach(final String linkName,
+                                            final Role role,
+                                            final boolean temporaryQueueCapability)
+    {
+        final Attach attach = createReceiverAttach(linkName);
+        attach.setRole(role);
+        attach.setSource(new Source());
+        final Symbol[] capabilities = temporaryQueueCapability ? new Symbol[]{Symbols.TEMPORARY_QUEUE} : null;
+        if (role == Role.SENDER)
+        {
+            attach.setInitialDeliveryCount(UnsignedInteger.ZERO);
+            final Target target = (Target) attach.getTarget();
+            target.setDynamic(true);
+            target.setExpiryPolicy(TerminusExpiryPolicy.LINK_DETACH);
+            target.setDynamicNodeProperties(Map.of(Symbols.LIFETIME_POLICY, new DeleteOnClose()));
+            target.setCapabilities(capabilities);
+        }
+        else
+        {
+            final Source source = (Source) attach.getSource();
+            source.setDynamic(true);
+            source.setExpiryPolicy(TerminusExpiryPolicy.LINK_DETACH);
+            source.setDynamicNodeProperties(Map.of(Symbols.LIFETIME_POLICY, new DeleteOnClose()));
+            source.setCapabilities(capabilities);
+        }
+        return attach;
     }
 
     private String getDynamicNodeAddressFromAttachResponse()

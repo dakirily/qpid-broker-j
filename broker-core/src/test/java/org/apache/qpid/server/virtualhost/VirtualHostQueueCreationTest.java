@@ -22,17 +22,20 @@ package org.apache.qpid.server.virtualhost;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.security.Principal;
+import java.util.HashMap;
 import java.util.Map;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import org.apache.qpid.server.configuration.IllegalConfigurationException;
 import org.apache.qpid.server.configuration.updater.CurrentThreadTaskExecutor;
 import org.apache.qpid.server.configuration.updater.TaskExecutor;
 import org.apache.qpid.server.logging.EventLogger;
@@ -45,6 +48,7 @@ import org.apache.qpid.server.model.Queue;
 import org.apache.qpid.server.model.SystemConfig;
 import org.apache.qpid.server.model.VirtualHost;
 import org.apache.qpid.server.model.VirtualHostNode;
+import org.apache.qpid.server.queue.CreatingLinkInfo;
 import org.apache.qpid.server.queue.MessageGroupType;
 import org.apache.qpid.server.queue.PriorityQueue;
 import org.apache.qpid.server.queue.PriorityQueueImpl;
@@ -111,6 +115,34 @@ public class VirtualHostQueueCreationTest extends UnitTestBase
         host.create();
         host.start();
         return host;
+    }
+
+    @Test
+    public void testQueueAttributesCannotSupplyProtectedLinkInformation()
+    {
+        final Map<String, Object> attributes = Map.of(Queue.NAME, getTestName(),
+                Queue.CREATING_LINK_INFO, mock(CreatingLinkInfo.class));
+
+        assertThrows(IllegalConfigurationException.class,
+                () -> _virtualHost.createMessageSource(Queue.class, attributes));
+        assertThrows(IllegalConfigurationException.class,
+                () -> _virtualHost.createMessageDestination(Queue.class, attributes));
+        assertThrows(IllegalArgumentException.class, () -> _virtualHost.createLinkMessageSource(attributes, null));
+        assertThrows(IllegalArgumentException.class, () -> _virtualHost.createLinkMessageDestination(attributes, null));
+        assertTrue(_virtualHost.getChildren(Queue.class).isEmpty(), "Rejected attributes created a queue");
+    }
+
+    @Test
+    public void testLinkQueueAttributesCannotSupplyNullLinkInformation()
+    {
+        final Map<String, Object> attributes = new HashMap<>();
+        attributes.put(Queue.NAME, getTestName());
+        attributes.put(Queue.CREATING_LINK_INFO, null);
+        final CreatingLinkInfo info = mock(CreatingLinkInfo.class);
+
+        assertThrows(IllegalArgumentException.class, () -> _virtualHost.createLinkMessageSource(attributes, info));
+        assertThrows(IllegalArgumentException.class, () -> _virtualHost.createLinkMessageDestination(attributes, info));
+        assertTrue(_virtualHost.getChildren(Queue.class).isEmpty(), "Rejected attributes created a queue");
     }
 
     @Test

@@ -70,6 +70,7 @@ import javax.security.auth.Subject;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import org.apache.qpid.server.model.NamedAddressSpace;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -133,9 +134,11 @@ import org.apache.qpid.server.plugin.QpidServiceLoader;
 import org.apache.qpid.server.plugin.SystemNodeCreator;
 import org.apache.qpid.server.pool.SubjectExecutionContextThreadFactory;
 import org.apache.qpid.server.protocol.LinkModel;
+import org.apache.qpid.server.queue.CreatingLinkInfo;
 import org.apache.qpid.server.queue.QueueEntry;
 import org.apache.qpid.server.queue.QueueEntryIterator;
 import org.apache.qpid.server.security.AccessControl;
+import org.apache.qpid.server.security.AccessDeniedException;
 import org.apache.qpid.server.security.CompoundAccessControl;
 import org.apache.qpid.server.security.Result;
 import org.apache.qpid.server.security.SubjectExecutionContext;
@@ -3111,6 +3114,62 @@ public abstract class AbstractVirtualHost<X extends AbstractVirtualHost<X>> exte
         {
             throw new IllegalArgumentException("Cannot create message destination children of class " + clazz.getSimpleName());
         }
+    }
+
+    @Override
+    public MessageSource createLinkMessageSource(final Map<String, Object> attributes,
+                                                 final CreatingLinkInfo creatingLinkInfo)
+    {
+        return createLinkQueue(attributes, creatingLinkInfo);
+    }
+
+    @Override
+    public MessageDestination createLinkMessageDestination(final Map<String, Object> attributes,
+                                                           final CreatingLinkInfo creatingLinkInfo)
+    {
+        return createLinkQueue(attributes, creatingLinkInfo);
+    }
+
+    private Queue<?> createLinkQueue(final Map<String, Object> attributes, final CreatingLinkInfo creatingLinkInfo)
+    {
+        final Map<String, Object> queueAttributes = NamedAddressSpace
+                .prepareLinkNodeAttributes(attributes, creatingLinkInfo);
+        return doSync(doOnConfigThread(new Task<CompletableFuture<Queue<?>>, RuntimeException>()
+        {
+            @Override
+            public CompletableFuture<Queue<?>> execute()
+            {
+                try
+                {
+                    authoriseCreateChild(Queue.class, queueAttributes);
+                }
+                catch (AccessDeniedException e)
+                {
+                    logCreated(Queue.class, queueAttributes, Outcome.FAILURE);
+                    throw e;
+                }
+                return SubjectExecutionContext.withSubjectUnchecked(getSubjectWithAddedSystemRights(), () ->
+                        createChildAsync(Queue.class, queueAttributes).thenApply(queue -> queue));
+            }
+
+            @Override
+            public String getObject()
+            {
+                return AbstractVirtualHost.this.toString();
+            }
+
+            @Override
+            public String getAction()
+            {
+                return "createLinkQueue";
+            }
+
+            @Override
+            public String getArguments()
+            {
+                return null;
+            }
+        }));
     }
 
     @Override
