@@ -20,12 +20,14 @@
  */
 package org.apache.qpid.server.protocol.v0_10;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
@@ -35,9 +37,14 @@ import static org.mockito.Mockito.when;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.InOrder;
 
 import org.apache.qpid.server.message.MessageInstance;
 import org.apache.qpid.server.message.MessageInstanceConsumer;
@@ -100,6 +107,54 @@ class ConsumerTarget_0_10Test extends UnitTestBase
         assertTrue(target.flushCreditState(false));
         verify(creditManager).restoreCredit(1L, MESSAGE_SIZE);
         assertFalse(target.isSuspended());
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {1, 2})
+    void recoveryIndicationDoesNotConsumeDeliveryAttempts(final int deliveryAttempts)
+    {
+        final ConsumerTarget_0_10 target = createTarget(new WindowCreditManager(-1L, 1L));
+        when(_entry.getDeliveryCount()).thenReturn(deliveryAttempts + 1);
+        when(_entry.getDeliveryAttemptCount()).thenReturn(deliveryAttempts);
+        when(_entry.getMaximumDeliveryCount()).thenReturn(2);
+        when(_entry.makeAcquisitionUnstealable(_consumer)).thenReturn(true);
+        when(_entry.routeToAlternate(any(), any(), any())).thenReturn(1);
+
+        final ServerSession.MessageDispositionChangeListener listener =
+                new ConsumerTarget_0_10.ExplicitAcceptDispositionChangeListener(_entry, target, _consumer);
+        listener.onRelease(true, false);
+
+        if (deliveryAttempts < 2)
+        {
+            verify(_entry).release(_consumer);
+            verify(_entry, never()).routeToAlternate(any(), any(), any());
+        }
+        else
+        {
+            verify(_entry).routeToAlternate(any(), any(), any());
+            verify(_entry, never()).release(_consumer);
+        }
+    }
+
+    @ParameterizedTest
+    @CsvSource({"true, true", "false, false"})
+    void unprocessedDeliveryIsDiscountedBeforeRelease(final boolean setRedelivered, final boolean closing)
+    {
+        final ConsumerTarget_0_10 target = createTarget(new WindowCreditManager(-1L, 1L));
+        final AtomicInteger deliveryAttempts = new AtomicInteger(1);
+        when(_entry.getMaximumDeliveryCount()).thenReturn(1);
+        when(_entry.getDeliveryAttemptCount()).thenAnswer(invocation -> deliveryAttempts.get());
+        doAnswer(invocation -> deliveryAttempts.decrementAndGet()).when(_entry).decrementDeliveryCount();
+
+        final ServerSession.MessageDispositionChangeListener listener =
+                new ConsumerTarget_0_10.ExplicitAcceptDispositionChangeListener(_entry, target, _consumer);
+        listener.onRelease(setRedelivered, closing);
+
+        assertEquals(0, deliveryAttempts.get());
+        verify(_entry, never()).routeToAlternate(any(), any(), any());
+        final InOrder order = inOrder(_entry);
+        order.verify(_entry).decrementDeliveryCount();
+        order.verify(_entry).release(_consumer);
     }
 
     @Test

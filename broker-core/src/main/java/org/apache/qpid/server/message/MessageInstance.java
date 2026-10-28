@@ -36,11 +36,21 @@ public interface MessageInstance
 
 
     /**
-     * Number of times this queue entry has been delivered.
+     * Delivery count, including any conservative redelivery indication added during recovery.
      *
      * @return delivery count
      */
     int getDeliveryCount();
+
+    /**
+     * Delivery count used to enforce the maximum delivery limit, excluding recovery indications.
+     *
+     * @return delivery count for limit enforcement
+     */
+    default int getDeliveryAttemptCount()
+    {
+        return getDeliveryCount();
+    }
 
     void incrementDeliveryCount();
 

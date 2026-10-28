@@ -55,6 +55,7 @@ import javax.security.auth.Subject;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 
@@ -65,6 +66,8 @@ import org.apache.qpid.server.logging.EventLogger;
 import org.apache.qpid.server.logging.LogMessage;
 import org.apache.qpid.server.message.InstanceProperties;
 import org.apache.qpid.server.message.MessageDestination;
+import org.apache.qpid.server.message.MessageInstance;
+import org.apache.qpid.server.message.MessageInstanceConsumer;
 import org.apache.qpid.server.message.RoutingResult;
 import org.apache.qpid.server.message.ServerMessage;
 import org.apache.qpid.server.model.Broker;
@@ -190,6 +193,43 @@ class AMQChannelTest extends UnitTestBase
                 context._channel.receiveBasicAck(1L, false);
             }
             assertEquals(0, context._queue.getQueueDepthMessages());
+        }
+    }
+
+    @ParameterizedTest
+    @CsvSource({"false, 1", "false, 2", "true, 1", "true, 2"})
+    void recoveryIndicationDoesNotConsumeDeliveryAttempts(final boolean nack, final int deliveryAttempts)
+    {
+        final AMQChannel channel = new AMQChannel(_amqConnection, 1, _messageStore);
+        final MessageInstance entry = mock(MessageInstance.class);
+        final MessageInstanceConsumer consumer = mock(MessageInstanceConsumer.class);
+        when(entry.getMessage()).thenReturn(mock(AMQMessage.class));
+        when(entry.getOwningResource()).thenReturn(mock(Queue.class));
+        when(entry.getMaximumDeliveryCount()).thenReturn(2);
+        when(entry.getDeliveryCount()).thenReturn(deliveryAttempts + 1);
+        when(entry.getDeliveryAttemptCount()).thenReturn(deliveryAttempts);
+        when(entry.makeAcquisitionUnstealable(consumer)).thenReturn(true);
+        when(entry.routeToAlternate(any(), any(), any())).thenReturn(1);
+        channel.addUnacknowledgedMessage(entry, 1L, consumer, false);
+
+        if (nack)
+        {
+            channel.receiveBasicNack(1L, false, false);
+        }
+        else
+        {
+            channel.receiveBasicReject(1L, false);
+        }
+
+        if (deliveryAttempts < 2)
+        {
+            verify(entry, never()).routeToAlternate(any(), any(), any());
+            verify(entry).incrementDeliveryCount();
+        }
+        else
+        {
+            verify(entry).routeToAlternate(any(), any(), any());
+            verify(entry, never()).incrementDeliveryCount();
         }
     }
 

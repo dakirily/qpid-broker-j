@@ -55,12 +55,13 @@ public class SortedQueueImpl extends OutOfOrderQueue<SortedQueueImpl> implements
 
     @Override
     protected QueueEntry doEnqueue(final ServerMessage message,
-                        final Action<? super MessageInstance> action,
-                        MessageEnqueueRecord record)
+                                   final Action<? super MessageInstance> action,
+                                   final MessageEnqueueRecord record,
+                                   final boolean recovered)
     {
         synchronized (_sortedQueueLock)
         {
-            return super.doEnqueue(message, action, record);
+            return super.doEnqueue(message, action, record, recovered);
         }
     }
 

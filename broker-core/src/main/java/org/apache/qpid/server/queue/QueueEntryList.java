@@ -28,7 +28,12 @@ interface QueueEntryList
 {
     Queue<?> getQueue();
 
-    QueueEntry add(ServerMessage message, final MessageEnqueueRecord enqueueRecord);
+    default QueueEntry add(final ServerMessage message, final MessageEnqueueRecord enqueueRecord)
+    {
+        return add(message, enqueueRecord, false);
+    }
+
+    QueueEntry add(final ServerMessage message, final MessageEnqueueRecord enqueueRecord, final boolean recovered);
 
     QueueEntry next(QueueEntry node);
 

@@ -26,6 +26,15 @@
     queues and their messages from disk. In the Broker's default mode the Virtualhosts do not become
     active until this recovery process completes. If queues have a large number of entries, this may
     take considerable time. During this time no messaging can be performed.</para>
+  <para>Delivery history is not persisted. After either synchronous or background recovery, messages
+    restored from disk are marked as potentially redelivered, including messages that may not have
+    reached a consumer before the restart. For AMQP 1.0 their initial recovered
+    <literal>delivery-count</literal> is one, exposed to JMS applications as
+    <literal>JMSRedelivered=true</literal> and <literal>JMSXDeliveryCount=2</literal>.
+    Exact counts from before the restart are not retained. The recovery indication does not count
+    towards the queue's <literal>maximumDeliveryAttempts</literal>; delivery attempts are counted anew
+    after recovery. Newly published messages keep their normal
+    first-delivery state, including messages published while background recovery is in progress.</para>
   <para>The Broker has a background recovery feature allows the system to return to operation
     sooner. If enabled the recovery process takes place in the background allow producers and
     consumers to begin work earlier.</para>

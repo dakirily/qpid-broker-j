@@ -489,7 +489,7 @@ public class ConsumerTarget_0_10 extends AbstractConsumerTarget<ConsumerTarget_0
     private boolean isMaxDeliveryLimitReached(MessageInstance entry)
     {
         final int maxDeliveryLimit = entry.getMaximumDeliveryCount();
-        return (maxDeliveryLimit > 0 && entry.getDeliveryCount() >= maxDeliveryLimit);
+        return (maxDeliveryLimit > 0 && entry.getDeliveryAttemptCount() >= maxDeliveryLimit);
     }
 
     @Override
@@ -663,10 +663,8 @@ public class ConsumerTarget_0_10 extends AbstractConsumerTarget<ConsumerTarget_0
         }
 
         @Override
-        public final void onRelease(boolean setRedelivered, final boolean closing)
+        public final void onRelease(final boolean setRedelivered, final boolean closing)
         {
-            _target.release(_consumer, _entry);
-
             if (setRedelivered)
             {
                 _entry.setRedelivered();
@@ -676,6 +674,8 @@ public class ConsumerTarget_0_10 extends AbstractConsumerTarget<ConsumerTarget_0
             {
                 _entry.decrementDeliveryCount();
             }
+
+            _target.release(_consumer, _entry);
         }
 
         @Override

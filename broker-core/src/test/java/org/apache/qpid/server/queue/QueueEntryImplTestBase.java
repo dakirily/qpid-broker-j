@@ -35,6 +35,8 @@ import java.util.Map;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import org.apache.qpid.server.message.MessageInstance;
 import org.apache.qpid.server.message.MessageInstance.EntryState;
@@ -95,6 +97,41 @@ public abstract class QueueEntryImplTestBase extends UnitTestBase
                 "Queue entry should be in AVAILABLE state before invoking of acquire method");
 
         acquire();
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    public void testRecoveryIndicationDoesNotConsumeDeliveryAttempts(final boolean recovered)
+    {
+        final int recoveryCount = recovered ? 1 : 0;
+        if (recovered)
+        {
+            _queueEntry.markRecovered();
+        }
+        assertEquals(recovered, _queueEntry.isRedelivered());
+        assertFalse(_queueEntry.getDeliveredToConsumer());
+        assertEquals(recoveryCount, _queueEntry.getDeliveryCount());
+        assertEquals(0, _queueEntry.getDeliveryAttemptCount());
+
+        acquire();
+        assertTrue(_queueEntry.getDeliveredToConsumer());
+        assertEquals(recoveryCount, _queueEntry.getDeliveryCount());
+        assertEquals(0, _queueEntry.getDeliveryAttemptCount());
+
+        for (int i = 1; i <= 2; i++)
+        {
+            _queueEntry.incrementDeliveryCount();
+            assertEquals(recoveryCount + i, _queueEntry.getDeliveryCount());
+            assertEquals(i, _queueEntry.getDeliveryAttemptCount());
+        }
+
+        for (int i = 1; i >= 0; i--)
+        {
+            _queueEntry.decrementDeliveryCount();
+            assertEquals(recoveryCount + i, _queueEntry.getDeliveryCount());
+            assertEquals(i, _queueEntry.getDeliveryAttemptCount());
+        }
+        assertEquals(recovered, _queueEntry.isRedelivered());
     }
 
     @Test

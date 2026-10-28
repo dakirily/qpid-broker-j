@@ -106,6 +106,7 @@ public abstract class QueueEntryImpl implements QueueEntry
     private static final int PERSISTENT_FLAG = 2;
     private static final int MANDATORY_FLAG = 4;
     private static final int IMMEDIATE_FLAG = 8;
+    private static final int RECOVERED_FLAG = 16;
     private int _flags;
     private long _expiration;
 
@@ -715,6 +716,12 @@ public abstract class QueueEntryImpl implements QueueEntry
     @Override
     public int getDeliveryCount()
     {
+        return getDeliveryAttemptCount() + ((_flags & RECOVERED_FLAG) == 0 ? 0 : 1);
+    }
+
+    @Override
+    public int getDeliveryAttemptCount()
+    {
         return _deliveryCount == -1 ? 0 : _deliveryCount;
     }
 
@@ -762,6 +769,11 @@ public abstract class QueueEntryImpl implements QueueEntry
     public void setRedelivered()
     {
         _flags |= REDELIVERED_FLAG;
+    }
+
+    final void markRecovered()
+    {
+        _flags |= REDELIVERED_FLAG | RECOVERED_FLAG;
     }
 
     private void setPersistent()

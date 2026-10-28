@@ -87,9 +87,13 @@ public abstract class OrderedQueueEntryList extends AbstractQueueEntryList
 
 
     @Override
-    public QueueEntry add(ServerMessage message, final MessageEnqueueRecord enqueueRecord)
+    public QueueEntry add(final ServerMessage message, final MessageEnqueueRecord enqueueRecord, final boolean recovered)
     {
         final OrderedQueueEntry node = createQueueEntry(message, enqueueRecord);
+        if (recovered)
+        {
+            node.markRecovered();
+        }
         updateStatsOnEnqueue(node);
         for (;;)
         {

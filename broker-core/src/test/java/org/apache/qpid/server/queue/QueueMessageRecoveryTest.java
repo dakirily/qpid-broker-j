@@ -20,7 +20,12 @@
  */
 package org.apache.qpid.server.queue;
 
+import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -32,7 +37,10 @@ import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
+import org.apache.qpid.server.message.AMQMessageHeader;
 import org.apache.qpid.server.message.MessageInstance;
 import org.apache.qpid.server.message.MessageReference;
 import org.apache.qpid.server.message.ServerMessage;
@@ -88,6 +96,51 @@ public class QueueMessageRecoveryTest extends UnitTestBase
         for (int i = 0; i < 8; i++)
         {
             assertEquals(i, messageList.get(i).getMessageNumber());
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"standard", "priority", "sorted", "lvq"})
+    public void testRecoveredMessagesCarryRedeliveryMetadata(final String queueType)
+    {
+        final Map<String, Object> attributes = Map.of(Queue.NAME, getTestName(), SortedQueue.SORT_KEY, "sort");
+        final AbstractQueue<?> queue = switch (queueType)
+        {
+            case "standard" -> new StandardQueueImpl(attributes, _vhost);
+            case "priority" -> new PriorityQueueImpl(attributes, _vhost);
+            case "sorted" -> new SortedQueueImpl(attributes, _vhost);
+            case "lvq" -> new LastValueQueueImpl(attributes, _vhost);
+            default -> throw new IllegalArgumentException("Unknown queue type: " + queueType);
+        };
+        queue.open();
+        try
+        {
+            queue.recover(createMockMessage(0), createEnqueueRecord(0, queue));
+            queue.enqueue(createMockMessage(1), null, createEnqueueRecord(1, queue));
+
+            final QueueEntry recovered = queue.getMessageOnTheQueue(0);
+            assertNotNull(recovered);
+            assertNull(queue.getMessageOnTheQueue(1), "New messages wait until recovery completes");
+            assertAll(() -> assertTrue(recovered.isRedelivered(), "Recovered delivery history is unknown"),
+                    () -> assertEquals(1, recovered.getDeliveryCount(), "Recovered AMQP delivery count"),
+                    () -> assertEquals(0, recovered.getDeliveryAttemptCount(), "Recovery is not a delivery attempt"),
+                    () -> assertFalse(recovered.getDeliveredToConsumer()));
+
+            queue.completeRecovery();
+            queue.enqueue(createMockMessage(2), null, createEnqueueRecord(2, queue));
+
+            for (int i = 1; i <= 2; i++)
+            {
+                final QueueEntry fresh = queue.getMessageOnTheQueue(i);
+                assertNotNull(fresh);
+                assertFalse(fresh.isRedelivered(), "New messages must retain their first-delivery state");
+                assertEquals(0, fresh.getDeliveryCount());
+                assertEquals(0, fresh.getDeliveryAttemptCount());
+            }
+        }
+        finally
+        {
+            queue.close();
         }
     }
 
@@ -147,7 +200,7 @@ public class QueueMessageRecoveryTest extends UnitTestBase
         }
     }
 
-    private MessageEnqueueRecord createEnqueueRecord(final int messageNumber, final TestQueue queue)
+    private MessageEnqueueRecord createEnqueueRecord(final int messageNumber, final Queue<?> queue)
     {
         return new MessageEnqueueRecord()
         {
@@ -170,6 +223,8 @@ public class QueueMessageRecoveryTest extends UnitTestBase
     {
         final ServerMessage<?> msg = mock(ServerMessage.class);
         when(msg.getMessageNumber()).thenReturn(i);
+        when(msg.getMessageHeader()).thenReturn(mock(AMQMessageHeader.class));
+        when(msg.isPersistent()).thenReturn(true);
         final MessageReference ref = mock(MessageReference.class);
         when(ref.getMessage()).thenReturn(msg);
         when(msg.newReference()).thenReturn(ref);
@@ -199,7 +254,8 @@ public class QueueMessageRecoveryTest extends UnitTestBase
         }
 
         @Override
-        protected QueueEntry doEnqueue(final ServerMessage message, final Action<? super MessageInstance> action, MessageEnqueueRecord record)
+        protected QueueEntry doEnqueue(final ServerMessage message, final Action<? super MessageInstance> action,
+                                       final MessageEnqueueRecord record, final boolean recovered)
         {
             synchronized(_messageList)
             {

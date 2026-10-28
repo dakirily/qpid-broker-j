@@ -72,7 +72,15 @@ abstract public class PriorityQueueList extends OrderedQueueEntryList
         }
 
         @Override
-        public PriorityQueueEntry add(ServerMessage message, final MessageEnqueueRecord enqueueRecord)
+        public PriorityQueueEntry add(final ServerMessage message, final MessageEnqueueRecord enqueueRecord)
+        {
+            return add(message, enqueueRecord, false);
+        }
+
+        @Override
+        public PriorityQueueEntry add(final ServerMessage message,
+                                      final MessageEnqueueRecord enqueueRecord,
+                                      final boolean recovered)
         {
             int index = message.getMessageHeader().getPriority() - _priorityOffset;
             if(index >= _priorities)
@@ -83,7 +91,7 @@ abstract public class PriorityQueueList extends OrderedQueueEntryList
             {
                 index = 0;
             }
-            return (PriorityQueueEntry) _priorityLists[index].add(message, enqueueRecord);
+            return (PriorityQueueEntry) _priorityLists[index].add(message, enqueueRecord, recovered);
 
         }
 

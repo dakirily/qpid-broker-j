@@ -1271,7 +1271,7 @@ public abstract class AbstractQueue<X extends AbstractQueue<X>>
                 {
                     Thread.yield();
                 }
-                entry = doEnqueue(message, action, enqueueRecord);
+                entry = doEnqueue(message, action, enqueueRecord, false);
             }
             else
             {
@@ -1280,7 +1280,7 @@ public abstract class AbstractQueue<X extends AbstractQueue<X>>
         }
         else
         {
-            entry = doEnqueue(message, action, enqueueRecord);
+            entry = doEnqueue(message, action, enqueueRecord, false);
         }
 
         final StoredMessage storedMessage = message.getStoredMessage();
@@ -1307,9 +1307,11 @@ public abstract class AbstractQueue<X extends AbstractQueue<X>>
     }
 
     @Override
-    public final void recover(ServerMessage message, final MessageEnqueueRecord enqueueRecord)
+    public final void recover(final ServerMessage message, final MessageEnqueueRecord enqueueRecord)
     {
-        doEnqueue(message, null, enqueueRecord);
+        // The store does not retain delivery history. Recovered entries may have been delivered before the
+        // interruption, so publish them with a redelivery indication rather than a first-delivery guarantee.
+        doEnqueue(message, null, enqueueRecord, true);
     }
 
 
@@ -1340,14 +1342,15 @@ public abstract class AbstractQueue<X extends AbstractQueue<X>>
         {
             EnqueueRequest request = _postRecoveryQueue.poll();
             MessageReference<?> messageReference = request.getMessage();
-            doEnqueue(messageReference.getMessage(), request.getAction(), request.getEnqueueRecord());
+            doEnqueue(messageReference.getMessage(), request.getAction(), request.getEnqueueRecord(), false);
             messageReference.release();
         }
     }
 
-    protected QueueEntry doEnqueue(final ServerMessage message, final Action<? super MessageInstance> action, MessageEnqueueRecord enqueueRecord)
+    protected QueueEntry doEnqueue(final ServerMessage message, final Action<? super MessageInstance> action,
+                                   final MessageEnqueueRecord enqueueRecord, final boolean recovered)
     {
-        final QueueEntry entry = getEntries().add(message, enqueueRecord);
+        final QueueEntry entry = getEntries().add(message, enqueueRecord, recovered);
         updateExpiration(entry);
 
         try

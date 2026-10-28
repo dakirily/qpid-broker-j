@@ -966,7 +966,7 @@ public class AMQChannel extends AbstractAMQPSession<AMQChannel, ConsumerTarget_0
         if (queueEntry != null)
         {
             final int maximumDeliveryCount = queueEntry.getMaximumDeliveryCount();
-            final int numDeliveries = queueEntry.getDeliveryCount();
+            final int numDeliveries = queueEntry.getDeliveryAttemptCount();
             return maximumDeliveryCount != 0 && numDeliveries >= maximumDeliveryCount;
         }
 

@@ -661,7 +661,7 @@ class ConsumerTarget_1_0 extends AbstractConsumerTarget<ConsumerTarget_1_0>
         {
             _queueEntry.incrementDeliveryCount();
             if (_queueEntry.getMaximumDeliveryCount() > 0
-                && _queueEntry.getDeliveryCount() >= _queueEntry.getMaximumDeliveryCount())
+                && _queueEntry.getDeliveryAttemptCount() >= _queueEntry.getMaximumDeliveryCount())
             {
                 routeToAlternateOrDiscard();
             }

@@ -26,6 +26,7 @@ import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -42,8 +43,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 import javax.jms.Connection;
+import javax.jms.DeliveryMode;
 import javax.jms.Message;
 import javax.jms.MessageConsumer;
+import javax.jms.MessageProducer;
 import javax.jms.Queue;
 import javax.jms.QueueBrowser;
 import javax.jms.Session;
@@ -53,6 +56,7 @@ import org.junit.jupiter.api.Test;
 import tools.jackson.databind.ObjectMapper;
 
 import org.apache.qpid.server.model.AlternateBinding;
+import org.apache.qpid.server.model.Protocol;
 import org.apache.qpid.systests.JmsTestBase;
 import org.apache.qpid.systests.Utils;
 
@@ -60,6 +64,159 @@ public class MaxDeliveryTest extends JmsTestBase
 {
     private static final int MAX_DELIVERY_ATTEMPTS = 2;
     private static final String JMSX_DELIVERY_COUNT = "JMSXDeliveryCount";
+
+    @Test
+    public void recoveredMessagesRetainDeliveryAttemptsWithSynchronousRecovery() throws Exception
+    {
+        assertRecoveredMessagesRetainDeliveryAttempts(false, false);
+    }
+
+    @Test
+    public void recoveredMessagesRetainDeliveryAttemptsWithAsynchronousRecovery() throws Exception
+    {
+        assertRecoveredMessagesRetainDeliveryAttempts(true, false);
+    }
+
+    @Test
+    public void unacknowledgedMessagesRetainDeliveryAttemptsWithSynchronousRecovery() throws Exception
+    {
+        assertRecoveredMessagesRetainDeliveryAttempts(false, true);
+    }
+
+    @Test
+    public void unacknowledgedMessagesRetainDeliveryAttemptsWithAsynchronousRecovery() throws Exception
+    {
+        assertRecoveredMessagesRetainDeliveryAttempts(true, true);
+    }
+
+    @Test
+    public void recoveredMessagesSurviveSessionCloseWithSynchronousRecovery() throws Exception
+    {
+        assertRecoveredMessagesSurviveSessionClose(false);
+    }
+
+    @Test
+    public void recoveredMessagesSurviveSessionCloseWithAsynchronousRecovery() throws Exception
+    {
+        assertRecoveredMessagesSurviveSessionClose(true);
+    }
+
+    private void assertRecoveredMessagesRetainDeliveryAttempts(final boolean asynchronousRecovery,
+                                                               final boolean deliverBeforeRestart) throws Exception
+    {
+        assumeTrue(getBrokerAdmin().supportsRestart(), "Test requires a persistent store");
+        final String queueName = getTestName();
+        final String dlqName = queueName + "_DLQ";
+        final String messageId = createRecoveredMessage(queueName, dlqName, asynchronousRecovery, deliverBeforeRestart);
+        final Connection connection = getConnectionBuilder().setMessageRedelivery(true).setPrefetch(0).build();
+        try
+        {
+            connection.start();
+            final Session session = connection.createSession(true, Session.SESSION_TRANSACTED);
+            final MessageConsumer consumer = session.createConsumer(session.createQueue(queueName));
+            for (int i = 0; i < MAX_DELIVERY_ATTEMPTS; i++)
+            {
+                final Message message = consumer.receive(getReceiveTimeout());
+                assertNotNull(message, "Recovery must not consume a delivery attempt");
+                assertEquals(messageId, message.getJMSMessageID());
+                assertTrue(message.getJMSRedelivered());
+                if (getProtocol() == Protocol.AMQP_1_0)
+                {
+                    assertEquals(i + 2, message.getIntProperty(JMSX_DELIVERY_COUNT));
+                }
+                session.rollback();
+            }
+
+            final MessageConsumer dlqConsumer = session.createConsumer(session.createQueue(dlqName));
+            final Message deadLetter = dlqConsumer.receive(getReceiveTimeout());
+            assertNotNull(deadLetter, "The delivery limit must still be enforced after actual attempts");
+            assertEquals(messageId, deadLetter.getJMSMessageID());
+            session.commit();
+            assertNull(consumer.receive(getReceiveTimeout()));
+        }
+        finally
+        {
+            connection.close();
+        }
+    }
+
+    private void assertRecoveredMessagesSurviveSessionClose(final boolean asynchronousRecovery) throws Exception
+    {
+        assumeTrue(getBrokerAdmin().supportsRestart(), "Test requires a persistent store");
+        final String queueName = getTestName();
+        final String messageId = createRecoveredMessage(queueName, queueName + "_DLQ", asynchronousRecovery, false);
+        final Connection connection = getConnectionBuilder().setMessageRedelivery(true).setPrefetch(0).build();
+        try
+        {
+            connection.start();
+            final Session firstSession = connection.createSession(false, Session.CLIENT_ACKNOWLEDGE);
+            final MessageConsumer firstConsumer = firstSession.createConsumer(firstSession.createQueue(queueName));
+            final Message firstDelivery = firstConsumer.receive(getReceiveTimeout());
+            assertNotNull(firstDelivery);
+            assertEquals(messageId, firstDelivery.getJMSMessageID());
+            assertTrue(firstDelivery.getJMSRedelivered());
+            firstSession.close();
+
+            final Session secondSession = connection.createSession(false, Session.CLIENT_ACKNOWLEDGE);
+            final MessageConsumer secondConsumer = secondSession.createConsumer(secondSession.createQueue(queueName));
+            final Message secondDelivery = secondConsumer.receive(getReceiveTimeout());
+            assertNotNull(secondDelivery, "Closing the first session must not discard the recovered message");
+            assertEquals(messageId, secondDelivery.getJMSMessageID());
+            assertTrue(secondDelivery.getJMSRedelivered());
+            secondDelivery.acknowledge();
+        }
+        finally
+        {
+            connection.close();
+        }
+    }
+
+    private String createRecoveredMessage(final String queueName, final String dlqName,
+                                          final boolean asynchronousRecovery, final boolean deliverBeforeRestart)
+            throws Exception
+    {
+        updateEntityUsingAmqpManagement(getVirtualHostName(), "org.apache.qpid.VirtualHost",
+                Map.of("context", new ObjectMapper().writeValueAsString(
+                        Map.of("use_async_message_store_recovery", asynchronousRecovery))));
+        createMaxDeliveryQueueAndDLQ(queueName, MAX_DELIVERY_ATTEMPTS, dlqName);
+        final Connection connection = getConnectionBuilder().setFailover(false).setPrefetch(0).build();
+        final String messageId;
+        try
+        {
+            final Session session = connection.createSession(true, Session.SESSION_TRANSACTED);
+            final Queue queue = session.createQueue(queueName);
+            // AMQP 0-x clients establish the queue binding when creating a consumer.
+            session.createConsumer(queue).close();
+            final MessageProducer producer = session.createProducer(queue);
+            final Message message = session.createMessage();
+            producer.send(message, DeliveryMode.PERSISTENT, Message.DEFAULT_PRIORITY, Message.DEFAULT_TIME_TO_LIVE);
+            session.commit();
+            messageId = message.getJMSMessageID();
+
+            if (deliverBeforeRestart)
+            {
+                final Session consumingSession = connection.createSession(false, Session.CLIENT_ACKNOWLEDGE);
+                final MessageConsumer consumer = consumingSession.createConsumer(queue);
+                connection.start();
+                final Message firstDelivery = consumer.receive(getReceiveTimeout());
+                assertNotNull(firstDelivery, "The message must be delivered before restart");
+                assertEquals(messageId, firstDelivery.getJMSMessageID());
+                assertFalse(firstDelivery.getJMSRedelivered());
+                if (getProtocol() == Protocol.AMQP_1_0)
+                {
+                    assertEquals(1, firstDelivery.getIntProperty(JMSX_DELIVERY_COUNT));
+                }
+            }
+
+            // Keep the connection and any unacknowledged delivery open until the restart.
+            getBrokerAdmin().restart().get();
+        }
+        finally
+        {
+            connection.close();
+        }
+        return messageId;
+    }
 
     @Test
     public void maximumDelivery() throws Exception

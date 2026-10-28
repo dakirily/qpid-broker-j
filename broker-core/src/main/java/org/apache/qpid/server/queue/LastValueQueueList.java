@@ -69,13 +69,21 @@ public class LastValueQueueList extends OrderedQueueEntryList
 
 
 
+    @Override
+    public ConflationQueueEntry add(final ServerMessage message, final MessageEnqueueRecord enqueueRecord)
+    {
+        return add(message, enqueueRecord, false);
+    }
+
     /**
      * Updates the list using super.add and also updates {@link #_latestValuesMap} and discards entries as necessary.
      */
     @Override
-    public ConflationQueueEntry add(final ServerMessage message, final MessageEnqueueRecord enqueueRecord)
+    public ConflationQueueEntry add(final ServerMessage message,
+                                    final MessageEnqueueRecord enqueueRecord,
+                                    final boolean recovered)
     {
-        final ConflationQueueEntry addedEntry = (ConflationQueueEntry) super.add(message, enqueueRecord);
+        final ConflationQueueEntry addedEntry = (ConflationQueueEntry) super.add(message, enqueueRecord, recovered);
 
         final Object keyValue = message.getMessageHeader().getHeader(_conflationKey);
         if (keyValue != null)

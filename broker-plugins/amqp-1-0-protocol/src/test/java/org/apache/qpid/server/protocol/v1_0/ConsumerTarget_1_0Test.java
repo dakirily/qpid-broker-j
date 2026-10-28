@@ -32,30 +32,37 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
-import org.apache.qpid.server.protocol.v1_0.type.Binary;
-import org.apache.qpid.server.protocol.v1_0.type.UnsignedByte;
-import org.apache.qpid.server.protocol.v1_0.type.messaging.Data;
-import org.apache.qpid.server.protocol.v1_0.type.messaging.DataSection;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.ArgumentCaptor;
 
 import org.apache.qpid.server.bytebuffer.QpidByteBuffer;
 import org.apache.qpid.server.message.MessageInstance;
 import org.apache.qpid.server.message.MessageInstanceConsumer;
 import org.apache.qpid.server.model.Consumer;
 import org.apache.qpid.server.protocol.v1_0.messaging.SectionDecoderImpl;
+import org.apache.qpid.server.protocol.v1_0.type.Binary;
+import org.apache.qpid.server.protocol.v1_0.type.DeliveryState;
+import org.apache.qpid.server.protocol.v1_0.type.UnsignedByte;
 import org.apache.qpid.server.protocol.v1_0.type.UnsignedInteger;
 import org.apache.qpid.server.protocol.v1_0.type.codec.AMQPDescribedTypeRegistry;
+import org.apache.qpid.server.protocol.v1_0.type.messaging.Accepted;
 import org.apache.qpid.server.protocol.v1_0.type.messaging.ApplicationProperties;
 import org.apache.qpid.server.protocol.v1_0.type.messaging.ApplicationPropertiesSection;
+import org.apache.qpid.server.protocol.v1_0.type.messaging.Data;
+import org.apache.qpid.server.protocol.v1_0.type.messaging.DataSection;
 import org.apache.qpid.server.protocol.v1_0.type.messaging.DeliveryAnnotations;
 import org.apache.qpid.server.protocol.v1_0.type.messaging.DeliveryAnnotationsSection;
 import org.apache.qpid.server.protocol.v1_0.type.messaging.EncodingRetainingSection;
@@ -65,9 +72,14 @@ import org.apache.qpid.server.protocol.v1_0.type.messaging.Header;
 import org.apache.qpid.server.protocol.v1_0.type.messaging.HeaderSection;
 import org.apache.qpid.server.protocol.v1_0.type.messaging.MessageAnnotations;
 import org.apache.qpid.server.protocol.v1_0.type.messaging.MessageAnnotationsSection;
+import org.apache.qpid.server.protocol.v1_0.type.messaging.Modified;
 import org.apache.qpid.server.protocol.v1_0.type.messaging.Properties;
+import org.apache.qpid.server.protocol.v1_0.type.messaging.Rejected;
+import org.apache.qpid.server.protocol.v1_0.type.transaction.TransactionalState;
 import org.apache.qpid.server.protocol.v1_0.type.transport.Transfer;
 import org.apache.qpid.server.store.StoredMessage;
+import org.apache.qpid.server.txn.AsyncAutoCommitTransaction;
+import org.apache.qpid.server.txn.ServerTransaction;
 import org.apache.qpid.test.utils.UnitTestBase;
 
 @SuppressWarnings({"rawtypes", "unchecked"})
@@ -169,6 +181,79 @@ class ConsumerTarget_1_0Test extends UnitTestBase
         when(storedMessage.getContent(eq(0), anyInt())).thenReturn(QpidByteBuffer.emptyQpidByteBuffer());
         when(storedMessage.getMetaData()).thenReturn(metaData);
         return new Message_1_0(storedMessage);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"modified", "rejected", "rollback"})
+    void recoveryIndicationDoesNotConsumeDeliveryAttempts(final String outcomeName) throws Exception
+    {
+        final MessageInstanceConsumer consumer = mock(MessageInstanceConsumer.class);
+        final MessageInstance entry = mock(MessageInstance.class);
+        final Message_1_0 message = createBodyOnlyMessage(new byte[]{1});
+        final AtomicInteger deliveryAttempts = new AtomicInteger();
+        when(entry.getMessage()).thenReturn(message);
+        when(entry.getMaximumDeliveryCount()).thenReturn(2);
+        when(entry.getDeliveryCount()).thenAnswer(invocation -> deliveryAttempts.get() + 1);
+        when(entry.getDeliveryAttemptCount()).thenAnswer(invocation -> deliveryAttempts.get());
+        doAnswer(invocation -> deliveryAttempts.incrementAndGet()).when(entry).incrementDeliveryCount();
+        when(entry.makeAcquisitionUnstealable(consumer)).thenReturn(true);
+        when(entry.routeToAlternate(any(), any(), any())).thenReturn(1);
+
+        final boolean rollback = "rollback".equals(outcomeName);
+        final AsyncAutoCommitTransaction transaction = mock(AsyncAutoCommitTransaction.class);
+        when(_sendingLinkEndpoint.getAsyncAutoCommitTransaction()).thenReturn(transaction);
+        doAnswer(invocation ->
+        {
+            final ServerTransaction.Action action = invocation.getArgument(0);
+            if (rollback)
+            {
+                action.onRollback();
+            }
+            else
+            {
+                action.postCommit();
+            }
+            return null;
+        }).when(transaction).addPostTransactionAction(any(ServerTransaction.Action.class));
+
+        final DeliveryState outcome;
+        if (rollback)
+        {
+            final Binary transactionId = new Binary(new byte[]{1});
+            final TransactionalState state = new TransactionalState();
+            state.setTxnId(transactionId);
+            state.setOutcome(Accepted.INSTANCE);
+            when(_sendingLinkEndpoint.getTransaction(transactionId)).thenReturn(transaction);
+            outcome = state;
+        }
+        else if ("modified".equals(outcomeName))
+        {
+            final Modified modified = new Modified();
+            modified.setDeliveryFailed(true);
+            outcome = modified;
+        }
+        else
+        {
+            outcome = new Rejected();
+        }
+
+        _consumerTarget.doSend(consumer, entry, false);
+        final ArgumentCaptor<UnsettledAction> action = ArgumentCaptor.forClass(UnsettledAction.class);
+        verify(_sendingLinkEndpoint).addUnsettled(any(Binary.class), action.capture(), eq(entry));
+        action.getValue().process(outcome, true);
+
+        assertEquals(1, deliveryAttempts.get());
+        assertEquals(2, entry.getDeliveryCount());
+        verify(entry).release(consumer);
+        verify(entry, never()).routeToAlternate(any(), any(), any());
+
+        _consumerTarget.doSend(consumer, entry, false);
+        verify(_sendingLinkEndpoint, times(2)).addUnsettled(any(Binary.class), action.capture(), eq(entry));
+        action.getValue().process(outcome, true);
+
+        assertEquals(2, deliveryAttempts.get());
+        verify(entry).routeToAlternate(any(), any(), any());
+        verify(entry, times(1)).release(consumer);
     }
 
     @Test

@@ -58,6 +58,14 @@ public class SortedQueueEntryList extends AbstractQueueEntryList
     @Override
     public SortedQueueEntry add(final ServerMessage message, final MessageEnqueueRecord enqueueRecord)
     {
+        return add(message, enqueueRecord, false);
+    }
+
+    @Override
+    public SortedQueueEntry add(final ServerMessage message,
+                                final MessageEnqueueRecord enqueueRecord,
+                                final boolean recovered)
+    {
         synchronized(_lock)
         {
             String key = null;
@@ -68,6 +76,10 @@ public class SortedQueueEntryList extends AbstractQueueEntryList
             }
 
             final SortedQueueEntry entry = new SortedQueueEntry(this,message, ++_entryId, enqueueRecord);
+            if (recovered)
+            {
+                entry.markRecovered();
+            }
             updateStatsOnEnqueue(entry);
 
             entry.setKey(key);
