@@ -197,6 +197,7 @@ public class HeadersBindingTest extends UnitTestBase
         when(exchange.getChildExecutor()).thenReturn(executor);
 
         bindHeaders.clear();
+        matchHeaders._headers.clear();
     }
 
     protected String getQueueName()
