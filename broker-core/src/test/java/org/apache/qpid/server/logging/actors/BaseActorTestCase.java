@@ -44,6 +44,7 @@ public abstract class BaseActorTestCase extends UnitTestBase
     @AfterEach
     public void tearDown() throws Exception
     {
+        _statusUpdatesEnabled = true;
         if (_rawLogger != null)
         {
             _rawLogger.clearLogMessages();
