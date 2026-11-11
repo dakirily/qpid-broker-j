@@ -46,18 +46,22 @@ public class AsyncAutoCommitTransactionTest extends UnitTestBase
 {
     private static final String STRICT_ORDER_SYSTEM_PROPERTY = AsyncAutoCommitTransaction.QPID_STRICT_ORDER_WITH_MIXED_DELIVERY_MODE;
 
-    private final EnqueueableMessage<?> _message = mock(EnqueueableMessage.class);
-    private final BaseQueue _queue = mock(BaseQueue.class);
-    private final MessageStore _messageStore = mock(MessageStore.class);
-    private final ServerTransaction.EnqueueAction _postTransactionAction = mock(ServerTransaction.EnqueueAction.class);
-    private final CompletableFuture<Void> _future = mock(CompletableFuture.class);
-
+    private EnqueueableMessage<?> _message;
+    private BaseQueue _queue;
+    private MessageStore _messageStore;
+    private ServerTransaction.EnqueueAction _postTransactionAction;
+    private CompletableFuture<Void> _future;
     private Transaction _storeTransaction;
     private FutureRecorder _futureRecorder;
 
     @BeforeEach
     public void setUp() throws Exception
     {
+        _message = mock(EnqueueableMessage.class);
+        _queue = mock(BaseQueue.class);
+        _messageStore = mock(MessageStore.class);
+        _postTransactionAction = mock(ServerTransaction.EnqueueAction.class);
+        _future = mock(CompletableFuture.class);
         _futureRecorder = mock(FutureRecorder.class);
         _storeTransaction = mock(Transaction.class);
         when(_messageStore.newTransaction()).thenReturn(_storeTransaction);
