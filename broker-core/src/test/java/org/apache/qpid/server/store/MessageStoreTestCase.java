@@ -63,16 +63,19 @@ import org.apache.qpid.test.utils.UnitTestBase;
 @SuppressWarnings({"rawtypes", "unchecked"})
 public abstract class MessageStoreTestCase extends UnitTestBase
 {
-    private MessageStore _store;
-    private VirtualHost<?> _parent;
-    private MessageStore.MessageStoreReader _storeReader;
     private static final int BUFFER_SIZE = 10;
     private static final int POOL_SIZE = 20;
     private static final double SPARSITY_FRACTION = 1.0;
 
+    private MessageStore _store;
+    private VirtualHost<?> _parent;
+    private MessageStore.MessageStoreReader _storeReader;
+
     @BeforeEach
     public void setUp() throws Exception
     {
+        _store = null;
+        _storeReader = null;
         _parent = createVirtualHost();
 
         _store = createMessageStore();
@@ -87,7 +90,40 @@ public abstract class MessageStoreTestCase extends UnitTestBase
     @AfterEach
     public void tearDown() throws Exception
     {
-        QpidByteBuffer.deinitialisePool();
+        try
+        {
+            closeStore();
+        }
+        finally
+        {
+            QpidByteBuffer.deinitialisePool();
+        }
+    }
+
+    private void closeStore()
+    {
+        try
+        {
+            if (_storeReader != null)
+            {
+                _storeReader.close();
+            }
+        }
+        finally
+        {
+            _storeReader = null;
+            try
+            {
+                if (_store != null)
+                {
+                    _store.closeMessageStore();
+                }
+            }
+            finally
+            {
+                _store = null;
+            }
+        }
     }
 
     protected VirtualHost<?> getVirtualHost()
@@ -108,8 +144,7 @@ public abstract class MessageStoreTestCase extends UnitTestBase
 
     protected void reopenStore()
     {
-        _storeReader.close();
-        _store.closeMessageStore();
+        closeStore();
 
         _store = createMessageStore();
         _store.openMessageStore(_parent);

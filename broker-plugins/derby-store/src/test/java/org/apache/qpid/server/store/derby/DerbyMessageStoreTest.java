@@ -56,11 +56,11 @@ public class DerbyMessageStoreTest extends MessageStoreTestCase
     {
         try
         {
-            deleteStoreIfExists();
+            super.tearDown();
         }
         finally
         {
-            super.tearDown();
+            deleteStoreIfExists();
         }
     }
 

@@ -87,15 +87,14 @@ public class JDBCMessageStoreTest extends MessageStoreTestCase
     {
         try
         {
+            super.tearDown();
+        }
+        finally
+        {
             if (_connectionURL != null)
             {
                 TestJdbcUtils.shutdownDerby(_connectionURL);
             }
-        }
-        finally
-        {
-            QpidByteBuffer.deinitialisePool();
-            super.tearDown();
         }
     }
 
