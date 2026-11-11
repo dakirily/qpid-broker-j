@@ -22,9 +22,12 @@ package org.apache.qpid.server.transport;
 
 import static org.apache.qpid.test.utils.JvmVendor.IBM;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeFalse;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -36,6 +39,9 @@ import java.util.Base64;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
@@ -62,6 +68,7 @@ import org.apache.qpid.test.utils.UnitTestBase;
 public class TCPandSSLTransportTest extends UnitTestBase
 {
     private static final Logger LOGGER = LoggerFactory.getLogger(TCPandSSLTransportTest.class);
+    private static final int TIMEOUT_MILLIS = 10000;
 
     /** self signed cert keystore valid until Oct 2024 */
     private static final String KEYSTORE_STRING =
@@ -197,9 +204,15 @@ public class TCPandSSLTransportTest extends UnitTestBase
 
         final AmqpPort<?> port = mock(AmqpPort.class);
         when(port.getPort()).thenReturn(0);
-        when(port.getName()).thenReturn("testAmqp");
+        when(port.getName()).thenReturn(getTestName());
         when(port.getNetworkBufferSize()).thenReturn(64*1024);
         when(port.acceptNewConnectionAndIncrementCount(any(SocketAddress.class))).thenReturn(true);
+        final CountDownLatch connectionClosed = new CountDownLatch(1);
+        doAnswer(invocation ->
+        {
+            connectionClosed.countDown();
+            return 0L;
+        }).when(port).decrementConnectionCount();
         when(port.getThreadPoolSize()).thenReturn(2);
         when(port.getNumberOfSelectors()).thenReturn(1);
         when(port.getSSLContext()).thenReturn(sslContext);
@@ -227,13 +240,19 @@ public class TCPandSSLTransportTest extends UnitTestBase
                 Set.of(Protocol.AMQP_0_8, Protocol.AMQP_0_9, Protocol.AMQP_0_9_1, Protocol.AMQP_0_10,Protocol.AMQP_1_0),
                 Protocol.AMQP_0_9_1);
 
-        transport.start();
         final SSLContext clientContext = SSLContext.getInstance("TLS");
         final TrustManagerFactory tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
         tmf.init(keyStore);
 
         clientContext.init(null, tmf.getTrustManagers(), null);
 
+        transport.start();
+        final String selectorThreadName = "Selector-Port-" + getTestName();
+        final String workerThreadPrefix = "IO-pool-Port-" + getTestName() + "-";
+        final List<Thread> workers = Thread.getAllStackTraces().keySet().stream()
+                .filter(thread -> thread.getName().equals(selectorThreadName) ||
+                        thread.getName().startsWith(workerThreadPrefix))
+                .collect(Collectors.toList());
         try (final SSLSocket sslSocket = (SSLSocket) clientContext.getSocketFactory()
                 .createSocket(InetAddress.getLoopbackAddress(), transport.getAcceptingPort()))
         {
@@ -242,7 +261,40 @@ public class TCPandSSLTransportTest extends UnitTestBase
         }
         finally
         {
-            transport.close();
+            try
+            {
+                assertTrue(connectionClosed.await(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS),
+                        "Accepted connection did not close before transport shutdown");
+            }
+            finally
+            {
+                stopTransport(transport, workers);
+            }
+        }
+    }
+
+    private void stopTransport(final TCPandSSLTransport transport, final List<Thread> workers)
+            throws InterruptedException
+    {
+        transport.close();
+        try
+        {
+            for (final Thread worker : workers)
+            {
+                worker.join(TIMEOUT_MILLIS);
+                assertFalse(worker.isAlive(), "Transport worker did not terminate: " + worker.getName());
+            }
+        }
+        finally
+        {
+            for (final Thread worker : workers)
+            {
+                worker.interrupt();
+            }
+            for (final Thread worker : workers)
+            {
+                worker.join(TIMEOUT_MILLIS);
+            }
         }
     }
 }
