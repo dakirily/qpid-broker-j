@@ -340,8 +340,16 @@ public class AbstractVirtualHostTest extends UnitTestBase
         appender.start();
         rootLogger.addAppender(appender);
 
-        action.run();
-        assertTrue(logMessageReceivedLatch.await(2, TimeUnit.SECONDS), "Did not receive expected log message");
+        try
+        {
+            action.run();
+            assertTrue(logMessageReceivedLatch.await(2, TimeUnit.SECONDS), "Did not receive expected log message");
+        }
+        finally
+        {
+            rootLogger.detachAppender(appender);
+            appender.stop();
+        }
     }
 
     @Test
