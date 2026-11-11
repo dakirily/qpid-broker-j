@@ -165,6 +165,10 @@ class NonBlockingConnectionTest
     {
         final Field delegateField = NonBlockingConnection.class.getDeclaredField("_delegate");
         delegateField.setAccessible(true);
+        final NonBlockingConnectionDelegate originalDelegate =
+                (NonBlockingConnectionDelegate) delegateField.get(_nonBlockingConnection);
+        originalDelegate.shutdownInput();
+        originalDelegate.shutdownOutput();
         delegateField.set(_nonBlockingConnection, delegate);
     }
 
