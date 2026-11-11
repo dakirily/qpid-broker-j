@@ -35,6 +35,7 @@ import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -43,6 +44,7 @@ import org.apache.qpid.server.consumer.ConsumerOption;
 import org.apache.qpid.server.consumer.ConsumerTarget;
 import org.apache.qpid.server.message.MessageContainer;
 import org.apache.qpid.server.message.MessageInstanceConsumer;
+import org.apache.qpid.server.message.MessageReference;
 import org.apache.qpid.server.message.ServerMessage;
 import org.apache.qpid.server.model.State;
 import org.apache.qpid.server.model.TrustStore;
@@ -55,22 +57,52 @@ import org.apache.qpid.test.utils.UnitTestBase;
 public class TrustStoreMessageSourceTest extends UnitTestBase
 {
     private TrustStoreMessageSource _trustStoreMessageSource;
+    private MessageStore _messageStore;
     private Certificate[] _certificates;
 
     @BeforeEach
     public void setUp() throws Exception
     {
         final VirtualHost<?> vhost = mock(VirtualHost.class);
-        final MessageStore messageStore = new TestMemoryMessageStore();
+        _messageStore = new TestMemoryMessageStore();
         final TrustStore<?> trustStore = mock(TrustStore.class);
         final Certificate certificate = mock(Certificate.class);
         _certificates = new Certificate[]{certificate};
 
-        when(vhost.getMessageStore()).thenReturn(messageStore);
+        when(vhost.getMessageStore()).thenReturn(_messageStore);
         when(trustStore.getState()).thenReturn(State.ACTIVE);
         when(trustStore.getCertificates()).thenReturn(_certificates);
         when(certificate.getEncoded()).thenReturn("my certificate".getBytes());
-        _trustStoreMessageSource= new TrustStoreMessageSource(trustStore, vhost);
+        _trustStoreMessageSource = new TrustStoreMessageSource(trustStore, vhost);
+    }
+
+    @AfterEach
+    public void tearDown()
+    {
+        try
+        {
+            if (_trustStoreMessageSource != null)
+            {
+                try
+                {
+                    for (final MessageInstanceConsumer<?> consumer : _trustStoreMessageSource.getConsumers())
+                    {
+                        consumer.close();
+                    }
+                }
+                finally
+                {
+                    _trustStoreMessageSource.close();
+                }
+            }
+        }
+        finally
+        {
+            if (_messageStore != null)
+            {
+                _messageStore.closeMessageStore();
+            }
+        }
     }
 
     @Test
@@ -80,11 +112,21 @@ public class TrustStoreMessageSourceTest extends UnitTestBase
         final ConsumerTarget target = mock(ConsumerTarget.class);
         when(target.allocateCredit(any(ServerMessage.class))).thenReturn(true);
 
-        MessageInstanceConsumer<?> consumer = _trustStoreMessageSource.addConsumer(target, null, ServerMessage.class, getTestName(), options, 0);
-        final MessageContainer messageContainer = consumer.pullMessage();
-        assertNotNull(messageContainer, "Could not pull message of TrustStore");
-        final ServerMessage<?> message = messageContainer.getMessageInstance().getMessage();
-        assertCertificates(getCertificatesFromMessage(message));
+        final MessageInstanceConsumer<?> consumer = _trustStoreMessageSource.addConsumer(target, null,
+                ServerMessage.class, getTestName(), options, 0);
+        try
+        {
+            final MessageContainer messageContainer = consumer.pullMessage();
+            assertNotNull(messageContainer, "Could not pull message of TrustStore");
+            try (final MessageReference<?> reference = messageContainer.getMessageReference())
+            {
+                assertCertificates(getCertificatesFromMessage(reference.getMessage()));
+            }
+        }
+        finally
+        {
+            consumer.close();
+        }
     }
 
     private void assertCertificates(final List<String> encodedCertificates) throws CertificateEncodingException
