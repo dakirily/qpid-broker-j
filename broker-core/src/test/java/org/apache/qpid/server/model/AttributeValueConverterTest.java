@@ -75,6 +75,8 @@ public class AttributeValueConverterTest extends UnitTestBase
     @BeforeEach
     public void setUp() throws Exception
     {
+        _attributes.clear();
+        _context.clear();
         _attributes.put(ConfiguredObject.NAME, "objectName");
         _attributes.put(ConfiguredObject.CONTEXT, _context);
     }
