@@ -86,7 +86,17 @@ public class JsonFileConfigStoreTest extends UnitTestBase
     @AfterEach
     public void tearDown() throws Exception
     {
-        FileUtils.delete(_storeLocation, true);
+        try
+        {
+            if (_store != null)
+            {
+                _store.closeConfigurationStore();
+            }
+        }
+        finally
+        {
+            FileUtils.delete(_storeLocation, true);
+        }
     }
 
     @Test
