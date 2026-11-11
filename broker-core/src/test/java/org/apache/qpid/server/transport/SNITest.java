@@ -43,7 +43,7 @@ import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
 
-import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -65,15 +65,16 @@ import org.apache.qpid.server.model.Transport;
 import org.apache.qpid.server.security.FileKeyStore;
 import org.apache.qpid.server.security.auth.manager.AnonymousAuthenticationManager;
 import org.apache.qpid.server.transport.network.security.ssl.SSLUtil;
+import org.apache.qpid.server.util.FileUtils;
 import org.apache.qpid.test.utils.TestFileUtils;
 import org.apache.qpid.test.utils.UnitTestBase;
-import org.apache.qpid.test.utils.tls.TlsResourceExtension;
 import org.apache.qpid.test.utils.tls.AltNameType;
 import org.apache.qpid.test.utils.tls.AlternativeName;
 import org.apache.qpid.test.utils.tls.KeyCertificatePair;
 import org.apache.qpid.test.utils.tls.PrivateKeyEntry;
 import org.apache.qpid.test.utils.tls.TlsResource;
 import org.apache.qpid.test.utils.tls.TlsResourceBuilder;
+import org.apache.qpid.test.utils.tls.TlsResourceExtension;
 
 @ExtendWith({ TlsResourceExtension.class })
 public class SNITest extends UnitTestBase
@@ -109,17 +110,25 @@ public class SNITest extends UnitTestBase
         _keyStorePassword = tls.getSecret();
     }
 
-    @AfterAll
+    @AfterEach
     public void tearDown() throws Exception
     {
-        if (_systemLauncher != null)
+        try
         {
-            _systemLauncher.shutdown();
+            if (_systemLauncher != null)
+            {
+                _systemLauncher.shutdown();
+            }
         }
-
-        if (_brokerWork != null)
+        finally
         {
-            _brokerWork.delete();
+            _systemLauncher = null;
+            _broker = null;
+            if (_brokerWork != null)
+            {
+                FileUtils.delete(_brokerWork, true);
+                _brokerWork = null;
+            }
         }
     }
 
