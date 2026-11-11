@@ -504,7 +504,10 @@ public abstract class MessageStoreTestCase extends UnitTestBase
         final StoredMessage<?> storedMessage = createStoredMessage();
 
         assertTrue(storedMessage.flowToDisk());
-        assertNotNull(storedMessage.getContent(0, storedMessage.getContentSize()));
+        try (final QpidByteBuffer content = storedMessage.getContent(0, storedMessage.getContentSize()))
+        {
+            assertNotNull(content);
+        }
         assertEquals(storedMessage.getContentSize(), storedMessage.getInMemorySize());
 
         assertTrue(storedMessage.flowToDisk());
@@ -539,7 +542,10 @@ public abstract class MessageStoreTestCase extends UnitTestBase
         final StoredMessage<?> storedMessage = createStoredMessage();
         assertTrue(storedMessage.flowToDisk());
         assertFalse(storedMessage.isInContentInMemory());
-        assertNotNull(storedMessage.getContent(0, storedMessage.getContentSize()));
+        try (final QpidByteBuffer content = storedMessage.getContent(0, storedMessage.getContentSize()))
+        {
+            assertNotNull(content);
+        }
         assertTrue(storedMessage.isInContentInMemory());
     }
 
