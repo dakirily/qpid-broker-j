@@ -30,27 +30,40 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.File;
 import java.lang.reflect.Field;
-import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import com.sleepycat.je.Database;
+import com.sleepycat.je.OperationStatus;
+import com.sleepycat.je.Transaction;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.Mockito;
+import org.slf4j.Logger;
+
 import org.apache.qpid.server.bytebuffer.QpidByteBuffer;
+import org.apache.qpid.server.message.internal.InternalMessageMetaData;
 import org.apache.qpid.server.model.ConfiguredObject;
 import org.apache.qpid.server.plugin.MessageMetaDataType;
 import org.apache.qpid.server.store.SizeMonitoringSettings;
 import org.apache.qpid.server.store.StorableMessageMetaData;
 import org.apache.qpid.server.store.StoreException;
-import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
-import org.slf4j.Logger;
+import org.apache.qpid.test.utils.UnitTestBase;
 
 /**
  * Unit tests for the content fragment accumulation and consolidation logic within
  * {@link AbstractBDBMessageStore.StoredBDBMessage}.
  */
-class StoredBDBMessageTest
+class StoredBDBMessageTest extends UnitTestBase
 {
     @Test
     void addContentAccumulatesFragmentsAndConsolidatesOnGetContent() throws Exception
@@ -595,6 +608,274 @@ class StoredBDBMessageTest
         assertThrows(IllegalStateException.class, message::getMetaData);
     }
 
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void testEvictedPayloadsReloadIndependently(final boolean metadataFirst) throws Exception
+    {
+        final TestBDBMessageStore store = new TestBDBMessageStore();
+        store.openMessageStore(createParent());
+        try
+        {
+            final TestMetaData metadata = new TestMetaData(7, 3);
+            store.setMessageMetaData(1L, metadata);
+            store.setMessageContent(1L, new byte[]{1, 2, 3});
+            final AbstractBDBMessageStore.StoredBDBMessage<TestMetaData> message =
+                    store.new StoredBDBMessage<>(1L, metadata, true);
+            message.flowToDisk();
+
+            for (int i = 1; i <= 3; i++)
+            {
+                if (metadataFirst)
+                {
+                    assertSame(metadata, message.getMetaData());
+                    assertEquals(7L, message.getInMemorySize());
+                    assertFalse(message.isInContentInMemory());
+                }
+                try (final QpidByteBuffer content = message.getContent(0, Integer.MAX_VALUE))
+                {
+                    assertArrayEquals(new byte[]{1, 2, 3}, readRemaining(content));
+                }
+                final QpidByteBuffer retainedContent = getMessageData(message);
+                if (!metadataFirst)
+                {
+                    assertEquals(3L, message.getInMemorySize());
+                }
+                assertSame(metadata, message.getMetaData());
+                assertSame(retainedContent, getMessageData(message));
+                assertSame(metadata, message.getMetaData());
+                assertEquals(i, store.getMetaDataLoadCount());
+                assertEquals(i, store.getContentLoadCount());
+                assertEquals(10L, message.getInMemorySize());
+                assertEquals(10L, store.getInMemorySize());
+
+                message.flowToDisk();
+                assertEquals(0L, message.getInMemorySize());
+                assertEquals(0L, store.getInMemorySize());
+            }
+            assertEquals(37L, store.getBytesEvacuatedFromMemory());
+        }
+        finally
+        {
+            store.closeMessageStore();
+        }
+    }
+
+    @Test
+    void testFailedContentWriteKeepsMessageUnstored()
+    {
+        final TestBDBMessageStore store = new TestBDBMessageStore();
+        final Database metadataDatabase = Mockito.mock(Database.class);
+        final Database contentDatabase = Mockito.mock(Database.class);
+        final Transaction transaction = Mockito.mock(Transaction.class);
+        Mockito.when(store._environmentFacade.openDatabase(Mockito.anyString(), Mockito.any()))
+                .thenAnswer(invocation -> "MESSAGE_METADATA".equals(invocation.getArgument(0))
+                        ? metadataDatabase : contentDatabase);
+        Mockito.when(store._environmentFacade.handleDatabaseException(Mockito.anyString(), Mockito.any()))
+                .thenAnswer(invocation -> invocation.getArgument(1));
+        Mockito.when(metadataDatabase.put(Mockito.any(), Mockito.any(), Mockito.any()))
+                .thenReturn(OperationStatus.SUCCESS);
+        final IllegalStateException failure = new IllegalStateException("content write failed");
+        Mockito.when(contentDatabase.put(Mockito.any(), Mockito.any(), Mockito.any()))
+                .thenThrow(failure).thenReturn(OperationStatus.SUCCESS);
+
+        final AbstractBDBMessageStore.StoredBDBMessage<InternalMessageMetaData> message =
+                store.new StoredBDBMessage<>(1L, new InternalMessageMetaData(true, null, 0), false);
+        try
+        {
+            assertTrue(message.isInContentInMemory());
+            try (final QpidByteBuffer content = message.getContent(0, Integer.MAX_VALUE))
+            {
+                assertEquals(0, content.remaining());
+            }
+            assertEquals(0, store.getContentLoadCount());
+            assertSame(failure, assertThrows(IllegalStateException.class, () -> message.store(transaction)));
+            assertTrue(message.isInContentInMemory());
+
+            message.store(transaction);
+            assertFalse(message.isInContentInMemory());
+            message.store(transaction);
+            Mockito.verify(metadataDatabase, Mockito.times(2)).put(Mockito.any(), Mockito.any(), Mockito.any());
+            Mockito.verify(contentDatabase, Mockito.times(2)).put(Mockito.any(), Mockito.any(), Mockito.any());
+        }
+        finally
+        {
+            message.clear(true);
+        }
+    }
+
+    @Test
+    void testRemovalWhileEvictedPreventsReloadAndFurtherWrites()
+    {
+        final TestBDBMessageStore store = new TestBDBMessageStore();
+        store.openMessageStore(createParent());
+        try
+        {
+            final TestMetaData metadata = new TestMetaData(7, 3);
+            store.setMessageMetaData(1L, metadata);
+            store.setMessageContent(1L, new byte[]{1, 2, 3});
+            final AbstractBDBMessageStore.StoredBDBMessage<TestMetaData> message =
+                    store.new StoredBDBMessage<>(1L, metadata, true);
+            message.flowToDisk();
+            message.remove();
+            message.remove();
+
+            try (final QpidByteBuffer input = QpidByteBuffer.wrap(new byte[]{4, 5, 6}))
+            {
+                message.addContent(input);
+            }
+            message.allContentAdded();
+            message.store(null);
+            message.flushToStore();
+            message.flowToDisk();
+            message.reallocate();
+            message.clear(false);
+            message.clear(true);
+            assertNull(message.getMetaData());
+            try (final QpidByteBuffer content = message.getContent(0, Integer.MAX_VALUE))
+            {
+                assertEquals(0, content.remaining());
+            }
+            assertEquals(1, store._removeCount.get());
+            assertEquals(0, store.getMetaDataLoadCount());
+            assertEquals(0, store.getContentLoadCount());
+            assertEquals(0L, message.getInMemorySize());
+            assertEquals(0L, store.getInMemorySize());
+            assertEquals(7L, store.getBytesEvacuatedFromMemory());
+            assertFalse(message.isInContentInMemory());
+        }
+        finally
+        {
+            store.closeMessageStore();
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void testClearReleasesPayloadOnceAndPreservesReloadEligibility(final boolean close) throws Exception
+    {
+        final TestBDBMessageStore store = new TestBDBMessageStore();
+        store.openMessageStore(createParent());
+        try
+        {
+            final StorableMessageMetaData metadata = Mockito.mock(StorableMessageMetaData.class);
+            Mockito.when(metadata.getStorableSize()).thenReturn(7);
+            Mockito.when(metadata.getContentSize()).thenReturn(3);
+            final TestMetaData reloaded = new TestMetaData(7, 3);
+            store.setMessageMetaData(1L, reloaded);
+            final AbstractBDBMessageStore.StoredBDBMessage<StorableMessageMetaData> message =
+                    store.new StoredBDBMessage<>(1L, metadata, true);
+            final QpidByteBuffer source = Mockito.mock(QpidByteBuffer.class);
+            final QpidByteBuffer retained = Mockito.mock(QpidByteBuffer.class);
+            Mockito.when(source.slice()).thenReturn(retained);
+            Mockito.when(retained.remaining()).thenReturn(3);
+            message.addContent(source);
+            message.allContentAdded();
+
+            message.clear(close);
+            message.clear(close);
+            Mockito.verify(retained).dispose();
+            Mockito.verify(metadata, Mockito.times(close ? 1 : 0)).dispose();
+            Mockito.verify(metadata, Mockito.times(close ? 0 : 1)).clearEncodedForm();
+            assertNull(getMessageData(message));
+            assertEquals(0L, message.getInMemorySize());
+            // The close caller resets store accounting; clear itself does not change it.
+            assertEquals(10L, store.getInMemorySize());
+            assertSame(reloaded, message.getMetaData());
+            assertEquals(1, store.getMetaDataLoadCount());
+        }
+        finally
+        {
+            store.closeMessageStore();
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void testClearDropsMetadataEvenWhenCleanupThrows(final boolean close)
+    {
+        final TestBDBMessageStore store = new TestBDBMessageStore();
+        store.openMessageStore(createParent());
+        try
+        {
+            final StorableMessageMetaData metadata = Mockito.mock(StorableMessageMetaData.class);
+            Mockito.when(metadata.getStorableSize()).thenReturn(7);
+            final IllegalStateException failure = new IllegalStateException("metadata cleanup failed");
+            if (close)
+            {
+                Mockito.doThrow(failure).when(metadata).dispose();
+            }
+            else
+            {
+                Mockito.doThrow(failure).when(metadata).clearEncodedForm();
+            }
+            final AbstractBDBMessageStore.StoredBDBMessage<StorableMessageMetaData> message =
+                    store.new StoredBDBMessage<>(1L, metadata, true);
+            final TestMetaData reloaded = new TestMetaData(7, 0);
+            store.setMessageMetaData(1L, reloaded);
+            assertSame(failure, assertThrows(IllegalStateException.class, () -> message.clear(close)));
+            assertSame(reloaded, message.getMetaData());
+            assertEquals(1, store.getMetaDataLoadCount());
+        }
+        finally
+        {
+            store.closeMessageStore();
+        }
+    }
+
+    @Test
+    void testConcurrentReloadAndEvictionPreservePayloadAndAccounting() throws Exception
+    {
+        final TestBDBMessageStore store = new TestBDBMessageStore();
+        store.openMessageStore(createParent());
+        final ExecutorService executor = Executors.newFixedThreadPool(4);
+        try
+        {
+            final TestMetaData metadata = new TestMetaData(7, 3);
+            store.setMessageMetaData(1L, metadata);
+            store.setMessageContent(1L, new byte[]{1, 2, 3});
+            final AbstractBDBMessageStore.StoredBDBMessage<TestMetaData> message =
+                    store.new StoredBDBMessage<>(1L, metadata, true);
+            message.flowToDisk();
+            final CountDownLatch start = new CountDownLatch(1);
+            final List<Future<?>> results = new ArrayList<>();
+            for (int i = 0; i < 4; i++)
+            {
+                results.add(executor.submit(() ->
+                {
+                    start.await();
+                    for (int j = 0; j < 100; j++)
+                    {
+                        assertSame(metadata, message.getMetaData());
+                        try (final QpidByteBuffer content = message.getContent(0, Integer.MAX_VALUE))
+                        {
+                            assertArrayEquals(new byte[]{1, 2, 3}, readRemaining(content));
+                        }
+                        message.flowToDisk();
+                    }
+                    return null;
+                }));
+            }
+            start.countDown();
+            for (final Future<?> result : results)
+            {
+                result.get(30, TimeUnit.SECONDS);
+            }
+            message.flowToDisk();
+            assertEquals(0L, store.getInMemorySize());
+            assertEquals(0L, message.getInMemorySize());
+            assertTrue(store.getMetaDataLoadCount() > 0);
+            assertTrue(store.getContentLoadCount() > 0);
+            assertEquals(7L + 7L * store.getMetaDataLoadCount() + 3L * store.getContentLoadCount(),
+                    store.getBytesEvacuatedFromMemory());
+        }
+        finally
+        {
+            executor.shutdownNow();
+            assertTrue(executor.awaitTermination(30, TimeUnit.SECONDS));
+            store.closeMessageStore();
+        }
+    }
+
     private static byte[] readRemaining(final QpidByteBuffer buffer)
     {
         final byte[] actual = new byte[buffer.remaining()];
@@ -628,17 +909,9 @@ class StoredBDBMessageTest
 
     private static QpidByteBuffer getMessageData(final Object message) throws Exception
     {
-        final Field messageDataRefField = message.getClass().getDeclaredField("_messageDataRef");
-        messageDataRefField.setAccessible(true);
-        final Object messageDataRef = messageDataRefField.get(message);
-        if (messageDataRef == null)
-        {
-            return null;
-        }
-
-        final Method getData = messageDataRef.getClass().getDeclaredMethod("getData");
-        getData.setAccessible(true);
-        return (QpidByteBuffer) getData.invoke(messageDataRef);
+        final Field dataField = message.getClass().getDeclaredField("_data");
+        dataField.setAccessible(true);
+        return (QpidByteBuffer) dataField.get(message);
     }
 
     private static final class TestBDBMessageStore extends AbstractBDBMessageStore
@@ -650,6 +923,7 @@ class StoredBDBMessageTest
         private final Map<Long, byte[]> _contentById = new HashMap<>();
         private final AtomicInteger _metaDataLoadCount = new AtomicInteger();
         private final AtomicInteger _contentLoadCount = new AtomicInteger();
+        private final AtomicInteger _removeCount = new AtomicInteger();
 
         void setMessageMetaData(final long messageId, final StorableMessageMetaData metaData)
         {
@@ -737,6 +1011,14 @@ class StoredBDBMessageTest
             }
             // Use a new buffer instance to mimic the behaviour of the production store implementation.
             return QpidByteBuffer.wrap(content.clone());
+        }
+
+        @Override
+        void removeMessage(final long messageId)
+        {
+            _removeCount.incrementAndGet();
+            _metaDataById.remove(messageId);
+            _contentById.remove(messageId);
         }
     }
 
