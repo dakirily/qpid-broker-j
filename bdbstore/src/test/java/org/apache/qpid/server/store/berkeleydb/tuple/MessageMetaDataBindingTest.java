@@ -22,6 +22,9 @@ package org.apache.qpid.server.store.berkeleydb.tuple;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
@@ -53,11 +56,59 @@ import org.apache.qpid.server.protocol.v1_0.type.messaging.PropertiesSection;
 import org.apache.qpid.server.store.MessageMetaDataTypeRegistry;
 import org.apache.qpid.server.store.StorableMessageMetaData;
 import org.apache.qpid.server.store.StoreException;
+import org.apache.qpid.test.utils.UnitTestBase;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
-class MessageMetaDataBindingTest
+class MessageMetaDataBindingTest extends UnitTestBase
 {
     private final MessageMetaDataBinding binding = MessageMetaDataBinding.getInstance();
+
+    @ParameterizedTest
+    @ValueSource(strings = {"0-8", "0-10", "1-0"})
+    void testBorrowedSerializationMatchesIndependentResult(final String protocol)
+    {
+        final StorableMessageMetaData metadata = createMetadata(protocol);
+        try
+        {
+            final DatabaseEntry independent = new DatabaseEntry();
+            binding.objectToEntry(metadata, independent);
+            final int size = binding.getEntrySize(metadata);
+            final byte[] scratch = new byte[size + 100];
+            Arrays.fill(scratch, (byte) 42);
+            final DatabaseEntry borrowed = new DatabaseEntry(scratch, 13, size);
+            borrowed.setPartial(0, 0, true);
+            binding.writeToEntry(metadata, borrowed);
+            assertSame(scratch, borrowed.getData());
+            assertEquals(13, borrowed.getOffset());
+            assertEquals(size, borrowed.getSize());
+            assertArrayEquals(independent.getData(), Arrays.copyOfRange(scratch, 13, 13 + size));
+            assertEquals(42, scratch[12]);
+            assertEquals(42, scratch[13 + size]);
+            assertFalse(borrowed.getPartial());
+
+            final byte[] original = independent.getData();
+            binding.objectToEntry(metadata, independent);
+            assertNotSame(original, independent.getData());
+            assertArrayEquals(original, independent.getData());
+        }
+        finally
+        {
+            metadata.dispose();
+        }
+    }
+
+    private StorableMessageMetaData createMetadata(final String protocol)
+    {
+        return switch (protocol)
+        {
+            case "0-8" -> createAmqp_0_8_Metadata();
+            case "0-10" -> createAmqp_0_10_Metadata();
+            case "1-0" -> createAmqp_1_0_Metadata();
+            default -> throw new IllegalArgumentException(protocol);
+        };
+    }
 
     @Test
     void roundTripObjectToEntryThenEntryToObjectPreservesPayloadBytesAmqp_0_8()

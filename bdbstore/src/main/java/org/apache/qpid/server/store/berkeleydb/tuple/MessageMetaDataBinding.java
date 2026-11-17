@@ -21,6 +21,8 @@
 
 package org.apache.qpid.server.store.berkeleydb.tuple;
 
+import java.nio.ByteBuffer;
+
 import com.sleepycat.bind.EntryBinding;
 import com.sleepycat.je.DatabaseEntry;
 
@@ -111,24 +113,64 @@ public class MessageMetaDataBinding implements EntryBinding<StorableMessageMetaD
     @Override
     public void objectToEntry(final StorableMessageMetaData metaData, final DatabaseEntry entry)
     {
-        final int bodySize = 1 + metaData.getStorableSize();
-        final byte[] underlying = new byte[BODY_SIZE + bodySize];
+        final int size = getEntrySize(metaData);
+        final byte[] underlying = new byte[size];
+        writeToBuffer(metaData, underlying, 0, size);
+        entry.setData(underlying);
+    }
+
+    public int getEntrySize(final StorableMessageMetaData metaData)
+    {
+        final int metadataSize = metaData.getStorableSize();
+        if (metadataSize < 0 || metadataSize > Integer.MAX_VALUE - METADATA_SIZE)
+        {
+            throw new StoreException("Invalid message metadata size: " + metadataSize);
+        }
+        return METADATA_SIZE + metadataSize;
+    }
+
+    /**
+     * Serializes into a caller-owned input entry whose size was obtained from {@link #getEntrySize}.
+     * The array is borrowed, may be reused after the database put completes, and must not escape to readers.
+     * Ordinary {@link #objectToEntry} calls continue to produce independent arrays.
+     */
+    public void writeToEntry(final StorableMessageMetaData metaData, final DatabaseEntry entry)
+    {
+        final byte[] data = entry.getData();
+        final int offset = entry.getOffset();
+        final int size = entry.getSize();
+        if (data == null || offset < 0 || size < METADATA_SIZE || offset > data.length - size)
+        {
+            throw new IllegalArgumentException("Invalid borrowed message metadata entry");
+        }
+        entry.setPartial(0, 0, false);
+        writeToBuffer(metaData, data, offset, size);
+    }
+
+    private void writeToBuffer(final StorableMessageMetaData metaData, final byte[] data,
+                               final int offset, final int size)
+    {
+        final int bodySize = size - BODY_SIZE;
 
         // write bodySize ^ 0x80000000 as 4 bytes
         final int flippedSize = bodySize ^ 0x80000000;
-        underlying[0] = (byte) (flippedSize >>> 24);
-        underlying[1] = (byte) (flippedSize >>> 16);
-        underlying[2] = (byte) (flippedSize >>> 8);
-        underlying[3] = (byte) (flippedSize & 0xFF);
+        data[offset] = (byte) (flippedSize >>> 24);
+        data[offset + 1] = (byte) (flippedSize >>> 16);
+        data[offset + 2] = (byte) (flippedSize >>> 8);
+        data[offset + 3] = (byte) (flippedSize & 0xFF);
 
         // write metaData type
-        underlying[4] = (byte) metaData.getType().ordinal();
+        data[offset + BODY_SIZE] = (byte) metaData.getType().ordinal();
 
-        // write rest of the metaData
-        try (final QpidByteBuffer buf = QpidByteBuffer.wrap(underlying, METADATA_SIZE, bodySize - 1))
+        // Bound capacity as well as limit to keep serializers within the declared payload region.
+        try (final QpidByteBuffer buf = QpidByteBuffer.wrap(
+                ByteBuffer.wrap(data, offset + METADATA_SIZE, size - METADATA_SIZE).slice()))
         {
             metaData.writeToBuffer(buf);
+            if (buf.position() != size - METADATA_SIZE)
+            {
+                throw new StoreException("Message metadata serializer did not write its declared size");
+            }
         }
-        entry.setData(underlying);
     }
 }
