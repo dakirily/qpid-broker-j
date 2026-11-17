@@ -24,6 +24,7 @@ package org.apache.qpid.server.store.berkeleydb.tuple;
 import java.util.UUID;
 
 import com.sleepycat.je.DatabaseEntry;
+
 import org.apache.qpid.server.store.berkeleydb.AbstractBDBMessageStore;
 import org.apache.qpid.server.util.CachingUUIDFactory;
 
@@ -140,6 +141,34 @@ public class QueueEntryBinding
             throw new IllegalArgumentException("Invalid deliveryDb key: expected exactly " + KEY_SIZE
                     + " bytes from offset. offset = " + offset + ", size = " + size
                     + ", data.length = " + data.length);
+        }
+    }
+
+    /**
+     * Decodes one sorted DELIVERY scan, reusing the UUID for adjacent records of the same queue.
+     * Each scan invocation must own its decoder and retain it across pages and cursor reopenings.
+     */
+    public static final class OrderedDecoder
+    {
+        private long _mostSignificantBits;
+        private long _leastSignificantBits;
+        private UUID _queueId;
+
+        public AbstractBDBMessageStore.BDBEnqueueRecord readIds(final DatabaseEntry entry)
+        {
+            validateKey(entry);
+            final byte[] data = entry.getData();
+            final int offset = entry.getOffset();
+            final long msb = readUnsignedLong(data, offset) ^ 0x8000000000000000L;
+            final long lsb = readUnsignedLong(data, offset + 8) ^ 0x8000000000000000L;
+            final long messageId = readUnsignedLong(data, offset + 16) ^ 0x8000000000000000L;
+            if (_queueId == null || msb != _mostSignificantBits || lsb != _leastSignificantBits)
+            {
+                _queueId = new UUID(msb, lsb);
+                _mostSignificantBits = msb;
+                _leastSignificantBits = lsb;
+            }
+            return new AbstractBDBMessageStore.BDBEnqueueRecord(_queueId, messageId);
         }
     }
 }

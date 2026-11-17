@@ -22,6 +22,8 @@ package org.apache.qpid.server.store.berkeleydb.tuple;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -31,14 +33,15 @@ import java.util.Arrays;
 import java.util.UUID;
 import java.util.random.RandomGenerator;
 
-import org.apache.qpid.server.store.berkeleydb.AbstractBDBMessageStore;
-import org.apache.qpid.server.util.CachingUUIDFactory;
+import com.sleepycat.je.DatabaseEntry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import com.sleepycat.je.DatabaseEntry;
+import org.apache.qpid.server.store.berkeleydb.AbstractBDBMessageStore;
+import org.apache.qpid.server.util.CachingUUIDFactory;
+import org.apache.qpid.test.utils.UnitTestBase;
 
-class QueueEntryBindingTest
+class QueueEntryBindingTest extends UnitTestBase
 {
     private static final int KEY_SIZE = 24;
     private static final RandomGenerator RANDOM = new SecureRandom();
@@ -312,6 +315,109 @@ class QueueEntryBindingTest
         Arrays.sort(expectedOrder, QueueEntryBindingTest::compareUuidSigned);
 
         assertArrayEquals(expectedOrder, actualOrder);
+    }
+
+    @Test
+    void testOrderedDecoderReusesZeroUuidWithIndependentRecordsAndNonzeroOffsets()
+    {
+        final QueueEntryBinding.OrderedDecoder decoder = new QueueEntryBinding.OrderedDecoder();
+        final UUID queueId = new UUID(0L, 0L);
+        final AbstractBDBMessageStore.BDBEnqueueRecord first =
+                decoder.readIds(encodeWithOffset(queueId, Long.MIN_VALUE, 7));
+        final AbstractBDBMessageStore.BDBEnqueueRecord second =
+                decoder.readIds(encodeWithOffset(queueId, Long.MAX_VALUE, 9));
+
+        assertEquals(queueId, first.getQueueId());
+        assertSame(first.getQueueId(), second.getQueueId());
+        assertNotSame(first, second);
+        assertEquals(Long.MIN_VALUE, first.getMessageNumber());
+        assertEquals(Long.MAX_VALUE, second.getMessageNumber());
+    }
+
+    @Test
+    void testOrderedDecoderChangesUuidWhenEitherHalfChanges()
+    {
+        final QueueEntryBinding.OrderedDecoder decoder = new QueueEntryBinding.OrderedDecoder();
+        final UUID[] queueIds = {new UUID(Long.MIN_VALUE, Long.MIN_VALUE), new UUID(Long.MIN_VALUE, 0L),
+                new UUID(0L, 0L), new UUID(0L, 1L), new UUID(1L, 1L), new UUID(Long.MAX_VALUE, Long.MAX_VALUE)};
+        UUID previous = null;
+        for (final UUID queueId : queueIds)
+        {
+            final AbstractBDBMessageStore.BDBEnqueueRecord first = decoder.readIds(encode(queueId, 1L));
+            final AbstractBDBMessageStore.BDBEnqueueRecord second = decoder.readIds(encode(queueId, 2L));
+            assertEquals(queueId, first.getQueueId());
+            assertSame(first.getQueueId(), second.getQueueId());
+            assertNotSame(previous, first.getQueueId());
+            previous = first.getQueueId();
+        }
+    }
+
+    @Test
+    void testOrderedDecoderDoesNotRetainMutableKeyStorage()
+    {
+        final QueueEntryBinding.OrderedDecoder decoder = new QueueEntryBinding.OrderedDecoder();
+        final UUID otherQueue = new UUID(_uuid.getMostSignificantBits(), _uuid.getLeastSignificantBits() + 1);
+        final DatabaseEntry key = encodeWithOffset(_uuid, 1L, 11);
+        final byte[] backing = key.getData();
+        final AbstractBDBMessageStore.BDBEnqueueRecord first = decoder.readIds(key);
+        System.arraycopy(encode(otherQueue, 2L).getData(), 0, backing, key.getOffset(), KEY_SIZE);
+        final AbstractBDBMessageStore.BDBEnqueueRecord second = decoder.readIds(key);
+        Arrays.fill(backing, (byte) 0);
+
+        assertEquals(_uuid, first.getQueueId());
+        assertEquals(1L, first.getMessageNumber());
+        assertEquals(otherQueue, second.getQueueId());
+        assertEquals(2L, second.getMessageNumber());
+        assertNotSame(first.getQueueId(), second.getQueueId());
+        assertSame(second.getQueueId(), decoder.readIds(encode(otherQueue, 3L)).getQueueId());
+    }
+
+    @Test
+    void testOrderedDecoderValidatesEveryKeyBeforeUsingCache()
+    {
+        final QueueEntryBinding.OrderedDecoder decoder = new QueueEntryBinding.OrderedDecoder();
+        final UUID cached = decoder.readIds(encode(_uuid, 1L)).getQueueId();
+        final DatabaseEntry truncated = encode(_uuid, 2L);
+        truncated.setSize(KEY_SIZE - 1);
+        final DatabaseEntry[] invalidEntries = {null, new DatabaseEntry(), truncated,
+                entryWithOffsetAndSize(new byte[KEY_SIZE + 1], 0, KEY_SIZE + 1),
+                entryWithOffsetAndSize(new byte[KEY_SIZE], -1, KEY_SIZE),
+                entryWithOffsetAndSize(new byte[KEY_SIZE], 1, KEY_SIZE),
+                entryWithOffsetAndSize(new byte[KEY_SIZE], Integer.MAX_VALUE, KEY_SIZE)};
+
+        for (final DatabaseEntry entry : invalidEntries)
+        {
+            assertThrows(IllegalArgumentException.class, () -> decoder.readIds(entry));
+        }
+        assertSame(cached, decoder.readIds(encode(_uuid, 3L)).getQueueId());
+    }
+
+    @Test
+    void testOrderedDecodersKeepIndependentState()
+    {
+        final QueueEntryBinding.OrderedDecoder outer = new QueueEntryBinding.OrderedDecoder();
+        final QueueEntryBinding.OrderedDecoder inner = new QueueEntryBinding.OrderedDecoder();
+        final UUID outerQueue = outer.readIds(encode(_uuid, 1L)).getQueueId();
+        final UUID innerQueue = inner.readIds(encode(_uuid, 1L)).getQueueId();
+        inner.readIds(encode(new UUID(0L, 0L), 2L));
+
+        assertNotSame(outerQueue, innerQueue);
+        assertSame(outerQueue, outer.readIds(encode(_uuid, 2L)).getQueueId());
+        assertEquals(_uuid, innerQueue);
+    }
+
+    @Test
+    void testOrdinaryReadIdsKeepsFactoryCanonicalizationForNonAdjacentQueues()
+    {
+        final AbstractBDBMessageStore.BDBEnqueueRecord first =
+                QueueEntryBinding.readIds(_uuidFactory, encode(_uuid, 1L));
+        QueueEntryBinding.readIds(_uuidFactory, encode(new UUID(0L, 0L), 2L));
+        final AbstractBDBMessageStore.BDBEnqueueRecord third =
+                QueueEntryBinding.readIds(_uuidFactory, encode(_uuid, 3L));
+
+        assertSame(first.getQueueId(), third.getQueueId());
+        assertEquals(1L, first.getMessageNumber());
+        assertEquals(3L, third.getMessageNumber());
     }
 
     private static DatabaseEntry encode(final UUID queueId, final long messageId)

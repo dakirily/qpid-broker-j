@@ -1611,7 +1611,7 @@ public abstract class AbstractBDBMessageStore implements MessageStore
                 throw new IllegalArgumentException("Invalid batch size must be greater than zero");
             }
 
-            final CachingUUIDFactory uuidFactory = new CachingUUIDFactory();
+            final QueueEntryBinding.OrderedDecoder entryDecoder = new QueueEntryBinding.OrderedDecoder();
             final List<MessageEnqueueRecord> invalidRecords =
                     new ArrayList<>(Math.min(invalidBatchSize, MESSAGE_INSTANCE_PAGE_SIZE));
             final byte[] resumeKey = new byte[QueueEntryBinding.KEY_SIZE];
@@ -1647,7 +1647,7 @@ public abstract class AbstractBDBMessageStore implements MessageStore
 
                         while (status == OperationStatus.SUCCESS && records.size() < MESSAGE_INSTANCE_PAGE_SIZE)
                         {
-                            final MessageEnqueueRecord record = QueueEntryBinding.readIds(uuidFactory, key);
+                            final MessageEnqueueRecord record = entryDecoder.readIds(key);
                             records.add(record);
                             if (records.size() == MESSAGE_INSTANCE_PAGE_SIZE)
                             {
@@ -1852,7 +1852,7 @@ public abstract class AbstractBDBMessageStore implements MessageStore
         {
             checkMessageStoreOpen();
 
-            final CachingUUIDFactory uuidFactory = new CachingUUIDFactory();
+            final QueueEntryBinding.OrderedDecoder entryDecoder = new QueueEntryBinding.OrderedDecoder();
             final List<BDBEnqueueRecord> entries = new ArrayList<>();
             try (final Cursor cursor = getDeliveryDb().openCursor(null, null))
             {
@@ -1860,7 +1860,7 @@ public abstract class AbstractBDBMessageStore implements MessageStore
 
                 while (cursor.getNext(key, null, LockMode.READ_UNCOMMITTED) == OperationStatus.SUCCESS)
                 {
-                    entries.add(QueueEntryBinding.readIds(uuidFactory, key));
+                    entries.add(entryDecoder.readIds(key));
                 }
             }
             catch (final RuntimeException e)

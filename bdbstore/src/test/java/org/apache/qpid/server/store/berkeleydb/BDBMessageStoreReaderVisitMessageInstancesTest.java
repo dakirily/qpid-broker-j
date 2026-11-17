@@ -21,8 +21,10 @@ package org.apache.qpid.server.store.berkeleydb;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -31,6 +33,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -38,28 +41,29 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import org.apache.qpid.server.store.StorableMessageMetaData;
+import com.sleepycat.je.Database;
+import com.sleepycat.je.DatabaseEntry;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
-import org.apache.qpid.server.model.VirtualHost;
 import org.apache.qpid.server.message.EnqueueableMessage;
+import org.apache.qpid.server.model.VirtualHost;
 import org.apache.qpid.server.store.MessageDurability;
 import org.apache.qpid.server.store.MessageEnqueueRecord;
 import org.apache.qpid.server.store.MessageStore;
 import org.apache.qpid.server.store.MessageStoreTestCase;
+import org.apache.qpid.server.store.StorableMessageMetaData;
 import org.apache.qpid.server.store.StoreException;
 import org.apache.qpid.server.store.StoredMessage;
 import org.apache.qpid.server.store.TestMessageMetaData;
 import org.apache.qpid.server.store.Transaction;
 import org.apache.qpid.server.store.TransactionLogResource;
-import org.apache.qpid.server.store.handler.MessageInstanceHandler;
 import org.apache.qpid.server.store.berkeleydb.tuple.QueueEntryBinding;
+import org.apache.qpid.server.store.handler.MessageInstanceHandler;
 import org.apache.qpid.server.util.FileUtils;
 import org.apache.qpid.server.virtualhost.berkeleydb.BDBVirtualHost;
-
-import com.sleepycat.je.Database;
-import com.sleepycat.je.DatabaseEntry;
 
 /**
  * Tests for {@link MessageStore.MessageStoreReader#visitMessageInstances(TransactionLogResource, MessageInstanceHandler)}
@@ -963,6 +967,141 @@ public class BDBMessageStoreReaderVisitMessageInstancesTest extends MessageStore
         final List<Long> expected = new ArrayList<>(visited);
         Collections.sort(expected);
         assertEquals(expected, visited, "Message ids must be visited in ascending order");
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void testGlobalVisitorsShareQueueUuidsAcrossPagesWithIndependentRecords(final boolean filtered)
+    {
+        final int pageSize = AbstractBDBMessageStore.MESSAGE_INSTANCE_PAGE_SIZE;
+        final UUID[] queueIds = {new UUID(0L, 0L), new UUID(0L, 1L), new UUID(1L, 1L)};
+        final int[] counts = {pageSize + 3, pageSize + 5, 2};
+        final List<MessageEnqueueRecord> expected = new ArrayList<>();
+        for (int i = queueIds.length - 1; i >= 0; i--)
+        {
+            insertQueueEntries(queueIds[i], counts[i]);
+        }
+        for (int i = 0; i < queueIds.length; i++)
+        {
+            for (long messageId = 1; messageId <= counts[i]; messageId++)
+            {
+                expected.add(new AbstractBDBMessageStore.BDBEnqueueRecord(queueIds[i], messageId));
+            }
+        }
+        final List<MessageEnqueueRecord> visited = new ArrayList<>();
+        final List<MessageEnqueueRecord> valid = new ArrayList<>();
+        final List<MessageEnqueueRecord> invalid = new ArrayList<>();
+        final MessageStore.MessageStoreReader reader = getStore().newMessageStoreReader();
+        try
+        {
+            if (filtered)
+            {
+                reader.visitMessageInstances(record ->
+                        {
+                            valid.add(record);
+                            return true;
+                        },
+                        record ->
+                        {
+                            visited.add(record);
+                            return record.getMessageNumber() % 2 == 0;
+                        },
+                        17, invalid::addAll);
+            }
+            else
+            {
+                reader.visitMessageInstances(record ->
+                {
+                    visited.add(record);
+                    return true;
+                });
+            }
+        }
+        finally
+        {
+            reader.close();
+        }
+
+        assertEquals(expected, visited);
+        assertIndependentRecordsShareQueueIds(visited);
+        if (filtered)
+        {
+            assertEquals(expected.stream().filter(record -> record.getMessageNumber() % 2 == 0).toList(), valid);
+            assertEquals(expected.stream().filter(record -> record.getMessageNumber() % 2 != 0).toList(), invalid);
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void testGlobalVisitorsKeepNestedScansIndependent(final boolean filtered)
+    {
+        final UUID firstQueue = new UUID(0L, 0L);
+        final UUID secondQueue = new UUID(0L, 1L);
+        insertQueueEntries(firstQueue, AbstractBDBMessageStore.MESSAGE_INSTANCE_PAGE_SIZE + 3);
+        insertQueueEntries(secondQueue, 2);
+        final List<MessageEnqueueRecord> outerRecords = new ArrayList<>();
+        final List<MessageEnqueueRecord> innerRecords = new ArrayList<>();
+        final AtomicBoolean nested = new AtomicBoolean();
+        final MessageStore.MessageStoreReader reader = getStore().newMessageStoreReader();
+        try
+        {
+            visitGlobalInstances(reader, filtered, record ->
+            {
+                outerRecords.add(record);
+                if (nested.compareAndSet(false, true))
+                {
+                    visitGlobalInstances(reader, !filtered, innerRecord ->
+                    {
+                        innerRecords.add(innerRecord);
+                        return true;
+                    });
+                }
+                return true;
+            });
+        }
+        finally
+        {
+            reader.close();
+        }
+
+        assertEquals(AbstractBDBMessageStore.MESSAGE_INSTANCE_PAGE_SIZE + 5, outerRecords.size());
+        assertEquals(outerRecords, innerRecords);
+        assertIndependentRecordsShareQueueIds(outerRecords);
+        assertIndependentRecordsShareQueueIds(innerRecords);
+        for (int i = 0; i < outerRecords.size(); i++)
+        {
+            assertNotSame(outerRecords.get(i), innerRecords.get(i));
+            assertNotSame(outerRecords.get(i).getQueueId(), innerRecords.get(i).getQueueId());
+        }
+    }
+
+    private static void visitGlobalInstances(final MessageStore.MessageStoreReader reader, final boolean filtered,
+                                             final MessageInstanceHandler handler)
+    {
+        if (filtered)
+        {
+            reader.visitMessageInstances(handler, record -> true, 17, records ->
+            {
+                throw new AssertionError("Unexpected invalid records");
+            });
+        }
+        else
+        {
+            reader.visitMessageInstances(handler);
+        }
+    }
+
+    private static void assertIndependentRecordsShareQueueIds(final List<MessageEnqueueRecord> records)
+    {
+        final Map<UUID, UUID> queueIds = new HashMap<>();
+        final Set<MessageEnqueueRecord> identities = Collections.newSetFromMap(new IdentityHashMap<>());
+        for (final MessageEnqueueRecord record : records)
+        {
+            assertTrue(identities.add(record), "Callback records must have independent identities");
+            queueIds.putIfAbsent(record.getQueueId(), record.getQueueId());
+            assertSame(queueIds.get(record.getQueueId()), record.getQueueId(),
+                    "A queue UUID must be reused across the complete scan");
+        }
     }
 
     private TransactionLogResource createQueue(final UUID id, final String name)
