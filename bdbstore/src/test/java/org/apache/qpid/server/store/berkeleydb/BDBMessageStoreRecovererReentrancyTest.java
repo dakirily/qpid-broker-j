@@ -21,6 +21,7 @@ package org.apache.qpid.server.store.berkeleydb;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -69,6 +70,7 @@ import org.apache.qpid.server.store.MessageDurability;
 import org.apache.qpid.server.store.MessageEnqueueRecord;
 import org.apache.qpid.server.store.MessageStore;
 import org.apache.qpid.server.store.StorableMessageMetaData;
+import org.apache.qpid.server.store.StoreException;
 import org.apache.qpid.server.store.StoredMessage;
 import org.apache.qpid.server.store.TestMessageMetaData;
 import org.apache.qpid.server.store.Transaction;
@@ -264,6 +266,37 @@ public class BDBMessageStoreRecovererReentrancyTest extends UnitTestBase
                 "Invalid-instance cleanup must dequeue records using a BDB transaction");
         assertFalse(deliveryRecordExists(unknownQueueId, messageId),
                 "Invalid record should be removed during recovery");
+    }
+
+    @Test
+    public void testFailedRecoveryBatchReleasesLocksAndCanBeRetried()
+    {
+        final UUID firstQueueId = new UUID(0L, 1L);
+        final UUID secondQueueId = new UUID(0L, 2L);
+        insertQueueEntry(firstQueueId, 1L);
+        insertQueueEntry(secondQueueId, 2L);
+
+        final Database delivery = _observingFacade.openDatabase("QUEUE_ENTRIES", BDBUtils.DEFAULT_DATABASE_CONFIG);
+        final DatabaseEntry secondKey = new DatabaseEntry();
+        QueueEntryBinding.objectToEntry(secondQueueId, 2L, secondKey);
+        when(_storeParent.getMessageStore()).thenReturn(_store);
+        when(_storeParent.getEventLogger()).thenReturn(new EventLogger());
+        when(_storeParent.getAttainedQueue(secondQueueId)).thenAnswer(invocation ->
+        {
+            // Both records have been read. Remove the second before recovery dequeues the batch.
+            assertEquals(OperationStatus.SUCCESS, delivery.delete(null, secondKey));
+            return null;
+        }).thenReturn(null);
+
+        final SynchronousMessageStoreRecoverer recoverer = new SynchronousMessageStoreRecoverer();
+        final StoreException failure = assertThrows(StoreException.class, () -> recoverer.recover(_storeParent));
+        assertEquals("Unable to find message with id 2 on queue with id " + secondQueueId, failure.getMessage());
+        assertEquals(0, delivery.getEnvironment().getTransactionStats(null).getNActive());
+        assertTrue(deliveryRecordExists(firstQueueId, 1L));
+        assertFalse(deliveryRecordExists(secondQueueId, 2L));
+
+        recoverer.recover(_storeParent).join();
+        assertFalse(deliveryRecordExists(firstQueueId, 1L));
     }
 
     @Test

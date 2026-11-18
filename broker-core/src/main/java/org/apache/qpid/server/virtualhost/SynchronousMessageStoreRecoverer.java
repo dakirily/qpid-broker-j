@@ -194,38 +194,6 @@ public class SynchronousMessageStoreRecoverer implements MessageStoreRecoverer
 
     }
 
-    private static void dequeueInvalidMessageInstances(final MessageStore store,
-                                                       final List<MessageEnqueueRecord> invalidRecords)
-    {
-        // Batch removals to avoid a transaction per record while keeping transactions bounded in size.
-        if (invalidRecords.isEmpty())
-        {
-            return;
-        }
-
-        Transaction txn = store.newTransaction();
-        int inTxn = 0;
-
-        for (int i = 0; i < invalidRecords.size(); i++)
-        {
-            final MessageEnqueueRecord record = invalidRecords.get(i);
-            txn.dequeueMessage(record);
-            inTxn++;
-
-            if (inTxn == INVALID_INSTANCE_DEQUEUE_BATCH_SIZE && i + 1 < invalidRecords.size())
-            {
-                txn.commitTran();
-                txn = store.newTransaction();
-                inTxn = 0;
-            }
-        }
-
-        if (inTxn > 0)
-        {
-            txn.commitTran();
-        }
-    }
-
     private static class MessageInstanceFilter implements Predicate<MessageEnqueueRecord>
     {
         private final QueueManagingVirtualHost<?> _virtualHost;
@@ -267,27 +235,64 @@ public class SynchronousMessageStoreRecoverer implements MessageStoreRecoverer
         @Override
         public void accept(final List<MessageEnqueueRecord> records)
         {
-            for (final MessageEnqueueRecord record : records)
+            final int size = records.size();
+            int start = 0;
+            while (start < size)
             {
-                final UUID queueId = record.getQueueId();
-                final long messageId = record.getMessageNumber();
-                final Queue<?> queue = _virtualHost.getAttainedQueue(queueId);
-                if (queue != null)
+                final int end = start + Math.min(INVALID_INSTANCE_DEQUEUE_BATCH_SIZE, size - start);
+                dequeueBatch(records, start, end);
+                for (int i = start; i < end; i++)
                 {
-                    LOGGER.debug(
-                        "Message id '{}' referenced in log as enqueued in queue '{}' is unknown, entry will be discarded",
-                        messageId, queue.getName());
-                    _queuesWithUnknownMessages.merge(queue, 1, (old, unused) -> old + 1);
+                    recordDiscard(records.get(i));
                 }
-                else
-                {
-                    LOGGER.debug(
-                        "Message id '{}' in log references queue with id '{}' which is not in the configuration, entry will be discarded",
-                        messageId, queueId);
-                    _unknownQueuesWithMessages.merge(queueId, 1, (old, unused) -> old + 1);
-                }
+                start = end;
             }
-            dequeueInvalidMessageInstances(_store, records);
+        }
+
+        private void dequeueBatch(final List<MessageEnqueueRecord> records, final int start, final int end)
+        {
+            final Transaction txn = _store.newTransaction();
+            try
+            {
+                for (int i = start; i < end; i++)
+                {
+                    txn.dequeueMessage(records.get(i));
+                }
+                txn.commitTran();
+            }
+            catch (final RuntimeException | Error failure)
+            {
+                try
+                {
+                    txn.abortTran();
+                }
+                catch (final RuntimeException | Error abortFailure)
+                {
+                    if (abortFailure != failure)
+                    {
+                        failure.addSuppressed(abortFailure);
+                    }
+                }
+                throw failure;
+            }
+        }
+
+        private void recordDiscard(final MessageEnqueueRecord record)
+        {
+            final UUID queueId = record.getQueueId();
+            final Queue<?> queue = _virtualHost.getAttainedQueue(queueId);
+            if (queue == null)
+            {
+                LOGGER.debug("Discarded entry for message id '{}' on unknown queue id '{}'",
+                             record.getMessageNumber(), queueId);
+                _unknownQueuesWithMessages.merge(queueId, 1, Integer::sum);
+            }
+            else
+            {
+                LOGGER.debug("Discarded entry for unknown message id '{}' on queue '{}'",
+                             record.getMessageNumber(), queue.getName());
+                _queuesWithUnknownMessages.merge(queue, 1, Integer::sum);
+            }
         }
     }
 

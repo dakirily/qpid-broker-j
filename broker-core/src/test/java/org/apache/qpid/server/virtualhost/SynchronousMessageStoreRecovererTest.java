@@ -21,23 +21,40 @@
 
 package org.apache.qpid.server.virtualhost;
 
+import static org.apache.qpid.server.util.LoggerTestHelper.assertLoggedEvent;
+import static org.apache.qpid.server.util.LoggerTestHelper.createAndRegisterAppender;
+import static org.apache.qpid.server.util.LoggerTestHelper.deleteAndUnregisterAppender;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
 import java.util.UUID;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentMatcher;
+import org.mockito.InOrder;
 
 import org.apache.qpid.server.logging.EventLogger;
 import org.apache.qpid.server.message.EnqueueableMessage;
@@ -225,6 +242,69 @@ public class SynchronousMessageStoreRecovererTest extends UnitTestBase
 
         verify(transaction).dequeueMessage(argThat(new MessageEnqueueRecordMatcher(queueId, messageId)));
         verify(transaction, times(1)).commitTran();
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    public void testAbortPreservesDequeueFailure(final boolean sameFailure)
+    {
+        final UUID queueId = randomUUID();
+        final MessageEnqueueRecord first = new TestMessageEnqueueRecord(queueId, 1);
+        final MessageEnqueueRecord second = new TestMessageEnqueueRecord(queueId, 2);
+        final MessageEnqueueRecord third = new TestMessageEnqueueRecord(queueId, 3);
+        final Transaction transaction = mock(Transaction.class);
+        final StoreException dequeueFailure = new StoreException("dequeue failed");
+        final StoreException abortFailure = sameFailure ? dequeueFailure : new StoreException("abort failed");
+        doThrow(dequeueFailure).when(transaction).dequeueMessage(second);
+        doThrow(abortFailure).when(transaction).abortTran();
+
+        final StoreException thrown = assertThrows(StoreException.class,
+                () -> recoverInvalidRecords(List.of(first, second, third), transaction));
+
+        assertSame(dequeueFailure, thrown);
+        assertEquals(sameFailure ? List.of() : List.of(abortFailure), List.of(thrown.getSuppressed()));
+        final InOrder order = inOrder(transaction);
+        order.verify(transaction).dequeueMessage(first);
+        order.verify(transaction).dequeueMessage(second);
+        order.verify(transaction).abortTran();
+        verifyNoMoreInteractions(transaction);
+    }
+
+    @Test
+    public void testDiscardCountsExcludeBatchWhoseCommitFails()
+    {
+        final UUID missingQueueId = randomUUID();
+        final Queue<?> queue = createRegisteredMockQueue();
+        final UUID queueId = queue.getId();
+        final List<MessageEnqueueRecord> records = new ArrayList<>();
+        for (int i = 0; i < 1002; i++)
+        {
+            records.add(new TestMessageEnqueueRecord(i % 2 == 0 ? missingQueueId : queueId, i));
+        }
+        final Transaction committed = mock(Transaction.class);
+        final Transaction failed = mock(Transaction.class);
+        final StoreException commitFailure = new StoreException("commit failed");
+        doThrow(commitFailure).when(failed).commitTran();
+
+        final ListAppender<ILoggingEvent> appender = createAndRegisterAppender(getTestName());
+        try
+        {
+            assertSame(commitFailure, assertThrows(StoreException.class,
+                    () -> recoverInvalidRecords(records, committed, failed)));
+
+            final String logger = SynchronousMessageStoreRecoverer.class.getName();
+            assertLoggedEvent(appender, true, "Discarded 500 entry(s) associated with queue id '" + missingQueueId +
+                    "' as a queue with this id does not appear in the configuration.", logger, Level.INFO);
+            assertLoggedEvent(appender, true, "Discarded 500 entry(s) associated with queue '" + queue.getName() +
+                    "' as the referenced message does not exist.", logger, Level.INFO);
+        }
+        finally
+        {
+            deleteAndUnregisterAppender(appender);
+        }
+        verify(committed).commitTran();
+        verify(committed, never()).abortTran();
+        verify(failed).abortTran();
     }
 
     @Test
@@ -420,6 +500,27 @@ public class SynchronousMessageStoreRecovererTest extends UnitTestBase
 
         verify(queueEntry, times(1)).delete();
         verify(transaction).commitTran();
+    }
+
+    private void recoverInvalidRecords(final List<MessageEnqueueRecord> records, final Transaction... transactions)
+    {
+        final Iterator<Transaction> remainingTransactions = List.of(transactions).iterator();
+        final MessageStore store = new NullMessageStore()
+        {
+            @Override
+            public void visitMessageInstances(final MessageInstanceHandler handler)
+            {
+                records.forEach(handler::handle);
+            }
+
+            @Override
+            public Transaction newTransaction()
+            {
+                return remainingTransactions.next();
+            }
+        };
+        when(_virtualHost.getMessageStore()).thenReturn(store);
+        new SynchronousMessageStoreRecoverer().recover(_virtualHost);
     }
 
     protected EnqueueRecord createMockRecord(final Queue<?> queue, final EnqueueableMessage<?> enqueueableMessage)
