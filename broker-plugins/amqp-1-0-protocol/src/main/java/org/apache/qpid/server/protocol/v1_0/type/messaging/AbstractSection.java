@@ -111,6 +111,19 @@ public abstract class AbstractSection<T, S extends NonEncodingRetainingSection<T
         return _encodedForm.duplicate();
     }
 
+    /** Replaces the encoded view with an exactly sized heap copy without decoding the section. */
+    public synchronized final void detachEncodedForm()
+    {
+        if (_encodedForm != null)
+        {
+            final QpidByteBuffer copy = QpidByteBuffer.allocate(_encodedForm.remaining());
+            copy.putCopyOf(_encodedForm);
+            copy.flip();
+            _encodedForm.dispose();
+            _encodedForm = copy;
+        }
+    }
+
     @Override
     public synchronized final long getEncodedSize()
     {

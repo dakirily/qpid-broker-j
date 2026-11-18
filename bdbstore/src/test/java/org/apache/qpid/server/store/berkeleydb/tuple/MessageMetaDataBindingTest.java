@@ -28,6 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
+import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Map;
 
@@ -44,6 +45,7 @@ import org.apache.qpid.server.protocol.v0_8.MessageMetaData;
 import org.apache.qpid.server.protocol.v0_8.transport.BasicContentHeaderProperties;
 import org.apache.qpid.server.protocol.v0_8.transport.ContentHeaderBody;
 import org.apache.qpid.server.protocol.v0_8.transport.MessagePublishInfo;
+import org.apache.qpid.server.protocol.v1_0.MessageMetaDataType_1_0;
 import org.apache.qpid.server.protocol.v1_0.MessageMetaData_1_0;
 import org.apache.qpid.server.protocol.v1_0.type.Symbol;
 import org.apache.qpid.server.protocol.v1_0.type.UnsignedByte;
@@ -174,11 +176,20 @@ class MessageMetaDataBindingTest extends UnitTestBase
             final DatabaseEntry entry = new DatabaseEntry();
             binding.objectToEntry(original, entry);
 
-            final StorableMessageMetaData result = binding.entryToObject(entry);
+            final MessageMetaData_1_0 result = (MessageMetaData_1_0) binding.entryToObject(entry);
             try
             {
                 assertEquals(original.getType(), result.getType());
                 assertArrayEquals(expectedPayload, bytes(result));
+                final HeaderSection header = result.getHeaderSection();
+                try (final QpidByteBuffer encoding = header.getEncodedForm())
+                {
+                    assertSame(entry.getData(), encoding.array(), "Current-format sections share the metadata record");
+                }
+                finally
+                {
+                    header.dispose();
+                }
             }
             finally
             {
@@ -188,6 +199,44 @@ class MessageMetaDataBindingTest extends UnitTestBase
         finally
         {
             original.dispose();
+        }
+    }
+
+    @Test
+    void testLegacyAmqp10HeaderReleasesRecordContainingBody()
+    {
+        final byte[] headerBytes = {0, 0x53, 0x70, 0x45};
+        final int bodySize = 1 << 20;
+        final int encodedBodySize = 8 + bodySize;
+        final int recordSize = 5 + headerBytes.length + encodedBodySize;
+        final int offset = 11;
+        final byte[] data = new byte[offset + recordSize + 3];
+        final ByteBuffer record = ByteBuffer.wrap(data, offset, recordSize);
+        record.putInt((recordSize - Integer.BYTES) ^ Integer.MIN_VALUE).put((byte) MessageMetaDataType_1_0.TYPE);
+        record.put(headerBytes).put(new byte[]{0, 0x53, 0x75, (byte) 0xb0}).putInt(bodySize);
+
+        final MessageMetaData_1_0 metadata = (MessageMetaData_1_0) binding.entryToObject(
+                new DatabaseEntry(data, offset, recordSize));
+        final HeaderSection header;
+        try
+        {
+            assertEquals(0, metadata.getVersion());
+            assertEquals(encodedBodySize, metadata.getContentSize());
+            header = metadata.getHeaderSection();
+        }
+        finally
+        {
+            metadata.dispose();
+        }
+
+        try (final QpidByteBuffer encoding = header.getEncodedForm())
+        {
+            assertNotSame(data, encoding.array());
+            assertArrayEquals(headerBytes, encoding.array());
+        }
+        finally
+        {
+            header.dispose();
         }
     }
 

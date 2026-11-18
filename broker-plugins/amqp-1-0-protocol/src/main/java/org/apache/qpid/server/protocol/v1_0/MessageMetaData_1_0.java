@@ -43,6 +43,7 @@ import org.apache.qpid.server.protocol.v1_0.type.AmqpErrorException;
 import org.apache.qpid.server.protocol.v1_0.type.Binary;
 import org.apache.qpid.server.protocol.v1_0.type.UnsignedInteger;
 import org.apache.qpid.server.protocol.v1_0.type.codec.AMQPDescribedTypeRegistry;
+import org.apache.qpid.server.protocol.v1_0.type.messaging.AbstractSection;
 import org.apache.qpid.server.protocol.v1_0.type.messaging.AmqpSequenceSection;
 import org.apache.qpid.server.protocol.v1_0.type.messaging.AmqpValueSection;
 import org.apache.qpid.server.protocol.v1_0.type.messaging.ApplicationPropertiesSection;
@@ -446,23 +447,11 @@ public class MessageMetaData_1_0 implements StorableMessageMetaData
                             versionByte));
                 }
 
-                List<EncodingRetainingSection<?>> sections = _sectionDecoder.parseAll(buf);
+                final List<EncodingRetainingSection<?>> sections = _sectionDecoder.parseAll(buf);
 
                 if (versionByte == 0)
                 {
-                    Iterator<EncodingRetainingSection<?>> iter = sections.iterator();
-                    while (iter.hasNext())
-                    {
-                        final EncodingRetainingSection<?> section = iter.next();
-                        if (section instanceof DataSection
-                            || section instanceof AmqpValueSection
-                            || section instanceof AmqpSequenceSection)
-                        {
-                            contentSize += section.getEncodedSize();
-                            iter.remove();
-                            section.dispose();
-                        }
-                    }
+                    contentSize = prepareLegacySections(sections);
                 }
 
                 return new MessageMetaData_1_0(sections, contentSize, (int) versionByte & 0xff, arrivalTime);
@@ -470,6 +459,37 @@ public class MessageMetaData_1_0 implements StorableMessageMetaData
             catch (AmqpErrorException e)
             {
                 throw new ConnectionScopedRuntimeException(e);
+            }
+        }
+
+        private static long prepareLegacySections(final List<EncodingRetainingSection<?>> sections)
+        {
+            long contentSize = 0;
+            try
+            {
+                final Iterator<EncodingRetainingSection<?>> iter = sections.iterator();
+                while (iter.hasNext())
+                {
+                    final EncodingRetainingSection<?> section = iter.next();
+                    if (section instanceof DataSection || section instanceof AmqpValueSection ||
+                            section instanceof AmqpSequenceSection)
+                    {
+                        contentSize += section.getEncodedSize();
+                        iter.remove();
+                        section.dispose();
+                    }
+                    else if (section instanceof AbstractSection<?, ?> metadataSection)
+                    {
+                        // Legacy metadata shares its backing storage with the message body.
+                        metadataSection.detachEncodedForm();
+                    }
+                }
+                return contentSize;
+            }
+            catch (final RuntimeException | Error failure)
+            {
+                sections.forEach(EncodingRetainingSection::dispose);
+                throw failure;
             }
         }
     }
