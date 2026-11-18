@@ -21,10 +21,13 @@
 package org.apache.qpid.server.store;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -32,6 +35,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Consumer;
+import java.util.function.Predicate;
+import java.util.function.Supplier;
 
 import org.apache.qpid.server.message.EnqueueableMessage;
 import org.apache.qpid.server.model.ConfiguredObject;
@@ -475,6 +481,86 @@ public class MemoryMessageStore implements MessageStore
             }
         }
 
+        @Override
+        public void visitMessageInstances(final MessageInstanceHandler validHandler,
+                                          final Predicate<MessageEnqueueRecord> predicate, final int invalidBatchSize,
+                                          final Consumer<List<MessageEnqueueRecord>> invalidBatchConsumer)
+        {
+            visitFilteredSnapshot(this::snapshotMessageInstanceIds, validHandler, predicate, invalidBatchSize,
+                                  invalidBatchConsumer);
+        }
+
+        @Override
+        public void visitMessageInstances(final TransactionLogResource queue, final MessageInstanceHandler validHandler,
+                                          final Predicate<MessageEnqueueRecord> predicate, final int invalidBatchSize,
+                                          final Consumer<List<MessageEnqueueRecord>> invalidBatchConsumer)
+        {
+            visitFilteredSnapshot(() -> snapshotMessageInstanceIds(queue), validHandler, predicate, invalidBatchSize,
+                                  invalidBatchConsumer);
+        }
+
+        private Map<UUID, Long[]> snapshotMessageInstanceIds()
+        {
+            synchronized (_transactionLock)
+            {
+                final Map<UUID, Long[]> snapshot = new LinkedHashMap<>();
+                _messageInstances.forEach((queueId, ids) -> snapshot.put(queueId, ids.toArray(Long[]::new)));
+                return snapshot;
+            }
+        }
+
+        private Map<UUID, Long[]> snapshotMessageInstanceIds(final TransactionLogResource queue)
+        {
+            synchronized (_transactionLock)
+            {
+                final UUID queueId = queue.getId();
+                final Set<Long> ids = _messageInstances.get(queueId);
+                return ids == null ? Map.of() : Collections.singletonMap(queueId, ids.toArray(Long[]::new));
+            }
+        }
+
+        private static void visitFilteredSnapshot(final Supplier<Map<UUID, Long[]>> snapshotSupplier,
+                                                  final MessageInstanceHandler validHandler,
+                                                  final Predicate<MessageEnqueueRecord> predicate,
+                                                  final int invalidBatchSize,
+                                                  final Consumer<List<MessageEnqueueRecord>> invalidBatchConsumer)
+        {
+            if (invalidBatchSize <= 0)
+            {
+                throw new IllegalArgumentException("Invalid batch size must be greater than zero");
+            }
+            // Recovery callbacks can commit dequeues, including removal of the queue that is being visited.
+            final Map<UUID, Long[]> snapshot = snapshotSupplier.get();
+            final List<MessageEnqueueRecord> invalidRecords = new ArrayList<>();
+            queues:
+            for (final Map.Entry<UUID, Long[]> entry : snapshot.entrySet())
+            {
+                for (final long id : entry.getValue())
+                {
+                    final MessageEnqueueRecord record = new MemoryEnqueueRecord(entry.getKey(), id);
+                    if (predicate.test(record))
+                    {
+                        if (!validHandler.handle(record))
+                        {
+                            break queues;
+                        }
+                    }
+                    else
+                    {
+                        invalidRecords.add(record);
+                        if (invalidRecords.size() == invalidBatchSize)
+                        {
+                            invalidBatchConsumer.accept(List.copyOf(invalidRecords));
+                            invalidRecords.clear();
+                        }
+                    }
+                }
+            }
+            if (!invalidRecords.isEmpty())
+            {
+                invalidBatchConsumer.accept(List.copyOf(invalidRecords));
+            }
+        }
 
         @Override
         public void visitMessages(final MessageHandler handler) throws StoreException
