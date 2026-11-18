@@ -1555,34 +1555,25 @@ public abstract class AbstractBDBMessageStore implements MessageStore
         {
             checkMessageStoreOpen();
 
+            final UUID queueId;
             // temporary array to store invalid entries ids, size is doubled on overflow
             long[] entries = new long[INITIAL_INVALID_ENTRIES_SIZE];
             int size = 0;
 
             try (final Cursor cursor = getDeliveryDb().openCursor(null, null))
             {
-                final DatabaseEntry key = new DatabaseEntry(new byte[QueueEntryBinding.KEY_SIZE]);
-
-                QueueEntryBinding.objectToEntry(queue.getId(), 0L, key);
-
-                if (cursor.getSearchKeyRange(key, null, LockMode.READ_UNCOMMITTED) == OperationStatus.SUCCESS)
+                queueId = queue.getId();
+                final byte[] queuePrefix = QueueEntryBinding.queuePrefix(queueId);
+                final DatabaseEntry key = new DatabaseEntry(new byte[queuePrefix.length]);
+                OperationStatus status = seekQueue(cursor, key, queuePrefix);
+                while (status == OperationStatus.SUCCESS && hasQueuePrefix(key, queuePrefix))
                 {
-                    do
+                    if (size == entries.length)
                     {
-                        if (QueueEntryBinding.matchesQueueId(key, queue.getId()))
-                        {
-                            if (size == entries.length)
-                            {
-                                entries = Arrays.copyOf(entries, entries.length * 2);
-                            }
-                            entries[size++] = QueueEntryBinding.readMessageId(key);
-                        }
-                        else
-                        {
-                            break;
-                        }
+                        entries = Arrays.copyOf(entries, entries.length * 2);
                     }
-                    while (cursor.getNext(key, null, LockMode.READ_UNCOMMITTED) == OperationStatus.SUCCESS);
+                    entries[size++] = QueueEntryBinding.readMessageId(key);
+                    status = cursor.getNext(key, null, LockMode.READ_UNCOMMITTED);
                 }
             }
             catch (final RuntimeException e)
@@ -1592,7 +1583,7 @@ public abstract class AbstractBDBMessageStore implements MessageStore
 
             for (int i = 0; i < size; i ++)
             {
-                if (!handler.handle(new BDBEnqueueRecord(queue.getId(), entries[i])))
+                if (!handler.handle(new BDBEnqueueRecord(queueId, entries[i])))
                 {
                     break;
                 }
@@ -1696,7 +1687,8 @@ public abstract class AbstractBDBMessageStore implements MessageStore
 
             try
             {
-                validateMessageInstanceKeys(queueId);
+                final byte[] queuePrefix = QueueEntryBinding.queuePrefix(queueId);
+                validateMessageInstanceKeys(queuePrefix, searchKey);
                 while (!complete)
                 {
                     final List<MessageEnqueueRecord> records = new ArrayList<>(MESSAGE_INSTANCE_PAGE_SIZE);
@@ -1707,8 +1699,7 @@ public abstract class AbstractBDBMessageStore implements MessageStore
                         OperationStatus status;
                         if (!hasResumeKey)
                         {
-                            QueueEntryBinding.objectToEntry(queueId, 0L, key);
-                            status = cursor.getSearchKeyRange(key, null, LockMode.READ_UNCOMMITTED);
+                            status = seekQueue(cursor, key, queuePrefix);
                         }
                         else
                         {
@@ -1723,7 +1714,7 @@ public abstract class AbstractBDBMessageStore implements MessageStore
 
                         while (status == OperationStatus.SUCCESS && records.size() < MESSAGE_INSTANCE_PAGE_SIZE)
                         {
-                            if (!QueueEntryBinding.matchesQueueId(key, queueId))
+                            if (!hasQueuePrefix(key, queuePrefix))
                             {
                                 complete = true;
                                 break;
@@ -1772,28 +1763,40 @@ public abstract class AbstractBDBMessageStore implements MessageStore
 
                 while (cursor.getNext(key, null, LockMode.READ_UNCOMMITTED) == OperationStatus.SUCCESS)
                 {
-                    QueueEntryBinding.readMessageId(key);
+                    QueueEntryBinding.validateKey(key);
                 }
             }
         }
 
-        private void validateMessageInstanceKeys(final UUID queueId)
+        private void validateMessageInstanceKeys(final byte[] queuePrefix, final byte[] searchKey)
         {
             try (final Cursor cursor = getDeliveryDb().openCursor(null, null))
             {
-                final DatabaseEntry key = new DatabaseEntry(new byte[QueueEntryBinding.KEY_SIZE]);
-                QueueEntryBinding.objectToEntry(queueId, 0L, key);
-
-                OperationStatus status = cursor.getSearchKeyRange(key, null, LockMode.READ_UNCOMMITTED);
-                while (status == OperationStatus.SUCCESS)
+                final DatabaseEntry key = new DatabaseEntry(searchKey);
+                OperationStatus status = seekQueue(cursor, key, queuePrefix);
+                while (status == OperationStatus.SUCCESS && hasQueuePrefix(key, queuePrefix))
                 {
-                    if (!QueueEntryBinding.matchesQueueId(key, queueId))
-                    {
-                        break;
-                    }
+                    QueueEntryBinding.validateKey(key);
                     status = cursor.getNext(key, null, LockMode.READ_UNCOMMITTED);
                 }
             }
+        }
+
+        private static OperationStatus seekQueue(final Cursor cursor, final DatabaseEntry key, final byte[] queuePrefix)
+        {
+            // JE returns the found key in this entry. Keep the prefix for subsequent comparisons.
+            final byte[] searchKey = key.getData();
+            System.arraycopy(queuePrefix, 0, searchKey, 0, queuePrefix.length);
+            key.setData(searchKey, 0, queuePrefix.length);
+            return cursor.getSearchKeyRange(key, null, LockMode.READ_UNCOMMITTED);
+        }
+
+        private static boolean hasQueuePrefix(final DatabaseEntry key, final byte[] queuePrefix)
+        {
+            final int offset = key.getOffset();
+            final int length = queuePrefix.length;
+            return key.getSize() >= length &&
+                    Arrays.equals(queuePrefix, 0, length, key.getData(), offset, offset + length);
         }
 
         private boolean matchesResumeKey(final byte[] resumeKey, final DatabaseEntry key)

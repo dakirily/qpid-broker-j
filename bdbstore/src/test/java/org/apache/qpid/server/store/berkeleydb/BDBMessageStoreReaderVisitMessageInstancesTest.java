@@ -30,6 +30,7 @@ import static org.mockito.Mockito.when;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -46,6 +47,7 @@ import com.sleepycat.je.DatabaseEntry;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import org.apache.qpid.server.message.EnqueueableMessage;
@@ -933,6 +935,103 @@ public class BDBMessageStoreReaderVisitMessageInstancesTest extends MessageStore
         finally
         {
             reader.close();
+        }
+    }
+
+    @ParameterizedTest
+    @CsvSource({"false, 15", "true, 15", "false, 16", "true, 16", "false, 23", "true, 23", "false, 25", "true, 25"})
+    void testQueueVisitsValidateOnlyKeysWithTheirCompleteUuid(final boolean filtered, final int keySize)
+    {
+        final TransactionLogResource queueA = createQueue(new UUID(0L, 0L), "A");
+        final TransactionLogResource queueB = createQueue(new UUID(0L, 256L), "B");
+        insertQueueEntry(queueA.getId(), Long.MIN_VALUE);
+        insertQueueEntry(queueA.getId(), 1L);
+        insertQueueEntry(queueB.getId(), 2L);
+        // The first 15 bytes of B sort between A's records and B's complete UUID.
+        final DatabaseEntry key = new DatabaseEntry();
+        QueueEntryBinding.objectToEntry(queueB.getId(), 0L, key);
+        insertDeliveryDbRecord(new DatabaseEntry(Arrays.copyOf(key.getData(), keySize)));
+
+        final List<Long> visited = new ArrayList<>();
+        final MessageInstanceHandler handler = record -> visited.add(record.getMessageNumber());
+        final MessageStore.MessageStoreReader reader = getStore().newMessageStoreReader();
+        try
+        {
+            visitQueueInstances(reader, queueA, filtered, handler);
+            assertEquals(List.of(Long.MIN_VALUE, 1L), visited);
+            visited.clear();
+
+            if (keySize < 2 * Long.BYTES)
+            {
+                visitQueueInstances(reader, queueB, filtered, handler);
+                assertEquals(List.of(2L), visited);
+            }
+            else
+            {
+                final StoreException failure = assertThrows(StoreException.class,
+                        () -> visitQueueInstances(reader, queueB, filtered, handler));
+                assertTrue(failure.getCause() instanceof IllegalArgumentException);
+                assertTrue(visited.isEmpty());
+            }
+
+            assertThrows(StoreException.class, () -> reader.visitMessageInstances(record ->
+            {
+                throw new AssertionError("Global validation must finish before callbacks");
+            }, record -> true, 2, records -> { }));
+        }
+        finally
+        {
+            reader.close();
+        }
+    }
+
+    @Test
+    void testPagedQueueVisitStopsAtNeighboringMalformedKeyInsertedAfterValidation()
+    {
+        final TransactionLogResource queue = createQueue(new UUID(0L, 0L), "A");
+        final UUID nextQueueId = new UUID(0L, 1L);
+        final int count = AbstractBDBMessageStore.MESSAGE_INSTANCE_PAGE_SIZE + 1;
+        final List<Long> expected = insertQueueEntries(queue.getId(), count);
+        insertQueueEntry(nextQueueId, 1L);
+        final DatabaseEntry key = new DatabaseEntry();
+        QueueEntryBinding.objectToEntry(nextQueueId, 0L, key);
+        final DatabaseEntry malformed = new DatabaseEntry(Arrays.copyOf(key.getData(), QueueEntryBinding.KEY_SIZE - 1));
+        final List<Long> visited = new ArrayList<>();
+
+        final MessageStore.MessageStoreReader reader = getStore().newMessageStoreReader();
+        try
+        {
+            visitQueueInstances(reader, queue, true, record ->
+            {
+                if (visited.isEmpty())
+                {
+                    insertDeliveryDbRecord(malformed);
+                }
+                visited.add(record.getMessageNumber());
+                return true;
+            });
+        }
+        finally
+        {
+            reader.close();
+        }
+        assertEquals(expected, visited);
+    }
+
+    private static void visitQueueInstances(final MessageStore.MessageStoreReader reader,
+                                            final TransactionLogResource queue, final boolean filtered,
+                                            final MessageInstanceHandler handler)
+    {
+        if (filtered)
+        {
+            reader.visitMessageInstances(queue, handler, record -> true, 2, records ->
+            {
+                throw new AssertionError("Unexpected invalid records");
+            });
+        }
+        else
+        {
+            reader.visitMessageInstances(queue, handler);
         }
     }
 

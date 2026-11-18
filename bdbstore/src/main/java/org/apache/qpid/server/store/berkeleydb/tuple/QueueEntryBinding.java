@@ -38,7 +38,8 @@ import org.apache.qpid.server.util.CachingUUIDFactory;
  */
 public class QueueEntryBinding
 {
-    public static final int KEY_SIZE = 24;
+    private static final int QUEUE_ID_SIZE = 2 * Long.BYTES;
+    public static final int KEY_SIZE = QUEUE_ID_SIZE + Long.BYTES;
 
     private QueueEntryBinding()
     {
@@ -50,10 +51,22 @@ public class QueueEntryBinding
         final byte[] output = existingData != null && existingData.length >= KEY_SIZE
                 ? existingData
                 : new byte[KEY_SIZE];
-        writeUnsignedLong(queueId.getMostSignificantBits() ^ 0x8000000000000000L, output, 0);
-        writeUnsignedLong(queueId.getLeastSignificantBits() ^ 0x8000000000000000L, output, 8);
-        writeUnsignedLong(messageId ^ 0x8000000000000000L, output, 16);
+        writeQueueId(queueId, output);
+        writeUnsignedLong(messageId ^ 0x8000000000000000L, output, QUEUE_ID_SIZE);
         entry.setData(output, 0, KEY_SIZE);
+    }
+
+    public static byte[] queuePrefix(final UUID queueId)
+    {
+        final byte[] prefix = new byte[QUEUE_ID_SIZE];
+        writeQueueId(queueId, prefix);
+        return prefix;
+    }
+
+    private static void writeQueueId(final UUID queueId, final byte[] data)
+    {
+        writeUnsignedLong(queueId.getMostSignificantBits() ^ 0x8000000000000000L, data, 0);
+        writeUnsignedLong(queueId.getLeastSignificantBits() ^ 0x8000000000000000L, data, Long.BYTES);
     }
 
     private static void writeUnsignedLong(final long val, final byte[] data, int offset)
@@ -120,7 +133,7 @@ public class QueueEntryBinding
         return new AbstractBDBMessageStore.BDBEnqueueRecord(uuidFactory.createUuidFromBits(msb, lsb), messageId);
     }
 
-    private static void validateKey(final DatabaseEntry entry)
+    public static void validateKey(final DatabaseEntry entry)
     {
         if (entry == null)
         {
