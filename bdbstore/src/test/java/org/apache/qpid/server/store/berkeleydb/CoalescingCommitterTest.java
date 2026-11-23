@@ -27,7 +27,6 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
@@ -79,14 +78,13 @@ public class CoalescingCommitterTest extends UnitTestBase
     public void testCommitterEnvironmentFacadeInteractionsOnSyncCommit()
     {
         final RuntimeException testFailure = new RuntimeException("Test");
-        doThrow(testFailure).when(_environmentFacade).flushLog();
+        doThrow(testFailure).doNothing().when(_environmentFacade).flushLog();
         _coalescingCommitter.start();
 
         assertSame(testFailure, assertThrows(RuntimeException.class, () -> _coalescingCommitter.commit(null, true)));
 
         verify(_environmentFacade, times(1)).flushLog();
 
-        doNothing().when(_environmentFacade).flushLog();
         _coalescingCommitter.commit(null, true);
 
         verify(_environmentFacade, times(2)).flushLog();
@@ -97,7 +95,7 @@ public class CoalescingCommitterTest extends UnitTestBase
     public void testCommitterEnvironmentFacadeInteractionsOnAsyncCommit() throws Exception
     {
         final RuntimeException testFailure = new RuntimeException("Test");
-        doThrow(testFailure).when(_environmentFacade).flushLog();
+        doThrow(testFailure).doNothing().when(_environmentFacade).flushLog();
         _coalescingCommitter.start();
         awaitIdleWorker();
 
@@ -107,7 +105,6 @@ public class CoalescingCommitterTest extends UnitTestBase
 
         verify(_environmentFacade, times(1)).flushLog();
 
-        doNothing().when(_environmentFacade).flushLog();
         final String expectedResult = "Test";
         final CompletableFuture<String> future = _coalescingCommitter.commitAsync(null, expectedResult);
         final String result = future.get(ASSERT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
