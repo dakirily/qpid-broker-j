@@ -1522,7 +1522,7 @@ public abstract class AbstractBDBMessageStore implements MessageStore
 
     }
 
-    private class BDBMessageStoreReader implements MessageStoreReader
+    final class BDBMessageStoreReader implements MessageStoreReader
     {
         private static final int INITIAL_MESSAGE_ID_CAPACITY = 8;
         private static final int RECOVERY_PAGE_SIZE = 1000;
@@ -1635,37 +1635,62 @@ public abstract class AbstractBDBMessageStore implements MessageStore
         @Override
         public void visitMessageInstancesForRecovery(final MessageInstanceHandler handler) throws StoreException
         {
+            visitMessageInstancesForRecovery(handler, RecoverySnapshot.MAX_BLOCKS);
+        }
+
+        void visitMessageInstancesForRecovery(final MessageInstanceHandler handler, final int snapshotBlockLimit)
+                throws StoreException
+        {
             final long closeCount = _messageStoreCloseCount.get();
             checkMessageStoreOpen();
             final EnvironmentFacade environment = getEnvironmentFacade();
             checkRecoveryStoreOpen(environment, closeCount);
+
             // Check delivery keys before callbacks can make recovery writes.
-            final Database deliveryDb = openValidatedRecoveryDeliveryDb(environment);
+            final RecoverySnapshot snapshot = new RecoverySnapshot(snapshotBlockLimit);
+            final Database deliveryDb;
+            byte[] resumeKey;
+            try
+            {
+                deliveryDb = environment.openDatabase(DELIVERY_DB_NAME, DEFAULT_DATABASE_CONFIG);
+                resumeKey = bufferValidatedRecoveryPrefix(deliveryDb, snapshot);
+            }
+            catch (final RuntimeException e)
+            {
+                throw environment.handleDatabaseException("Cannot visit message instances", e);
+            }
+
             final QueueEntryBinding.OrderedDecoder decoder = new QueueEntryBinding.OrderedDecoder();
+            final MessageInstanceHandler recoveryHandler = entry ->
+            {
+                if (!handler.handle(entry))
+                {
+                    return false;
+                }
+                checkRecoveryStoreOpen(environment, closeCount);
+                return true;
+            };
+            checkRecoveryStoreOpen(environment, closeCount);
+            if (!snapshot.visit(decoder, recoveryHandler) || resumeKey == null)
+            {
+                return;
+            }
+
             final List<BDBEnqueueRecord> page = new ArrayList<>(RECOVERY_PAGE_SIZE);
             final DatabaseEntry key = new DatabaseEntry();
-            byte[] resumeKey = null;
 
-            do
+            while (resumeKey != null)
             {
                 checkRecoveryStoreOpen(environment, closeCount);
                 page.clear();
                 try (final Cursor cursor = deliveryDb.openCursor(null, null))
                 {
-                    OperationStatus status;
-                    if (resumeKey == null)
+                    key.setData(resumeKey.clone());
+                    OperationStatus status = cursor.getSearchKeyRange(key, null, LockMode.READ_UNCOMMITTED);
+                    if (status == OperationStatus.SUCCESS &&
+                            key.getSize() == resumeKey.length && hasKeyPrefix(key, resumeKey))
                     {
                         status = cursor.getNext(key, null, LockMode.READ_UNCOMMITTED);
-                    }
-                    else
-                    {
-                        key.setData(resumeKey.clone());
-                        status = cursor.getSearchKeyRange(key, null, LockMode.READ_UNCOMMITTED);
-                        if (status == OperationStatus.SUCCESS &&
-                                key.getSize() == resumeKey.length && hasKeyPrefix(key, resumeKey))
-                        {
-                            status = cursor.getNext(key, null, LockMode.READ_UNCOMMITTED);
-                        }
                     }
 
                     resumeKey = null;
@@ -1674,8 +1699,7 @@ public abstract class AbstractBDBMessageStore implements MessageStore
                         page.add(decoder.readIds(key));
                         if (page.size() == RECOVERY_PAGE_SIZE)
                         {
-                            final int offset = key.getOffset();
-                            resumeKey = Arrays.copyOfRange(key.getData(), offset, offset + key.getSize());
+                            resumeKey = copyKey(key);
                             break;
                         }
                         status = cursor.getNext(key, null, LockMode.READ_UNCOMMITTED);
@@ -1689,34 +1713,134 @@ public abstract class AbstractBDBMessageStore implements MessageStore
                 checkRecoveryStoreOpen(environment, closeCount);
                 for (final BDBEnqueueRecord entry : page)
                 {
-                    if (!handler.handle(entry))
+                    if (!recoveryHandler.handle(entry))
                     {
                         return;
                     }
-                    checkRecoveryStoreOpen(environment, closeCount);
                 }
             }
-            while (resumeKey != null);
         }
 
-        private Database openValidatedRecoveryDeliveryDb(final EnvironmentFacade environment)
+        private byte[] bufferValidatedRecoveryPrefix(final Database deliveryDb, final RecoverySnapshot snapshot)
         {
-            try
+            final QueueEntryBinding.OrderedDecoder decoder = new QueueEntryBinding.OrderedDecoder();
+            try (final Cursor cursor = deliveryDb.openCursor(null, null))
             {
-                final Database deliveryDb = environment.openDatabase(DELIVERY_DB_NAME, DEFAULT_DATABASE_CONFIG);
-                try (final Cursor cursor = deliveryDb.openCursor(null, null))
+                DatabaseEntry key = new DatabaseEntry();
+                DatabaseEntry lastBufferedKey = new DatabaseEntry();
+                while (cursor.getNext(key, null, LockMode.READ_UNCOMMITTED) == OperationStatus.SUCCESS)
                 {
-                    final DatabaseEntry key = new DatabaseEntry();
-                    while (cursor.getNext(key, null, LockMode.READ_UNCOMMITTED) == OperationStatus.SUCCESS)
+                    final UUID queueId = decoder.readQueueId(key);
+                    final long messageId = QueueEntryBinding.readMessageId(key);
+                    if (!snapshot.add(queueId, messageId))
                     {
-                        QueueEntryBinding.validateKey(key);
+                        final byte[] resumeKey = copyKey(lastBufferedKey);
+                        while (cursor.getNext(key, null, LockMode.READ_UNCOMMITTED) == OperationStatus.SUCCESS)
+                        {
+                            QueueEntryBinding.validateKey(key);
+                        }
+                        return resumeKey;
+                    }
+
+                    // Keep the last buffered raw key while the cursor fills a separate entry.
+                    final DatabaseEntry nextKey = lastBufferedKey;
+                    lastBufferedKey = key;
+                    key = nextKey;
+                }
+            }
+            return null;
+        }
+
+        private static byte[] copyKey(final DatabaseEntry key)
+        {
+            final int offset = key.getOffset();
+            return Arrays.copyOfRange(key.getData(), offset, offset + key.getSize());
+        }
+
+        private static final class RecoverySnapshot
+        {
+            private static final int BLOCK_HEADER_WORDS = 1;
+            private static final int QUEUE_RUN_HEADER_WORDS = 3;
+            private static final int BLOCK_WORDS = RECOVERY_PAGE_SIZE + BLOCK_HEADER_WORDS + QUEUE_RUN_HEADER_WORDS;
+            // Cap the primitive arrays at 8 MiB even when each delivery has a different queue ID.
+            private static final int MAX_BLOCKS = (8 * 1024 * 1024) / (BLOCK_WORDS * Long.BYTES);
+
+            private final int _blockLimit;
+            private final List<long[]> _blocks = new ArrayList<>();
+            private long[] _block;
+            private int _position;
+            private UUID _queueId;
+            private int _runCountIndex;
+
+            private RecoverySnapshot(final int blockLimit)
+            {
+                if (blockLimit <= 0 || blockLimit > MAX_BLOCKS)
+                {
+                    throw new IllegalArgumentException("Recovery snapshot block count is out of range");
+                }
+                _blockLimit = blockLimit;
+            }
+
+            // Each block starts with its used length. A queue run stores UUID bits and a count before the IDs.
+            private boolean add(final UUID queueId, final long messageId)
+            {
+                final int required = _queueId == queueId ? 1 : QUEUE_RUN_HEADER_WORDS + 1;
+                if (_block == null || _position + required > BLOCK_WORDS)
+                {
+                    if (_blocks.size() == _blockLimit)
+                    {
+                        return false;
+                    }
+                    if (_block != null)
+                    {
+                        _block[0] = _position;
+                    }
+                    _block = new long[BLOCK_WORDS];
+                    _blocks.add(_block);
+                    _position = BLOCK_HEADER_WORDS;
+                    _queueId = null;
+                }
+                if (_queueId != queueId)
+                {
+                    _queueId = queueId;
+                    _block[_position++] = queueId.getMostSignificantBits();
+                    _block[_position++] = queueId.getLeastSignificantBits();
+                    _runCountIndex = _position++;
+                }
+                _block[_position++] = messageId;
+                _block[_runCountIndex]++;
+                return true;
+            }
+
+            private boolean visit(final QueueEntryBinding.OrderedDecoder decoder, final MessageInstanceHandler handler)
+            {
+                if (_block != null)
+                {
+                    _block[0] = _position;
+                }
+                for (final long[] block : _blocks)
+                {
+                    final int size = (int) block[0];
+                    int index = BLOCK_HEADER_WORDS;
+                    while (index < size)
+                    {
+                        final long mostSignificantBits = block[index++];
+                        final long leastSignificantBits = block[index++];
+                        final UUID queueId = decoder.readQueueId(mostSignificantBits, leastSignificantBits);
+                        final int count = (int) block[index++];
+                        final int end = index + count;
+                        while (index < end)
+                        {
+                            if (!handler.handle(new BDBEnqueueRecord(queueId, block[index++])))
+                            {
+                                return false;
+                            }
+                        }
                     }
                 }
-                return deliveryDb;
-            }
-            catch (final RuntimeException e)
-            {
-                throw environment.handleDatabaseException("Cannot visit message instances", e);
+                _blocks.clear();
+                _block = null;
+                return true;
             }
         }
 

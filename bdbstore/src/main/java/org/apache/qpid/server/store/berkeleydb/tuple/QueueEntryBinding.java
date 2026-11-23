@@ -150,9 +150,24 @@ public class QueueEntryBinding
         {
             final byte[] data = getDeliveryKeyData(entry);
             final int offset = entry.getOffset();
+            final long messageId = readUnsignedLong(data, offset + QUEUE_ID_SIZE) ^ Long.MIN_VALUE;
+            return new BDBEnqueueRecord(readQueueId(data, offset), messageId);
+        }
+
+        public UUID readQueueId(final DatabaseEntry entry)
+        {
+            return readQueueId(getDeliveryKeyData(entry), entry.getOffset());
+        }
+
+        private UUID readQueueId(final byte[] data, final int offset)
+        {
             final long mostSignificantBits = readUnsignedLong(data, offset) ^ Long.MIN_VALUE;
             final long leastSignificantBits = readUnsignedLong(data, offset + Long.BYTES) ^ Long.MIN_VALUE;
-            final long messageId = readUnsignedLong(data, offset + QUEUE_ID_SIZE) ^ Long.MIN_VALUE;
+            return readQueueId(mostSignificantBits, leastSignificantBits);
+        }
+
+        public UUID readQueueId(final long mostSignificantBits, final long leastSignificantBits)
+        {
             if (_queueId == null || mostSignificantBits != _mostSignificantBits ||
                     leastSignificantBits != _leastSignificantBits)
             {
@@ -160,7 +175,7 @@ public class QueueEntryBinding
                 _mostSignificantBits = mostSignificantBits;
                 _leastSignificantBits = leastSignificantBits;
             }
-            return new BDBEnqueueRecord(_queueId, messageId);
+            return _queueId;
         }
     }
 }
