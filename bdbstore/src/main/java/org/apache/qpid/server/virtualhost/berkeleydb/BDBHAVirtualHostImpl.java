@@ -116,6 +116,11 @@ public class BDBHAVirtualHostImpl extends AbstractVirtualHost<BDBHAVirtualHostIm
     {
         super.validateChange(proxyForValidation, changedAttributes);
 
+        if (changedAttributes.contains(CONTEXT))
+        {
+            validateContextChange(proxyForValidation, _configurationStore::validateVirtualHostContext);
+        }
+
         if(changedAttributes.contains(LOCAL_TRANSACTION_SYNCHRONIZATION_POLICY))
         {
             String policy = ((BDBHAVirtualHost<?>)proxyForValidation).getLocalTransactionSynchronizationPolicy();

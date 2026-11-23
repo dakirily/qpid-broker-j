@@ -21,11 +21,14 @@
 package org.apache.qpid.server.virtualhost;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -73,6 +76,22 @@ public class SynchronousMessageStoreRecovererTest extends UnitTestBase
     {
         _virtualHost = mock(QueueManagingVirtualHost.class);
         when(_virtualHost.getEventLogger()).thenReturn(new EventLogger());
+    }
+
+    @Test
+    public void testRecoveryValidationPrecedesMessageReads()
+    {
+        final MessageStore store = mock(MessageStore.class);
+        final MessageStore.MessageStoreReader reader = mock(MessageStore.MessageStoreReader.class);
+        when(_virtualHost.getMessageStore()).thenReturn(store);
+        when(store.newMessageStoreReader()).thenReturn(reader);
+        final IllegalArgumentException failure = new IllegalArgumentException("Invalid recovery setting");
+        doThrow(failure).when(reader).validateSynchronousRecovery();
+
+        assertSame(failure, assertThrows(IllegalArgumentException.class,
+                () -> new SynchronousMessageStoreRecoverer().recover(_virtualHost)));
+        verify(reader, never()).visitMessages(any());
+        verify(reader, never()).visitMessageInstancesForRecovery(any());
     }
 
     @SuppressWarnings("unchecked")

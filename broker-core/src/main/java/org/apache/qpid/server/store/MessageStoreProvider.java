@@ -20,7 +20,14 @@
  */
 package org.apache.qpid.server.store;
 
+import java.util.function.Function;
+
 public interface MessageStoreProvider
 {
     MessageStore getMessageStore();
+
+    /** Validates the message-store settings resolved from a proposed virtual host context. */
+    default void validateVirtualHostContext(final Function<String, String> contextValue)
+    {
+    }
 }

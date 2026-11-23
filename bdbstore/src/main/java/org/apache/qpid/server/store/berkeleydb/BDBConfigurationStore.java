@@ -33,6 +33,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Function;
 
 import com.sleepycat.je.Cursor;
 import com.sleepycat.je.Database;
@@ -517,6 +518,12 @@ public class BDBConfigurationStore implements MessageStoreProvider, DurableConfi
     public MessageStore getMessageStore()
     {
         return _providedMessageStore;
+    }
+
+    @Override
+    public void validateVirtualHostContext(final Function<String, String> contextValue)
+    {
+        BDBRecoverySnapshotLimit.getBlockLimit(contextValue);
     }
 
     public PreferenceStore getPreferenceStore()

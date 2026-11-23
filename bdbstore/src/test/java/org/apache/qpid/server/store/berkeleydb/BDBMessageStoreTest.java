@@ -827,6 +827,26 @@ public class BDBMessageStoreTest extends MessageStoreTestCase
     }
 
     @Test
+    void testSnapshotLimitValidationIsScopedToSynchronousRecovery()
+    {
+        setRecoverySnapshotMaxBytes(getVirtualHost(), SNAPSHOT_BLOCK_BYTES - 1);
+        reopenStore();
+        final MessageStore.MessageStoreReader reader = getStore().newMessageStoreReader();
+        try
+        {
+            assertThrows(IllegalConfigurationException.class, reader::validateSynchronousRecovery);
+            reader.visitMessages(message -> true);
+
+            setRecoverySnapshotMaxBytes(getVirtualHost(), SNAPSHOT_BLOCK_BYTES);
+            reader.validateSynchronousRecovery();
+        }
+        finally
+        {
+            reader.close();
+        }
+    }
+
+    @Test
     void testRecoveryVisitorHonorsEarlyStop()
     {
         writeDeliveryRange(new UUID(0L, 1L), 1L, 1001);
@@ -924,8 +944,8 @@ public class BDBMessageStoreTest extends MessageStoreTestCase
     private void setRecoverySnapshotMaxBytes(final ConfiguredObject<?> virtualHost, final long snapshotMaxBytes)
     {
         when(virtualHost.getContextKeys(false)).thenReturn(Set.of(QPID_BROKER_BDB_RECOVERY_SNAPSHOT_MAX_BYTES));
-        when(virtualHost.getContextValue(Long.class, QPID_BROKER_BDB_RECOVERY_SNAPSHOT_MAX_BYTES))
-                .thenReturn(snapshotMaxBytes);
+        when(virtualHost.getContextValue(String.class, QPID_BROKER_BDB_RECOVERY_SNAPSHOT_MAX_BYTES))
+                .thenReturn(Long.toString(snapshotMaxBytes));
     }
 
     private void writeDeliveryRange(final UUID queueId, final long firstMessageId, final int count)

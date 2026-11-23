@@ -91,6 +91,11 @@ public interface MessageStore
 
     interface MessageStoreReader
     {
+        /** Validates store-specific settings before synchronous recovery reads any messages. */
+        default void validateSynchronousRecovery() throws StoreException
+        {
+        }
+
         void visitMessages(MessageHandler handler) throws StoreException;
 
         void visitMessageInstances(MessageInstanceHandler handler) throws StoreException;

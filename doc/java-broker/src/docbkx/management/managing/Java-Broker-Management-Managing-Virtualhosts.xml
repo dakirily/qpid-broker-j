@@ -69,6 +69,7 @@
             <literal>8192</literal> through <literal>17592186036224</literal>. The broker rounds the
             limit down to a multiple of 8 KiB and allocates snapshot buffers as needed.</para>
           <para>Set the variable in the virtual host context to apply it on the next synchronous recovery.
+            The broker rejects invalid values when updating the virtual host context.
             For a 64 MiB limit, use <literal>67108864</literal>. The broker rereads delivery records that
             exceed the snapshot limit in pages. Increasing the limit can reduce these rereads on a large
             backlog. When several virtual hosts recover concurrently, budget heap space for their combined

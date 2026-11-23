@@ -53,6 +53,8 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -3113,6 +3115,58 @@ public abstract class AbstractConfiguredObject<X extends ConfiguredObject<X>> im
         return previousValue;
     }
 
+    protected final void validateContextChange(final ConfiguredObject<?> proposed,
+                                               final Consumer<Function<String, String>> validator)
+    {
+        final Map<String, String> inherited = new HashMap<>();
+        if (_parent != null && _model.getParentType(getCategoryClass()) != null)
+        {
+            generateInheritedContext(_model, _parent, inherited);
+        }
+        final OwnAttributeResolver proposedAttributes = new OwnAttributeResolver(proposed);
+        validator.accept(name -> resolveProposedContextValue(name, inherited, proposed.getContext(),
+                                                             proposedAttributes));
+        // Context conversion on reopen starts from the saved expressions and ancestor context.
+        validator.accept(name -> resolveProposedContextValue(name, inherited,
+                                                             resolveSavedContext(proposed, inherited,
+                                                                                 proposedAttributes),
+                                                             proposedAttributes));
+    }
+
+    private String resolveProposedContextValue(final String name,
+                                               final Map<String, String> inherited,
+                                               final Map<String, String> localContext,
+                                               final OwnAttributeResolver proposedAttributes)
+    {
+        final Map<String, String> context = new HashMap<>(inherited);
+        if (localContext != null)
+        {
+            context.putAll(localContext);
+        }
+        return interpolate(this, "${" + name + "}", context, proposedAttributes);
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, String> resolveSavedContext(final ConfiguredObject<?> proposed,
+                                                    final Map<String, String> inherited,
+                                                    final OwnAttributeResolver proposedAttributes)
+    {
+        final Object raw = proposed.getActualAttributes().get(CONTEXT);
+        final Object value = raw instanceof String ? interpolate(this, (String) raw, inherited, proposedAttributes)
+                                                   : raw;
+        final ConfiguredSettableAttribute<?, ?> attribute = (ConfiguredSettableAttribute<?, ?>) _attributeTypes.get(
+                CONTEXT);
+        final Map<String, String> unresolved = (Map<String, String>) attribute.convert(value, null);
+        final Map<String, String> local = new LinkedHashMap<>();
+        if (unresolved != null)
+        {
+            unresolved.forEach((key, entryValue) ->
+                    local.put(interpolate(this, key, inherited, proposedAttributes),
+                              interpolate(this, entryValue, inherited, proposedAttributes)));
+        }
+        return local;
+    }
+
     @Override
     public <Y extends ConfiguredObject<Y>> Y findConfiguredObject(Class<Y> clazz, String name)
     {
@@ -3363,15 +3417,23 @@ public abstract class AbstractConfiguredObject<X extends ConfiguredObject<X>> im
         {
             Map<String, String> inheritedContext = new HashMap<>();
             generateInheritedContext(object.getModel(), object, inheritedContext);
-            return Strings.expand(value, false,
-                                  JSON_SUBSTITUTION_RESOLVER,
-                                  getOwnAttributeResolver(object),
-                                  getAncestorAttributeResolver(object),
-                                  new Strings.MapResolver(inheritedContext),
-                                  Strings.JAVA_SYS_PROPS_RESOLVER,
-                                  Strings.ENV_VARS_RESOLVER,
-                                  object.getModel().getTypeRegistry().getDefaultContextResolver());
+            return interpolate(object, value, inheritedContext, getOwnAttributeResolver(object));
         }
+    }
+
+    private static String interpolate(final ConfiguredObject<?> object,
+                                      final String value,
+                                      final Map<String, String> context,
+                                      final OwnAttributeResolver ownAttributes)
+    {
+        return Strings.expand(value, false,
+                              JSON_SUBSTITUTION_RESOLVER,
+                              ownAttributes,
+                              getAncestorAttributeResolver(object),
+                              new Strings.MapResolver(context),
+                              Strings.JAVA_SYS_PROPS_RESOLVER,
+                              Strings.ENV_VARS_RESOLVER,
+                              object.getModel().getTypeRegistry().getDefaultContextResolver());
     }
 
     static String interpolate(Model model, String value)

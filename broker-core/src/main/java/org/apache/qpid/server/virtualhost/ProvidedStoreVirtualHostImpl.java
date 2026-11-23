@@ -21,8 +21,10 @@
 package org.apache.qpid.server.virtualhost;
 
 import java.util.Map;
+import java.util.Set;
 
 import org.apache.qpid.server.configuration.IllegalConfigurationException;
+import org.apache.qpid.server.model.ConfiguredObject;
 import org.apache.qpid.server.model.ManagedAttributeField;
 import org.apache.qpid.server.model.ManagedObject;
 import org.apache.qpid.server.model.ManagedObjectFactoryConstructor;
@@ -63,6 +65,20 @@ public class ProvidedStoreVirtualHostImpl extends AbstractVirtualHost<ProvidedSt
                                                     " virtual host can only be used where the node's store ("
                                                     + configurationStore.getClass().getName()
                                                     + ") is a message store provider. ");
+        }
+    }
+
+    @Override
+    protected void validateChange(final ConfiguredObject<?> proxyForValidation, final Set<String> changedAttributes)
+    {
+        super.validateChange(proxyForValidation, changedAttributes);
+        if (changedAttributes.contains(CONTEXT))
+        {
+            final VirtualHostNode<?> node = (VirtualHostNode<?>) getParent();
+            if (node.getConfigurationStore() instanceof MessageStoreProvider provider)
+            {
+                validateContextChange(proxyForValidation, provider::validateVirtualHostContext);
+            }
         }
     }
 

@@ -22,15 +22,18 @@ package org.apache.qpid.server.virtualhost.berkeleydb;
 
 import java.util.Collections;
 import java.util.Map;
+import java.util.Set;
 
+import org.apache.qpid.server.model.ConfiguredObject;
 import org.apache.qpid.server.model.ManagedAttributeField;
 import org.apache.qpid.server.model.ManagedObject;
 import org.apache.qpid.server.model.ManagedObjectFactoryConstructor;
 import org.apache.qpid.server.model.VirtualHostNode;
 import org.apache.qpid.server.store.MessageStore;
-import org.apache.qpid.server.store.berkeleydb.BDBMessageStore;
-import org.apache.qpid.server.store.berkeleydb.EnvironmentFacade;
 import org.apache.qpid.server.store.berkeleydb.BDBCacheSizeSetter;
+import org.apache.qpid.server.store.berkeleydb.BDBMessageStore;
+import org.apache.qpid.server.store.berkeleydb.BDBRecoverySnapshotLimit;
+import org.apache.qpid.server.store.berkeleydb.EnvironmentFacade;
 import org.apache.qpid.server.virtualhost.AbstractVirtualHost;
 
 @ManagedObject(category = false, type = BDBVirtualHostImpl.VIRTUAL_HOST_TYPE)
@@ -55,6 +58,16 @@ public class BDBVirtualHostImpl extends AbstractVirtualHost<BDBVirtualHostImpl> 
         addChangeListener(new BDBCacheSizeSetter());
     }
 
+
+    @Override
+    protected void validateChange(final ConfiguredObject<?> proxyForValidation, final Set<String> changedAttributes)
+    {
+        super.validateChange(proxyForValidation, changedAttributes);
+        if (changedAttributes.contains(CONTEXT))
+        {
+            validateContextChange(proxyForValidation, BDBRecoverySnapshotLimit::getBlockLimit);
+        }
+    }
 
     @Override
     protected MessageStore createMessageStore()

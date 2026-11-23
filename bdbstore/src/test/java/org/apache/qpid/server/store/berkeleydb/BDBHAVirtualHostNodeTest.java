@@ -20,10 +20,12 @@
  */
 package org.apache.qpid.server.store.berkeleydb;
 
+import static org.apache.qpid.server.virtualhost.berkeleydb.BDBVirtualHost.QPID_BROKER_BDB_RECOVERY_SNAPSHOT_MAX_BYTES;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
@@ -162,6 +164,13 @@ public class BDBHAVirtualHostNodeTest extends UnitTestBase
         assertEquals(bdbConfigurationStore.getMessageStore(), virtualHost.getMessageStore(),
                      "Unexpected virtual host store");
         assertEquals(State.ACTIVE, virtualHost.getState(), "Unexpected virtual host state");
+
+        final Map<String, String> previousContext = virtualHost.getContext();
+        assertThrows(IllegalConfigurationException.class,
+                () -> virtualHost.setContextVariable(QPID_BROKER_BDB_RECOVERY_SNAPSHOT_MAX_BYTES, "8191"));
+        assertEquals(previousContext, virtualHost.getContext());
+        virtualHost.setContextVariable(QPID_BROKER_BDB_RECOVERY_SNAPSHOT_MAX_BYTES, "67108864");
+        assertEquals(8192, BDBRecoverySnapshotLimit.getBlockLimit(virtualHost));
 
         node.stop();
         assertEquals(State.STOPPED, node.getState(), "Unexpected state returned after stop");

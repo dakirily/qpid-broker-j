@@ -18,10 +18,9 @@
  */
 package org.apache.qpid.server.store.berkeleydb;
 
+import static org.apache.qpid.server.store.berkeleydb.BDBRecoverySnapshotLimit.BLOCK_BYTES;
 import static org.apache.qpid.server.store.berkeleydb.BDBUtils.DEFAULT_DATABASE_CONFIG;
 import static org.apache.qpid.server.store.berkeleydb.BDBUtils.abortTransactionSafely;
-import static org.apache.qpid.server.virtualhost.berkeleydb.BDBVirtualHost.DEFAULT_BDB_RECOVERY_SNAPSHOT_MAX_BYTES;
-import static org.apache.qpid.server.virtualhost.berkeleydb.BDBVirtualHost.QPID_BROKER_BDB_RECOVERY_SNAPSHOT_MAX_BYTES;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
@@ -52,7 +51,6 @@ import com.sleepycat.je.Transaction;
 import org.slf4j.Logger;
 
 import org.apache.qpid.server.bytebuffer.QpidByteBuffer;
-import org.apache.qpid.server.configuration.IllegalConfigurationException;
 import org.apache.qpid.server.message.EnqueueableMessage;
 import org.apache.qpid.server.model.ConfiguredObject;
 import org.apache.qpid.server.store.Event;
@@ -1530,7 +1528,13 @@ public abstract class AbstractBDBMessageStore implements MessageStore
     {
         private static final int INITIAL_MESSAGE_ID_CAPACITY = 8;
         private static final int RECOVERY_PAGE_SIZE = 1000;
-        private static final long MAX_RECOVERY_SNAPSHOT_BYTES = (long) Integer.MAX_VALUE * RecoverySnapshot.BLOCK_BYTES;
+
+        @Override
+        public void validateSynchronousRecovery()
+        {
+            checkMessageStoreOpen();
+            BDBRecoverySnapshotLimit.getBlockLimit(getParent());
+        }
 
         @Override
         public void visitMessages(final MessageHandler handler) throws StoreException
@@ -1643,7 +1647,7 @@ public abstract class AbstractBDBMessageStore implements MessageStore
             final long closeCount = _messageStoreCloseCount.get();
             checkMessageStoreOpen();
             final EnvironmentFacade environment = getEnvironmentFacade();
-            final int snapshotBlockLimit = getRecoverySnapshotBlockLimit();
+            final int snapshotBlockLimit = BDBRecoverySnapshotLimit.getBlockLimit(getParent());
             checkRecoveryStoreOpen(environment, closeCount);
 
             // Check delivery keys before callbacks can make recovery writes.
@@ -1721,29 +1725,6 @@ public abstract class AbstractBDBMessageStore implements MessageStore
             }
         }
 
-        private int getRecoverySnapshotBlockLimit()
-        {
-            final Long maxBytes;
-            try
-            {
-                maxBytes = BDBUtils.getContextValue(getParent(), Long.class,
-                                                   QPID_BROKER_BDB_RECOVERY_SNAPSHOT_MAX_BYTES,
-                                                   DEFAULT_BDB_RECOVERY_SNAPSHOT_MAX_BYTES);
-            }
-            catch (final IllegalArgumentException e)
-            {
-                throw new IllegalConfigurationException(QPID_BROKER_BDB_RECOVERY_SNAPSHOT_MAX_BYTES +
-                                                        " must be a whole number of bytes", e);
-            }
-            if (maxBytes == null || maxBytes < RecoverySnapshot.BLOCK_BYTES || maxBytes > MAX_RECOVERY_SNAPSHOT_BYTES)
-            {
-                throw new IllegalConfigurationException(QPID_BROKER_BDB_RECOVERY_SNAPSHOT_MAX_BYTES +
-                                                        " must be between " + RecoverySnapshot.BLOCK_BYTES + " and " +
-                                                        MAX_RECOVERY_SNAPSHOT_BYTES + " bytes");
-            }
-            return (int) (maxBytes / RecoverySnapshot.BLOCK_BYTES);
-        }
-
         private byte[] bufferValidatedRecoveryPrefix(final Database deliveryDb, final RecoverySnapshot snapshot)
         {
             final QueueEntryBinding.OrderedDecoder decoder = new QueueEntryBinding.OrderedDecoder();
@@ -1782,7 +1763,6 @@ public abstract class AbstractBDBMessageStore implements MessageStore
 
         private static final class RecoverySnapshot
         {
-            private static final int BLOCK_BYTES = 8 * 1024;
             private static final int RUN_HEADER_BYTES = 3 * Long.BYTES + Integer.BYTES;
             private static final int DELTA_BITS_PER_BYTE = Byte.SIZE - 1;
             private static final int CONTINUATION_BIT = 1 << DELTA_BITS_PER_BYTE;

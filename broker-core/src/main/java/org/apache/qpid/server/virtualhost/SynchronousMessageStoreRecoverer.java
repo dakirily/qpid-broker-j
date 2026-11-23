@@ -64,6 +64,7 @@ public class SynchronousMessageStoreRecoverer implements MessageStoreRecoverer
         EventLogger eventLogger = virtualHost.getEventLogger();
         MessageStore store = virtualHost.getMessageStore();
         MessageStore.MessageStoreReader storeReader = store.newMessageStoreReader();
+        storeReader.validateSynchronousRecovery();
         MessageStoreLogSubject logSubject = new MessageStoreLogSubject(virtualHost.getName(), store.getClass().getSimpleName());
 
         Map<Queue<?>, Integer> queueRecoveries = new TreeMap<>();
