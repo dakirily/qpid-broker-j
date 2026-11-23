@@ -190,6 +190,11 @@ public class CoalescingCommiter implements Committer
                 _inProcessJobs.add(job);
             }
 
+            if (_inProcessJobs.isEmpty())
+            {
+                return;
+            }
+
             int completedJobsIndex = 0;
             try
             {
