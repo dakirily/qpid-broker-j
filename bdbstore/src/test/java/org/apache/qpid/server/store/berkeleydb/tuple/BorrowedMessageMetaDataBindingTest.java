@@ -111,6 +111,29 @@ class BorrowedMessageMetaDataBindingTest extends UnitTestBase
     }
 
     @Test
+    void testBorrowedEntryClearsReservedBytes()
+    {
+        final StorableMessageMetaData metadata = metadata(4, buffer ->
+        {
+            buffer.put((byte) 1);
+            buffer.position(2);
+            buffer.putShort((short) 0x0203);
+        });
+        final byte[] scratch = new byte[30];
+        Arrays.fill(scratch, (byte) 42);
+        final int offset = 10;
+        final DatabaseEntry borrowed = new DatabaseEntry(scratch, offset, BINDING.getEntrySize(metadata));
+        final DatabaseEntry ordinary = new DatabaseEntry();
+        BINDING.objectToEntry(metadata, ordinary);
+        final byte[] expected = scratch.clone();
+        System.arraycopy(ordinary.getData(), ordinary.getOffset(), expected, offset, ordinary.getSize());
+
+        BINDING.writeToEntry(metadata, borrowed);
+
+        assertArrayEquals(expected, scratch);
+    }
+
+    @Test
     void testOrdinaryBindingReturnsIndependentEntries()
     {
         final DatabaseEntry first = new DatabaseEntry();

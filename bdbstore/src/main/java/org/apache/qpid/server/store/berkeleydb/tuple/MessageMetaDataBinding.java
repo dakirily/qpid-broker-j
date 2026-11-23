@@ -21,6 +21,7 @@
 package org.apache.qpid.server.store.berkeleydb.tuple;
 
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 
 import com.sleepycat.bind.EntryBinding;
 import com.sleepycat.je.DatabaseEntry;
@@ -124,6 +125,8 @@ public class MessageMetaDataBinding implements EntryBinding<StorableMessageMetaD
         }
 
         entry.setPartial(0, 0, false);
+        // A serializer can skip reserved bytes that would be zero in a fresh entry.
+        Arrays.fill(data, offset + HEADER_SIZE, offset + size, (byte) 0);
         if (writeToBuffer(metaData, data, offset, size) != size - HEADER_SIZE)
         {
             throw new StoreException("Message metadata serializer did not write its declared size");
