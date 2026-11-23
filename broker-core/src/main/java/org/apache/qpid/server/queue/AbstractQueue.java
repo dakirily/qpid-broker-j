@@ -1809,6 +1809,11 @@ public abstract class AbstractQueue<X extends AbstractQueue<X>>
     @Override
     public long clearQueue()
     {
+        return _virtualHost.executeMessageManagementOperation("clearQueue", this::doClearQueue);
+    }
+
+    private long doClearQueue()
+    {
         QueueEntryIterator queueListIterator = getEntries().iterator();
         long count = 0;
 

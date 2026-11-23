@@ -74,6 +74,12 @@ public interface MessageStore
      */
     boolean isPersistent();
 
+    /** Whether message management operations must be serialized with synchronous virtual host recovery. */
+    default boolean requiresExclusiveSynchronousRecovery()
+    {
+        return false;
+    }
+
     Transaction newTransaction();
 
     /**

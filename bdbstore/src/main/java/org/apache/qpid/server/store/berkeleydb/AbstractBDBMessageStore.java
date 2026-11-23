@@ -276,6 +276,13 @@ public abstract class AbstractBDBMessageStore implements MessageStore
     }
 
     @Override
+    public boolean requiresExclusiveSynchronousRecovery()
+    {
+        // Recovery can read additional pages of delivery records after applying the buffered records.
+        return true;
+    }
+
+    @Override
     public void resetStatistics()
     {
         _bytesEvacuatedFromMemory.set(0L);

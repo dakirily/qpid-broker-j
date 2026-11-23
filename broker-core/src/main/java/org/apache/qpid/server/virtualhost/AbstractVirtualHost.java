@@ -63,6 +63,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Supplier;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
@@ -974,6 +975,11 @@ public abstract class AbstractVirtualHost<X extends AbstractVirtualHost<X>> exte
 
     @Override
     public int publishMessage(@Param(name = "message") final ManageableMessage message)
+    {
+        return executeMessageManagementOperation("publishMessage", () -> doPublishMessage(message));
+    }
+
+    private int doPublishMessage(final ManageableMessage message)
     {
         final String address = message.getAddress();
         MessageDestination destination = address == null ? getDefaultDestination() : getAttainedMessageDestination(address, true);
@@ -2446,7 +2452,55 @@ public abstract class AbstractVirtualHost<X extends AbstractVirtualHost<X>> exte
 
 
     @Override
-    public void executeTransaction(TransactionalOperation op)
+    public <T> T executeMessageManagementOperation(final String name, final Supplier<T> operation)
+    {
+        final MessageStore store = getMessageStore();
+        if (store != null && !store.requiresExclusiveSynchronousRecovery())
+        {
+            return operation.get();
+        }
+
+        // Synchronous recovery runs on the configuration thread and completes before the host becomes active.
+        return runTask(new Task<T, RuntimeException>()
+        {
+            @Override
+            public T execute()
+            {
+                checkVHostStateIsActive();
+                return operation.get();
+            }
+
+            @Override
+            public String getObject()
+            {
+                return AbstractVirtualHost.this.toString();
+            }
+
+            @Override
+            public String getAction()
+            {
+                return name;
+            }
+
+            @Override
+            public String getArguments()
+            {
+                return null;
+            }
+        });
+    }
+
+    @Override
+    public void executeTransaction(final TransactionalOperation op)
+    {
+        executeMessageManagementOperation("executeTransaction", () ->
+        {
+            doExecuteTransaction(op);
+            return null;
+        });
+    }
+
+    private void doExecuteTransaction(final TransactionalOperation op)
     {
         final MessageStore store = getMessageStore();
         final LocalTransaction txn = new LocalTransaction(store);
@@ -3004,7 +3058,7 @@ public abstract class AbstractVirtualHost<X extends AbstractVirtualHost<X>> exte
                                 }));
 
         CompletableFuture<Void> combinedFuture = CompletableFuture.allOf(childOpenFutures.toArray(CompletableFuture[]::new));
-        return combinedFuture.thenAccept(result -> onActivate());
+        return combinedFuture.thenAcceptAsync(result -> onActivate(), getTaskExecutor());
     }
 
     private CompletableFuture<Void> onRestartFailure()

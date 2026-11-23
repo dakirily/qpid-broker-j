@@ -26,6 +26,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledFuture;
+import java.util.function.Supplier;
 
 import javax.security.auth.Subject;
 
@@ -386,6 +387,11 @@ public interface QueueManagingVirtualHost<X extends QueueManagingVirtualHost<X>>
     DurableConfigurationStore getDurableConfigurationStore();
 
     void executeTransaction(TransactionalOperation op);
+
+    default <T> T executeMessageManagementOperation(final String name, final Supplier<T> operation)
+    {
+        return operation.get();
+    }
 
     void executeTask(String name, Runnable task, Subject subject);
 
