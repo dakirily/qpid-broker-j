@@ -23,6 +23,7 @@ package org.apache.qpid.server.store.berkeleydb.tuple;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -117,5 +118,44 @@ class QueueEntryBindingTest extends UnitTestBase
         assertThrows(IllegalArgumentException.class, () -> QueueEntryBinding.matchesQueueId(entry, QUEUE_ID));
         assertThrows(IllegalArgumentException.class, () -> QueueEntryBinding.readMessageId(entry));
         assertThrows(IllegalArgumentException.class, () -> QueueEntryBinding.readIds(new CachingUUIDFactory(), entry));
+    }
+
+    @Test
+    void testOrderedDecoderReusesZeroUuidWithMutableKeyAtNonZeroOffset()
+    {
+        final UUID queueId = new UUID(0L, 0L);
+        final int offset = 3;
+        final int keySize = QueueEntryBinding.KEY_SIZE;
+        final byte[] backing = new byte[offset + keySize + 1];
+        final DatabaseEntry key = new DatabaseEntry(backing, offset, keySize + 1);
+        final DatabaseEntry encoded = new DatabaseEntry();
+        final QueueEntryBinding.OrderedDecoder decoder = new QueueEntryBinding.OrderedDecoder();
+
+        QueueEntryBinding.objectToEntry(queueId, Long.MIN_VALUE, encoded);
+        System.arraycopy(encoded.getData(), 0, backing, offset, keySize);
+        final MessageEnqueueRecord first = decoder.readIds(key);
+
+        QueueEntryBinding.objectToEntry(queueId, Long.MAX_VALUE, encoded);
+        System.arraycopy(encoded.getData(), 0, backing, offset, keySize);
+        final MessageEnqueueRecord second = decoder.readIds(key);
+        Arrays.fill(backing, (byte) 0);
+
+        assertEquals(queueId, first.getQueueId());
+        assertSame(first.getQueueId(), second.getQueueId());
+        assertNotSame(first, second);
+        assertEquals(Long.MIN_VALUE, first.getMessageNumber());
+        assertEquals(Long.MAX_VALUE, second.getMessageNumber());
+    }
+
+    @Test
+    void testOrderedDecoderValidatesKeyForCachedQueue()
+    {
+        final DatabaseEntry entry = new DatabaseEntry();
+        QueueEntryBinding.objectToEntry(QUEUE_ID, 1L, entry);
+        final QueueEntryBinding.OrderedDecoder decoder = new QueueEntryBinding.OrderedDecoder();
+        decoder.readIds(entry);
+
+        entry.setSize(QueueEntryBinding.KEY_SIZE - 1);
+        assertThrows(IllegalArgumentException.class, () -> decoder.readIds(entry));
     }
 }

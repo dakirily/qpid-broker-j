@@ -26,7 +26,9 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
@@ -253,6 +255,60 @@ public class BDBMessageStoreTest extends MessageStoreTestCase
             assertEquals(1, remaining.size());
             assertEquals(firstQueue.getId(), remaining.get(0).getQueueId());
             assertEquals(second.getMessageNumber(), remaining.get(0).getMessageNumber());
+        }
+        finally
+        {
+            reader.close();
+        }
+    }
+
+    @Test
+    public void testGlobalVisitorReusesQueueUuidAfterReopen()
+    {
+        final TransactionLogResource firstQueue = createQueue(new UUID(0L, 0L));
+        final TransactionLogResource secondQueue = createQueue(new UUID(0L, 1L));
+        final TransactionLogResource thirdQueue = createQueue(new UUID(1L, 1L));
+        final AMQMessageHeader header = mock(AMQMessageHeader.class);
+        final InternalMessage first = InternalMessage.createStringMessage(getStore(), header, "first", true);
+        final InternalMessage second = InternalMessage.createStringMessage(getStore(), header, "second", true);
+        final Transaction transaction = getStore().newTransaction();
+        transaction.enqueueMessage(thirdQueue, first);
+        transaction.enqueueMessage(secondQueue, first);
+        transaction.enqueueMessage(firstQueue, second);
+        transaction.enqueueMessage(firstQueue, first);
+        transaction.commitTran();
+
+        reopenStore();
+
+        final MessageStore.MessageStoreReader reader = getStore().newMessageStoreReader();
+        try
+        {
+            final List<MessageEnqueueRecord> records = new ArrayList<>();
+            final List<MessageEnqueueRecord> nestedRecords = new ArrayList<>();
+            reader.visitMessageInstances(record ->
+            {
+                records.add(record);
+                if (records.size() == 1)
+                {
+                    reader.visitMessageInstances(nestedRecord ->
+                    {
+                        nestedRecords.add(nestedRecord);
+                        return false;
+                    });
+                }
+                return true;
+            });
+
+            assertEquals(List.of(firstQueue.getId(), firstQueue.getId(), secondQueue.getId(), thirdQueue.getId()),
+                    records.stream().map(MessageEnqueueRecord::getQueueId).toList());
+            assertEquals(List.of(first.getMessageNumber(), second.getMessageNumber(), first.getMessageNumber(),
+                                 first.getMessageNumber()),
+                    records.stream().map(MessageEnqueueRecord::getMessageNumber).toList());
+            assertSame(records.get(0).getQueueId(), records.get(1).getQueueId());
+            assertNotSame(records.get(0), records.get(1));
+            assertEquals(1, nestedRecords.size());
+            assertEquals(firstQueue.getId(), nestedRecords.get(0).getQueueId());
+            assertNotSame(records.get(0).getQueueId(), nestedRecords.get(0).getQueueId());
         }
         finally
         {

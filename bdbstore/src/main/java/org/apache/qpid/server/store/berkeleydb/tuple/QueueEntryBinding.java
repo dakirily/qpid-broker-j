@@ -118,4 +118,32 @@ public class QueueEntryBinding
                 (((long) data[offset++] & 0xffL) << 8) |
                 ((long) data[offset] & 0xffL);
     }
+
+    /**
+     * Decodes one sorted delivery scan, reusing the UUID for adjacent records of the same queue.
+     * Each scan invocation owns its decoder.
+     */
+    public static final class OrderedDecoder
+    {
+        private long _mostSignificantBits;
+        private long _leastSignificantBits;
+        private UUID _queueId;
+
+        public BDBEnqueueRecord readIds(final DatabaseEntry entry)
+        {
+            final byte[] data = getDeliveryKeyData(entry);
+            final int offset = entry.getOffset();
+            final long mostSignificantBits = readUnsignedLong(data, offset) ^ Long.MIN_VALUE;
+            final long leastSignificantBits = readUnsignedLong(data, offset + Long.BYTES) ^ Long.MIN_VALUE;
+            final long messageId = readUnsignedLong(data, offset + QUEUE_ID_SIZE) ^ Long.MIN_VALUE;
+            if (_queueId == null || mostSignificantBits != _mostSignificantBits ||
+                    leastSignificantBits != _leastSignificantBits)
+            {
+                _queueId = new UUID(mostSignificantBits, leastSignificantBits);
+                _mostSignificantBits = mostSignificantBits;
+                _leastSignificantBits = leastSignificantBits;
+            }
+            return new BDBEnqueueRecord(_queueId, messageId);
+        }
+    }
 }

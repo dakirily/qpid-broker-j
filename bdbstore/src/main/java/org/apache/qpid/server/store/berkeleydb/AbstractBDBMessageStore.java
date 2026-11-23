@@ -1599,13 +1599,13 @@ public abstract class AbstractBDBMessageStore implements MessageStore
             try (final Cursor cursor = getDeliveryDb().openCursor(null, null))
             {
                 final DatabaseEntry key = new DatabaseEntry();
-                final CachingUUIDFactory uuidFactory = new CachingUUIDFactory();
+                final QueueEntryBinding.OrderedDecoder decoder = new QueueEntryBinding.OrderedDecoder();
 
                 final DatabaseEntry value = new DatabaseEntry();
                 value.setPartial(0, 0, true);
                 while (cursor.getNext(key, value, LockMode.READ_UNCOMMITTED) == OperationStatus.SUCCESS)
                 {
-                    entries.add(QueueEntryBinding.readIds(uuidFactory, key));
+                    entries.add(decoder.readIds(key));
                 }
             }
             catch (RuntimeException e)
