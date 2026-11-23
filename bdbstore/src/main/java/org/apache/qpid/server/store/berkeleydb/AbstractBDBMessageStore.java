@@ -556,28 +556,25 @@ public abstract class AbstractBDBMessageStore implements MessageStore
     private void addContent(final Transaction tx, final long messageId, final QpidByteBuffer contentBody)
             throws StoreException
     {
-        final DatabaseEntry value = new DatabaseEntry();
-
-        final byte[] data = new byte[contentBody.remaining()];
-        contentBody.copyTo(data);
-        value.setData(data);
-        try
+        try (final BDBWriteBuffer buffer = BDBWriteBuffer.acquire())
         {
-            final OperationStatus status = getMessageContentDb().put(tx, messageIdKey(messageId), value);
-            if (status != OperationStatus.SUCCESS)
+            buffer.prepare(messageId, contentBody.remaining());
+            buffer.copyContent(contentBody);
+            try
             {
-                throw new StoreException("Error adding content for message id " + messageId + ": " + status);
+                final OperationStatus status = getMessageContentDb().put(tx, buffer.getKey(), buffer.getValue());
+                if (status != OperationStatus.SUCCESS)
+                {
+                    throw new StoreException("Error adding content for message id " + messageId + ": " + status);
+                }
+
+                getLogger().debug("Storing content for message {} in transaction {}", messageId, tx);
             }
-
-            getLogger().debug("Storing content for message {} in transaction {}", messageId, tx);
-
-        }
-        catch (RuntimeException e)
-        {
-            throw getEnvironmentFacade().handleDatabaseException("Error writing AMQMessage with id "
-                                                                 + messageId
-                                                                 + " to database: "
-                                                                 + e.getMessage(), e);
+            catch (final RuntimeException e)
+            {
+                throw getEnvironmentFacade().handleDatabaseException(
+                        "Error writing AMQMessage with id " + messageId + " to database: " + e.getMessage(), e);
+            }
         }
     }
 
