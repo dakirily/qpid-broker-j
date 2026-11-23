@@ -44,6 +44,8 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.LongStream;
 
 import com.sleepycat.bind.tuple.LongBinding;
 import com.sleepycat.bind.tuple.TupleOutput;
@@ -61,6 +63,7 @@ import org.apache.qpid.server.bytebuffer.QpidByteBuffer;
 import org.apache.qpid.server.message.AMQMessageHeader;
 import org.apache.qpid.server.message.internal.InternalMessage;
 import org.apache.qpid.server.message.internal.InternalMessageMetaData;
+import org.apache.qpid.server.model.ConfiguredObject;
 import org.apache.qpid.server.model.VirtualHost;
 import org.apache.qpid.server.protocol.v0_8.AMQShortString;
 import org.apache.qpid.server.protocol.v0_8.FieldTableFactory;
@@ -477,6 +480,246 @@ public class BDBMessageStoreTest extends MessageStoreTestCase
         {
             reader.close();
         }
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {0, 1, 999, 1000, 1001})
+    void testRecoveryVisitorPreservesSignedOrderAtPageBoundaries(final int count)
+    {
+        final UUID queueId = new UUID(Long.MIN_VALUE, 0L);
+        final long firstId = -500L;
+        writeDeliveryRange(queueId, firstId, count);
+        reopenStore();
+
+        final MessageStore.MessageStoreReader reader = getStore().newMessageStoreReader();
+        try
+        {
+            final List<Long> visited = new ArrayList<>();
+            reader.visitMessageInstancesForRecovery(record ->
+            {
+                assertTrue(visited.size() < count);
+                assertEquals(queueId, record.getQueueId());
+                return visited.add(record.getMessageNumber());
+            });
+            assertEquals(LongStream.range(firstId, firstId + count).boxed().toList(), visited);
+        }
+        finally
+        {
+            reader.close();
+        }
+    }
+
+    @Test
+    void testRecoveryVisitorResumesWhenCallbacksDeleteDeliveryKeys()
+    {
+        final UUID queueId = new UUID(0L, 1L);
+        final long removedFromNextPage = 1501L;
+        final int count = 2001;
+        writeDeliveryRange(queueId, 1L, count);
+        reopenStore();
+
+        final MessageStore.MessageStoreReader reader = getStore().newMessageStoreReader();
+        try
+        {
+            final List<Long> visited = new ArrayList<>();
+            reader.visitMessageInstancesForRecovery(record ->
+            {
+                final long messageId = record.getMessageNumber();
+                assertTrue(visited.size() < count);
+                visited.add(messageId);
+                if (messageId == 1L)
+                {
+                    final Transaction transaction = getStore().newTransaction();
+                    transaction.dequeueMessage(
+                            new AbstractBDBMessageStore.BDBEnqueueRecord(queueId, removedFromNextPage));
+                    transaction.commitTran();
+                }
+                else if (messageId % 1000L == 0L)
+                {
+                    final Transaction transaction = getStore().newTransaction();
+                    transaction.dequeueMessage(record);
+                    transaction.commitTran();
+                }
+                return true;
+            });
+            final List<Long> expected = LongStream.rangeClosed(1L, count)
+                    .filter(messageId -> messageId != removedFromNextPage).boxed().toList();
+            assertEquals(expected, visited);
+        }
+        finally
+        {
+            reader.close();
+        }
+    }
+
+    @Test
+    void testRecoveryVisitorResumesWithCompleteRawKey()
+    {
+        final UUID queueId = new UUID(0L, 1L);
+        writeDeliveryRange(queueId, 1L, 999);
+        final byte[] firstExtendedKey =
+                Arrays.copyOf(legacyDeliveryKey(queueId, 1000L).getData(), QueueEntryBinding.KEY_SIZE + 1);
+        final byte[] secondExtendedKey = firstExtendedKey.clone();
+        secondExtendedKey[QueueEntryBinding.KEY_SIZE] = 1;
+        writeDeliveryKeys(new DatabaseEntry(firstExtendedKey), new DatabaseEntry(secondExtendedKey),
+                          legacyDeliveryKey(queueId, 1001L), legacyDeliveryKey(new UUID(0L, 2L), Long.MIN_VALUE));
+        reopenStore();
+
+        final MessageStore.MessageStoreReader reader = getStore().newMessageStoreReader();
+        try
+        {
+            final List<MessageEnqueueRecord> legacy = new ArrayList<>();
+            reader.visitMessageInstances(legacy::add);
+            final List<MessageEnqueueRecord> paged = new ArrayList<>();
+            reader.visitMessageInstancesForRecovery(record ->
+            {
+                assertTrue(paged.size() < legacy.size());
+                return paged.add(record);
+            });
+            assertEquals(1003, legacy.size());
+            assertEquals(legacy.stream().map(MessageEnqueueRecord::getMessageNumber).toList(),
+                         paged.stream().map(MessageEnqueueRecord::getMessageNumber).toList());
+            assertEquals(legacy.stream().map(MessageEnqueueRecord::getQueueId).toList(),
+                         paged.stream().map(MessageEnqueueRecord::getQueueId).toList());
+            assertSame(paged.get(999).getQueueId(), paged.get(1000).getQueueId());
+        }
+        finally
+        {
+            reader.close();
+        }
+    }
+
+    @Test
+    void testRecoveryVisitorValidatesLaterKeysBeforeCallbacks()
+    {
+        final UUID queueId = new UUID(0L, 1L);
+        writeDeliveryRange(queueId, 1L, 1001);
+        final DatabaseEntry corrupt = legacyDeliveryKey(queueId, Long.MAX_VALUE);
+        corrupt.setSize(QueueEntryBinding.KEY_SIZE - 1);
+        writeDeliveryKeys(corrupt);
+
+        final MessageStore.MessageStoreReader reader = getStore().newMessageStoreReader();
+        try
+        {
+            final List<MessageEnqueueRecord> visited = new ArrayList<>();
+            final StoreException failure = assertThrows(StoreException.class,
+                    () -> reader.visitMessageInstancesForRecovery(record ->
+                    {
+                        visited.add(record);
+                        return false;
+                    }));
+            assertTrue(failure.getCause() instanceof IllegalArgumentException);
+            assertTrue(visited.isEmpty());
+        }
+        finally
+        {
+            reader.close();
+        }
+    }
+
+    @Test
+    void testRecoveryVisitorHonorsEarlyStop()
+    {
+        writeDeliveryRange(new UUID(0L, 1L), 1L, 1001);
+        final MessageStore.MessageStoreReader reader = getStore().newMessageStoreReader();
+        try
+        {
+            final List<Long> visited = new ArrayList<>();
+            reader.visitMessageInstancesForRecovery(record ->
+            {
+                visited.add(record.getMessageNumber());
+                return false;
+            });
+            assertEquals(List.of(1L), visited);
+        }
+        finally
+        {
+            reader.close();
+        }
+    }
+
+    @Test
+    void testRecoveryVisitorPreservesCallbackFailure()
+    {
+        writeDeliveryRange(new UUID(0L, 1L), 1L, 1);
+        final RuntimeException failure = new IllegalArgumentException("Recovery callback failed");
+        final MessageStore.MessageStoreReader reader = getStore().newMessageStoreReader();
+        try
+        {
+            assertSame(failure, assertThrows(RuntimeException.class,
+                    () -> reader.visitMessageInstancesForRecovery(record ->
+                    {
+                        throw failure;
+                    })));
+        }
+        finally
+        {
+            reader.close();
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void testRecoveryVisitorStopsAfterStoreCloses(final boolean reopenWithSharedEnvironment)
+    {
+        writeDeliveryRange(new UUID(0L, 1L), 1L, 1001);
+        final BDBMessageStore backingStore = (BDBMessageStore) getStore();
+        final ConfiguredObject<?> parent = backingStore.getParent();
+        final MessageStore store;
+        if (reopenWithSharedEnvironment)
+        {
+            final BDBConfigurationStore configurationStore = new BDBConfigurationStore(VirtualHost.class);
+            store = configurationStore.new ProvidedBDBMessageStore()
+            {
+                @Override
+                public EnvironmentFacade getEnvironmentFacade()
+                {
+                    return backingStore.getEnvironmentFacade();
+                }
+            };
+            store.openMessageStore(parent);
+        }
+        else
+        {
+            store = backingStore;
+        }
+
+        final MessageStore.MessageStoreReader reader = store.newMessageStoreReader();
+        try
+        {
+            final AtomicInteger callbacks = new AtomicInteger();
+            final IllegalStateException failure =
+                    assertThrows(IllegalStateException.class, () -> reader.visitMessageInstancesForRecovery(record ->
+                    {
+                        if (callbacks.incrementAndGet() == 1000)
+                        {
+                            store.closeMessageStore();
+                            if (reopenWithSharedEnvironment)
+                            {
+                                store.openMessageStore(parent);
+                            }
+                        }
+                        return true;
+                    }));
+            assertEquals(1000, callbacks.get());
+            assertEquals(reopenWithSharedEnvironment ? "Message store changed during delivery recovery"
+                                                    : "Message store is not open", failure.getMessage());
+        }
+        finally
+        {
+            reader.close();
+            store.closeMessageStore();
+        }
+    }
+
+    private void writeDeliveryRange(final UUID queueId, final long firstMessageId, final int count)
+    {
+        final DatabaseEntry[] keys = new DatabaseEntry[count];
+        for (int i = 0; i < keys.length; i++)
+        {
+            keys[i] = legacyDeliveryKey(queueId, firstMessageId + i);
+        }
+        writeDeliveryKeys(keys);
     }
 
     @Test

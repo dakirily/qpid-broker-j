@@ -60,6 +60,11 @@ public class QueueEntryBinding
         return readUnsignedLong(data, entry.getOffset() + QUEUE_ID_SIZE) ^ Long.MIN_VALUE;
     }
 
+    public static void validateKey(final DatabaseEntry entry)
+    {
+        getDeliveryKeyData(entry);
+    }
+
     public static void objectToEntry(final UUID queueId, final long messageId, final DatabaseEntry entry)
     {
         final byte[] output = getWriteBuffer(entry, KEY_SIZE);

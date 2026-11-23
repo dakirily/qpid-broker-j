@@ -99,6 +99,7 @@ public abstract class AbstractBDBMessageStore implements MessageStore
             ThreadLocal.withInitial(() -> new DatabaseEntry(new byte[0]));
 
     private final AtomicBoolean _messageStoreOpen = new AtomicBoolean();
+    private final AtomicLong _messageStoreCloseCount = new AtomicLong();
 
     private final EventManager _eventManager = new EventManager();
 
@@ -149,6 +150,7 @@ public abstract class AbstractBDBMessageStore implements MessageStore
     {
         if (_messageStoreOpen.compareAndSet(true, false))
         {
+            _messageStoreCloseCount.incrementAndGet();
             for (StoredBDBMessage<?> message : _messages)
             {
                 message.clear(true);
@@ -1522,6 +1524,7 @@ public abstract class AbstractBDBMessageStore implements MessageStore
     private class BDBMessageStoreReader implements MessageStoreReader
     {
         private static final int INITIAL_MESSAGE_ID_CAPACITY = 8;
+        private static final int RECOVERY_PAGE_SIZE = 1000;
 
         @Override
         public void visitMessages(final MessageHandler handler) throws StoreException
@@ -1562,7 +1565,7 @@ public abstract class AbstractBDBMessageStore implements MessageStore
                 value.setPartial(0, 0, true);
 
                 OperationStatus status = cursor.getSearchKeyRange(key, value, LockMode.READ_UNCOMMITTED);
-                while (status == OperationStatus.SUCCESS && hasQueuePrefix(key, queuePrefix))
+                while (status == OperationStatus.SUCCESS && hasKeyPrefix(key, queuePrefix))
                 {
                     if (messageCount == messageIds.length)
                     {
@@ -1587,12 +1590,12 @@ public abstract class AbstractBDBMessageStore implements MessageStore
             }
         }
 
-        private static boolean hasQueuePrefix(final DatabaseEntry key, final byte[] queuePrefix)
+        private static boolean hasKeyPrefix(final DatabaseEntry key, final byte[] prefix)
         {
             final int offset = key.getOffset();
-            final int length = queuePrefix.length;
+            final int length = prefix.length;
             return key.getSize() >= length &&
-                    Arrays.equals(queuePrefix, 0, length, key.getData(), offset, offset + length);
+                    Arrays.equals(prefix, 0, length, key.getData(), offset, offset + length);
         }
 
         @Override
@@ -1626,6 +1629,104 @@ public abstract class AbstractBDBMessageStore implements MessageStore
                 }
             }
 
+        }
+
+        @Override
+        public void visitMessageInstancesForRecovery(final MessageInstanceHandler handler) throws StoreException
+        {
+            final long closeCount = _messageStoreCloseCount.get();
+            checkMessageStoreOpen();
+            final EnvironmentFacade environment = getEnvironmentFacade();
+            checkRecoveryStoreOpen(environment, closeCount);
+            // Check delivery keys before callbacks can make recovery writes.
+            final Database deliveryDb = openValidatedRecoveryDeliveryDb(environment);
+            final QueueEntryBinding.OrderedDecoder decoder = new QueueEntryBinding.OrderedDecoder();
+            final List<BDBEnqueueRecord> page = new ArrayList<>(RECOVERY_PAGE_SIZE);
+            final DatabaseEntry key = new DatabaseEntry();
+            byte[] resumeKey = null;
+
+            do
+            {
+                checkRecoveryStoreOpen(environment, closeCount);
+                page.clear();
+                try (final Cursor cursor = deliveryDb.openCursor(null, null))
+                {
+                    OperationStatus status;
+                    if (resumeKey == null)
+                    {
+                        status = cursor.getNext(key, null, LockMode.READ_UNCOMMITTED);
+                    }
+                    else
+                    {
+                        key.setData(resumeKey.clone());
+                        status = cursor.getSearchKeyRange(key, null, LockMode.READ_UNCOMMITTED);
+                        if (status == OperationStatus.SUCCESS &&
+                                key.getSize() == resumeKey.length && hasKeyPrefix(key, resumeKey))
+                        {
+                            status = cursor.getNext(key, null, LockMode.READ_UNCOMMITTED);
+                        }
+                    }
+
+                    resumeKey = null;
+                    while (status == OperationStatus.SUCCESS)
+                    {
+                        page.add(decoder.readIds(key));
+                        if (page.size() == RECOVERY_PAGE_SIZE)
+                        {
+                            final int offset = key.getOffset();
+                            resumeKey = Arrays.copyOfRange(key.getData(), offset, offset + key.getSize());
+                            break;
+                        }
+                        status = cursor.getNext(key, null, LockMode.READ_UNCOMMITTED);
+                    }
+                }
+                catch (final RuntimeException e)
+                {
+                    throw environment.handleDatabaseException("Cannot visit message instances", e);
+                }
+
+                checkRecoveryStoreOpen(environment, closeCount);
+                for (final BDBEnqueueRecord entry : page)
+                {
+                    if (!handler.handle(entry))
+                    {
+                        return;
+                    }
+                    checkRecoveryStoreOpen(environment, closeCount);
+                }
+            }
+            while (resumeKey != null);
+        }
+
+        private Database openValidatedRecoveryDeliveryDb(final EnvironmentFacade environment)
+        {
+            try
+            {
+                final Database deliveryDb = environment.openDatabase(DELIVERY_DB_NAME, DEFAULT_DATABASE_CONFIG);
+                try (final Cursor cursor = deliveryDb.openCursor(null, null))
+                {
+                    final DatabaseEntry key = new DatabaseEntry();
+                    while (cursor.getNext(key, null, LockMode.READ_UNCOMMITTED) == OperationStatus.SUCCESS)
+                    {
+                        QueueEntryBinding.validateKey(key);
+                    }
+                }
+                return deliveryDb;
+            }
+            catch (final RuntimeException e)
+            {
+                throw environment.handleDatabaseException("Cannot visit message instances", e);
+            }
+        }
+
+        private void checkRecoveryStoreOpen(final EnvironmentFacade environment, final long closeCount)
+        {
+            checkMessageStoreOpen();
+            if (environment == null || closeCount != _messageStoreCloseCount.get() ||
+                    environment != getEnvironmentFacade())
+            {
+                throw new IllegalStateException("Message store changed during delivery recovery");
+            }
         }
 
         @Override

@@ -21,6 +21,7 @@
 package org.apache.qpid.server.virtualhost;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
@@ -104,6 +105,40 @@ public class SynchronousMessageStoreRecovererTest extends UnitTestBase
 
         final ServerMessage<?> message = storedMessage.getMetaData().getType().createMessage(storedMessage);
         verify(queue, times(1)).recover(eq(message), any(MessageEnqueueRecord.class));
+    }
+
+    @Test
+    public void testRecoveryUsesRecoveryMessageInstanceVisitor()
+    {
+        final Queue<?> queue = createRegisteredMockQueue();
+        final long messageId = 1L;
+        final StoredMessage<StorableMessageMetaData> storedMessage = createMockStoredMessage(messageId);
+        final MessageEnqueueRecord record = new TestMessageEnqueueRecord(queue.getId(), messageId);
+        final MessageStore store = new NullMessageStore()
+        {
+            @Override
+            public void visitMessages(final MessageHandler handler)
+            {
+                handler.handle(storedMessage);
+            }
+
+            @Override
+            public void visitMessageInstances(final MessageInstanceHandler handler)
+            {
+                fail("Synchronous recovery must use the recovery visitor");
+            }
+
+            @Override
+            public void visitMessageInstancesForRecovery(final MessageInstanceHandler handler)
+            {
+                handler.handle(record);
+            }
+        };
+        when(_virtualHost.getMessageStore()).thenReturn(store);
+
+        new SynchronousMessageStoreRecoverer().recover(_virtualHost);
+
+        verify(queue).recover(any(ServerMessage.class), eq(record));
     }
 
     @SuppressWarnings("unchecked")

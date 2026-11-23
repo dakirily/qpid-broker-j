@@ -96,6 +96,15 @@ public interface MessageStore
         void visitMessageInstances(MessageInstanceHandler handler) throws StoreException;
         void visitMessageInstances(TransactionLogResource queue, MessageInstanceHandler handler) throws StoreException;
 
+        /**
+         * Visits delivery records during synchronous recovery. A store can override this method to bound
+         * the memory used by its scan.
+         */
+        default void visitMessageInstancesForRecovery(final MessageInstanceHandler handler) throws StoreException
+        {
+            visitMessageInstances(handler);
+        }
+
         void visitDistributedTransactions(DistributedTransactionHandler handler) throws StoreException;
 
         StoredMessage<?> getMessage(long messageId);

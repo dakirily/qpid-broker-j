@@ -79,13 +79,9 @@ public class SynchronousMessageStoreRecoverer implements MessageStoreRecoverer
         eventLogger.message(logSubject, TransactionLogMessages.RECOVERY_START(null, false));
         try
         {
-            storeReader.visitMessageInstances(new MessageInstanceVisitor(virtualHost,
-                                                                         store,
-                                                                         queueRecoveries,
-                                                                         recoveredMessages,
-                                                                         unusedMessages,
-                                                                         unknownQueuesWithMessages,
-                                                                         queuesWithUnknownMessages));
+            storeReader.visitMessageInstancesForRecovery(
+                    new MessageInstanceVisitor(virtualHost, store, queueRecoveries, recoveredMessages, unusedMessages,
+                                               unknownQueuesWithMessages, queuesWithUnknownMessages));
         }
         finally
         {
