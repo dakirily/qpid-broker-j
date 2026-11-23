@@ -1555,32 +1555,22 @@ public abstract class AbstractBDBMessageStore implements MessageStore
             try (final Cursor cursor = getDeliveryDb().openCursor(null, null))
             {
                 queueId = queue.getId();
-                final DatabaseEntry key = new DatabaseEntry();
+                final byte[] queuePrefix = QueueEntryBinding.queuePrefix(queueId);
+                // JE writes the found key into the search entry.
+                final DatabaseEntry key = new DatabaseEntry(queuePrefix.clone());
                 final DatabaseEntry value = new DatabaseEntry();
                 value.setPartial(0, 0, true);
 
-                QueueEntryBinding.objectToEntry(queueId, 0L, key);
-
-                if (cursor.getSearchKeyRange(key, value, LockMode.READ_UNCOMMITTED) == OperationStatus.SUCCESS)
+                OperationStatus status = cursor.getSearchKeyRange(key, value, LockMode.READ_UNCOMMITTED);
+                while (status == OperationStatus.SUCCESS && hasQueuePrefix(key, queuePrefix))
                 {
-                    do
+                    if (messageCount == messageIds.length)
                     {
-                        if (QueueEntryBinding.matchesQueueId(key, queueId))
-                        {
-                            if (messageCount == messageIds.length)
-                            {
-                                final int capacity =
-                                        Math.max(INITIAL_MESSAGE_ID_CAPACITY, Math.multiplyExact(messageCount, 2));
-                                messageIds = Arrays.copyOf(messageIds, capacity);
-                            }
-                            messageIds[messageCount++] = QueueEntryBinding.readMessageId(key);
-                        }
-                        else
-                        {
-                            break;
-                        }
+                        final int capacity = Math.max(INITIAL_MESSAGE_ID_CAPACITY, Math.multiplyExact(messageCount, 2));
+                        messageIds = Arrays.copyOf(messageIds, capacity);
                     }
-                    while (cursor.getNext(key, value, LockMode.READ_UNCOMMITTED) == OperationStatus.SUCCESS);
+                    messageIds[messageCount++] = QueueEntryBinding.readMessageId(key);
+                    status = cursor.getNext(key, value, LockMode.READ_UNCOMMITTED);
                 }
             }
             catch (final RuntimeException e)
@@ -1597,7 +1587,13 @@ public abstract class AbstractBDBMessageStore implements MessageStore
             }
         }
 
-
+        private static boolean hasQueuePrefix(final DatabaseEntry key, final byte[] queuePrefix)
+        {
+            final int offset = key.getOffset();
+            final int length = queuePrefix.length;
+            return key.getSize() >= length &&
+                    Arrays.equals(queuePrefix, 0, length, key.getData(), offset, offset + length);
+        }
 
         @Override
         public void visitMessageInstances(final MessageInstanceHandler handler) throws StoreException

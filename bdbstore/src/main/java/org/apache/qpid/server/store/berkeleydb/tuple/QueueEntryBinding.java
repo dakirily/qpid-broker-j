@@ -63,10 +63,22 @@ public class QueueEntryBinding
     public static void objectToEntry(final UUID queueId, final long messageId, final DatabaseEntry entry)
     {
         final byte[] output = getWriteBuffer(entry, KEY_SIZE);
-        writeUnsignedLong(queueId.getMostSignificantBits() ^ Long.MIN_VALUE, output, 0);
-        writeUnsignedLong(queueId.getLeastSignificantBits() ^ Long.MIN_VALUE, output, Long.BYTES);
+        writeQueueId(queueId, output);
         writeUnsignedLong(messageId ^ Long.MIN_VALUE, output, QUEUE_ID_SIZE);
         entry.setData(output, 0, KEY_SIZE);
+    }
+
+    public static byte[] queuePrefix(final UUID queueId)
+    {
+        final byte[] prefix = new byte[QUEUE_ID_SIZE];
+        writeQueueId(queueId, prefix);
+        return prefix;
+    }
+
+    private static void writeQueueId(final UUID queueId, final byte[] data)
+    {
+        writeUnsignedLong(queueId.getMostSignificantBits() ^ Long.MIN_VALUE, data, 0);
+        writeUnsignedLong(queueId.getLeastSignificantBits() ^ Long.MIN_VALUE, data, Long.BYTES);
     }
 
     /** Writes a standalone message ID in the same tuple format as JE's {@code LongBinding}. */

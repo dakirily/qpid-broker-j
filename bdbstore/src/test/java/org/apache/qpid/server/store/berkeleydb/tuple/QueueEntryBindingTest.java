@@ -80,6 +80,8 @@ class QueueEntryBindingTest extends UnitTestBase
         assertEquals(0, entry.getOffset());
         assertEquals(24, entry.getSize());
         assertArrayEquals(expected.toByteArray(), Arrays.copyOf(entry.getData(), entry.getSize()));
+        assertArrayEquals(Arrays.copyOf(expected.toByteArray(), 2 * Long.BYTES),
+                          QueueEntryBinding.queuePrefix(QUEUE_ID));
     }
 
     @Test

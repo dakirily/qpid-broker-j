@@ -29,6 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
@@ -39,6 +40,7 @@ import static org.mockito.Mockito.when;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
@@ -52,6 +54,8 @@ import com.sleepycat.je.OperationStatus;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import org.apache.qpid.server.bytebuffer.QpidByteBuffer;
 import org.apache.qpid.server.message.AMQMessageHeader;
@@ -337,6 +341,91 @@ public class BDBMessageStoreTest extends MessageStoreTestCase
     }
 
     @Test
+    public void testQueueVisitorIncludesSignedMessageIdsInOrder()
+    {
+        final UUID queueId = new UUID(Long.MIN_VALUE, -2L);
+        final UUID precedingQueueId = new UUID(Long.MIN_VALUE, -3L);
+        final UUID followingQueueId = new UUID(Long.MIN_VALUE, 0L);
+        final TransactionLogResource queue = createQueue(queueId);
+        final TransactionLogResource emptyQueue = createQueue(new UUID(Long.MIN_VALUE, -1L));
+        final DatabaseEntry extendedKey = legacyDeliveryKey(queueId, 1L);
+        extendedKey.setData(Arrays.copyOf(extendedKey.getData(), QueueEntryBinding.KEY_SIZE + 1));
+        writeDeliveryKeys(legacyDeliveryKey(followingQueueId, Long.MIN_VALUE), legacyDeliveryKey(queueId, 0L),
+                          legacyDeliveryKey(queueId, Long.MAX_VALUE), legacyDeliveryKey(queueId, -1L),
+                          legacyDeliveryKey(precedingQueueId, Long.MAX_VALUE), extendedKey,
+                          legacyDeliveryKey(queueId, Long.MIN_VALUE));
+
+        reopenStore();
+
+        final MessageStore.MessageStoreReader reader = getStore().newMessageStoreReader();
+        try
+        {
+            final List<MessageEnqueueRecord> records = readQueueEntries(reader, queue);
+            assertEquals(List.of(Long.MIN_VALUE, -1L, 0L, 1L, Long.MAX_VALUE),
+                         records.stream().map(MessageEnqueueRecord::getMessageNumber).toList());
+            assertTrue(readQueueEntries(reader, emptyQueue).isEmpty());
+        }
+        finally
+        {
+            reader.close();
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {15, 16, 23})
+    void testQueueVisitorStopsAtMalformedNeighbor(final int keySize)
+    {
+        final UUID queueId = new UUID(0L, 0L);
+        final UUID neighborId = new UUID(0L, 256L);
+        final TransactionLogResource queue = createQueue(queueId);
+        final TransactionLogResource emptyQueue = createQueue(new UUID(0L, 128L));
+        final DatabaseEntry malformed = legacyDeliveryKey(neighborId, 0L);
+        malformed.setSize(keySize);
+        writeDeliveryKeys(legacyDeliveryKey(queueId, 1L), malformed, legacyDeliveryKey(neighborId, 2L));
+
+        reopenStore();
+
+        final MessageStore.MessageStoreReader reader = getStore().newMessageStoreReader();
+        try
+        {
+            assertEquals(List.of(1L), readQueueEntries(reader, queue).stream()
+                    .map(MessageEnqueueRecord::getMessageNumber).toList());
+            assertTrue(readQueueEntries(reader, emptyQueue).isEmpty());
+        }
+        finally
+        {
+            reader.close();
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {16, 23})
+    void testQueueVisitorRejectsTruncatedKeyForItsQueue(final int keySize)
+    {
+        final UUID queueId = new UUID(0L, 256L);
+        final TransactionLogResource queue = createQueue(queueId);
+        final DatabaseEntry malformed = legacyDeliveryKey(queueId, 0L);
+        malformed.setSize(keySize);
+        writeDeliveryKeys(legacyDeliveryKey(queueId, -1L), malformed);
+
+        reopenStore();
+
+        final MessageStore.MessageStoreReader reader = getStore().newMessageStoreReader();
+        try
+        {
+            final List<MessageEnqueueRecord> visited = new ArrayList<>();
+            final StoreException failure = assertThrows(StoreException.class,
+                    () -> reader.visitMessageInstances(queue, visited::add));
+            assertTrue(failure.getCause() instanceof IllegalArgumentException);
+            assertTrue(visited.isEmpty());
+        }
+        finally
+        {
+            reader.close();
+        }
+    }
+
+    @Test
     public void testGlobalVisitorReusesQueueUuidAfterReopen()
     {
         final TransactionLogResource firstQueue = createQueue(new UUID(0L, 0L));
@@ -419,15 +508,44 @@ public class BDBMessageStoreTest extends MessageStoreTestCase
         }
     }
 
+    private void writeDeliveryKeys(final DatabaseEntry... keys)
+    {
+        final EnvironmentFacade environment = ((BDBMessageStore) getStore()).getEnvironmentFacade();
+        final Database deliveries = environment.openDatabase("QUEUE_ENTRIES", BDBUtils.DEFAULT_DATABASE_CONFIG);
+        final DatabaseEntry value = new DatabaseEntry(new byte[0]);
+        final com.sleepycat.je.Transaction transaction = environment.beginTransaction(null);
+        try
+        {
+            for (final DatabaseEntry key : keys)
+            {
+                assertEquals(OperationStatus.SUCCESS, deliveries.put(transaction, key, value));
+            }
+            transaction.commit();
+        }
+        finally
+        {
+            if (transaction.isValid())
+            {
+                transaction.abort();
+            }
+        }
+    }
+
+    private static DatabaseEntry legacyDeliveryKey(final UUID queueId, final long messageId)
+    {
+        final TupleOutput output = new TupleOutput();
+        output.writeLong(queueId.getMostSignificantBits());
+        output.writeLong(queueId.getLeastSignificantBits());
+        output.writeLong(messageId);
+        return new DatabaseEntry(output.toByteArray());
+    }
+
     private static void writeLegacyEntries(final EnvironmentFacade environment, final UUID queueId,
                                            final long messageId)
     {
         final DatabaseEntry messageKey = new DatabaseEntry();
         LongBinding.longToEntry(messageId, messageKey);
-        final TupleOutput deliveryKey = new TupleOutput();
-        deliveryKey.writeLong(queueId.getMostSignificantBits());
-        deliveryKey.writeLong(queueId.getLeastSignificantBits());
-        deliveryKey.writeLong(messageId);
+        final DatabaseEntry deliveryKey = legacyDeliveryKey(queueId, messageId);
         final DatabaseEntry metaData = new DatabaseEntry();
         MessageMetaDataBinding.getInstance()
                 .objectToEntry(new TestMessageMetaData(messageId, CONTENT_BYTES.length), metaData);
@@ -443,8 +561,7 @@ public class BDBMessageStoreTest extends MessageStoreTestCase
                             .put(transaction, messageKey, new DatabaseEntry(CONTENT_BYTES)));
             assertEquals(OperationStatus.SUCCESS,
                     environment.openDatabase("QUEUE_ENTRIES", BDBUtils.DEFAULT_DATABASE_CONFIG)
-                            .put(transaction, new DatabaseEntry(deliveryKey.toByteArray()),
-                                    new DatabaseEntry(new byte[0])));
+                            .put(transaction, deliveryKey, new DatabaseEntry(new byte[0])));
             transaction.commit();
         }
         finally
