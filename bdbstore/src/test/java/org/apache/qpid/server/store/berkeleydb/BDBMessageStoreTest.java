@@ -45,6 +45,7 @@ import java.util.UUID;
 
 import com.sleepycat.bind.tuple.LongBinding;
 import com.sleepycat.bind.tuple.TupleOutput;
+import com.sleepycat.je.Database;
 import com.sleepycat.je.DatabaseEntry;
 import com.sleepycat.je.LockTimeoutException;
 import com.sleepycat.je.OperationStatus;
@@ -73,6 +74,7 @@ import org.apache.qpid.server.store.TestMessageMetaData;
 import org.apache.qpid.server.store.Transaction;
 import org.apache.qpid.server.store.TransactionLogResource;
 import org.apache.qpid.server.store.berkeleydb.tuple.MessageMetaDataBinding;
+import org.apache.qpid.server.store.berkeleydb.tuple.QueueEntryBinding;
 import org.apache.qpid.server.util.ConnectionScopedRuntimeException;
 import org.apache.qpid.server.util.FileUtils;
 import org.apache.qpid.server.virtualhost.berkeleydb.BDBVirtualHost;
@@ -255,6 +257,78 @@ public class BDBMessageStoreTest extends MessageStoreTestCase
             assertEquals(1, remaining.size());
             assertEquals(firstQueue.getId(), remaining.get(0).getQueueId());
             assertEquals(second.getMessageNumber(), remaining.get(0).getMessageNumber());
+        }
+        finally
+        {
+            reader.close();
+        }
+    }
+
+    @Test
+    public void testQueueVisitorBuffersMessageIdsBeforeInvokingHandler()
+    {
+        final UUID queueId = new UUID(0L, 1L);
+        final TransactionLogResource queue = createQueue(queueId);
+        final int deliveryCount = 1025;
+        final BDBMessageStore store = (BDBMessageStore) getStore();
+        final EnvironmentFacade environment = store.getEnvironmentFacade();
+        final Database deliveries = environment.openDatabase("QUEUE_ENTRIES", BDBUtils.DEFAULT_DATABASE_CONFIG);
+        final DatabaseEntry key = new DatabaseEntry();
+        final DatabaseEntry value = new DatabaseEntry(new byte[0]);
+        final com.sleepycat.je.Transaction writeTransaction = environment.beginTransaction(null);
+        try
+        {
+            for (int messageId = deliveryCount; messageId > 0; messageId--)
+            {
+                QueueEntryBinding.objectToEntry(queueId, messageId, key);
+                assertEquals(OperationStatus.SUCCESS, deliveries.put(writeTransaction, key, value));
+            }
+            QueueEntryBinding.objectToEntry(new UUID(0L, 2L), deliveryCount + 1L, key);
+            assertEquals(OperationStatus.SUCCESS, deliveries.put(writeTransaction, key, value));
+            writeTransaction.commit();
+        }
+        finally
+        {
+            if (writeTransaction.isValid())
+            {
+                writeTransaction.abort();
+            }
+        }
+
+        reopenStore();
+
+        final MessageStore.MessageStoreReader reader = getStore().newMessageStoreReader();
+        try
+        {
+            final List<MessageEnqueueRecord> records = new ArrayList<>();
+            final List<MessageEnqueueRecord> nestedRecords = new ArrayList<>();
+            reader.visitMessageInstances(queue, record ->
+            {
+                records.add(record);
+                if (records.size() == 1)
+                {
+                    final Transaction dequeue = getStore().newTransaction();
+                    dequeue.dequeueMessage(record);
+                    dequeue.commitTran();
+                    reader.visitMessageInstances(queue, nestedRecord ->
+                    {
+                        nestedRecords.add(nestedRecord);
+                        return false;
+                    });
+                }
+                return true;
+            });
+
+            assertEquals(deliveryCount, records.size());
+            for (int i = 0; i < deliveryCount; i++)
+            {
+                assertSame(queueId, records.get(i).getQueueId());
+                assertEquals(i + 1L, records.get(i).getMessageNumber());
+            }
+            assertEquals(1, nestedRecords.size());
+            assertSame(queueId, nestedRecords.get(0).getQueueId());
+            assertEquals(2L, nestedRecords.get(0).getMessageNumber());
+            assertNotSame(records.get(1), nestedRecords.get(0));
         }
         finally
         {

@@ -1521,6 +1521,8 @@ public abstract class AbstractBDBMessageStore implements MessageStore
 
     private class BDBMessageStoreReader implements MessageStoreReader
     {
+        private static final int INITIAL_MESSAGE_ID_CAPACITY = 8;
+
         @Override
         public void visitMessages(final MessageHandler handler) throws StoreException
         {
@@ -1547,10 +1549,12 @@ public abstract class AbstractBDBMessageStore implements MessageStore
         {
             checkMessageStoreOpen();
 
-            final List<BDBEnqueueRecord> entries = new ArrayList<>();
+            long[] messageIds = new long[0];
+            int messageCount = 0;
+            final UUID queueId;
             try (final Cursor cursor = getDeliveryDb().openCursor(null, null))
             {
-                final UUID queueId = queue.getId();
+                queueId = queue.getId();
                 final DatabaseEntry key = new DatabaseEntry();
                 final DatabaseEntry value = new DatabaseEntry();
                 value.setPartial(0, 0, true);
@@ -1563,7 +1567,13 @@ public abstract class AbstractBDBMessageStore implements MessageStore
                     {
                         if (QueueEntryBinding.matchesQueueId(key, queueId))
                         {
-                            entries.add(new BDBEnqueueRecord(queueId, QueueEntryBinding.readMessageId(key)));
+                            if (messageCount == messageIds.length)
+                            {
+                                final int capacity =
+                                        Math.max(INITIAL_MESSAGE_ID_CAPACITY, Math.multiplyExact(messageCount, 2));
+                                messageIds = Arrays.copyOf(messageIds, capacity);
+                            }
+                            messageIds[messageCount++] = QueueEntryBinding.readMessageId(key);
                         }
                         else
                         {
@@ -1573,19 +1583,18 @@ public abstract class AbstractBDBMessageStore implements MessageStore
                     while (cursor.getNext(key, value, LockMode.READ_UNCOMMITTED) == OperationStatus.SUCCESS);
                 }
             }
-            catch (RuntimeException e)
+            catch (final RuntimeException e)
             {
                 throw getEnvironmentFacade().handleDatabaseException("Cannot visit message instances", e);
             }
 
-            for (final BDBEnqueueRecord entry : entries)
+            for (int index = 0; index < messageCount; index++)
             {
-                if (!handler.handle(entry))
+                if (!handler.handle(new BDBEnqueueRecord(queueId, messageIds[index])))
                 {
                     break;
                 }
             }
-
         }
 
 
