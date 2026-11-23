@@ -20,9 +20,6 @@
  */
 package org.apache.qpid.server.store.berkeleydb.tuple;
 
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
-
 import com.sleepycat.bind.EntryBinding;
 import com.sleepycat.je.DatabaseEntry;
 
@@ -71,15 +68,19 @@ public class MessageMetaDataBinding implements EntryBinding<StorableMessageMetaD
         }
 
         final int metaDataType = data[offset + Integer.BYTES] & 0xff;
-        try (final ByteArrayInputStream stream = new ByteArrayInputStream(data, offset + HEADER_SIZE, size - HEADER_SIZE))
+        final int payloadSize = size - HEADER_SIZE;
+        try
         {
             final MessageMetaDataType<?> type = MessageMetaDataTypeRegistry.fromOrdinal(metaDataType);
-            try (final QpidByteBuffer buf = QpidByteBuffer.asQpidByteBuffer(stream))
+            // Codecs can retain slices of the payload after the JE entry is reused.
+            try (final QpidByteBuffer buf = payloadSize == 0 ?
+                    QpidByteBuffer.emptyQpidByteBuffer() : QpidByteBuffer.allocateDirect(payloadSize))
             {
+                buf.put(data, offset + HEADER_SIZE, payloadSize).flip();
                 return type.createMetaData(buf);
             }
         }
-        catch (final IOException | RuntimeException e)
+        catch (final RuntimeException e)
         {
             // Codec exception messages can include data from the entry.
             throw new StoreException("Cannot decode message metadata (type %d, size %d, %s)"

@@ -25,12 +25,16 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
 
+import java.nio.ByteBuffer;
 import java.util.Arrays;
+import java.util.Random;
+import java.util.concurrent.atomic.AtomicReference;
 
 import com.sleepycat.je.DatabaseEntry;
 import org.junit.jupiter.api.AfterEach;
@@ -52,6 +56,7 @@ class MessageMetaDataBindingTest extends UnitTestBase
 {
     private static final MessageMetaDataBinding BINDING = MessageMetaDataBinding.getInstance();
     private static final byte TYPE_ORDINAL = 42;
+    private static final int HEADER_SIZE = Integer.BYTES + Byte.BYTES;
 
     private boolean _initialisedPool;
 
@@ -139,25 +144,27 @@ class MessageMetaDataBindingTest extends UnitTestBase
     }
 
     @ParameterizedTest
-    @ValueSource(ints = {0, 13})
-    void testEntrySliceGivesDecoderOnlyTheZeroBasedPayload(final int offset)
+    @CsvSource({"0, 0", "0, 3", "13, 3"})
+    void testEntrySliceGivesDecoderOnlyTheZeroBasedPayload(final int offset, final int payloadSize)
     {
         // Legacy decoding consumes the size field and uses the JE entry's bounds for the payload.
         final byte[] record = {(byte) 0x80, 0, 0, 1, TYPE_ORDINAL, 0x11, 0x22, 0x33};
-        final byte[] backing = new byte[offset + record.length + 7];
+        final int size = HEADER_SIZE + payloadSize;
+        final byte[] backing = new byte[offset + size + 7];
         Arrays.fill(backing, (byte) 0x5a);
-        System.arraycopy(record, 0, backing, offset, record.length);
-        final DatabaseEntry entry = new DatabaseEntry(backing, offset, record.length);
+        System.arraycopy(record, 0, backing, offset, size);
+        final DatabaseEntry entry = new DatabaseEntry(backing, offset, size);
         final MessageMetaDataType<?> type = mock(MessageMetaDataType.class);
         final StorableMessageMetaData decoded = mock(StorableMessageMetaData.class);
         when(type.createMetaData(any(QpidByteBuffer.class))).thenAnswer(invocation ->
         {
             final QpidByteBuffer payload = invocation.getArgument(0);
             assertEquals(0, payload.position());
-            assertEquals(3, payload.remaining());
-            final byte[] actual = new byte[3];
+            assertEquals(payloadSize, payload.remaining());
+            assertEquals(payloadSize > 0, payload.isDirect());
+            final byte[] actual = new byte[payloadSize];
             payload.copyTo(actual);
-            assertArrayEquals(new byte[] {0x11, 0x22, 0x33}, actual);
+            assertArrayEquals(Arrays.copyOfRange(record, HEADER_SIZE, size), actual);
             return decoded;
         });
 
@@ -165,6 +172,49 @@ class MessageMetaDataBindingTest extends UnitTestBase
         {
             registry.when(() -> MessageMetaDataTypeRegistry.fromOrdinal(TYPE_ORDINAL)).thenReturn(type);
             assertSame(decoded, BINDING.entryToObject(entry));
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {-1, 0, 1})
+    void testRetainedPayloadAroundPoolBufferBoundary(final int sizeAdjustment)
+    {
+        final int payloadSize = QpidByteBuffer.getPooledBufferSize() + sizeAdjustment;
+        final int offset = 13;
+        final int size = HEADER_SIZE + payloadSize;
+        final byte[] expected = new byte[payloadSize];
+        new Random(42L).nextBytes(expected);
+        final byte[] backing = new byte[offset + size + 7];
+        ByteBuffer.wrap(backing, offset, size)
+                  .putInt((Byte.BYTES + payloadSize) ^ Integer.MIN_VALUE)
+                  .put(TYPE_ORDINAL)
+                  .put(expected);
+        final DatabaseEntry entry = new DatabaseEntry(backing, offset, size);
+        final AtomicReference<QpidByteBuffer> retainedPayload = new AtomicReference<>();
+        final MessageMetaDataType<?> type = mock(MessageMetaDataType.class);
+        final StorableMessageMetaData decoded = mock(StorableMessageMetaData.class);
+        when(type.createMetaData(any(QpidByteBuffer.class))).thenAnswer(invocation ->
+        {
+            final QpidByteBuffer payload = invocation.getArgument(0);
+            assertEquals(0, payload.position());
+            assertEquals(payloadSize, payload.remaining());
+            retainedPayload.set(payload.slice());
+            return decoded;
+        });
+
+        try (final MockedStatic<MessageMetaDataTypeRegistry> registry = mockStatic(MessageMetaDataTypeRegistry.class))
+        {
+            registry.when(() -> MessageMetaDataTypeRegistry.fromOrdinal(TYPE_ORDINAL)).thenReturn(type);
+            final StorableMessageMetaData result = BINDING.entryToObject(entry);
+            try (final QpidByteBuffer retained = retainedPayload.get())
+            {
+                assertSame(decoded, result);
+                assertTrue(retained.isDirect());
+                Arrays.fill(backing, (byte) 0x5a);
+                final byte[] actual = new byte[payloadSize];
+                retained.copyTo(actual);
+                assertArrayEquals(expected, actual);
+            }
         }
     }
 }
