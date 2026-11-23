@@ -21,7 +21,6 @@
 package org.apache.qpid.server.store.berkeleydb.tuple;
 
 import java.nio.ByteBuffer;
-import java.util.Arrays;
 
 import com.sleepycat.bind.EntryBinding;
 import com.sleepycat.je.DatabaseEntry;
@@ -94,52 +93,20 @@ public class MessageMetaDataBinding implements EntryBinding<StorableMessageMetaD
     @Override
     public void objectToEntry(final StorableMessageMetaData metaData, final DatabaseEntry entry)
     {
-        final int size = getEntrySize(metaData);
-        final byte[] data = new byte[size];
-        writeToBuffer(metaData, data, 0, size);
-        entry.setData(data);
-    }
-
-    public int getEntrySize(final StorableMessageMetaData metaData)
-    {
         final int payloadSize = metaData.getStorableSize();
         if (payloadSize < 0 || payloadSize > Integer.MAX_VALUE - HEADER_SIZE)
         {
             throw new StoreException("Invalid message metadata size: " + payloadSize);
         }
-        return HEADER_SIZE + payloadSize;
-    }
-
-    /**
-     * Serializes into a caller-owned entry prepared with {@link #getEntrySize}.
-     * Keep the backing array leased through the final database put attempt.
-     */
-    public void writeToEntry(final StorableMessageMetaData metaData, final DatabaseEntry entry)
-    {
-        final byte[] data = entry.getData();
-        final int offset = entry.getOffset();
-        final int size = entry.getSize();
-        if (data == null || size < HEADER_SIZE || offset < 0 || offset > data.length - size)
-        {
-            throw new IllegalArgumentException("Invalid borrowed message metadata entry");
-        }
-
-        entry.setPartial(0, 0, false);
-        // A serializer can skip reserved bytes that would be zero in a fresh entry.
-        Arrays.fill(data, offset + HEADER_SIZE, offset + size, (byte) 0);
-        writeToBuffer(metaData, data, offset, size);
-    }
-
-    private static void writeToBuffer(final StorableMessageMetaData metaData, final byte[] data,
-                                      final int offset, final int size)
-    {
-        final ByteBuffer value = ByteBuffer.wrap(data, offset, size);
-        value.putInt((size - Integer.BYTES) ^ Integer.MIN_VALUE);
+        final byte[] data = new byte[HEADER_SIZE + payloadSize];
+        final ByteBuffer value = ByteBuffer.wrap(data);
+        value.putInt((Byte.BYTES + payloadSize) ^ Integer.MIN_VALUE);
         value.put((byte) metaData.getType().ordinal());
 
         try (final QpidByteBuffer payload = QpidByteBuffer.wrap(value.slice()))
         {
             metaData.writeToBuffer(payload);
         }
+        entry.setData(data);
     }
 }

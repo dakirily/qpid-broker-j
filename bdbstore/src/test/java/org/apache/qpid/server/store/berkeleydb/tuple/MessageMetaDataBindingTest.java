@@ -22,6 +22,7 @@ package org.apache.qpid.server.store.berkeleydb.tuple;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -31,10 +32,12 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
 
+import java.nio.BufferOverflowException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 
 import com.sleepycat.je.DatabaseEntry;
 import org.junit.jupiter.api.AfterEach;
@@ -46,6 +49,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.MockedStatic;
 
 import org.apache.qpid.server.bytebuffer.QpidByteBuffer;
+import org.apache.qpid.server.message.internal.InternalMessageMetaData;
 import org.apache.qpid.server.plugin.MessageMetaDataType;
 import org.apache.qpid.server.store.MessageMetaDataTypeRegistry;
 import org.apache.qpid.server.store.StorableMessageMetaData;
@@ -216,5 +220,64 @@ class MessageMetaDataBindingTest extends UnitTestBase
                 assertArrayEquals(expected, actual);
             }
         }
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {-1, Integer.MAX_VALUE, Integer.MAX_VALUE - Integer.BYTES})
+    void testInvalidSerializedSizeIsRejected(final int size)
+    {
+        final StorableMessageMetaData metadata = metadata(size, buffer -> buffer.put((byte) 1));
+        assertThrows(StoreException.class, () -> BINDING.objectToEntry(metadata, new DatabaseEntry()));
+    }
+
+    @Test
+    void testSerializerCannotWriteOutsidePayload()
+    {
+        final StorableMessageMetaData metadata = metadata(4, buffer ->
+        {
+            assertEquals(0, buffer.position());
+            assertEquals(4, buffer.capacity());
+            buffer.clear();
+            buffer.put(new byte[5]);
+        });
+        assertThrows(BufferOverflowException.class, () -> BINDING.objectToEntry(metadata, new DatabaseEntry()));
+    }
+
+    @Test
+    void testSerializedEntriesAreIndependentAndUnusedBytesAreZero()
+    {
+        final DatabaseEntry first = new DatabaseEntry();
+        final DatabaseEntry second = new DatabaseEntry();
+        final StorableMessageMetaData metadata = metadata(4, buffer ->
+        {
+            buffer.put((byte) 1);
+            buffer.position(2);
+            buffer.putShort((short) 0x0203);
+        });
+        BINDING.objectToEntry(metadata, first);
+        BINDING.objectToEntry(metadata(4, buffer -> buffer.put((byte) 4)), second);
+
+        assertNotSame(first.getData(), second.getData());
+        final byte type = (byte) metadata.getType().ordinal();
+        assertArrayEquals(new byte[] {(byte) 0x80, 0, 0, 5, type, 1, 0, 2, 3}, first.getData());
+        assertArrayEquals(new byte[] {(byte) 0x80, 0, 0, 5, type, 4, 0, 0, 0}, second.getData());
+    }
+
+    private static StorableMessageMetaData metadata(final int size, final Consumer<QpidByteBuffer> writer)
+    {
+        return new InternalMessageMetaData(true, null, 0)
+        {
+            @Override
+            public int getStorableSize()
+            {
+                return size;
+            }
+
+            @Override
+            public void writeToBuffer(final QpidByteBuffer destination)
+            {
+                writer.accept(destination);
+            }
+        };
     }
 }

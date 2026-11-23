@@ -601,9 +601,9 @@ public abstract class AbstractBDBMessageStore implements MessageStore
 
         try (final BDBWriteBuffer buffer = BDBWriteBuffer.acquire())
         {
-            final MessageMetaDataBinding binding = MessageMetaDataBinding.getInstance();
-            buffer.prepare(messageId, binding.getEntrySize(messageMetaData));
-            binding.writeToEntry(messageMetaData, buffer.getValue());
+            buffer.prepare(messageId, 0);
+            // A codec can retain a destination view after serialization.
+            MessageMetaDataBinding.getInstance().objectToEntry(messageMetaData, buffer.getValue());
 
             boolean complete = false;
             int attempts = 0;

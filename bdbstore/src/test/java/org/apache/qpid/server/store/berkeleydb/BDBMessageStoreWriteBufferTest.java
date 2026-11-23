@@ -42,6 +42,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import com.sleepycat.bind.tuple.LongBinding;
 import com.sleepycat.je.Database;
@@ -82,7 +83,7 @@ class BDBMessageStoreWriteBufferTest extends UnitTestBase
     }
 
     @Test
-    void testJeCopiesReusedBodiesAndMetadataBeforeCommit(@TempDir final Path directory)
+    void testJeCopiesReusedBodiesAndPersistsMetadata(@TempDir final Path directory)
     {
         final int capacity = BDBWriteBuffer.MAX_RETAINED_CAPACITY;
         final List<byte[]> bodies = List.of(bytes(capacity, (byte) 11), bytes(capacity - 1, (byte) 12),
@@ -140,6 +141,49 @@ class BDBMessageStoreWriteBufferTest extends UnitTestBase
             {
                 assertArrayEquals(bodies.get(index), readValue(content, index + 1L));
                 assertArrayEquals(metadataEntries.get(index), readValue(metadata, index + 1L));
+            }
+        }
+    }
+
+    @Test
+    void testRetainedMetadataOutputSurvivesFollowingWrites()
+    {
+        final Database metadata = mock(Database.class);
+        final Database content = mock(Database.class);
+        openStore(metadata, content);
+        final Transaction transaction = mock(Transaction.class);
+        when(metadata.put(same(transaction), any(), any())).thenReturn(OperationStatus.SUCCESS);
+        when(content.put(same(transaction), any(), any())).thenReturn(OperationStatus.SUCCESS);
+        final byte[] payload = bytes(8, (byte) 1);
+        final byte[] body = bytes(10, (byte) 2);
+        final AtomicReference<QpidByteBuffer> retained = new AtomicReference<>();
+        final TestMetaData fixture = new TestMetaData(body.length, payload)
+        {
+            @Override
+            public void writeToBuffer(final QpidByteBuffer destination)
+            {
+                retained.set(destination.duplicate());
+                super.writeToBuffer(destination);
+            }
+        };
+
+        final StoredBDBMessage<InternalMessageMetaData> message = createMessage(10L, fixture, body);
+        try
+        {
+            message.store(transaction);
+            final byte[] encoded = new byte[payload.length];
+            retained.get().copyTo(encoded);
+            assertArrayEquals(payload, encoded, "The message body write must preserve the retained encoding");
+
+            writeMessage(transaction, 20L, new TestMetaData(0, bytes(payload.length, (byte) 3)), new byte[0]);
+            retained.get().copyTo(encoded);
+            assertArrayEquals(payload, encoded, "The next metadata write must preserve the retained encoding");
+        }
+        finally
+        {
+            try (final QpidByteBuffer encoding = retained.get())
+            {
+                message.clear(true);
             }
         }
     }
@@ -212,7 +256,7 @@ class BDBMessageStoreWriteBufferTest extends UnitTestBase
     }
 
     @Test
-    void testRetryKeepsBorrowedMetadataWhileNestedWritesComplete()
+    void testRetryKeepsSerializedMetadataWhileNestedWritesComplete()
     {
         final Database metadata = mock(Database.class);
         final Database content = mock(Database.class);
@@ -274,7 +318,7 @@ class BDBMessageStoreWriteBufferTest extends UnitTestBase
             @Override
             public void writeToBuffer(final QpidByteBuffer destination)
             {
-                assertEquals(payloadSize + METADATA_HEADER_SIZE, cached.getValue().getSize());
+                assertEquals(payloadSize, destination.remaining());
                 throw failure;
             }
         };
