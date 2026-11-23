@@ -21,7 +21,6 @@
 package org.apache.qpid.server.store.berkeleydb.tuple;
 
 import java.io.ByteArrayInputStream;
-import java.io.DataInputStream;
 import java.io.IOException;
 
 import com.sleepycat.bind.EntryBinding;
@@ -39,6 +38,7 @@ import org.apache.qpid.server.store.StoreException;
 public class MessageMetaDataBinding implements EntryBinding<StorableMessageMetaData>
 {
 
+    private static final int HEADER_SIZE = Integer.BYTES + Byte.BYTES;
     private static final MessageMetaDataBinding INSTANCE = new MessageMetaDataBinding();
 
     public static MessageMetaDataBinding getInstance()
@@ -50,24 +50,40 @@ public class MessageMetaDataBinding implements EntryBinding<StorableMessageMetaD
     private MessageMetaDataBinding() { }
 
     @Override
-    public StorableMessageMetaData entryToObject(DatabaseEntry entry)
+    public StorableMessageMetaData entryToObject(final DatabaseEntry entry)
     {
-        try(DataInputStream stream = new DataInputStream(new ByteArrayInputStream(entry.getData(),
-                                                                                  entry.getOffset(),
-                                                                                  entry.getSize())))
+        final byte[] data = entry == null ? null : entry.getData();
+        if (data == null)
         {
-            final int bodySize = stream.readInt() ^ 0x80000000;
-            final int metaDataType = stream.readByte() & 0xff;
-            MessageMetaDataType type = MessageMetaDataTypeRegistry.fromOrdinal(metaDataType);
+            throw new StoreException("Cannot decode message metadata: missing entry data");
+        }
 
-            try (QpidByteBuffer buf = QpidByteBuffer.asQpidByteBuffer(stream))
+        final int size = entry.getSize();
+        if (size < HEADER_SIZE)
+        {
+            throw new StoreException("Cannot decode message metadata: entry is too short (size %d)".formatted(size));
+        }
+
+        final int offset = entry.getOffset();
+        if (offset < 0 || offset > data.length - size)
+        {
+            throw new StoreException("Cannot decode message metadata: invalid entry bounds (size %d)".formatted(size));
+        }
+
+        final int metaDataType = data[offset + Integer.BYTES] & 0xff;
+        try (final ByteArrayInputStream stream = new ByteArrayInputStream(data, offset + HEADER_SIZE, size - HEADER_SIZE))
+        {
+            final MessageMetaDataType<?> type = MessageMetaDataTypeRegistry.fromOrdinal(metaDataType);
+            try (final QpidByteBuffer buf = QpidByteBuffer.asQpidByteBuffer(stream))
             {
                 return type.createMetaData(buf);
             }
         }
-        catch (IOException | RuntimeException e)
+        catch (final IOException | RuntimeException e)
         {
-            throw new StoreException(String.format("Unable to convert entry %s to metadata", entry));
+            // Codec exception messages can include data from the entry.
+            throw new StoreException("Cannot decode message metadata (type %d, size %d, %s)"
+                    .formatted(metaDataType, size, e.getClass().getSimpleName()));
         }
     }
 
