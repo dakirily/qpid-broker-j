@@ -30,16 +30,19 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
+import static org.mockito.AdditionalAnswers.delegatesTo;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.lang.reflect.Field;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -56,6 +59,8 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 import org.apache.qpid.server.bytebuffer.QpidByteBuffer;
 import org.apache.qpid.server.message.EnqueueableMessage;
+import org.apache.qpid.server.store.MessageEnqueueRecord;
+import org.apache.qpid.server.store.MessageStore.MessageDeleteListener;
 import org.apache.qpid.server.store.MessageStore.MessageStoreReader;
 import org.apache.qpid.server.store.StoreException;
 import org.apache.qpid.server.store.StoredMessage;
@@ -259,6 +264,83 @@ class StoredBDBMessageTest extends UnitTestBase
         assertNull(getContentFragments(message));
         assertEquals(buffersBefore, QpidByteBuffer.getNumberOfBuffersInUse());
         assertEquals(0L, _store.getInMemorySize());
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void testFinishesRemovalWhenQuotaCheckFails(final boolean listenerFails) throws Exception
+    {
+        _store.closeMessageStore();
+        final int bodySize = 64 * 1024;
+        when(_virtualHost.getStoreOverfullSize()).thenReturn(2L * bodySize - 1);
+        when(_virtualHost.getStoreUnderfullSize()).thenReturn((long) bodySize);
+        final EnvironmentFacade environment = new StandardEnvironmentFacadeFactory().createEnvironmentFacade(_virtualHost);
+        final EnvironmentFacade facade = mock(EnvironmentFacade.class, delegatesTo(environment));
+        doReturn(2L * bodySize).when(facade).getTotalLogSize();
+        _store = new BDBMessageStore(parent -> facade);
+        _store.openMessageStore(_virtualHost);
+
+        final int buffersBefore = QpidByteBuffer.getNumberOfBuffersInUse();
+        final TestMessageMetaData metadata = spy(new TestMessageMetaData(0L, bodySize));
+        final StoredBDBMessage<TestMessageMetaData> message = createMessage(metadata);
+        try (final QpidByteBuffer body = QpidByteBuffer.allocateDirect(bodySize))
+        {
+            message.addContent(body);
+        }
+        message.allContentAdded();
+
+        final TransactionLogResource queue = mock(TransactionLogResource.class);
+        when(queue.getId()).thenReturn(UUID.randomUUID());
+        final EnqueueableMessage<?> enqueued = mock(EnqueueableMessage.class);
+        when(enqueued.getMessageNumber()).thenReturn(message.getMessageNumber());
+        doReturn(message).when(enqueued).getStoredMessage();
+        final Transaction enqueue = _store.newTransaction();
+        final MessageEnqueueRecord delivery = enqueue.enqueueMessage(queue, enqueued);
+        enqueue.commitTran();
+        final Transaction dequeue = _store.newTransaction();
+        dequeue.dequeueMessage(delivery);
+        dequeue.commitTran();
+        verify(facade).getTotalLogSize();
+
+        final Field messages = AbstractBDBMessageStore.class.getDeclaredField("_messages");
+        messages.setAccessible(true);
+        final Set<?> tracked = (Set<?>) messages.get(_store);
+        assertTrue(tracked.contains(message));
+        assertEquals(bodySize + (long) message.getMetadataSize(), _store.getInMemorySize());
+        assertTrue(QpidByteBuffer.getNumberOfBuffersInUse() > buffersBefore);
+
+        final IllegalStateException quotaFailure = new IllegalStateException("Quota size lookup failed");
+        doThrow(quotaFailure).when(facade).getTotalLogSize();
+        final MessageDeleteListener listener = mock(MessageDeleteListener.class);
+        final IllegalStateException listenerFailure = new IllegalStateException("Delete listener failed");
+        if (listenerFails)
+        {
+            doThrow(listenerFailure).when(listener).messageDeleted(message);
+        }
+        _store.addMessageDeleteListener(listener);
+
+        final StoreException failure = assertThrows(StoreException.class, message::remove);
+        assertSame(quotaFailure, failure.getCause());
+        assertFalse(tracked.contains(message));
+        assertNull(message.getMetaData());
+        assertEquals(0L, _store.getInMemorySize());
+        assertEquals(buffersBefore, QpidByteBuffer.getNumberOfBuffersInUse());
+        assertEquals(listenerFails ? List.of(listenerFailure) : List.of(), List.of(failure.getSuppressed()));
+
+        message.remove();
+        verify(listener).messageDeleted(message);
+        verify(metadata).dispose();
+        verify(facade, times(2)).getTotalLogSize();
+        final MessageStoreReader reader = _store.newMessageStoreReader();
+        try
+        {
+            assertNull(reader.getMessage(message.getMessageNumber()));
+            assertThrows(StoreException.class, () -> _store.getAllContent(message.getMessageNumber()));
+        }
+        finally
+        {
+            reader.close();
+        }
     }
 
     @ParameterizedTest

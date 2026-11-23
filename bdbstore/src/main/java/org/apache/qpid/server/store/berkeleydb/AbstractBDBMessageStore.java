@@ -1170,8 +1170,32 @@ public abstract class AbstractBDBMessageStore implements MessageStore
             if (_stored)
             {
                 removeMessage(_messageId);
-                storedSizeChangeOccurred(-getContentSize());
+                try
+                {
+                    storedSizeChangeOccurred(-getContentSize());
+                }
+                catch (final RuntimeException | Error quotaFailure)
+                {
+                    // The JE delete has committed. Finish removal before reporting the quota failure.
+                    try
+                    {
+                        finishRemoval();
+                    }
+                    catch (final RuntimeException | Error cleanupFailure)
+                    {
+                        if (cleanupFailure != quotaFailure)
+                        {
+                            quotaFailure.addSuppressed(cleanupFailure);
+                        }
+                    }
+                    throw quotaFailure;
+                }
             }
+            finishRemoval();
+        }
+
+        private void finishRemoval()
+        {
             _messages.remove(this);
             try
             {
