@@ -278,8 +278,9 @@ public class CoalescingCommiter implements Committer
                         commit.complete();
                     }
                 }
-                catch(RuntimeException flushException)
+                catch (final RuntimeException flushException)
                 {
+                    LOGGER.error("Exception during environment log flush on committer shutdown", flushException);
                     RuntimeException e = new RuntimeException("Commit thread has been closed, transaction aborted");
                     int abortedCommits = 0;
                     while ((commit = _jobQueue.poll()) != null)

@@ -33,16 +33,25 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import java.lang.reflect.Field;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.classic.spi.ThrowableProxy;
+import ch.qos.logback.core.read.ListAppender;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.slf4j.LoggerFactory;
 
 import org.apache.qpid.test.utils.UnitTestBase;
 
@@ -160,20 +169,43 @@ public class CoalescingCommitterTest extends UnitTestBase
         verify(_environmentFacade).flushLog();
     }
 
-    @Test
-    public void testStopAbortsPendingAsyncCommitWhenFlushFails() throws Exception
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    public void testStopLogsFailedFlush(final boolean pending) throws Exception
     {
-        doThrow(new RuntimeException("flush failed")).when(_environmentFacade).flushLog();
+        final RuntimeException flushFailure = new RuntimeException("flush failed");
+        doThrow(flushFailure).when(_environmentFacade).flushLog();
         _coalescingCommitter.start();
         awaitIdleWorker();
-        final CompletableFuture<String> pendingCommit = _coalescingCommitter.commitAsync(null, "R");
+        final CompletableFuture<String> pendingCommit = pending ? _coalescingCommitter.commitAsync(null, "R") : null;
 
-        stopCommitter();
+        final Object worker = getField(_coalescingCommitter, "_commitThread");
+        final Logger logger = (Logger) LoggerFactory.getLogger(worker.getClass());
+        final ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
+        try
+        {
+            stopCommitter();
+        }
+        finally
+        {
+            logger.detachAppender(appender);
+            appender.stop();
+        }
 
-        assertTrue(pendingCommit.isCompletedExceptionally(), "Stop should abort the pending commit");
-        final CompletionException failure = assertThrows(CompletionException.class, pendingCommit::join);
-        assertInstanceOf(RuntimeException.class, failure.getCause());
+        if (pendingCommit != null)
+        {
+            assertTrue(pendingCommit.isCompletedExceptionally(), "Stop should abort the pending commit");
+            final CompletionException failure = assertThrows(CompletionException.class, pendingCommit::join);
+            assertInstanceOf(RuntimeException.class, failure.getCause());
+        }
         verify(_environmentFacade).flushLog();
+        final List<ILoggingEvent> errors = appender.list.stream()
+                .filter(event -> event.getLevel() == Level.ERROR).toList();
+        assertEquals(1, errors.size());
+        final ThrowableProxy throwable = assertInstanceOf(ThrowableProxy.class, errors.get(0).getThrowableProxy());
+        assertSame(flushFailure, throwable.getThrowable());
     }
 
     @Test
