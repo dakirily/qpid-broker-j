@@ -80,6 +80,24 @@ class BDBWriteBufferTest extends UnitTestBase
     }
 
     @Test
+    void testReleaseClearsLargestPreparedBodyRange()
+    {
+        final byte[] body = new byte[1024];
+        Arrays.fill(body, (byte) 7);
+        final byte[] retained;
+        try (final BDBWriteBuffer buffer = BDBWriteBuffer.acquire();
+             final QpidByteBuffer content = QpidByteBuffer.wrap(body))
+        {
+            buffer.prepare(1L, body.length);
+            buffer.copyContent(content);
+            retained = buffer.getValue().getData();
+            buffer.prepare(2L, 3);
+            assertSame(retained, buffer.getValue().getData());
+        }
+        assertArrayEquals(new byte[retained.length], retained);
+    }
+
+    @Test
     void testOversizedArrayIsNotRetained()
     {
         final DatabaseEntry entry;

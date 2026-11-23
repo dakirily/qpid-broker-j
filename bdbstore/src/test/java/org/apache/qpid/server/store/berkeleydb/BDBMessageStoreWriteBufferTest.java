@@ -57,6 +57,8 @@ import com.sleepycat.je.Transaction;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import org.apache.qpid.server.bytebuffer.QpidByteBuffer;
 import org.apache.qpid.server.message.internal.InternalMessageMetaData;
@@ -364,21 +366,24 @@ class BDBMessageStoreWriteBufferTest extends UnitTestBase
         verify(metadata).put(same(nextTransaction), any(), any());
     }
 
-    @Test
-    void testFailedOversizedContentPutReleasesBufferForRetry()
+    @ParameterizedTest
+    @ValueSource(ints = {256, BDBWriteBuffer.MAX_RETAINED_CAPACITY + 1})
+    void testFailedContentPutReleasesBufferForRetry(final int size)
     {
         final Database content = mock(Database.class);
         openStore(mock(Database.class), content);
         final Transaction failedTransaction = mock(Transaction.class);
         final Transaction retryTransaction = mock(Transaction.class);
-        final byte[] body = bytes(BDBWriteBuffer.MAX_RETAINED_CAPACITY + 1, (byte) 14);
+        final byte[] body = bytes(size, (byte) 14);
         final BDBWriteBuffer cached = cachedWriteBuffer();
+        final AtomicReference<byte[]> failedBytes = new AtomicReference<>();
         final RuntimeException writeFailure = new IllegalStateException("Synthetic content put failure");
         doAnswer(invocation ->
         {
             final DatabaseEntry value = invocation.getArgument(2);
             assertSame(cached.getValue(), value);
             assertArrayEquals(body, entryBytes(value));
+            failedBytes.set(value.getData());
             throw writeFailure;
         }).when(content).put(same(failedTransaction), any(), any());
         when(content.put(same(retryTransaction), any(), any())).thenAnswer(invocation ->
@@ -396,6 +401,11 @@ class BDBMessageStoreWriteBufferTest extends UnitTestBase
         {
             assertSame(writeFailure, assertThrows(RuntimeException.class, () -> message.store(failedTransaction)));
             assertWriteBufferReleased(cached);
+            if (size <= BDBWriteBuffer.MAX_RETAINED_CAPACITY)
+            {
+                final byte[] data = failedBytes.get();
+                assertArrayEquals(new byte[data.length], data);
+            }
             message.store(retryTransaction);
             verify(content).put(same(retryTransaction), any(), any());
         }

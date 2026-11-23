@@ -22,6 +22,7 @@
 package org.apache.qpid.server.store.berkeleydb;
 
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 
 import com.sleepycat.je.DatabaseEntry;
 
@@ -40,6 +41,7 @@ final class BDBWriteBuffer implements AutoCloseable
     private final DatabaseEntry _value = new DatabaseEntry();
     private byte[] _buffer = EMPTY;
     private ByteBuffer _copyBuffer = ByteBuffer.wrap(EMPTY);
+    private int _usedBodyBytes;
     private boolean _inUse;
 
     private BDBWriteBuffer()
@@ -70,9 +72,12 @@ final class BDBWriteBuffer implements AutoCloseable
         {
             if (_buffer.length < size)
             {
+                clearUsedBodyBytes();
                 _buffer = new byte[Math.min(MAX_RETAINED_CAPACITY, Math.max(size, _buffer.length * 2))];
                 _copyBuffer = ByteBuffer.wrap(_buffer);
             }
+            // Reserve the range before copying so a partial copy is cleared too.
+            _usedBodyBytes = Math.max(_usedBodyBytes, size);
             data = _buffer;
         }
 
@@ -109,7 +114,17 @@ final class BDBWriteBuffer implements AutoCloseable
     @Override
     public void close()
     {
+        clearUsedBodyBytes();
         _value.setData(EMPTY);
         _inUse = false;
+    }
+
+    private void clearUsedBodyBytes()
+    {
+        if (_usedBodyBytes != 0)
+        {
+            Arrays.fill(_buffer, 0, _usedBodyBytes, (byte) 0);
+            _usedBodyBytes = 0;
+        }
     }
 }
