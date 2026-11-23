@@ -962,105 +962,28 @@ public abstract class AbstractBDBMessageStore implements MessageStore
 
     protected abstract Logger getLogger();
 
-    private static class MessageDataRef<T extends StorableMessageMetaData>
-    {
-        private volatile T _metaData;
-        private volatile QpidByteBuffer _data;
-        private volatile boolean _isHardRef;
-
-        private MessageDataRef(final T metaData, boolean isHardRef)
-        {
-            this(metaData, null, isHardRef);
-        }
-
-        private MessageDataRef(final T metaData, QpidByteBuffer data, boolean isHardRef)
-        {
-            _metaData = metaData;
-            _data = data;
-            _isHardRef = isHardRef;
-        }
-
-        public T getMetaData()
-        {
-            return _metaData;
-        }
-
-        public QpidByteBuffer getData()
-        {
-            return _data;
-        }
-
-        public void setData(final QpidByteBuffer data)
-        {
-            _data = data;
-        }
-
-        public boolean isHardRef()
-        {
-            return _isHardRef;
-        }
-
-        public void setSoft()
-        {
-            _isHardRef = false;
-        }
-
-        public void reallocate()
-        {
-            if(_metaData != null)
-            {
-                _metaData.reallocate();
-            }
-            _data = QpidByteBuffer.reallocateIfNecessary(_data);
-        }
-
-        public long clear(final boolean close)
-        {
-            long contentBytes = 0;
-            if (_data != null)
-            {
-                contentBytes = _data.remaining();
-                _data.dispose();
-                _data = null;
-            }
-            if (_metaData != null)
-            {
-                try
-                {
-                    if (close)
-                    {
-                        _metaData.dispose();
-                    }
-                    else
-                    {
-                        _metaData.clearEncodedForm();
-                    }
-                }
-                finally
-                {
-                    _metaData = null;
-                }
-            }
-            return contentBytes;
-        }
-    }
-
     final class StoredBDBMessage<T extends StorableMessageMetaData> implements StoredMessage<T>, MessageHandle<T>
     {
 
         private final long _messageId;
         private final int _contentSize;
         private final int _metadataSize;
-        private MessageDataRef<T> _messageDataRef;
+        // This message's monitor guards the mutable payload and lifecycle state.
+        private T _metaData;
+        private QpidByteBuffer _data;
         private List<QpidByteBuffer> _contentFragments;
         // Body bytes already included in the store's in-memory count.
         private int _accountedContentSize;
+        // Both records have been written. The transaction may still be uncommitted.
+        private boolean _stored;
+        private boolean _removed;
 
-        StoredBDBMessage(long messageId, T metaData, boolean isRecovered)
+        StoredBDBMessage(final long messageId, final T metaData, final boolean isRecovered)
         {
             _messageId = messageId;
 
-            _messageDataRef = new MessageDataRef<>(metaData, !isRecovered);
+            _metaData = metaData;
+            _stored = isRecovered;
 
             _contentSize = metaData.getContentSize();
             _metadataSize = metaData.getStorableSize();
@@ -1070,23 +993,19 @@ public abstract class AbstractBDBMessageStore implements MessageStore
         @Override
         public synchronized T getMetaData()
         {
-            if (_messageDataRef == null)
+            if (_removed)
             {
                 return null;
             }
-            else
-            {
-                T metaData = _messageDataRef.getMetaData();
 
-                if (metaData == null)
-                {
-                    checkMessageStoreOpen();
-                    metaData = (T) getMessageMetaData(_messageId);
-                    _messageDataRef = new MessageDataRef<>(metaData, _messageDataRef.getData(), false);
-                    _inMemorySize.addAndGet(getMetadataSize());
-                }
-                return metaData;
+            if (_metaData == null)
+            {
+                checkMessageStoreOpen();
+                _metaData = (T) getMessageMetaData(_messageId);
+                _stored = true;
+                _inMemorySize.addAndGet(getMetadataSize());
             }
+            return _metaData;
         }
 
         @Override
@@ -1098,7 +1017,7 @@ public abstract class AbstractBDBMessageStore implements MessageStore
         @Override
         public synchronized void addContent(final QpidByteBuffer src)
         {
-            if (_messageDataRef == null || !src.hasRemaining())
+            if (_removed || !src.hasRemaining())
             {
                 return;
             }
@@ -1106,16 +1025,15 @@ public abstract class AbstractBDBMessageStore implements MessageStore
             final QpidByteBuffer fragment = src.slice();
             if (_contentFragments == null)
             {
-                final QpidByteBuffer data = _messageDataRef.getData();
-                if (data == null)
+                if (_data == null)
                 {
-                    _messageDataRef.setData(fragment);
+                    _data = fragment;
                     return;
                 }
 
                 _contentFragments = new ArrayList<>();
-                _contentFragments.add(data);
-                _messageDataRef.setData(null);
+                _contentFragments.add(_data);
+                _data = null;
             }
             _contentFragments.add(fragment);
         }
@@ -1123,7 +1041,7 @@ public abstract class AbstractBDBMessageStore implements MessageStore
         @Override
         public synchronized StoredMessage<T> allContentAdded()
         {
-            if (_messageDataRef != null)
+            if (!_removed)
             {
                 accountContent(consolidateContentFragments());
             }
@@ -1135,30 +1053,29 @@ public abstract class AbstractBDBMessageStore implements MessageStore
          */
         private QpidByteBuffer getContentAsByteBuffer()
         {
-            if (_messageDataRef == null)
+            if (_removed)
             {
                 return QpidByteBuffer.emptyQpidByteBuffer();
             }
 
-            QpidByteBuffer data = consolidateContentFragments();
-            if (data == null && stored())
+            consolidateContentFragments();
+            if (_data == null && _stored)
             {
                 checkMessageStoreOpen();
-                data = AbstractBDBMessageStore.this.getAllContent(_messageId);
-                _messageDataRef.setData(data);
-                accountContent(data);
+                _data = AbstractBDBMessageStore.this.getAllContent(_messageId);
+                accountContent(_data);
             }
-            return data == null ? QpidByteBuffer.emptyQpidByteBuffer() : data;
+            return _data == null ? QpidByteBuffer.emptyQpidByteBuffer() : _data;
         }
 
         private QpidByteBuffer consolidateContentFragments()
         {
             if (_contentFragments != null)
             {
-                _messageDataRef.setData(QpidByteBuffer.concatenate(_contentFragments));
+                _data = QpidByteBuffer.concatenate(_contentFragments);
                 clearContentFragments();
             }
-            return _messageDataRef.getData();
+            return _data;
         }
 
         private void accountContent(final QpidByteBuffer data)
@@ -1201,38 +1118,39 @@ public abstract class AbstractBDBMessageStore implements MessageStore
 
         synchronized void store(final Transaction txn)
         {
-            if (!stored())
+            if (_removed)
             {
-                AbstractBDBMessageStore.this.storeMetaData(txn, _messageId, _messageDataRef.getMetaData());
+                throw new StoreException("Cannot store removed message " + _messageId);
+            }
+
+            if (!_stored)
+            {
+                AbstractBDBMessageStore.this.storeMetaData(txn, _messageId, _metaData);
                 final QpidByteBuffer data = consolidateContentFragments();
                 AbstractBDBMessageStore.this.addContent(txn, _messageId,
                                                         data == null ? QpidByteBuffer.emptyQpidByteBuffer() : data);
                 accountContent(data);
-                _messageDataRef.setSoft();
+                _stored = true;
             }
         }
 
         synchronized void flushToStore()
         {
-            if (_messageDataRef != null)
+            if (!_removed && !_stored)
             {
-                if (!stored())
+                checkMessageStoreOpen();
+
+                final Transaction txn;
+                try
                 {
-                    checkMessageStoreOpen();
-
-                    Transaction txn;
-                    try
-                    {
-                        txn = getEnvironmentFacade().beginTransaction(null);
-                    }
-                    catch (RuntimeException e)
-                    {
-                        throw getEnvironmentFacade().handleDatabaseException("failed to begin transaction", e);
-                    }
-                    store(txn);
-                    getEnvironmentFacade().commitAsync(txn, false);
-
+                    txn = getEnvironmentFacade().beginTransaction(null);
                 }
+                catch (final RuntimeException e)
+                {
+                    throw getEnvironmentFacade().handleDatabaseException("failed to begin transaction", e);
+                }
+                store(txn);
+                getEnvironmentFacade().commitAsync(txn, false);
             }
         }
 
@@ -1240,11 +1158,11 @@ public abstract class AbstractBDBMessageStore implements MessageStore
         public synchronized void remove()
         {
             checkMessageStoreOpen();
-            if (_messageDataRef == null)
+            if (_removed)
             {
                 return;
             }
-            if (stored())
+            if (_stored)
             {
                 removeMessage(_messageId);
                 storedSizeChangeOccurred(-getContentSize());
@@ -1262,14 +1180,8 @@ public abstract class AbstractBDBMessageStore implements MessageStore
             }
             finally
             {
-                try
-                {
-                    clearMessageData(true);
-                }
-                finally
-                {
-                    _messageDataRef = null;
-                }
+                _removed = true;
+                clearMessageData(true);
             }
         }
 
@@ -1291,50 +1203,66 @@ public abstract class AbstractBDBMessageStore implements MessageStore
 
         private long clearMessageData(final boolean close)
         {
-            final long metadataSize = _messageDataRef.getMetaData() == null ? 0L : getMetadataSize();
-            try
+            final T metaData = _metaData;
+            final long metadataSize = metaData == null ? 0L : getMetadataSize();
+            final int accountedContentSize = _accountedContentSize;
+            _metaData = null;
+            _accountedContentSize = 0;
+
+            try (final QpidByteBuffer data = _data)
             {
-                return metadataSize + clearContentFragments() + _messageDataRef.clear(close);
+                _data = null;
+                return metadataSize + clearContentFragments() + (data == null ? 0L : data.remaining());
             }
             finally
             {
-                _inMemorySize.addAndGet(-metadataSize - _accountedContentSize);
-                _accountedContentSize = 0;
+                try
+                {
+                    if (metaData != null)
+                    {
+                        if (close)
+                        {
+                            metaData.dispose();
+                        }
+                        else
+                        {
+                            metaData.clearEncodedForm();
+                        }
+                    }
+                }
+                finally
+                {
+                    _inMemorySize.addAndGet(-metadataSize - accountedContentSize);
+                }
             }
         }
 
         @Override
         public synchronized boolean isInContentInMemory()
         {
-            return _messageDataRef != null &&
-                    (_messageDataRef.isHardRef() || _messageDataRef.getData() != null || _contentFragments != null);
+            return !_removed && (!_stored || _data != null || _contentFragments != null);
         }
 
         @Override
         public synchronized long getInMemorySize()
         {
-            if (_messageDataRef == null)
+            if (_removed)
             {
                 return 0L;
             }
-            if (_messageDataRef.isHardRef())
+            if (!_stored)
             {
                 return (long) getMetadataSize() + getContentSize();
             }
-            final long metadataSize = _messageDataRef.getMetaData() == null ? 0L : getMetadataSize();
+            final long metadataSize = _metaData == null ? 0L : getMetadataSize();
             return metadataSize + _accountedContentSize;
-        }
-
-        private boolean stored()
-        {
-            return _messageDataRef != null && !_messageDataRef.isHardRef();
         }
 
         @Override
         public synchronized boolean flowToDisk()
         {
             flushToStore();
-            if (stored())
+            if (!_removed && _stored)
             {
                 _bytesEvacuatedFromMemory.addAndGet(clearMessageData(false));
             }
@@ -1350,16 +1278,20 @@ public abstract class AbstractBDBMessageStore implements MessageStore
         @Override
         public synchronized void reallocate()
         {
-            if (_messageDataRef != null)
+            if (!_removed)
             {
                 consolidateContentFragments();
-                _messageDataRef.reallocate();
+                if (_metaData != null)
+                {
+                    _metaData.reallocate();
+                }
+                _data = QpidByteBuffer.reallocateIfNecessary(_data);
             }
         }
 
         public synchronized void clear(final boolean close)
         {
-            if (_messageDataRef != null)
+            if (!_removed)
             {
                 clearMessageData(close);
             }

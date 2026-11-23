@@ -24,16 +24,28 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.lang.reflect.Field;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -43,9 +55,13 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import org.apache.qpid.server.bytebuffer.QpidByteBuffer;
+import org.apache.qpid.server.message.EnqueueableMessage;
 import org.apache.qpid.server.store.MessageStore.MessageStoreReader;
+import org.apache.qpid.server.store.StoreException;
 import org.apache.qpid.server.store.StoredMessage;
 import org.apache.qpid.server.store.TestMessageMetaData;
+import org.apache.qpid.server.store.Transaction;
+import org.apache.qpid.server.store.TransactionLogResource;
 import org.apache.qpid.server.store.berkeleydb.AbstractBDBMessageStore.StoredBDBMessage;
 import org.apache.qpid.server.virtualhost.berkeleydb.BDBVirtualHost;
 import org.apache.qpid.test.utils.UnitTestBase;
@@ -245,9 +261,200 @@ class StoredBDBMessageTest extends UnitTestBase
         assertEquals(0L, _store.getInMemorySize());
     }
 
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void testEvictedPayloadsReloadIndependently(final boolean metadataFirst)
+    {
+        final byte[] body = {1, 2, 3};
+        final StoredBDBMessage<TestMessageMetaData> message = createMessage(body.length);
+        addFragment(message, body);
+        assertTrue(message.flowToDisk());
+        assertEquals(0L, message.getInMemorySize());
+
+        if (metadataFirst)
+        {
+            final TestMessageMetaData metadata = message.getMetaData();
+            assertNotNull(metadata);
+            assertSame(metadata, message.getMetaData());
+            assertEquals(message.getMetadataSize(), _store.getInMemorySize());
+            assertFalse(message.isInContentInMemory());
+            assertArrayEquals(body, readContent(message, 0));
+        }
+        else
+        {
+            assertArrayEquals(body, readContent(message, 0));
+            assertEquals(body.length, _store.getInMemorySize());
+            assertNotNull(message.getMetaData());
+        }
+
+        final long totalBytes = message.getMetadataSize() + (long) body.length;
+        assertEquals(totalBytes, message.getInMemorySize());
+        assertEquals(totalBytes, _store.getInMemorySize());
+        assertArrayEquals(body, readContent(message, 0));
+        assertEquals(totalBytes, _store.getInMemorySize());
+        assertTrue(message.flowToDisk());
+        assertTrue(message.flowToDisk());
+        assertEquals(0L, _store.getInMemorySize());
+        assertEquals(2 * totalBytes, _store.getBytesEvacuatedFromMemory());
+    }
+
+    @Test
+    void testRemovalWhileEvictedPreventsReloadAndRejectsWrites()
+    {
+        final StoredBDBMessage<TestMessageMetaData> message = createMessage(3);
+        addFragment(message, new byte[] {1, 2, 3});
+        assertTrue(message.flowToDisk());
+
+        message.remove();
+        message.remove();
+        addFragment(message, new byte[] {4, 5, 6});
+        message.allContentAdded();
+
+        final TransactionLogResource queue = mock(TransactionLogResource.class);
+        when(queue.getId()).thenReturn(UUID.randomUUID());
+        final EnqueueableMessage<?> enqueued = mock(EnqueueableMessage.class);
+        when(enqueued.getMessageNumber()).thenReturn(message.getMessageNumber());
+        doReturn(message).when(enqueued).getStoredMessage();
+        final Transaction transaction = _store.newTransaction();
+        try
+        {
+            transaction.enqueueMessage(queue, enqueued);
+            assertThrows(StoreException.class, transaction::commitTran);
+        }
+        finally
+        {
+            transaction.abortTran();
+        }
+
+        message.flushToStore();
+        assertTrue(message.flowToDisk());
+        message.reallocate();
+        message.clear(true);
+
+        assertNull(message.getMetaData());
+        assertArrayEquals(new byte[0], readContent(message, 0));
+        assertFalse(message.isInContentInMemory());
+        assertEquals(0L, message.getInMemorySize());
+        assertEquals(0L, _store.getInMemorySize());
+        assertEquals(message.getMetadataSize() + 3L, _store.getBytesEvacuatedFromMemory());
+        final MessageStoreReader reader = _store.newMessageStoreReader();
+        try
+        {
+            assertNull(reader.getMessage(message.getMessageNumber()));
+            reader.visitMessageInstances(queue, record -> fail("Unexpected delivery for removed message"));
+        }
+        finally
+        {
+            reader.close();
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void testClearPreservesReloadEligibilityWhenMetadataCleanupThrows(final boolean close)
+    {
+        final byte[] body = {1, 2, 3};
+        final TestMessageMetaData metadata = spy(new TestMessageMetaData(0L, body.length));
+        final StoredBDBMessage<TestMessageMetaData> message = createMessage(metadata);
+        addFragment(message, body);
+        message.flushToStore();
+
+        final IllegalStateException failure = new IllegalStateException("Metadata cleanup failed");
+        if (close)
+        {
+            doThrow(failure).when(metadata).dispose();
+        }
+        else
+        {
+            doThrow(failure).when(metadata).clearEncodedForm();
+        }
+        assertSame(failure, assertThrows(IllegalStateException.class, () -> message.clear(close)));
+        message.clear(close);
+
+        if (close)
+        {
+            verify(metadata).dispose();
+        }
+        else
+        {
+            verify(metadata).clearEncodedForm();
+        }
+        assertFalse(message.isInContentInMemory());
+        assertEquals(0L, message.getInMemorySize());
+        assertEquals(0L, _store.getInMemorySize());
+        assertEquals(0L, _store.getBytesEvacuatedFromMemory());
+
+        assertNotSame(metadata, message.getMetaData());
+        assertArrayEquals(body, readContent(message, 0));
+        assertEquals(message.getMetadataSize() + (long) body.length, _store.getInMemorySize());
+        message.remove();
+        assertEquals(0L, _store.getInMemorySize());
+    }
+
+    @Test
+    void testConcurrentReloadAndEvictionPreservePayloadAndAccounting() throws Exception
+    {
+        final byte[] body = {1, 2, 3, 4};
+        final StoredBDBMessage<TestMessageMetaData> message = createMessage(body.length);
+        addFragment(message, body);
+        assertTrue(message.flowToDisk());
+
+        final ExecutorService executor = Executors.newFixedThreadPool(2,
+                QpidByteBuffer.createQpidByteBufferTrackingThreadFactory(Executors.defaultThreadFactory()));
+        final CountDownLatch ready = new CountDownLatch(2);
+        final CountDownLatch start = new CountDownLatch(1);
+        try
+        {
+            final Future<?> reloads = executor.submit(() ->
+            {
+                ready.countDown();
+                start.await();
+                for (int i = 0; i < 200; i++)
+                {
+                    assertEquals(body.length, message.getMetaData().getContentSize());
+                    assertArrayEquals(body, readContent(message, 0));
+                }
+                return null;
+            });
+            final Future<?> evictions = executor.submit(() ->
+            {
+                ready.countDown();
+                start.await();
+                for (int i = 0; i < 200; i++)
+                {
+                    assertTrue(message.flowToDisk());
+                }
+                return null;
+            });
+            assertTrue(ready.await(10, TimeUnit.SECONDS));
+            start.countDown();
+            reloads.get(10, TimeUnit.SECONDS);
+            evictions.get(10, TimeUnit.SECONDS);
+        }
+        finally
+        {
+            executor.shutdownNow();
+            assertTrue(executor.awaitTermination(10, TimeUnit.SECONDS));
+        }
+
+        assertTrue(message.flowToDisk());
+        assertEquals(0L, message.getInMemorySize());
+        assertEquals(0L, _store.getInMemorySize());
+        assertNotNull(message.getMetaData());
+        assertArrayEquals(body, readContent(message, 0));
+        assertEquals(message.getMetadataSize() + (long) body.length, _store.getInMemorySize());
+        message.remove();
+        assertEquals(0L, _store.getInMemorySize());
+    }
+
     private StoredBDBMessage<TestMessageMetaData> createMessage(final int contentSize)
     {
-        return (StoredBDBMessage<TestMessageMetaData>) _store.addMessage(new TestMessageMetaData(0L, contentSize));
+        return createMessage(new TestMessageMetaData(0L, contentSize));
+    }
+
+    private StoredBDBMessage<TestMessageMetaData> createMessage(final TestMessageMetaData metadata)
+    {
+        return (StoredBDBMessage<TestMessageMetaData>) _store.addMessage(metadata);
     }
 
     private static void addFragment(final StoredBDBMessage<?> message, final byte[] bytes)
