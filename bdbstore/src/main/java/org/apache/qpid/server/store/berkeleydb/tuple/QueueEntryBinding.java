@@ -24,37 +24,78 @@ import java.util.UUID;
 
 import com.sleepycat.je.DatabaseEntry;
 
-import org.apache.qpid.server.store.berkeleydb.entry.QueueEntryKey;
+import org.apache.qpid.server.store.berkeleydb.AbstractBDBMessageStore.BDBEnqueueRecord;
 import org.apache.qpid.server.util.CachingUUIDFactory;
 
 public class QueueEntryBinding
 {
+    private static final int QUEUE_ID_SIZE = 2 * Long.BYTES;
+    public static final int KEY_SIZE = QUEUE_ID_SIZE + Long.BYTES;
+
     private QueueEntryBinding()
     {
     }
 
-    public static QueueEntryKey entryToObject(final CachingUUIDFactory uuidFactory, DatabaseEntry entry)
+    public static BDBEnqueueRecord readIds(final CachingUUIDFactory uuidFactory, final DatabaseEntry entry)
     {
-        byte[] data = entry.getData();
-        int offset = entry.getOffset();
-
-        UUID queueId = uuidFactory.createUuidFromBits(readUnsignedLong(data, offset) ^ 0x8000000000000000L, readUnsignedLong(data, offset + 8) ^ 0x8000000000000000L);
-        long messageId = readUnsignedLong(data,offset+16)^ 0x8000000000000000L;
-
-        return new QueueEntryKey(queueId, messageId);
+        final byte[] data = getDeliveryKeyData(entry);
+        final int offset = entry.getOffset();
+        final UUID queueId = uuidFactory.createUuidFromBits(readUnsignedLong(data, offset) ^ Long.MIN_VALUE,
+                readUnsignedLong(data, offset + Long.BYTES) ^ Long.MIN_VALUE);
+        final long messageId = readUnsignedLong(data, offset + QUEUE_ID_SIZE) ^ Long.MIN_VALUE;
+        return new BDBEnqueueRecord(queueId, messageId);
     }
 
-    public static void objectToEntry(QueueEntryKey entryKey, DatabaseEntry entry)
+    public static boolean matchesQueueId(final DatabaseEntry entry, final UUID queueId)
     {
-        byte[] output = new byte[24];
-        UUID uuid = entryKey.getQueueId();
-        writeUnsignedLong(uuid.getMostSignificantBits() ^ 0x8000000000000000L, output, 0);
-        writeUnsignedLong(uuid.getLeastSignificantBits() ^ 0x8000000000000000L, output, 8);
-        writeUnsignedLong(entryKey.getMessageId() ^ 0x8000000000000000L, output, 16);
-        entry.setData(output);
+        final byte[] data = getDeliveryKeyData(entry);
+        final int offset = entry.getOffset();
+        return readUnsignedLong(data, offset) == (queueId.getMostSignificantBits() ^ Long.MIN_VALUE)
+                && readUnsignedLong(data, offset + Long.BYTES) == (queueId.getLeastSignificantBits() ^ Long.MIN_VALUE);
     }
 
-    private static void writeUnsignedLong(long val, byte[] data, int offset)
+    public static long readMessageId(final DatabaseEntry entry)
+    {
+        final byte[] data = getDeliveryKeyData(entry);
+        return readUnsignedLong(data, entry.getOffset() + QUEUE_ID_SIZE) ^ Long.MIN_VALUE;
+    }
+
+    public static void objectToEntry(final UUID queueId, final long messageId, final DatabaseEntry entry)
+    {
+        final byte[] output = getWriteBuffer(entry, KEY_SIZE);
+        writeUnsignedLong(queueId.getMostSignificantBits() ^ Long.MIN_VALUE, output, 0);
+        writeUnsignedLong(queueId.getLeastSignificantBits() ^ Long.MIN_VALUE, output, Long.BYTES);
+        writeUnsignedLong(messageId ^ Long.MIN_VALUE, output, QUEUE_ID_SIZE);
+        entry.setData(output, 0, KEY_SIZE);
+    }
+
+    /** Writes a standalone message ID in the same tuple format as JE's {@code LongBinding}. */
+    public static void writeMessageId(final long messageId, final DatabaseEntry entry)
+    {
+        final byte[] output = getWriteBuffer(entry, Long.BYTES);
+        writeUnsignedLong(messageId ^ Long.MIN_VALUE, output, 0);
+        entry.setData(output, 0, Long.BYTES);
+    }
+
+    private static byte[] getWriteBuffer(final DatabaseEntry entry, final int size)
+    {
+        final byte[] data = entry.getData();
+        return data != null && data.length >= size ? data : new byte[size];
+    }
+
+    private static byte[] getDeliveryKeyData(final DatabaseEntry entry)
+    {
+        final byte[] data = entry.getData();
+        final int offset = entry.getOffset();
+        final int size = entry.getSize();
+        if (data == null || offset < 0 || size < KEY_SIZE || offset > data.length - size)
+        {
+            throw new IllegalArgumentException("Invalid delivery database key range");
+        }
+        return data;
+    }
+
+    private static void writeUnsignedLong(final long val, final byte[] data, int offset)
     {
         data[offset++] = (byte) (val >>> 56);
         data[offset++] = (byte) (val >>> 48);
@@ -68,13 +109,13 @@ public class QueueEntryBinding
 
     private static long readUnsignedLong(final byte[] data, int offset)
     {
-        return (((long)data[offset++] & 0xffL) << 56)
-               | (((long)data[offset++] & 0xffL) << 48)
-               | (((long)data[offset++] & 0xffL) << 40)
-               | (((long)data[offset++] & 0xffL) << 32)
-               | (((long)data[offset++] & 0xffL) << 24)
-               | (((long)data[offset++] & 0xffL) << 16)
-               | (((long)data[offset++] & 0xffL) << 8)
-               | ((long)data[offset] & 0xffL) ;
+        return (((long) data[offset++] & 0xffL) << 56) |
+                (((long) data[offset++] & 0xffL) << 48) |
+                (((long) data[offset++] & 0xffL) << 40) |
+                (((long) data[offset++] & 0xffL) << 32) |
+                (((long) data[offset++] & 0xffL) << 24) |
+                (((long) data[offset++] & 0xffL) << 16) |
+                (((long) data[offset++] & 0xffL) << 8) |
+                ((long) data[offset] & 0xffL);
     }
 }

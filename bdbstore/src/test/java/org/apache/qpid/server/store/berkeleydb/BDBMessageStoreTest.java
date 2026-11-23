@@ -22,8 +22,11 @@ package org.apache.qpid.server.store.berkeleydb;
 
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
@@ -33,14 +36,23 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
+import java.util.UUID;
 
+import com.sleepycat.bind.tuple.LongBinding;
+import com.sleepycat.bind.tuple.TupleOutput;
+import com.sleepycat.je.DatabaseEntry;
 import com.sleepycat.je.LockTimeoutException;
+import com.sleepycat.je.OperationStatus;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import org.apache.qpid.server.bytebuffer.QpidByteBuffer;
+import org.apache.qpid.server.message.AMQMessageHeader;
+import org.apache.qpid.server.message.internal.InternalMessage;
 import org.apache.qpid.server.message.internal.InternalMessageMetaData;
 import org.apache.qpid.server.model.VirtualHost;
 import org.apache.qpid.server.protocol.v0_8.AMQShortString;
@@ -49,11 +61,16 @@ import org.apache.qpid.server.protocol.v0_8.MessageMetaData;
 import org.apache.qpid.server.protocol.v0_8.transport.BasicContentHeaderProperties;
 import org.apache.qpid.server.protocol.v0_8.transport.ContentHeaderBody;
 import org.apache.qpid.server.protocol.v0_8.transport.MessagePublishInfo;
+import org.apache.qpid.server.store.MessageEnqueueRecord;
 import org.apache.qpid.server.store.MessageHandle;
 import org.apache.qpid.server.store.MessageStore;
 import org.apache.qpid.server.store.MessageStoreTestCase;
 import org.apache.qpid.server.store.StoreException;
 import org.apache.qpid.server.store.StoredMessage;
+import org.apache.qpid.server.store.TestMessageMetaData;
+import org.apache.qpid.server.store.Transaction;
+import org.apache.qpid.server.store.TransactionLogResource;
+import org.apache.qpid.server.store.berkeleydb.tuple.MessageMetaDataBinding;
 import org.apache.qpid.server.util.ConnectionScopedRuntimeException;
 import org.apache.qpid.server.util.FileUtils;
 import org.apache.qpid.server.virtualhost.berkeleydb.BDBVirtualHost;
@@ -84,11 +101,22 @@ public class BDBMessageStoreTest extends MessageStoreTestCase
     {
         try
         {
-            super.tearDown();
+            final MessageStore store = getStore();
+            if (store != null)
+            {
+                store.closeMessageStore();
+            }
         }
         finally
         {
-            deleteStoreIfExists();
+            try
+            {
+                super.tearDown();
+            }
+            finally
+            {
+                deleteStoreIfExists();
+            }
         }
     }
 
@@ -149,6 +177,178 @@ public class BDBMessageStoreTest extends MessageStoreTestCase
         catch (StoreException se)
         {
             // PASS
+        }
+    }
+
+    @Test
+    public void testReopenAndDequeueLegacyEntries()
+    {
+        final TransactionLogResource queue = createQueue(new UUID(Long.MIN_VALUE, 1L));
+        final BDBMessageStore store = (BDBMessageStore) getStore();
+        final long messageId = store.getNextMessageId();
+        writeLegacyEntries(store.getEnvironmentFacade(), queue.getId(), messageId);
+
+        reopenStore();
+
+        final MessageStore.MessageStoreReader reader = getStore().newMessageStoreReader();
+        try
+        {
+            assertArrayEquals(CONTENT_BYTES, copyContent(reader.getMessage(messageId)));
+            final List<MessageEnqueueRecord> records = readQueueEntries(reader, queue);
+            assertEquals(1, records.size());
+            final MessageEnqueueRecord record = records.get(0);
+            assertEquals(queue.getId(), record.getQueueId());
+            assertEquals(messageId, record.getMessageNumber());
+
+            final Transaction transaction = getStore().newTransaction();
+            transaction.dequeueMessage(record);
+            transaction.commitTran();
+
+            assertTrue(readQueueEntries(reader, queue).isEmpty());
+        }
+        finally
+        {
+            reader.close();
+        }
+    }
+
+    @Test
+    public void testReuseKeysAcrossWritesInOneTransaction()
+    {
+        final TransactionLogResource firstQueue = createQueue(new UUID(Long.MIN_VALUE, 1L));
+        final TransactionLogResource secondQueue = createQueue(new UUID(Long.MIN_VALUE, 2L));
+        final AMQMessageHeader header = mock(AMQMessageHeader.class);
+        final InternalMessage first = InternalMessage.createStringMessage(getStore(), header, "first", true);
+        final InternalMessage second = InternalMessage.createStringMessage(getStore(), header, "second", true);
+        final byte[] firstContent = copyContent(first.getStoredMessage());
+        final byte[] secondContent = copyContent(second.getStoredMessage());
+
+        final Transaction enqueue = getStore().newTransaction();
+        final MessageEnqueueRecord firstEntry = enqueue.enqueueMessage(firstQueue, first);
+        final MessageEnqueueRecord secondQueueEntry = enqueue.enqueueMessage(secondQueue, second);
+        enqueue.enqueueMessage(firstQueue, second);
+        enqueue.commitTran();
+
+        reopenStore();
+
+        final MessageStore.MessageStoreReader reader = getStore().newMessageStoreReader();
+        try
+        {
+            assertArrayEquals(firstContent, copyContent(reader.getMessage(first.getMessageNumber())));
+            assertArrayEquals(secondContent, copyContent(reader.getMessage(second.getMessageNumber())));
+            assertEquals(List.of(first.getMessageNumber(), second.getMessageNumber()),
+                    readQueueEntries(reader, firstQueue).stream()
+                            .map(MessageEnqueueRecord::getMessageNumber).toList());
+            assertEquals(List.of(second.getMessageNumber()),
+                    readQueueEntries(reader, secondQueue).stream()
+                            .map(MessageEnqueueRecord::getMessageNumber).toList());
+
+            final Transaction dequeue = getStore().newTransaction();
+            dequeue.dequeueMessage(firstEntry);
+            dequeue.dequeueMessage(secondQueueEntry);
+            dequeue.commitTran();
+
+            final List<MessageEnqueueRecord> remaining = new ArrayList<>();
+            reader.visitMessageInstances(remaining::add);
+            assertEquals(1, remaining.size());
+            assertEquals(firstQueue.getId(), remaining.get(0).getQueueId());
+            assertEquals(second.getMessageNumber(), remaining.get(0).getMessageNumber());
+        }
+        finally
+        {
+            reader.close();
+        }
+    }
+
+    @Test
+    public void testReuseMessageKeyAfterNestedMetadataLookup()
+    {
+        final MessageStore store = getStore();
+        final MessageStore.MessageStoreReader reader = store.newMessageStoreReader();
+        try
+        {
+            final TestMessageMetaData metaData = new TestMessageMetaData(0L, 0)
+            {
+                @Override
+                public void writeToBuffer(final QpidByteBuffer destination)
+                {
+                    assertNull(reader.getMessage(-1L));
+                    super.writeToBuffer(destination);
+                }
+            };
+            final StoredMessage<TestMessageMetaData> message = store.addMessage(metaData).allContentAdded();
+
+            assertTrue(message.flowToDisk());
+
+            assertNotNull(reader.getMessage(message.getMessageNumber()));
+            assertNull(reader.getMessage(-1L));
+        }
+        finally
+        {
+            reader.close();
+        }
+    }
+
+    private static void writeLegacyEntries(final EnvironmentFacade environment, final UUID queueId,
+                                           final long messageId)
+    {
+        final DatabaseEntry messageKey = new DatabaseEntry();
+        LongBinding.longToEntry(messageId, messageKey);
+        final TupleOutput deliveryKey = new TupleOutput();
+        deliveryKey.writeLong(queueId.getMostSignificantBits());
+        deliveryKey.writeLong(queueId.getLeastSignificantBits());
+        deliveryKey.writeLong(messageId);
+        final DatabaseEntry metaData = new DatabaseEntry();
+        MessageMetaDataBinding.getInstance()
+                .objectToEntry(new TestMessageMetaData(messageId, CONTENT_BYTES.length), metaData);
+
+        final com.sleepycat.je.Transaction transaction = environment.beginTransaction(null);
+        try
+        {
+            assertEquals(OperationStatus.SUCCESS,
+                    environment.openDatabase("MESSAGE_METADATA", BDBUtils.DEFAULT_DATABASE_CONFIG)
+                            .put(transaction, messageKey, metaData));
+            assertEquals(OperationStatus.SUCCESS,
+                    environment.openDatabase("MESSAGE_CONTENT", BDBUtils.DEFAULT_DATABASE_CONFIG)
+                            .put(transaction, messageKey, new DatabaseEntry(CONTENT_BYTES)));
+            assertEquals(OperationStatus.SUCCESS,
+                    environment.openDatabase("QUEUE_ENTRIES", BDBUtils.DEFAULT_DATABASE_CONFIG)
+                            .put(transaction, new DatabaseEntry(deliveryKey.toByteArray()),
+                                    new DatabaseEntry(new byte[0])));
+            transaction.commit();
+        }
+        finally
+        {
+            if (transaction.isValid())
+            {
+                transaction.abort();
+            }
+        }
+    }
+
+    private static TransactionLogResource createQueue(final UUID queueId)
+    {
+        final TransactionLogResource queue = mock(TransactionLogResource.class);
+        when(queue.getId()).thenReturn(queueId);
+        return queue;
+    }
+
+    private static List<MessageEnqueueRecord> readQueueEntries(final MessageStore.MessageStoreReader reader,
+                                                              final TransactionLogResource queue)
+    {
+        final List<MessageEnqueueRecord> records = new ArrayList<>();
+        reader.visitMessageInstances(queue, records::add);
+        return records;
+    }
+
+    private static byte[] copyContent(final StoredMessage<?> message)
+    {
+        assertNotNull(message);
+        try (final QpidByteBuffer content = message.getContent(0, message.getContentSize()))
+        {
+            final byte[] bytes = new byte[content.remaining()];
+            content.copyTo(bytes);
+            return bytes;
         }
     }
 

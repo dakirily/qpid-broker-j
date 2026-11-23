@@ -63,7 +63,6 @@ import org.apache.qpid.server.store.StoreException;
 import org.apache.qpid.server.store.StoredMessage;
 import org.apache.qpid.server.store.TransactionLogResource;
 import org.apache.qpid.server.store.berkeleydb.entry.PreparedTransaction;
-import org.apache.qpid.server.store.berkeleydb.entry.QueueEntryKey;
 import org.apache.qpid.server.store.berkeleydb.tuple.MessageMetaDataBinding;
 import org.apache.qpid.server.store.berkeleydb.tuple.PreparedTransactionBinding;
 import org.apache.qpid.server.store.berkeleydb.tuple.QueueEntryBinding;
@@ -90,6 +89,15 @@ public abstract class AbstractBDBMessageStore implements MessageStore
     private static final String BRIDGEDB_NAME = "BRIDGES";
     private static final String LINKDB_NAME = "LINKS";
     private static final String XID_DB_NAME = "XIDS";
+
+    // Use these entries only as inputs to synchronous JE operations. Keep cursor outputs local to each scan.
+    private static final ThreadLocal<DatabaseEntry> MESSAGE_ID_ENTRY =
+            ThreadLocal.withInitial(() -> new DatabaseEntry(new byte[Long.BYTES]));
+    private static final ThreadLocal<DatabaseEntry> QUEUE_ENTRY =
+            ThreadLocal.withInitial(() -> new DatabaseEntry(new byte[QueueEntryBinding.KEY_SIZE]));
+    private static final ThreadLocal<DatabaseEntry> ENQUEUE_RECORD_ENTRY =
+            ThreadLocal.withInitial(() -> new DatabaseEntry(new byte[0]));
+
     private final AtomicBoolean _messageStoreOpen = new AtomicBoolean();
 
     private final EventManager _eventManager = new EventManager();
@@ -288,6 +296,20 @@ public abstract class AbstractBDBMessageStore implements MessageStore
         return new BDBMessageStoreReader();
     }
 
+    private static DatabaseEntry messageIdKey(final long messageId)
+    {
+        final DatabaseEntry key = MESSAGE_ID_ENTRY.get();
+        QueueEntryBinding.writeMessageId(messageId, key);
+        return key;
+    }
+
+    private static DatabaseEntry queueEntryKey(final UUID queueId, final long messageId)
+    {
+        final DatabaseEntry key = QUEUE_ENTRY.get();
+        QueueEntryBinding.objectToEntry(queueId, messageId, key);
+        return key;
+    }
+
     /**
      * Retrieves message meta-data.
      *
@@ -297,26 +319,22 @@ public abstract class AbstractBDBMessageStore implements MessageStore
      *
      * @throws org.apache.qpid.server.store.StoreException If the operation fails for any reason, or if the specified message does not exist.
      */
-    StorableMessageMetaData getMessageMetaData(long messageId) throws StoreException
+    StorableMessageMetaData getMessageMetaData(final long messageId) throws StoreException
     {
         getLogger().debug("public MessageMetaData getMessageMetaData(Long messageId = {}): called", messageId);
 
-        DatabaseEntry key = new DatabaseEntry();
-        LongBinding.longToEntry(messageId, key);
-        DatabaseEntry value = new DatabaseEntry();
-        MessageMetaDataBinding messageBinding = MessageMetaDataBinding.getInstance();
+        final DatabaseEntry value = new DatabaseEntry();
 
         try
         {
-            OperationStatus status = getMessageMetaDataDb().get(null, key, value, LockMode.READ_UNCOMMITTED);
+            final OperationStatus status = getMessageMetaDataDb().get(null, messageIdKey(messageId), value,
+                    LockMode.READ_UNCOMMITTED);
             if (status != OperationStatus.SUCCESS)
             {
                 throw new StoreException("Metadata not found for message with id " + messageId);
             }
 
-            StorableMessageMetaData mdd = messageBinding.entryToObject(value);
-
-            return mdd;
+            return MessageMetaDataBinding.getInstance().entryToObject(value);
         }
         catch (RuntimeException e)
         {
@@ -327,7 +345,7 @@ public abstract class AbstractBDBMessageStore implements MessageStore
         }
     }
 
-    void removeMessage(long messageId) throws StoreException
+    void removeMessage(final long messageId) throws StoreException
     {
         boolean complete = false;
         Transaction tx = null;
@@ -341,14 +359,9 @@ public abstract class AbstractBDBMessageStore implements MessageStore
                 {
                     tx = getEnvironmentFacade().beginTransaction(null);
 
-                    //remove the message meta data from the store
-                    DatabaseEntry key = new DatabaseEntry();
-                    LongBinding.longToEntry(messageId, key);
-
                     getLogger().debug("Removing message id {}", messageId);
 
-
-                    OperationStatus status = getMessageMetaDataDb().delete(tx, key);
+                    final OperationStatus status = getMessageMetaDataDb().delete(tx, messageIdKey(messageId));
                     if (status == OperationStatus.NOTFOUND)
                     {
                         getLogger().debug("Message id {} not found (attempt to remove failed - probably application initiated rollback)",messageId);
@@ -356,10 +369,7 @@ public abstract class AbstractBDBMessageStore implements MessageStore
 
                     getLogger().debug("Deleted metadata for message {}", messageId);
 
-                    //now remove the content data from the store if there is any.
-                    DatabaseEntry contentKeyEntry = new DatabaseEntry();
-                    LongBinding.longToEntry(messageId, contentKeyEntry);
-                    getMessageContentDb().delete(tx, contentKeyEntry);
+                    getMessageContentDb().delete(tx, messageIdKey(messageId));
 
                     getLogger().debug("Deleted content for message {}", messageId);
 
@@ -428,17 +438,16 @@ public abstract class AbstractBDBMessageStore implements MessageStore
         }
     }
 
-    QpidByteBuffer getAllContent(long messageId) throws StoreException
+    QpidByteBuffer getAllContent(final long messageId) throws StoreException
     {
-        DatabaseEntry contentKeyEntry = new DatabaseEntry();
-        LongBinding.longToEntry(messageId, contentKeyEntry);
-        DatabaseEntry value = new DatabaseEntry();
+        final DatabaseEntry value = new DatabaseEntry();
 
         getLogger().debug("Message Id: {} Getting content body", messageId);
 
         try
         {
-            OperationStatus status = getMessageContentDb().get(null, contentKeyEntry, value, LockMode.READ_UNCOMMITTED);
+            final OperationStatus status = getMessageContentDb().get(null, messageIdKey(messageId), value,
+                    LockMode.READ_UNCOMMITTED);
 
             if (status == OperationStatus.SUCCESS)
             {
@@ -512,19 +521,16 @@ public abstract class AbstractBDBMessageStore implements MessageStore
         }
     }
 
-    private StoredBDBMessage<?> getMessageInternal(long messageId, EnvironmentFacade environmentFacade)
+    private StoredBDBMessage<?> getMessageInternal(final long messageId, final EnvironmentFacade environmentFacade)
     {
         try
         {
-            DatabaseEntry key = new DatabaseEntry();
-            DatabaseEntry value = new DatabaseEntry();
-            MessageMetaDataBinding valueBinding = MessageMetaDataBinding.getInstance();
-            LongBinding.longToEntry(messageId, key);
-            if(getMessageMetaDataDb().get(null, key, value, LockMode.READ_COMMITTED) == OperationStatus.SUCCESS)
+            final DatabaseEntry value = new DatabaseEntry();
+            if (getMessageMetaDataDb().get(null, messageIdKey(messageId), value, LockMode.READ_COMMITTED)
+                    == OperationStatus.SUCCESS)
             {
-                StorableMessageMetaData metaData = valueBinding.entryToObject(value);
-                StoredBDBMessage message = createStoredBDBMessage(messageId, metaData, true);
-                return message;
+                final StorableMessageMetaData metaData = MessageMetaDataBinding.getInstance().entryToObject(value);
+                return createStoredBDBMessage(messageId, metaData, true);
             }
             else
             {
@@ -547,18 +553,17 @@ public abstract class AbstractBDBMessageStore implements MessageStore
      *
      * @throws org.apache.qpid.server.store.StoreException If the operation fails for any reason, or if the specified message does not exist.
      */
-    private void addContent(final Transaction tx, long messageId, QpidByteBuffer contentBody) throws StoreException
+    private void addContent(final Transaction tx, final long messageId, final QpidByteBuffer contentBody)
+            throws StoreException
     {
-        DatabaseEntry key = new DatabaseEntry();
-        LongBinding.longToEntry(messageId, key);
-        DatabaseEntry value = new DatabaseEntry();
+        final DatabaseEntry value = new DatabaseEntry();
 
-        byte[] data = new byte[contentBody.remaining()];
+        final byte[] data = new byte[contentBody.remaining()];
         contentBody.copyTo(data);
         value.setData(data);
         try
         {
-            OperationStatus status = getMessageContentDb().put(tx, key, value);
+            final OperationStatus status = getMessageContentDb().put(tx, messageIdKey(messageId), value);
             if (status != OperationStatus.SUCCESS)
             {
                 throw new StoreException("Error adding content for message id " + messageId + ": " + status);
@@ -585,18 +590,14 @@ public abstract class AbstractBDBMessageStore implements MessageStore
      *
      * @throws org.apache.qpid.server.store.StoreException If the operation fails for any reason, or if the specified message does not exist.
      */
-    private void storeMetaData(final Transaction tx, long messageId, StorableMessageMetaData messageMetaData)
-            throws StoreException
+    private void storeMetaData(final Transaction tx, final long messageId,
+                               final StorableMessageMetaData messageMetaData) throws StoreException
     {
         getLogger().debug("storeMetaData called for transaction {}, messageId {}, messageMetaData {} ",
                 tx, messageId, messageMetaData);
 
-        DatabaseEntry key = new DatabaseEntry();
-        LongBinding.longToEntry(messageId, key);
-        DatabaseEntry value = new DatabaseEntry();
-
-        MessageMetaDataBinding messageBinding = MessageMetaDataBinding.getInstance();
-        messageBinding.objectToEntry(messageMetaData, value);
+        final DatabaseEntry value = new DatabaseEntry();
+        MessageMetaDataBinding.getInstance().objectToEntry(messageMetaData, value);
 
         boolean complete = false;
         int attempts = 0;
@@ -605,7 +606,7 @@ public abstract class AbstractBDBMessageStore implements MessageStore
         {
             try
             {
-                getMessageMetaDataDb().put(tx, key, value);
+                getMessageMetaDataDb().put(tx, messageIdKey(messageId), value);
                 getLogger().debug("Storing message metadata for message id {} in transaction {}", messageId, tx);
                 complete = true;
 
@@ -626,7 +627,6 @@ public abstract class AbstractBDBMessageStore implements MessageStore
     }
 
 
-    private static final byte[] ENQUEUE_RECORD_VALUE = new byte[] {};
     /**
      * Places a message onto a specified queue, in a given transaction.
      *
@@ -636,16 +636,9 @@ public abstract class AbstractBDBMessageStore implements MessageStore
      *
      * @throws org.apache.qpid.server.store.StoreException If the operation fails for any reason.
      */
-    private void enqueueMessage(final Transaction tx, final TransactionLogResource queue,
-                                long messageId) throws StoreException
+    private void enqueueMessage(final Transaction tx, final TransactionLogResource queue, final long messageId)
+            throws StoreException
     {
-
-        DatabaseEntry key = new DatabaseEntry();
-        QueueEntryKey queueEntryKey = new QueueEntryKey(queue.getId(), messageId);
-        QueueEntryBinding.objectToEntry(queueEntryKey, key);
-        DatabaseEntry value = new DatabaseEntry();
-        value.setData(ENQUEUE_RECORD_VALUE, 0, ENQUEUE_RECORD_VALUE.length);
-
         try
         {
             if (getLogger().isDebugEnabled())
@@ -653,7 +646,8 @@ public abstract class AbstractBDBMessageStore implements MessageStore
                 getLogger().debug("Enqueuing message {} on queue {} with id {} in transaction {}",
                                   messageId, queue.getName(), queue.getId(), tx);
             }
-            getDeliveryDb().put(tx, key, value);
+            final DatabaseEntry value = ENQUEUE_RECORD_ENTRY.get();
+            getDeliveryDb().put(tx, queueEntryKey(queue.getId(), messageId), value);
         }
         catch (RuntimeException e)
         {
@@ -680,31 +674,25 @@ public abstract class AbstractBDBMessageStore implements MessageStore
      *
      * @throws org.apache.qpid.server.store.StoreException If the operation fails for any reason, or if the specified message does not exist.
      */
-    private void dequeueMessage(final Transaction tx, final UUID queueId,
-                                long messageId) throws StoreException
+    private void dequeueMessage(final Transaction tx, final UUID queueId, final long messageId) throws StoreException
     {
-
-        DatabaseEntry key = new DatabaseEntry();
-        QueueEntryKey queueEntryKey = new QueueEntryKey(queueId, messageId);
-        UUID id = queueId;
-        QueueEntryBinding.objectToEntry(queueEntryKey, key);
-
-        getLogger().debug("Dequeue message id {} from queue with id {}", messageId, id);
+        getLogger().debug("Dequeue message id {} from queue with id {}", messageId, queueId);
 
         try
         {
-
-            OperationStatus status = getDeliveryDb().delete(tx, key);
+            final OperationStatus status = getDeliveryDb().delete(tx, queueEntryKey(queueId, messageId));
             if (status == OperationStatus.NOTFOUND)
             {
-                throw new StoreException("Unable to find message with id " + messageId + " on queue with id "  + id);
+                throw new StoreException("Unable to find message with id " + messageId +
+                        " on queue with id " + queueId);
             }
             else if (status != OperationStatus.SUCCESS)
             {
-                throw new StoreException("Unable to remove message with id " + messageId + " on queue with id " + id);
+                throw new StoreException("Unable to remove message with id " + messageId +
+                        " on queue with id " + queueId);
             }
 
-            getLogger().debug("Removed message {} on queue with id {}", messageId, id);
+            getLogger().debug("Removed message {} on queue with id {}", messageId, queueId);
 
         }
         catch (RuntimeException e)
@@ -1574,28 +1562,28 @@ public abstract class AbstractBDBMessageStore implements MessageStore
         }
 
         @Override
-        public void visitMessageInstances(final TransactionLogResource queue, final MessageInstanceHandler handler) throws StoreException
+        public void visitMessageInstances(final TransactionLogResource queue, final MessageInstanceHandler handler)
+                throws StoreException
         {
             checkMessageStoreOpen();
 
-            final List<QueueEntryKey> entries = new ArrayList<>();
-            try(Cursor cursor = getDeliveryDb().openCursor(null, null))
+            final List<BDBEnqueueRecord> entries = new ArrayList<>();
+            try (final Cursor cursor = getDeliveryDb().openCursor(null, null))
             {
-                DatabaseEntry key = new DatabaseEntry();
-                DatabaseEntry value = new DatabaseEntry();
+                final UUID queueId = queue.getId();
+                final DatabaseEntry key = new DatabaseEntry();
+                final DatabaseEntry value = new DatabaseEntry();
                 value.setPartial(0, 0, true);
 
-                CachingUUIDFactory uuidFactory = new CachingUUIDFactory();
-                QueueEntryBinding.objectToEntry(new QueueEntryKey(queue.getId(), 0L), key);
+                QueueEntryBinding.objectToEntry(queueId, 0L, key);
 
                 if (cursor.getSearchKeyRange(key, value, LockMode.READ_UNCOMMITTED) == OperationStatus.SUCCESS)
                 {
                     do
                     {
-                        QueueEntryKey entry = QueueEntryBinding.entryToObject(uuidFactory, key);
-                        if (entry.getQueueId().equals(queue.getId()))
+                        if (QueueEntryBinding.matchesQueueId(key, queueId))
                         {
-                            entries.add(entry);
+                            entries.add(new BDBEnqueueRecord(queueId, QueueEntryBinding.readMessageId(key)));
                         }
                         else
                         {
@@ -1610,11 +1598,9 @@ public abstract class AbstractBDBMessageStore implements MessageStore
                 throw getEnvironmentFacade().handleDatabaseException("Cannot visit message instances", e);
             }
 
-            for(QueueEntryKey entry : entries)
+            for (final BDBEnqueueRecord entry : entries)
             {
-                UUID queueId = entry.getQueueId();
-                long messageId = entry.getMessageId();
-                if (!handler.handle(new BDBEnqueueRecord(queueId, messageId)))
+                if (!handler.handle(entry))
                 {
                     break;
                 }
@@ -1629,18 +1615,17 @@ public abstract class AbstractBDBMessageStore implements MessageStore
         {
             checkMessageStoreOpen();
 
-            List<QueueEntryKey> entries = new ArrayList<>();
-            try(Cursor cursor = getDeliveryDb().openCursor(null, null))
+            final List<BDBEnqueueRecord> entries = new ArrayList<>();
+            try (final Cursor cursor = getDeliveryDb().openCursor(null, null))
             {
-                DatabaseEntry key = new DatabaseEntry();
-                CachingUUIDFactory uuidFactory = new CachingUUIDFactory();
+                final DatabaseEntry key = new DatabaseEntry();
+                final CachingUUIDFactory uuidFactory = new CachingUUIDFactory();
 
-                DatabaseEntry value = new DatabaseEntry();
+                final DatabaseEntry value = new DatabaseEntry();
                 value.setPartial(0, 0, true);
                 while (cursor.getNext(key, value, LockMode.READ_UNCOMMITTED) == OperationStatus.SUCCESS)
                 {
-                    QueueEntryKey entry = QueueEntryBinding.entryToObject(uuidFactory, key);
-                    entries.add(entry);
+                    entries.add(QueueEntryBinding.readIds(uuidFactory, key));
                 }
             }
             catch (RuntimeException e)
@@ -1648,11 +1633,9 @@ public abstract class AbstractBDBMessageStore implements MessageStore
                 throw getEnvironmentFacade().handleDatabaseException("Cannot visit message instances", e);
             }
 
-            for(QueueEntryKey entry : entries)
+            for (final BDBEnqueueRecord entry : entries)
             {
-                UUID queueId = entry.getQueueId();
-                long messageId = entry.getMessageId();
-                if (!handler.handle(new BDBEnqueueRecord(queueId, messageId)))
+                if (!handler.handle(entry))
                 {
                     break;
                 }
