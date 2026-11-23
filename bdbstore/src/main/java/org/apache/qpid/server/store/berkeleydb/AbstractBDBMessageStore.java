@@ -35,6 +35,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Supplier;
 
 import com.sleepycat.bind.tuple.LongBinding;
 import com.sleepycat.je.Cursor;
@@ -1007,8 +1008,9 @@ public abstract class AbstractBDBMessageStore implements MessageStore
             if (_metaData == null)
             {
                 checkMessageStoreOpen();
-                reattachIfDetached();
-                _metaData = (T) getMessageMetaData(_messageId);
+                _metaData = (T) (_detachedAfterFailedDelete ?
+                        reattachAndLoad(() -> getMessageMetaData(_messageId)) :
+                        getMessageMetaData(_messageId));
                 _stored = true;
                 _inMemorySize.addAndGet(getMetadataSize());
             }
@@ -1038,8 +1040,7 @@ public abstract class AbstractBDBMessageStore implements MessageStore
                 return;
             }
 
-            reattachIfDetached();
-            final QpidByteBuffer fragment = src.slice();
+            final QpidByteBuffer fragment = _detachedAfterFailedDelete ? reattachAndLoad(src::slice) : src.slice();
             if (_contentFragments == null)
             {
                 if (_data == null)
@@ -1079,8 +1080,9 @@ public abstract class AbstractBDBMessageStore implements MessageStore
             if (_data == null && _stored)
             {
                 checkMessageStoreOpen();
-                reattachIfDetached();
-                _data = AbstractBDBMessageStore.this.getAllContent(_messageId);
+                _data = _detachedAfterFailedDelete ?
+                        reattachAndLoad(() -> AbstractBDBMessageStore.this.getAllContent(_messageId)) :
+                        AbstractBDBMessageStore.this.getAllContent(_messageId);
                 accountContent(_data);
             }
             return _data == null ? QpidByteBuffer.emptyQpidByteBuffer() : _data;
@@ -1200,8 +1202,7 @@ public abstract class AbstractBDBMessageStore implements MessageStore
                         else
                         {
                             // A failed delete leaves the handle eligible for an explicit retry.
-                            _messages.remove(this);
-                            _detachedAfterFailedDelete = true;
+                            detach();
                             clearMessageData(true);
                         }
                     }
@@ -1218,23 +1219,31 @@ public abstract class AbstractBDBMessageStore implements MessageStore
             finishRemoval();
         }
 
-        private void reattachIfDetached()
+        private <P> P reattachAndLoad(final Supplier<P> loader)
         {
-            if (_detachedAfterFailedDelete)
+            // Register before loading payload so store close can find and clear the handle.
+            _messages.add(this);
+            _detachedAfterFailedDelete = false;
+            try
             {
-                // Register before loading payload so store close can find and clear the handle.
-                _messages.add(this);
-                try
-                {
-                    checkMessageStoreOpen();
-                }
-                catch (final IllegalStateException e)
-                {
-                    _messages.remove(this);
-                    throw e;
-                }
-                _detachedAfterFailedDelete = false;
+                checkMessageStoreOpen();
+                return loader.get();
             }
+            catch (final RuntimeException | Error failure)
+            {
+                // A reentrant call may have already populated a cache.
+                if (_metaData == null && _data == null && _contentFragments == null)
+                {
+                    detach();
+                }
+                throw failure;
+            }
+        }
+
+        private void detach()
+        {
+            _messages.remove(this);
+            _detachedAfterFailedDelete = true;
         }
 
         private void finishRemoval()

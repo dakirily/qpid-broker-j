@@ -31,6 +31,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.AdditionalAnswers.delegatesTo;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -325,8 +326,9 @@ class StoredBDBMessageTest extends UnitTestBase
         assertEquals(0L, _store.getInMemorySize());
     }
 
-    @Test
-    void testFailedDeleteReleasesPayloadAndCanBeRetried() throws Exception
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void testFailedDeleteReleasesPayloadAndCanBeRetried(final boolean listenerReadsMetadata) throws Exception
     {
         _store.closeMessageStore();
         when(_virtualHost.getContextKeys(false)).thenReturn(Set.of(EnvironmentConfig.LOCK_TIMEOUT));
@@ -392,10 +394,23 @@ class StoredBDBMessageTest extends UnitTestBase
         assertEquals(OperationStatus.SUCCESS, content.get(null, key, value, LockMode.READ_COMMITTED));
         assertEquals(OperationStatus.SUCCESS, metadataDb.get(null, key, value, LockMode.READ_COMMITTED));
 
+        doAnswer(invocation ->
+        {
+            if (listenerReadsMetadata)
+            {
+                assertThrows(StoreException.class, stored::getMetaData);
+            }
+            else
+            {
+                assertThrows(StoreException.class, () -> readContent(stored, 0));
+            }
+            return null;
+        }).when(listener).messageDeleted(stored);
         stored.remove();
         verify(listener).messageDeleted(stored);
         assertEquals(OperationStatus.NOTFOUND, content.get(null, key, value, LockMode.READ_COMMITTED));
         assertEquals(OperationStatus.NOTFOUND, metadataDb.get(null, key, value, LockMode.READ_COMMITTED));
+        assertFalse(tracked.contains(stored));
         assertEquals(0L, _store.getInMemorySize());
     }
 
@@ -418,13 +433,32 @@ class StoredBDBMessageTest extends UnitTestBase
         final Set<?> tracked = getTrackedMessages();
         assertFalse(tracked.contains(stored));
 
+        final StoreException readFailure = new StoreException("Reload failed");
+        final long messageId = stored.getMessageNumber();
+        if (reloadMetadata)
+        {
+            doThrow(readFailure).doCallRealMethod().when(_store).getMessageMetaData(messageId);
+            assertSame(readFailure, assertThrows(StoreException.class, stored::getMetaData));
+        }
+        else
+        {
+            doThrow(readFailure).doCallRealMethod().when(_store).getAllContent(messageId);
+            assertSame(readFailure, assertThrows(StoreException.class, () -> readContent(stored, 0)));
+        }
+        assertFalse(tracked.contains(stored));
+        assertEquals(0L, _store.getInMemorySize());
+
         if (reloadMetadata)
         {
             assertNotNull(stored.getMetaData());
+            doThrow(readFailure).when(_store).getAllContent(messageId);
+            assertSame(readFailure, assertThrows(StoreException.class, () -> readContent(stored, 0)));
         }
         else
         {
             assertArrayEquals(content, readContent(stored, 0));
+            doThrow(readFailure).when(_store).getMessageMetaData(messageId);
+            assertSame(readFailure, assertThrows(StoreException.class, stored::getMetaData));
         }
         assertTrue(tracked.contains(stored));
         assertEquals(reloadMetadata ? stored.getMetadataSize() : content.length, _store.getInMemorySize());
