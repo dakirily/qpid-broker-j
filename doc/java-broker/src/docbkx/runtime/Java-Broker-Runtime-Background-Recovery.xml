@@ -26,6 +26,9 @@
     queues and their messages from disk. In the Broker's default mode the Virtualhosts do not become
     active until this recovery process completes. If queues have a large number of entries, this may
     take considerable time. During this time no messaging can be performed.</para>
+  <para>For synchronous recovery of a BDB-backed virtual host, the
+    <link linkend="Java-Broker-Management-Managing-Virtualhost-BDB-Recovery-Snapshot">BDB recovery snapshot limit</link>
+    controls how many delivery records can be buffered in memory before the broker rereads the rest.</para>
   <para>The Broker has a background recovery feature allows the system to return to operation
     sooner. If enabled the recovery process takes place in the background allow producers and
     consumers to begin work earlier.</para>

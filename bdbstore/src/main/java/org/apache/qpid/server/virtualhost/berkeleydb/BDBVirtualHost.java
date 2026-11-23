@@ -39,6 +39,7 @@ public interface BDBVirtualHost<X extends BDBVirtualHost<X>> extends QueueManagi
     String QPID_BROKER_BDB_TOTAL_CACHE_SIZE = "qpid.broker.bdbTotalCacheSize";
     String QPID_BROKER_BDB_COMMITER_NOTIFY_THRESHOLD = "qpid.broker.bdbCommiterNotifyThreshold";
     String QPID_BROKER_BDB_COMMITER_WAIT_TIMEOUT = "qpid.broker.bdbCommiterWaitTimeout";
+    String QPID_BROKER_BDB_RECOVERY_SNAPSHOT_MAX_BYTES = "qpid.broker.bdbRecoverySnapshotMaxBytes";
 
     // Default the JE cache to 5% of total memory, but no less than 10Mb
     @ManagedContextDefault(name= QPID_BROKER_BDB_TOTAL_CACHE_SIZE)
@@ -51,6 +52,10 @@ public interface BDBVirtualHost<X extends BDBVirtualHost<X>> extends QueueManagi
     @SuppressWarnings("unused")
     @ManagedContextDefault(name = QPID_BROKER_BDB_COMMITER_WAIT_TIMEOUT, description = "Timeout for BDB log flush to the disk")
     long DEFAULT_QPID_BROKER_BDB_COMMITER_WAIT_TIMEOUT = 500L;
+
+    @ManagedContextDefault(name = QPID_BROKER_BDB_RECOVERY_SNAPSHOT_MAX_BYTES,
+                           description = "Maximum bytes of snapshot buffer storage during synchronous BDB recovery")
+    long DEFAULT_BDB_RECOVERY_SNAPSHOT_MAX_BYTES = 8 * 1024 * 1024L;
 
     @Override
     @ManagedAttribute(mandatory = true, defaultValue = "${qpid.work_dir}${file.separator}${this:name}${file.separator}messages")

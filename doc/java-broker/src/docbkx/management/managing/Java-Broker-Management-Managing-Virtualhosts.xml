@@ -62,6 +62,18 @@
           <para><emphasis>use_async_message_store_recovery</emphasis> Controls the <link linkend="Java-Broker-Runtime-Background-Recovery">background recovery</link>
             feature.</para>
         </listitem>
+        <listitem xml:id="Java-Broker-Management-Managing-Virtualhost-BDB-Recovery-Snapshot">
+          <para><literal>qpid.broker.bdbRecoverySnapshotMaxBytes</literal> limits the heap buffer space
+            used for the delivery snapshot during synchronous recovery of a BDB-backed virtual host.
+            The default is <literal>8388608</literal> bytes (8 MiB). Set a whole number of bytes from
+            <literal>8192</literal> through <literal>17592186036224</literal>. The broker rounds the
+            limit down to a multiple of 8 KiB and allocates snapshot buffers as needed.</para>
+          <para>Set the variable in the virtual host context to apply it on the next synchronous recovery.
+            For a 64 MiB limit, use <literal>67108864</literal>. The broker rereads delivery records that
+            exceed the snapshot limit in pages. Increasing the limit can reduce these rereads on a large
+            backlog. When several virtual hosts recover concurrently, budget heap space for their combined
+            snapshot limits.</para>
+        </listitem>
       </itemizedlist>
     </para>
   </section>

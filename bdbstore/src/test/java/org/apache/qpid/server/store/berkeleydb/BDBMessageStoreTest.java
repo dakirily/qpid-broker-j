@@ -20,6 +20,7 @@
  */
 package org.apache.qpid.server.store.berkeleydb;
 
+import static org.apache.qpid.server.virtualhost.berkeleydb.BDBVirtualHost.QPID_BROKER_BDB_RECOVERY_SNAPSHOT_MAX_BYTES;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -46,6 +47,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.LongStream;
@@ -66,6 +68,7 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import org.apache.qpid.server.bytebuffer.QpidByteBuffer;
+import org.apache.qpid.server.configuration.IllegalConfigurationException;
 import org.apache.qpid.server.message.AMQMessageHeader;
 import org.apache.qpid.server.message.internal.InternalMessage;
 import org.apache.qpid.server.message.internal.InternalMessageMetaData;
@@ -87,7 +90,6 @@ import org.apache.qpid.server.store.StoredMessage;
 import org.apache.qpid.server.store.TestMessageMetaData;
 import org.apache.qpid.server.store.Transaction;
 import org.apache.qpid.server.store.TransactionLogResource;
-import org.apache.qpid.server.store.berkeleydb.AbstractBDBMessageStore.BDBMessageStoreReader;
 import org.apache.qpid.server.store.berkeleydb.tuple.MessageMetaDataBinding;
 import org.apache.qpid.server.store.berkeleydb.tuple.QueueEntryBinding;
 import org.apache.qpid.server.util.ConnectionScopedRuntimeException;
@@ -102,6 +104,7 @@ import org.apache.qpid.test.utils.VirtualHostNodeStoreType;
 public class BDBMessageStoreTest extends MessageStoreTestCase
 {
     private static final byte[] CONTENT_BYTES = new byte[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+    private static final long SNAPSHOT_BLOCK_BYTES = 8 * 1024L;
     // An 8 KiB block stores one header with the first ID, followed by one-byte deltas.
     private static final int SINGLE_BLOCK_DELIVERIES = 8 * 1024 - 3 * Long.BYTES - Integer.BYTES + 1;
 
@@ -575,9 +578,11 @@ public class BDBMessageStoreTest extends MessageStoreTestCase
             return OperationStatus.SUCCESS;
         });
 
+        final BDBVirtualHost<?> virtualHost = mock(BDBVirtualHost.class);
+        setRecoverySnapshotMaxBytes(virtualHost, 2 * SNAPSHOT_BLOCK_BYTES);
         final BDBMessageStore store = new BDBMessageStore(parent -> environment);
-        store.openMessageStore(mock(BDBVirtualHost.class));
-        final BDBMessageStoreReader reader = (BDBMessageStoreReader) store.newMessageStoreReader();
+        store.openMessageStore(virtualHost);
+        final MessageStore.MessageStoreReader reader = store.newMessageStoreReader();
         final List<MessageEnqueueRecord> visited = new ArrayList<>();
         try
         {
@@ -588,7 +593,7 @@ public class BDBMessageStoreTest extends MessageStoreTestCase
                     verify(cursor).close();
                 }
                 return visited.add(record);
-            }, 2);
+            });
         }
         finally
         {
@@ -664,8 +669,9 @@ public class BDBMessageStoreTest extends MessageStoreTestCase
         final long firstId = -500L;
         writeDeliveryRange(queueId, firstId, count);
         reopenStore();
+        setRecoverySnapshotMaxBytes(getVirtualHost(), SNAPSHOT_BLOCK_BYTES);
 
-        final BDBMessageStoreReader reader = (BDBMessageStoreReader) getStore().newMessageStoreReader();
+        final MessageStore.MessageStoreReader reader = getStore().newMessageStoreReader();
         try
         {
             final List<Long> visited = new ArrayList<>();
@@ -674,7 +680,7 @@ public class BDBMessageStoreTest extends MessageStoreTestCase
                 assertTrue(visited.size() < count);
                 assertEquals(queueId, record.getQueueId());
                 return visited.add(record.getMessageNumber());
-            }, 1);
+            });
             assertEquals(LongStream.range(firstId, firstId + count).boxed().toList(), visited);
         }
         finally
@@ -684,8 +690,8 @@ public class BDBMessageStoreTest extends MessageStoreTestCase
     }
 
     @ParameterizedTest
-    @CsvSource({"1, false", "2, true"})
-    void testRecoveryVisitorResumesWhenCallbacksDeleteDeliveryKeys(final int blockLimit,
+    @CsvSource({"8192, false", "16383, false", "16384, true", "67108864, true"})
+    void testRecoveryVisitorResumesWhenCallbacksDeleteDeliveryKeys(final long snapshotMaxBytes,
                                                                   final boolean laterKeyWasBuffered)
     {
         final UUID queueId = new UUID(0L, 1L);
@@ -695,8 +701,9 @@ public class BDBMessageStoreTest extends MessageStoreTestCase
         final int count = SINGLE_BLOCK_DELIVERIES + 1002;
         writeDeliveryRange(queueId, 1L, count);
         reopenStore();
+        setRecoverySnapshotMaxBytes(getVirtualHost(), snapshotMaxBytes);
 
-        final BDBMessageStoreReader reader = (BDBMessageStoreReader) getStore().newMessageStoreReader();
+        final MessageStore.MessageStoreReader reader = getStore().newMessageStoreReader();
         try
         {
             final List<Long> visited = new ArrayList<>();
@@ -719,7 +726,7 @@ public class BDBMessageStoreTest extends MessageStoreTestCase
                     transaction.commitTran();
                 }
                 return true;
-            }, blockLimit);
+            });
             // A buffered delivery has the same snapshot semantics as the legacy bulk reader.
             final List<Long> expected = LongStream.rangeClosed(1L, count)
                     .filter(messageId -> laterKeyWasBuffered || messageId != removedFromNextPage).boxed().toList();
@@ -744,8 +751,9 @@ public class BDBMessageStoreTest extends MessageStoreTestCase
                           legacyDeliveryKey(queueId, SINGLE_BLOCK_DELIVERIES + 1L),
                           legacyDeliveryKey(new UUID(0L, 2L), Long.MIN_VALUE));
         reopenStore();
+        setRecoverySnapshotMaxBytes(getVirtualHost(), SNAPSHOT_BLOCK_BYTES);
 
-        final BDBMessageStoreReader reader = (BDBMessageStoreReader) getStore().newMessageStoreReader();
+        final MessageStore.MessageStoreReader reader = getStore().newMessageStoreReader();
         try
         {
             final List<MessageEnqueueRecord> legacy = new ArrayList<>();
@@ -755,7 +763,7 @@ public class BDBMessageStoreTest extends MessageStoreTestCase
             {
                 assertTrue(paged.size() < legacy.size());
                 return paged.add(record);
-            }, 1);
+            });
             assertEquals(SINGLE_BLOCK_DELIVERIES + 3, legacy.size());
             assertEquals(legacy.stream().map(MessageEnqueueRecord::getMessageNumber).toList(),
                          paged.stream().map(MessageEnqueueRecord::getMessageNumber).toList());
@@ -779,8 +787,9 @@ public class BDBMessageStoreTest extends MessageStoreTestCase
         final DatabaseEntry corrupt = legacyDeliveryKey(queueId, Long.MAX_VALUE);
         corrupt.setSize(QueueEntryBinding.KEY_SIZE - 1);
         writeDeliveryKeys(corrupt);
+        setRecoverySnapshotMaxBytes(getVirtualHost(), blockLimit * SNAPSHOT_BLOCK_BYTES);
 
-        final BDBMessageStoreReader reader = (BDBMessageStoreReader) getStore().newMessageStoreReader();
+        final MessageStore.MessageStoreReader reader = getStore().newMessageStoreReader();
         try
         {
             final List<MessageEnqueueRecord> visited = new ArrayList<>();
@@ -789,9 +798,27 @@ public class BDBMessageStoreTest extends MessageStoreTestCase
                     {
                         visited.add(record);
                         return false;
-                    }, blockLimit));
+                    }));
             assertTrue(failure.getCause() instanceof IllegalArgumentException);
             assertTrue(visited.isEmpty());
+        }
+        finally
+        {
+            reader.close();
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(longs = {-1, 0, SNAPSHOT_BLOCK_BYTES - 1, Long.MAX_VALUE})
+    void testRecoveryVisitorRejectsOutOfRangeSnapshotMaxBytes(final long snapshotMaxBytes)
+    {
+        setRecoverySnapshotMaxBytes(getVirtualHost(), snapshotMaxBytes);
+        final MessageStore.MessageStoreReader reader = getStore().newMessageStoreReader();
+        try
+        {
+            final IllegalConfigurationException failure = assertThrows(IllegalConfigurationException.class,
+                    () -> reader.visitMessageInstancesForRecovery(record -> true));
+            assertTrue(failure.getMessage().contains(QPID_BROKER_BDB_RECOVERY_SNAPSHOT_MAX_BYTES));
         }
         finally
         {
@@ -892,6 +919,13 @@ public class BDBMessageStoreTest extends MessageStoreTestCase
             reader.close();
             store.closeMessageStore();
         }
+    }
+
+    private void setRecoverySnapshotMaxBytes(final ConfiguredObject<?> virtualHost, final long snapshotMaxBytes)
+    {
+        when(virtualHost.getContextKeys(false)).thenReturn(Set.of(QPID_BROKER_BDB_RECOVERY_SNAPSHOT_MAX_BYTES));
+        when(virtualHost.getContextValue(Long.class, QPID_BROKER_BDB_RECOVERY_SNAPSHOT_MAX_BYTES))
+                .thenReturn(snapshotMaxBytes);
     }
 
     private void writeDeliveryRange(final UUID queueId, final long firstMessageId, final int count)
