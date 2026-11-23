@@ -595,34 +595,35 @@ public abstract class AbstractBDBMessageStore implements MessageStore
         getLogger().debug("storeMetaData called for transaction {}, messageId {}, messageMetaData {} ",
                 tx, messageId, messageMetaData);
 
-        final DatabaseEntry value = new DatabaseEntry();
-        MessageMetaDataBinding.getInstance().objectToEntry(messageMetaData, value);
-
-        boolean complete = false;
-        int attempts = 0;
-
-        do
+        try (final BDBWriteBuffer buffer = BDBWriteBuffer.acquire())
         {
-            try
-            {
-                getMessageMetaDataDb().put(tx, messageIdKey(messageId), value);
-                getLogger().debug("Storing message metadata for message id {} in transaction {}", messageId, tx);
-                complete = true;
+            final MessageMetaDataBinding binding = MessageMetaDataBinding.getInstance();
+            buffer.prepare(messageId, binding.getEntrySize(messageMetaData));
+            binding.writeToEntry(messageMetaData, buffer.getValue());
 
-            }
-            catch (LockConflictException e)
+            boolean complete = false;
+            int attempts = 0;
+            do
             {
-                sleepOrThrowOnLockConflict(attempts++, "Cannot store metadata", e);
+                try
+                {
+                    getMessageMetaDataDb().put(tx, buffer.getKey(), buffer.getValue());
+                    getLogger().debug("Storing message metadata for message id {} in transaction {}", messageId, tx);
+                    complete = true;
+                }
+                catch (final LockConflictException e)
+                {
+                    sleepOrThrowOnLockConflict(attempts++, "Cannot store metadata", e);
+                }
+                catch (final RuntimeException e)
+                {
+                    throw getEnvironmentFacade().handleDatabaseException(
+                            "Error writing message metadata with id " + messageId + " to database: " + e.getMessage(),
+                            e);
+                }
             }
-            catch (RuntimeException e)
-            {
-                throw getEnvironmentFacade().handleDatabaseException("Error writing message metadata with id "
-                        + messageId
-                        + " to database: "
-                        + e.getMessage(), e);
-            }
+            while (!complete);
         }
-        while(!complete);
     }
 
 

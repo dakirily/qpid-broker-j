@@ -23,6 +23,8 @@ package org.apache.qpid.server.store.berkeleydb;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
@@ -30,6 +32,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -38,6 +41,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import com.sleepycat.bind.tuple.LongBinding;
 import com.sleepycat.je.Database;
@@ -46,6 +50,7 @@ import com.sleepycat.je.DatabaseEntry;
 import com.sleepycat.je.Environment;
 import com.sleepycat.je.EnvironmentConfig;
 import com.sleepycat.je.LockMode;
+import com.sleepycat.je.LockTimeoutException;
 import com.sleepycat.je.OperationStatus;
 import com.sleepycat.je.Transaction;
 import org.junit.jupiter.api.AfterEach;
@@ -55,6 +60,7 @@ import org.junit.jupiter.api.io.TempDir;
 import org.apache.qpid.server.bytebuffer.QpidByteBuffer;
 import org.apache.qpid.server.message.internal.InternalMessageMetaData;
 import org.apache.qpid.server.store.berkeleydb.AbstractBDBMessageStore.StoredBDBMessage;
+import org.apache.qpid.server.store.berkeleydb.tuple.MessageMetaDataBinding;
 import org.apache.qpid.server.virtualhost.berkeleydb.BDBVirtualHost;
 import org.apache.qpid.test.utils.UnitTestBase;
 
@@ -62,6 +68,7 @@ class BDBMessageStoreWriteBufferTest extends UnitTestBase
 {
     private static final String CONTENT_DATABASE_NAME = "MESSAGE_CONTENT";
     private static final String METADATA_DATABASE_NAME = "MESSAGE_METADATA";
+    private static final int METADATA_HEADER_SIZE = Integer.BYTES + Byte.BYTES;
 
     private BDBMessageStore _store;
 
@@ -75,12 +82,17 @@ class BDBMessageStoreWriteBufferTest extends UnitTestBase
     }
 
     @Test
-    void testJeCopiesReusedBodiesBeforeCommit(@TempDir final Path directory)
+    void testJeCopiesReusedBodiesAndMetadataBeforeCommit(@TempDir final Path directory)
     {
         final int capacity = BDBWriteBuffer.MAX_RETAINED_CAPACITY;
         final List<byte[]> bodies = List.of(bytes(capacity, (byte) 11), bytes(capacity - 1, (byte) 12),
                                             new byte[] {4, 5, 6}, new byte[0], bytes(capacity + 1, (byte) 13),
                                             new byte[] {7, 8});
+        final int metadataCapacity = capacity - METADATA_HEADER_SIZE;
+        final List<byte[]> payloads = List.of(bytes(metadataCapacity, (byte) 21),
+                bytes(metadataCapacity - 1, (byte) 22), new byte[] {9, 10}, new byte[0],
+                bytes(metadataCapacity + 1, (byte) 23), new byte[] {6});
+        final List<byte[]> metadataEntries = new ArrayList<>();
         final EnvironmentConfig environmentConfig = new EnvironmentConfig().setAllowCreate(true).setTransactional(true);
         environmentConfig.setCacheSize(8 * 1024 * 1024);
         final DatabaseConfig databaseConfig = new DatabaseConfig().setAllowCreate(true).setTransactional(true);
@@ -94,7 +106,12 @@ class BDBMessageStoreWriteBufferTest extends UnitTestBase
             {
                 for (int index = 0; index < bodies.size(); index++)
                 {
-                    writeBody(transaction, index + 1L, bodies.get(index));
+                    final byte[] body = bodies.get(index);
+                    final TestMetaData fixture = new TestMetaData(body.length, payloads.get(index));
+                    final DatabaseEntry ordinary = new DatabaseEntry();
+                    MessageMetaDataBinding.getInstance().objectToEntry(fixture, ordinary);
+                    metadataEntries.add(entryBytes(ordinary));
+                    writeMessage(transaction, index + 1L, fixture, body);
                 }
                 // Reuse the same buffer while all of the previous writes are still uncommitted.
                 try (final BDBWriteBuffer buffer = BDBWriteBuffer.acquire())
@@ -116,11 +133,13 @@ class BDBMessageStoreWriteBufferTest extends UnitTestBase
         environmentConfig.setAllowCreate(false);
         databaseConfig.setAllowCreate(false);
         try (final Environment environment = new Environment(directory.toFile(), environmentConfig);
+             final Database metadata = environment.openDatabase(null, METADATA_DATABASE_NAME, databaseConfig);
              final Database content = environment.openDatabase(null, CONTENT_DATABASE_NAME, databaseConfig))
         {
             for (int index = 0; index < bodies.size(); index++)
             {
-                assertArrayEquals(bodies.get(index), readBody(content, index + 1L));
+                assertArrayEquals(bodies.get(index), readValue(content, index + 1L));
+                assertArrayEquals(metadataEntries.get(index), readValue(metadata, index + 1L));
             }
         }
     }
@@ -160,6 +179,148 @@ class BDBMessageStoreWriteBufferTest extends UnitTestBase
     }
 
     @Test
+    void testNestedMetadataSerializationKeepsOuterKeyAndPayload()
+    {
+        final Database metadata = mock(Database.class);
+        final Database content = mock(Database.class);
+        openStore(metadata, content);
+        final Transaction transaction = mock(Transaction.class);
+        when(content.put(same(transaction), any(), any())).thenReturn(OperationStatus.SUCCESS);
+        final List<MetadataWrite> writes = new ArrayList<>();
+        when(metadata.put(same(transaction), any(), any())).thenAnswer(invocation ->
+        {
+            writes.add(captureMetadata(invocation.getArgument(1), invocation.getArgument(2)));
+            return OperationStatus.SUCCESS;
+        });
+        final TestMetaData outer = new TestMetaData(1, new byte[] {1, 2})
+        {
+            @Override
+            public void writeToBuffer(final QpidByteBuffer destination)
+            {
+                destination.put((byte) 1);
+                writeMessage(transaction, 20L, new TestMetaData(1, new byte[] {3, 4}), new byte[] {5});
+                destination.put((byte) 2);
+            }
+        };
+
+        writeMessage(transaction, 10L, outer, new byte[] {6});
+
+        assertEquals(List.of(20L, 10L), writes.stream().map(MetadataWrite::messageId).toList());
+        assertNotSame(writes.get(0).array(), writes.get(1).array());
+        assertArrayEquals(new byte[] {3, 4}, metadataPayload(writes.get(0)));
+        assertArrayEquals(new byte[] {1, 2}, metadataPayload(writes.get(1)));
+    }
+
+    @Test
+    void testRetryKeepsBorrowedMetadataWhileNestedWritesComplete()
+    {
+        final Database metadata = mock(Database.class);
+        final Database content = mock(Database.class);
+        openStore(metadata, content);
+        final Transaction transaction = mock(Transaction.class);
+        when(content.put(same(transaction), any(), any())).thenReturn(OperationStatus.SUCCESS);
+        final AtomicInteger outerAttempts = new AtomicInteger();
+        final List<MetadataWrite> writes = new ArrayList<>();
+        when(metadata.put(same(transaction), any(), any())).thenAnswer(invocation ->
+        {
+            final DatabaseEntry key = invocation.getArgument(1);
+            final DatabaseEntry value = invocation.getArgument(2);
+            final MetadataWrite write = captureMetadata(key, value);
+            writes.add(write);
+            if (write.messageId() == 10L && outerAttempts.getAndIncrement() == 0)
+            {
+                writeMessage(transaction, 20L, new TestMetaData(1, new byte[] {9}), new byte[] {8});
+                assertEquals(10L, LongBinding.entryToLong(key));
+                assertArrayEquals(write.bytes(), entryBytes(value));
+                throw mock(LockTimeoutException.class);
+            }
+            return OperationStatus.SUCCESS;
+        });
+        final AtomicInteger serializations = new AtomicInteger();
+        final TestMetaData outer = new TestMetaData(1, new byte[] {1, 2})
+        {
+            @Override
+            public void writeToBuffer(final QpidByteBuffer destination)
+            {
+                serializations.incrementAndGet();
+                super.writeToBuffer(destination);
+            }
+        };
+
+        writeMessage(transaction, 10L, outer, new byte[] {3});
+
+        assertEquals(1, serializations.get());
+        assertEquals(List.of(10L, 20L, 10L), writes.stream().map(MetadataWrite::messageId).toList());
+        final MetadataWrite first = writes.get(0);
+        final MetadataWrite retry = writes.get(2);
+        assertSame(first.entry(), retry.entry());
+        assertSame(first.array(), retry.array());
+        assertNotSame(first.array(), writes.get(1).array());
+        assertArrayEquals(first.bytes(), retry.bytes());
+        assertArrayEquals(new byte[] {1, 2}, metadataPayload(retry));
+    }
+
+    @Test
+    void testOversizedMetadataSerializationFailureReleasesBuffer()
+    {
+        final Database metadata = mock(Database.class);
+        openStore(metadata, mock(Database.class));
+        final Transaction transaction = mock(Transaction.class);
+        final BDBWriteBuffer cached = cachedWriteBuffer();
+        final IllegalStateException failure = new IllegalStateException("Synthetic serialization failure");
+        final int payloadSize = BDBWriteBuffer.MAX_RETAINED_CAPACITY;
+        final TestMetaData fixture = new TestMetaData(0, new byte[payloadSize])
+        {
+            @Override
+            public void writeToBuffer(final QpidByteBuffer destination)
+            {
+                assertEquals(payloadSize + METADATA_HEADER_SIZE, cached.getValue().getSize());
+                throw failure;
+            }
+        };
+
+        assertSame(failure, assertThrows(IllegalStateException.class, () ->
+                writeMessage(transaction, 10L, fixture, new byte[0])));
+        verify(metadata, never()).put(any(), any(), any());
+        assertWriteBufferReleased(cached);
+    }
+
+    @Test
+    void testOversizedMetadataPutFailureReleasesBufferForNextWrite()
+    {
+        final Database metadata = mock(Database.class);
+        final Database content = mock(Database.class);
+        openStore(metadata, content);
+        final Transaction failedTransaction = mock(Transaction.class);
+        final Transaction nextTransaction = mock(Transaction.class);
+        final BDBWriteBuffer cached = cachedWriteBuffer();
+        final IllegalStateException failure = new IllegalStateException("Synthetic metadata put failure");
+        final byte[] oversized = bytes(BDBWriteBuffer.MAX_RETAINED_CAPACITY, (byte) 7);
+        when(metadata.put(same(failedTransaction), any(), any())).thenAnswer(invocation ->
+        {
+            final MetadataWrite write = captureMetadata(invocation.getArgument(1), invocation.getArgument(2));
+            assertSame(cached.getValue(), write.entry());
+            assertArrayEquals(oversized, metadataPayload(write));
+            throw failure;
+        });
+        when(metadata.put(same(nextTransaction), any(), any())).thenAnswer(invocation ->
+        {
+            final MetadataWrite write = captureMetadata(invocation.getArgument(1), invocation.getArgument(2));
+            assertEquals(20L, write.messageId());
+            assertSame(cached.getValue(), write.entry());
+            assertArrayEquals(new byte[] {9}, metadataPayload(write));
+            return OperationStatus.SUCCESS;
+        });
+        when(content.put(same(nextTransaction), any(), any())).thenReturn(OperationStatus.SUCCESS);
+
+        assertSame(failure, assertThrows(IllegalStateException.class, () ->
+                writeMessage(failedTransaction, 10L, new TestMetaData(0, oversized), new byte[0])));
+        assertWriteBufferReleased(cached);
+        writeMessage(nextTransaction, 20L, new TestMetaData(1, new byte[] {9}), new byte[] {8});
+        verify(metadata).put(same(nextTransaction), any(), any());
+    }
+
+    @Test
     void testFailedOversizedContentPutReleasesBufferForRetry()
     {
         final Database content = mock(Database.class);
@@ -167,11 +328,7 @@ class BDBMessageStoreWriteBufferTest extends UnitTestBase
         final Transaction failedTransaction = mock(Transaction.class);
         final Transaction retryTransaction = mock(Transaction.class);
         final byte[] body = bytes(BDBWriteBuffer.MAX_RETAINED_CAPACITY + 1, (byte) 14);
-        final BDBWriteBuffer cached;
-        try (final BDBWriteBuffer buffer = BDBWriteBuffer.acquire())
-        {
-            cached = buffer;
-        }
+        final BDBWriteBuffer cached = cachedWriteBuffer();
         final RuntimeException writeFailure = new IllegalStateException("Synthetic content put failure");
         doAnswer(invocation ->
         {
@@ -189,15 +346,12 @@ class BDBMessageStoreWriteBufferTest extends UnitTestBase
             return OperationStatus.SUCCESS;
         });
 
-        final StoredBDBMessage<InternalMessageMetaData> message = createMessage(10L, body);
+        final InternalMessageMetaData metadata = new InternalMessageMetaData(true, null, body.length);
+        final StoredBDBMessage<InternalMessageMetaData> message = createMessage(10L, metadata, body);
         try
         {
             assertSame(writeFailure, assertThrows(RuntimeException.class, () -> message.store(failedTransaction)));
-            try (final BDBWriteBuffer buffer = BDBWriteBuffer.acquire())
-            {
-                assertSame(cached, buffer);
-                assertEquals(0, buffer.getValue().getData().length);
-            }
+            assertWriteBufferReleased(cached);
             message.store(retryTransaction);
             verify(content).put(same(retryTransaction), any(), any());
         }
@@ -222,7 +376,13 @@ class BDBMessageStoreWriteBufferTest extends UnitTestBase
 
     private void writeBody(final Transaction transaction, final long messageId, final byte[] body)
     {
-        final StoredBDBMessage<InternalMessageMetaData> message = createMessage(messageId, body);
+        writeMessage(transaction, messageId, new InternalMessageMetaData(true, null, body.length), body);
+    }
+
+    private void writeMessage(final Transaction transaction, final long messageId,
+                              final InternalMessageMetaData metadata, final byte[] body)
+    {
+        final StoredBDBMessage<InternalMessageMetaData> message = createMessage(messageId, metadata, body);
         try
         {
             message.store(transaction);
@@ -233,9 +393,10 @@ class BDBMessageStoreWriteBufferTest extends UnitTestBase
         }
     }
 
-    private StoredBDBMessage<InternalMessageMetaData> createMessage(final long messageId, final byte[] body)
+    private StoredBDBMessage<InternalMessageMetaData> createMessage(final long messageId,
+                                                                  final InternalMessageMetaData metadata,
+                                                                  final byte[] body)
     {
-        final InternalMessageMetaData metadata = new InternalMessageMetaData(true, null, body.length);
         final StoredBDBMessage<InternalMessageMetaData> message = _store.new StoredBDBMessage<>(messageId, metadata,
                                                                                                false);
         try (final QpidByteBuffer input = QpidByteBuffer.wrap(body))
@@ -246,7 +407,7 @@ class BDBMessageStoreWriteBufferTest extends UnitTestBase
         return message;
     }
 
-    private byte[] readBody(final Database database, final long messageId)
+    private byte[] readValue(final Database database, final long messageId)
     {
         final DatabaseEntry key = new DatabaseEntry();
         LongBinding.longToEntry(messageId, key);
@@ -260,10 +421,66 @@ class BDBMessageStoreWriteBufferTest extends UnitTestBase
         return Arrays.copyOfRange(entry.getData(), entry.getOffset(), entry.getOffset() + entry.getSize());
     }
 
+    private MetadataWrite captureMetadata(final DatabaseEntry key, final DatabaseEntry value)
+    {
+        assertFalse(key.getPartial());
+        assertFalse(value.getPartial());
+        return new MetadataWrite(LongBinding.entryToLong(key), value, value.getData(), entryBytes(value));
+    }
+
+    private static byte[] metadataPayload(final MetadataWrite write)
+    {
+        return Arrays.copyOfRange(write.bytes(), METADATA_HEADER_SIZE, write.bytes().length);
+    }
+
+    private static BDBWriteBuffer cachedWriteBuffer()
+    {
+        try (final BDBWriteBuffer buffer = BDBWriteBuffer.acquire())
+        {
+            return buffer;
+        }
+    }
+
+    private static void assertWriteBufferReleased(final BDBWriteBuffer cached)
+    {
+        try (final BDBWriteBuffer buffer = BDBWriteBuffer.acquire())
+        {
+            assertSame(cached, buffer);
+            assertEquals(0, buffer.getValue().getData().length);
+        }
+    }
+
     private byte[] bytes(final int size, final byte value)
     {
         final byte[] bytes = new byte[size];
         Arrays.fill(bytes, value);
         return bytes;
+    }
+
+    private record MetadataWrite(long messageId, DatabaseEntry entry, byte[] array, byte[] bytes)
+    {
+    }
+
+    private static class TestMetaData extends InternalMessageMetaData
+    {
+        private final byte[] _payload;
+
+        private TestMetaData(final int contentSize, final byte[] payload)
+        {
+            super(true, null, contentSize);
+            _payload = payload;
+        }
+
+        @Override
+        public int getStorableSize()
+        {
+            return _payload.length;
+        }
+
+        @Override
+        public void writeToBuffer(final QpidByteBuffer destination)
+        {
+            destination.put(_payload);
+        }
     }
 }
