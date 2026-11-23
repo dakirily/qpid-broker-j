@@ -338,12 +338,12 @@ public class BDBMessageStoreTest extends MessageStoreTestCase
         }
     }
 
-    @Test
-    public void testQueueVisitorBuffersMessageIdsBeforeInvokingHandler()
+    @ParameterizedTest
+    @CsvSource({"4096, 2", "8192, 4097", "8195, 4098"})
+    void testQueueVisitorBuffersMessageIdsBeforeInvokingHandler(final int deliveryCount, final int lastNestedMessageId)
     {
         final UUID queueId = new UUID(0L, 1L);
         final TransactionLogResource queue = createQueue(queueId);
-        final int deliveryCount = 1025;
         final BDBMessageStore store = (BDBMessageStore) getStore();
         final EnvironmentFacade environment = store.getEnvironmentFacade();
         final Database deliveries = environment.openDatabase("QUEUE_ENTRIES", BDBUtils.DEFAULT_DATABASE_CONFIG);
@@ -383,11 +383,13 @@ public class BDBMessageStoreTest extends MessageStoreTestCase
                 {
                     final Transaction dequeue = getStore().newTransaction();
                     dequeue.dequeueMessage(record);
+                    // The outer visitor has already buffered this delivery.
+                    dequeue.dequeueMessage(new AbstractBDBMessageStore.BDBEnqueueRecord(queueId, deliveryCount));
                     dequeue.commitTran();
                     reader.visitMessageInstances(queue, nestedRecord ->
                     {
                         nestedRecords.add(nestedRecord);
-                        return false;
+                        return nestedRecord.getMessageNumber() < lastNestedMessageId;
                     });
                 }
                 return true;
@@ -399,9 +401,12 @@ public class BDBMessageStoreTest extends MessageStoreTestCase
                 assertSame(queueId, records.get(i).getQueueId());
                 assertEquals(i + 1L, records.get(i).getMessageNumber());
             }
-            assertEquals(1, nestedRecords.size());
-            assertSame(queueId, nestedRecords.get(0).getQueueId());
-            assertEquals(2L, nestedRecords.get(0).getMessageNumber());
+            assertEquals(lastNestedMessageId - 1, nestedRecords.size());
+            for (int i = 0; i < nestedRecords.size(); i++)
+            {
+                assertSame(queueId, nestedRecords.get(i).getQueueId());
+                assertEquals(i + 2L, nestedRecords.get(i).getMessageNumber());
+            }
             assertNotSame(records.get(1), nestedRecords.get(0));
         }
         finally

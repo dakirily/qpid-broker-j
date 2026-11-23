@@ -1527,6 +1527,8 @@ public abstract class AbstractBDBMessageStore implements MessageStore
     final class BDBMessageStoreReader implements MessageStoreReader
     {
         private static final int INITIAL_MESSAGE_ID_CAPACITY = 8;
+        private static final int MESSAGE_ID_CHUNK_CAPACITY = 4 * 1024;
+        private static final long[] EMPTY_MESSAGE_IDS = new long[0];
         private static final int RECOVERY_PAGE_SIZE = 1000;
 
         @Override
@@ -1562,8 +1564,9 @@ public abstract class AbstractBDBMessageStore implements MessageStore
         {
             checkMessageStoreOpen();
 
-            long[] messageIds = new long[0];
-            int messageCount = 0;
+            List<long[]> fullChunks = null;
+            long[] chunk = EMPTY_MESSAGE_IDS;
+            int idsInChunk = 0;
             final UUID queueId;
             try (final Cursor cursor = getDeliveryDb().openCursor(null, null))
             {
@@ -1577,12 +1580,26 @@ public abstract class AbstractBDBMessageStore implements MessageStore
                 OperationStatus status = cursor.getSearchKeyRange(key, value, LockMode.READ_UNCOMMITTED);
                 while (status == OperationStatus.SUCCESS && hasKeyPrefix(key, queuePrefix))
                 {
-                    if (messageCount == messageIds.length)
+                    if (idsInChunk == chunk.length)
                     {
-                        final int capacity = Math.max(INITIAL_MESSAGE_ID_CAPACITY, Math.multiplyExact(messageCount, 2));
-                        messageIds = Arrays.copyOf(messageIds, capacity);
+                        if (idsInChunk < MESSAGE_ID_CHUNK_CAPACITY)
+                        {
+                            final int capacity = Math.min(MESSAGE_ID_CHUNK_CAPACITY,
+                                                          Math.max(INITIAL_MESSAGE_ID_CAPACITY, idsInChunk * 2));
+                            chunk = Arrays.copyOf(chunk, capacity);
+                        }
+                        else
+                        {
+                            if (fullChunks == null)
+                            {
+                                fullChunks = new ArrayList<>();
+                            }
+                            fullChunks.add(chunk);
+                            chunk = new long[MESSAGE_ID_CHUNK_CAPACITY];
+                            idsInChunk = 0;
+                        }
                     }
-                    messageIds[messageCount++] = QueueEntryBinding.readMessageId(key);
+                    chunk[idsInChunk++] = QueueEntryBinding.readMessageId(key);
                     status = cursor.getNext(key, value, LockMode.READ_UNCOMMITTED);
                 }
             }
@@ -1591,13 +1608,30 @@ public abstract class AbstractBDBMessageStore implements MessageStore
                 throw getEnvironmentFacade().handleDatabaseException("Cannot visit message instances", e);
             }
 
+            if (fullChunks != null)
+            {
+                for (final long[] fullChunk : fullChunks)
+                {
+                    if (!visitMessageIds(queueId, fullChunk, fullChunk.length, handler))
+                    {
+                        return;
+                    }
+                }
+            }
+            visitMessageIds(queueId, chunk, idsInChunk, handler);
+        }
+
+        private static boolean visitMessageIds(final UUID queueId, final long[] messageIds, final int messageCount,
+                                               final MessageInstanceHandler handler)
+        {
             for (int index = 0; index < messageCount; index++)
             {
                 if (!handler.handle(new BDBEnqueueRecord(queueId, messageIds[index])))
                 {
-                    break;
+                    return false;
                 }
             }
+            return true;
         }
 
         private static boolean hasKeyPrefix(final DatabaseEntry key, final byte[] prefix)
