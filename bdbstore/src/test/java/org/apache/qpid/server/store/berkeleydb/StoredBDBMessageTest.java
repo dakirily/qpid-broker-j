@@ -51,6 +51,13 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
+import com.sleepycat.bind.tuple.LongBinding;
+import com.sleepycat.je.Database;
+import com.sleepycat.je.DatabaseEntry;
+import com.sleepycat.je.EnvironmentConfig;
+import com.sleepycat.je.LockMode;
+import com.sleepycat.je.LockTimeoutException;
+import com.sleepycat.je.OperationStatus;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -60,6 +67,8 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 import org.apache.qpid.server.bytebuffer.QpidByteBuffer;
 import org.apache.qpid.server.message.EnqueueableMessage;
+import org.apache.qpid.server.message.MessageDeletedException;
+import org.apache.qpid.server.message.MessageReference;
 import org.apache.qpid.server.protocol.v0_10.MessageMetaData_0_10;
 import org.apache.qpid.server.protocol.v0_10.MessageTransferMessage;
 import org.apache.qpid.server.protocol.v0_10.transport.DeliveryProperties;
@@ -316,6 +325,115 @@ class StoredBDBMessageTest extends UnitTestBase
         assertEquals(0L, _store.getInMemorySize());
     }
 
+    @Test
+    void testFailedDeleteReleasesPayloadAndCanBeRetried() throws Exception
+    {
+        _store.closeMessageStore();
+        when(_virtualHost.getContextKeys(false)).thenReturn(Set.of(EnvironmentConfig.LOCK_TIMEOUT));
+        when(_virtualHost.getContextValue(String.class, EnvironmentConfig.LOCK_TIMEOUT)).thenReturn("50 ms");
+        _store.openMessageStore(_virtualHost);
+
+        final int buffersBefore = QpidByteBuffer.getNumberOfBuffersInUse();
+        final int bodySize = 64 * 1024;
+        final Header header = new Header(new DeliveryProperties().setDeliveryMode(MessageDeliveryMode.PERSISTENT), null);
+        final MessageMetaData_0_10 metadata = new MessageMetaData_0_10(header, bodySize, 1L);
+        final MessageHandle<MessageMetaData_0_10> handle = _store.addMessage(metadata);
+        try (final QpidByteBuffer body = QpidByteBuffer.allocateDirect(bodySize))
+        {
+            handle.addContent(body);
+        }
+        final StoredMessage<MessageMetaData_0_10> stored = handle.allContentAdded();
+        final MessageTransferMessage message = new MessageTransferMessage(stored, null);
+        final TransactionLogResource queue = mock(TransactionLogResource.class);
+        when(queue.getId()).thenReturn(UUID.randomUUID());
+        final MessageReference<MessageTransferMessage> reference = message.newReference(queue);
+        final Transaction enqueue = _store.newTransaction();
+        final MessageEnqueueRecord record = enqueue.enqueueMessage(queue, message);
+        enqueue.commitTran();
+        final Transaction dequeue = _store.newTransaction();
+        dequeue.dequeueMessage(record);
+        dequeue.commitTran();
+
+        final Set<?> tracked = getTrackedMessages();
+        assertTrue(tracked.contains(stored));
+        assertEquals(bodySize + (long) metadata.getStorableSize(), _store.getInMemorySize());
+        assertTrue(QpidByteBuffer.getNumberOfBuffersInUse() > buffersBefore);
+
+        final MessageDeleteListener listener = mock(MessageDeleteListener.class);
+        _store.addMessageDeleteListener(listener);
+        final EnvironmentFacade environment = _store.getEnvironmentFacade();
+        final Database content = environment.openDatabase("MESSAGE_CONTENT", BDBUtils.DEFAULT_DATABASE_CONFIG);
+        final Database metadataDb = environment.openDatabase("MESSAGE_METADATA", BDBUtils.DEFAULT_DATABASE_CONFIG);
+        final DatabaseEntry key = new DatabaseEntry();
+        LongBinding.longToEntry(stored.getMessageNumber(), key);
+        final DatabaseEntry value = new DatabaseEntry();
+        value.setPartial(0, 0, true);
+        final com.sleepycat.je.Transaction blocker = environment.beginTransaction(null);
+        try
+        {
+            assertEquals(OperationStatus.SUCCESS, content.get(blocker, key, value, LockMode.RMW));
+            final StoreException failure = assertThrows(StoreException.class, reference::release);
+            assertTrue(failure.getCause() instanceof LockTimeoutException);
+            assertEquals("Cannot remove messages", failure.getMessage());
+        }
+        finally
+        {
+            blocker.abort();
+        }
+
+        assertFalse(tracked.contains(stored));
+        assertFalse(stored.isInContentInMemory());
+        assertEquals(0L, stored.getInMemorySize());
+        assertEquals(0L, _store.getInMemorySize());
+        assertEquals(buffersBefore, QpidByteBuffer.getNumberOfBuffersInUse());
+        assertThrows(MessageDeletedException.class, message::newReference);
+        reference.release();
+        verify(listener, never()).messageDeleted(stored);
+        assertEquals(OperationStatus.SUCCESS, content.get(null, key, value, LockMode.READ_COMMITTED));
+        assertEquals(OperationStatus.SUCCESS, metadataDb.get(null, key, value, LockMode.READ_COMMITTED));
+
+        stored.remove();
+        verify(listener).messageDeleted(stored);
+        assertEquals(OperationStatus.NOTFOUND, content.get(null, key, value, LockMode.READ_COMMITTED));
+        assertEquals(OperationStatus.NOTFOUND, metadataDb.get(null, key, value, LockMode.READ_COMMITTED));
+        assertEquals(0L, _store.getInMemorySize());
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void testTracksPayloadReloadedAfterFailedDelete(final boolean reloadMetadata) throws Exception
+    {
+        _store.closeMessageStore();
+        _store = spy(new BDBMessageStore());
+        _store.openMessageStore(_virtualHost);
+
+        final byte[] content = {1, 2, 3};
+        final StoredBDBMessage<TestMessageMetaData> stored = createMessage(content.length);
+        addFragment(stored, content);
+        stored.allContentAdded();
+        stored.flushToStore();
+        final StoreException failure = new StoreException("Delete failed");
+        doThrow(failure).when(_store).removeMessage(stored.getMessageNumber());
+        assertSame(failure, assertThrows(StoreException.class, stored::remove));
+        final Set<?> tracked = getTrackedMessages();
+        assertFalse(tracked.contains(stored));
+
+        if (reloadMetadata)
+        {
+            assertNotNull(stored.getMetaData());
+        }
+        else
+        {
+            assertArrayEquals(content, readContent(stored, 0));
+        }
+        assertTrue(tracked.contains(stored));
+        assertEquals(reloadMetadata ? stored.getMetadataSize() : content.length, _store.getInMemorySize());
+
+        _store.closeMessageStore();
+        assertEquals(0L, stored.getInMemorySize());
+        assertEquals(0L, _store.getInMemorySize());
+    }
+
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
     void testFinishesRemovalWhenQuotaCheckFails(final boolean listenerFails) throws Exception
@@ -352,9 +470,7 @@ class StoredBDBMessageTest extends UnitTestBase
         dequeue.commitTran();
         verify(facade).getTotalLogSize();
 
-        final Field messages = AbstractBDBMessageStore.class.getDeclaredField("_messages");
-        messages.setAccessible(true);
-        final Set<?> tracked = (Set<?>) messages.get(_store);
+        final Set<?> tracked = getTrackedMessages();
         assertTrue(tracked.contains(message));
         assertEquals(bodySize + (long) message.getMetadataSize(), _store.getInMemorySize());
         assertTrue(QpidByteBuffer.getNumberOfBuffersInUse() > buffersBefore);
@@ -618,5 +734,12 @@ class StoredBDBMessageTest extends UnitTestBase
         final Field field = StoredBDBMessage.class.getDeclaredField("_contentFragments");
         field.setAccessible(true);
         return (List<?>) field.get(message);
+    }
+
+    private Set<?> getTrackedMessages() throws ReflectiveOperationException
+    {
+        final Field field = AbstractBDBMessageStore.class.getDeclaredField("_messages");
+        field.setAccessible(true);
+        return (Set<?>) field.get(_store);
     }
 }

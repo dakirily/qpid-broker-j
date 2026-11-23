@@ -982,6 +982,7 @@ public abstract class AbstractBDBMessageStore implements MessageStore
         // Both records have been written. The transaction may still be uncommitted.
         private boolean _stored;
         private boolean _removed;
+        private boolean _detachedAfterFailedDelete;
 
         StoredBDBMessage(final long messageId, final T metaData, final boolean isRecovered)
         {
@@ -1006,6 +1007,7 @@ public abstract class AbstractBDBMessageStore implements MessageStore
             if (_metaData == null)
             {
                 checkMessageStoreOpen();
+                reattachIfDetached();
                 _metaData = (T) getMessageMetaData(_messageId);
                 _stored = true;
                 _inMemorySize.addAndGet(getMetadataSize());
@@ -1036,6 +1038,7 @@ public abstract class AbstractBDBMessageStore implements MessageStore
                 return;
             }
 
+            reattachIfDetached();
             final QpidByteBuffer fragment = src.slice();
             if (_contentFragments == null)
             {
@@ -1076,6 +1079,7 @@ public abstract class AbstractBDBMessageStore implements MessageStore
             if (_data == null && _stored)
             {
                 checkMessageStoreOpen();
+                reattachIfDetached();
                 _data = AbstractBDBMessageStore.this.getAllContent(_messageId);
                 accountContent(_data);
             }
@@ -1178,29 +1182,59 @@ public abstract class AbstractBDBMessageStore implements MessageStore
             }
             if (_stored)
             {
-                removeMessage(_messageId);
+                boolean deleteSucceeded = false;
                 try
                 {
+                    removeMessage(_messageId);
+                    deleteSucceeded = true;
                     storedSizeChangeOccurred(-getContentSize());
                 }
-                catch (final RuntimeException | Error quotaFailure)
+                catch (final RuntimeException | Error failure)
                 {
-                    // The JE delete has committed. Finish removal before reporting the quota failure.
                     try
                     {
-                        finishRemoval();
+                        if (deleteSucceeded)
+                        {
+                            finishRemoval();
+                        }
+                        else
+                        {
+                            // A failed delete leaves the handle eligible for an explicit retry.
+                            _messages.remove(this);
+                            _detachedAfterFailedDelete = true;
+                            clearMessageData(true);
+                        }
                     }
                     catch (final RuntimeException | Error cleanupFailure)
                     {
-                        if (cleanupFailure != quotaFailure)
+                        if (cleanupFailure != failure)
                         {
-                            quotaFailure.addSuppressed(cleanupFailure);
+                            failure.addSuppressed(cleanupFailure);
                         }
                     }
-                    throw quotaFailure;
+                    throw failure;
                 }
             }
             finishRemoval();
+        }
+
+        private void reattachIfDetached()
+        {
+            if (_detachedAfterFailedDelete)
+            {
+                // Register before loading payload so store close can find and clear the handle.
+                _messages.add(this);
+                try
+                {
+                    checkMessageStoreOpen();
+                }
+                catch (final IllegalStateException e)
+                {
+                    _messages.remove(this);
+                    throw e;
+                }
+                _detachedAfterFailedDelete = false;
+            }
         }
 
         private void finishRemoval()
