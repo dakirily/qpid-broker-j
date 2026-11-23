@@ -102,6 +102,8 @@ import org.apache.qpid.test.utils.VirtualHostNodeStoreType;
 public class BDBMessageStoreTest extends MessageStoreTestCase
 {
     private static final byte[] CONTENT_BYTES = new byte[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+    // An 8 KiB block stores one header with the first ID, followed by one-byte deltas.
+    private static final int SINGLE_BLOCK_DELIVERIES = 8 * 1024 - 3 * Long.BYTES - Integer.BYTES + 1;
 
     private String _storeLocation;
 
@@ -555,7 +557,7 @@ public class BDBMessageStoreTest extends MessageStoreTestCase
 
         final UUID firstQueue = new UUID(Long.MIN_VALUE, 1L);
         final UUID secondQueue = new UUID(1L, Long.MIN_VALUE);
-        final int firstQueueCount = 1001;
+        final int firstQueueCount = SINGLE_BLOCK_DELIVERIES + 1;
         final int count = firstQueueCount + 2;
         final AtomicInteger next = new AtomicInteger();
         when(cursor.getNext(any(), isNull(), eq(LockMode.READ_UNCOMMITTED))).thenAnswer(invocation ->
@@ -575,7 +577,7 @@ public class BDBMessageStoreTest extends MessageStoreTestCase
 
         final BDBMessageStore store = new BDBMessageStore(parent -> environment);
         store.openMessageStore(mock(BDBVirtualHost.class));
-        final MessageStore.MessageStoreReader reader = store.newMessageStoreReader();
+        final BDBMessageStoreReader reader = (BDBMessageStoreReader) store.newMessageStoreReader();
         final List<MessageEnqueueRecord> visited = new ArrayList<>();
         try
         {
@@ -586,7 +588,7 @@ public class BDBMessageStoreTest extends MessageStoreTestCase
                     verify(cursor).close();
                 }
                 return visited.add(record);
-            });
+            }, 2);
         }
         finally
         {
@@ -601,16 +603,62 @@ public class BDBMessageStoreTest extends MessageStoreTestCase
             assertEquals(firstQueue, visited.get(index).getQueueId());
             assertEquals(index - 500L, visited.get(index).getMessageNumber());
         }
-        assertSame(visited.get(0).getQueueId(), visited.get(1000).getQueueId());
-        assertEquals(secondQueue, visited.get(1001).getQueueId());
-        assertEquals(secondQueue, visited.get(1002).getQueueId());
-        assertEquals(-1L, visited.get(1001).getMessageNumber());
-        assertEquals(0L, visited.get(1002).getMessageNumber());
+        assertSame(visited.get(0).getQueueId(), visited.get(firstQueueCount - 1).getQueueId());
+        assertEquals(secondQueue, visited.get(firstQueueCount).getQueueId());
+        assertEquals(secondQueue, visited.get(firstQueueCount + 1).getQueueId());
+        assertEquals(-1L, visited.get(firstQueueCount).getMessageNumber());
+        assertEquals(0L, visited.get(firstQueueCount + 1).getMessageNumber());
+    }
+
+    @Test
+    void testRecoveryVisitorPreservesDeltasAndFullWidthMessageIds()
+    {
+        final UUID queueId = new UUID(Long.MIN_VALUE, -1L);
+        final List<Long> expected = new ArrayList<>();
+        long messageId = Long.MIN_VALUE;
+        expected.add(messageId);
+        for (int bits = 7; bits <= 56; bits += 7)
+        {
+            // Exercise both sides of each encoded length boundary for delta + 1.
+            messageId += (1L << bits) - 2;
+            expected.add(messageId);
+            messageId += (1L << bits) - 1;
+            expected.add(messageId);
+        }
+        // This gap also exceeds the range of a signed subtraction.
+        expected.add(Long.MAX_VALUE - 1);
+        expected.add(Long.MAX_VALUE);
+
+        final DatabaseEntry[] keys = new DatabaseEntry[expected.size() + 1];
+        for (int index = 0; index < expected.size(); index++)
+        {
+            keys[index] = legacyDeliveryKey(queueId, expected.get(index));
+        }
+        keys[expected.size()] = new DatabaseEntry(Arrays.copyOf(keys[0].getData(), QueueEntryBinding.KEY_SIZE + 1));
+        expected.add(1, Long.MIN_VALUE);
+        writeDeliveryKeys(keys);
+        reopenStore();
+
+        final MessageStore.MessageStoreReader reader = getStore().newMessageStoreReader();
+        try
+        {
+            final List<Long> visited = new ArrayList<>();
+            reader.visitMessageInstancesForRecovery(record ->
+            {
+                assertEquals(queueId, record.getQueueId());
+                return visited.add(record.getMessageNumber());
+            });
+            assertEquals(expected, visited);
+        }
+        finally
+        {
+            reader.close();
+        }
     }
 
     @ParameterizedTest
-    @ValueSource(ints = {0, 1, 999, 1000, 1001})
-    void testRecoveryVisitorPreservesSignedOrderAtPageBoundaries(final int count)
+    @ValueSource(ints = {0, 1, SINGLE_BLOCK_DELIVERIES - 1, SINGLE_BLOCK_DELIVERIES, SINGLE_BLOCK_DELIVERIES + 1})
+    void testRecoveryVisitorPreservesSignedOrderAtSnapshotBoundaries(final int count)
     {
         final UUID queueId = new UUID(Long.MIN_VALUE, 0L);
         final long firstId = -500L;
@@ -636,13 +684,15 @@ public class BDBMessageStoreTest extends MessageStoreTestCase
     }
 
     @ParameterizedTest
-    @CsvSource({"1, false", "3, true"})
+    @CsvSource({"1, false", "2, true"})
     void testRecoveryVisitorResumesWhenCallbacksDeleteDeliveryKeys(final int blockLimit,
                                                                   final boolean laterKeyWasBuffered)
     {
         final UUID queueId = new UUID(0L, 1L);
-        final long removedFromNextPage = 1501L;
-        final int count = 2001;
+        final long removedFromNextPage = SINGLE_BLOCK_DELIVERIES + 501L;
+        // One deleted delivery shifts the next page boundary by one ID.
+        final long pageResumeId = SINGLE_BLOCK_DELIVERIES + 1001L;
+        final int count = SINGLE_BLOCK_DELIVERIES + 1002;
         writeDeliveryRange(queueId, 1L, count);
         reopenStore();
 
@@ -662,7 +712,7 @@ public class BDBMessageStoreTest extends MessageStoreTestCase
                             new AbstractBDBMessageStore.BDBEnqueueRecord(queueId, removedFromNextPage));
                     transaction.commitTran();
                 }
-                else if (messageId % 1000L == 0L)
+                else if (messageId == SINGLE_BLOCK_DELIVERIES || messageId == pageResumeId)
                 {
                     final Transaction transaction = getStore().newTransaction();
                     transaction.dequeueMessage(record);
@@ -685,13 +735,14 @@ public class BDBMessageStoreTest extends MessageStoreTestCase
     void testRecoveryVisitorResumesWithCompleteRawKey()
     {
         final UUID queueId = new UUID(0L, 1L);
-        writeDeliveryRange(queueId, 1L, 999);
-        final byte[] firstExtendedKey =
-                Arrays.copyOf(legacyDeliveryKey(queueId, 1000L).getData(), QueueEntryBinding.KEY_SIZE + 1);
+        writeDeliveryRange(queueId, 1L, SINGLE_BLOCK_DELIVERIES - 1);
+        final DatabaseEntry resumeKey = legacyDeliveryKey(queueId, SINGLE_BLOCK_DELIVERIES);
+        final byte[] firstExtendedKey = Arrays.copyOf(resumeKey.getData(), QueueEntryBinding.KEY_SIZE + 1);
         final byte[] secondExtendedKey = firstExtendedKey.clone();
         secondExtendedKey[QueueEntryBinding.KEY_SIZE] = 1;
         writeDeliveryKeys(new DatabaseEntry(firstExtendedKey), new DatabaseEntry(secondExtendedKey),
-                          legacyDeliveryKey(queueId, 1001L), legacyDeliveryKey(new UUID(0L, 2L), Long.MIN_VALUE));
+                          legacyDeliveryKey(queueId, SINGLE_BLOCK_DELIVERIES + 1L),
+                          legacyDeliveryKey(new UUID(0L, 2L), Long.MIN_VALUE));
         reopenStore();
 
         final BDBMessageStoreReader reader = (BDBMessageStoreReader) getStore().newMessageStoreReader();
@@ -705,12 +756,13 @@ public class BDBMessageStoreTest extends MessageStoreTestCase
                 assertTrue(paged.size() < legacy.size());
                 return paged.add(record);
             }, 1);
-            assertEquals(1003, legacy.size());
+            assertEquals(SINGLE_BLOCK_DELIVERIES + 3, legacy.size());
             assertEquals(legacy.stream().map(MessageEnqueueRecord::getMessageNumber).toList(),
                          paged.stream().map(MessageEnqueueRecord::getMessageNumber).toList());
             assertEquals(legacy.stream().map(MessageEnqueueRecord::getQueueId).toList(),
                          paged.stream().map(MessageEnqueueRecord::getQueueId).toList());
-            assertSame(paged.get(999).getQueueId(), paged.get(1000).getQueueId());
+            assertSame(paged.get(SINGLE_BLOCK_DELIVERIES - 1).getQueueId(),
+                       paged.get(SINGLE_BLOCK_DELIVERIES).getQueueId());
         }
         finally
         {
@@ -723,7 +775,7 @@ public class BDBMessageStoreTest extends MessageStoreTestCase
     void testRecoveryVisitorValidatesLaterKeysBeforeCallbacks(final int blockLimit)
     {
         final UUID queueId = new UUID(0L, 1L);
-        writeDeliveryRange(queueId, 1L, 1001);
+        writeDeliveryRange(queueId, 1L, SINGLE_BLOCK_DELIVERIES + 1);
         final DatabaseEntry corrupt = legacyDeliveryKey(queueId, Long.MAX_VALUE);
         corrupt.setSize(QueueEntryBinding.KEY_SIZE - 1);
         writeDeliveryKeys(corrupt);

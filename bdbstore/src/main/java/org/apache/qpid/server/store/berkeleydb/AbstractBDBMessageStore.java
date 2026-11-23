@@ -21,6 +21,7 @@ package org.apache.qpid.server.store.berkeleydb;
 import static org.apache.qpid.server.store.berkeleydb.BDBUtils.DEFAULT_DATABASE_CONFIG;
 import static org.apache.qpid.server.store.berkeleydb.BDBUtils.abortTransactionSafely;
 
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -1759,18 +1760,22 @@ public abstract class AbstractBDBMessageStore implements MessageStore
 
         private static final class RecoverySnapshot
         {
-            private static final int BLOCK_HEADER_WORDS = 1;
-            private static final int QUEUE_RUN_HEADER_WORDS = 3;
-            private static final int BLOCK_WORDS = RECOVERY_PAGE_SIZE + BLOCK_HEADER_WORDS + QUEUE_RUN_HEADER_WORDS;
-            // Cap the primitive arrays at 8 MiB even when each delivery has a different queue ID.
-            private static final int MAX_BLOCKS = (8 * 1024 * 1024) / (BLOCK_WORDS * Long.BYTES);
+            private static final int BLOCK_BYTES = 8 * 1024;
+            private static final int MAX_BLOCKS = (8 * 1024 * 1024) / BLOCK_BYTES;
+            private static final int RUN_HEADER_BYTES = 3 * Long.BYTES + Integer.BYTES;
+            private static final int DELTA_BITS_PER_BYTE = Byte.SIZE - 1;
+            private static final int CONTINUATION_BIT = 1 << DELTA_BITS_PER_BYTE;
+            private static final int DELTA_BYTE_MASK = CONTINUATION_BIT - 1;
+            // Reserve zero for a full-width ID, and encode deltas in at most eight bytes.
+            private static final long MAX_DELTA = (1L << (Long.BYTES * DELTA_BITS_PER_BYTE)) - 2;
 
             private final int _blockLimit;
-            private final List<long[]> _blocks = new ArrayList<>();
-            private long[] _block;
-            private int _position;
+            private final List<ByteBuffer> _blocks = new ArrayList<>();
+            private ByteBuffer _block;
             private UUID _queueId;
-            private int _runCountIndex;
+            private long _lastMessageId;
+            private int _runCountOffset;
+            private int _runCount;
 
             private RecoverySnapshot(final int blockLimit)
             {
@@ -1781,57 +1786,123 @@ public abstract class AbstractBDBMessageStore implements MessageStore
                 _blockLimit = blockLimit;
             }
 
-            // Each block starts with its used length. A queue run stores UUID bits and a count before the IDs.
+            // A queue run starts with UUID bits, its first message ID and a count.
             private boolean add(final UUID queueId, final long messageId)
             {
-                final int required = _queueId == queueId ? 1 : QUEUE_RUN_HEADER_WORDS + 1;
-                if (_block == null || _position + required > BLOCK_WORDS)
+                final long delta = messageId - _lastMessageId;
+                if (_queueId == queueId && _block.remaining() >= deltaBytes(delta))
+                {
+                    writeDelta(_block, delta, messageId);
+                    _lastMessageId = messageId;
+                    _runCount++;
+                    return true;
+                }
+
+                if (_block == null || _block.remaining() < RUN_HEADER_BYTES)
                 {
                     if (_blocks.size() == _blockLimit)
                     {
                         return false;
                     }
-                    if (_block != null)
-                    {
-                        _block[0] = _position;
-                    }
-                    _block = new long[BLOCK_WORDS];
+                    finishBlock();
+                    _block = ByteBuffer.allocate(BLOCK_BYTES);
                     _blocks.add(_block);
-                    _position = BLOCK_HEADER_WORDS;
-                    _queueId = null;
                 }
-                if (_queueId != queueId)
+                else
                 {
-                    _queueId = queueId;
-                    _block[_position++] = queueId.getMostSignificantBits();
-                    _block[_position++] = queueId.getLeastSignificantBits();
-                    _runCountIndex = _position++;
+                    finishRun();
                 }
-                _block[_position++] = messageId;
-                _block[_runCountIndex]++;
+                _queueId = queueId;
+                _lastMessageId = messageId;
+                _block.putLong(queueId.getMostSignificantBits()).putLong(queueId.getLeastSignificantBits())
+                        .putLong(messageId);
+                _runCountOffset = _block.position();
+                _block.putInt(0);
+                _runCount = 1;
                 return true;
+            }
+
+            private static boolean fitsPackedDelta(final long delta)
+            {
+                // Subtraction can wrap when the sorted IDs span more than Long.MAX_VALUE.
+                return delta >= 0 && delta <= MAX_DELTA;
+            }
+
+            private static int deltaBytes(final long delta)
+            {
+                if (!fitsPackedDelta(delta))
+                {
+                    return Byte.BYTES + Long.BYTES;
+                }
+                final int bits = Long.SIZE - Long.numberOfLeadingZeros(delta + 1);
+                return (bits + DELTA_BITS_PER_BYTE - 1) / DELTA_BITS_PER_BYTE;
+            }
+
+            private static void writeDelta(final ByteBuffer block, final long delta, final long messageId)
+            {
+                if (!fitsPackedDelta(delta))
+                {
+                    block.put((byte) 0).putLong(messageId);
+                    return;
+                }
+                // Adding one also gives two equal decoded message IDs a nonzero code.
+                long code = delta + 1;
+                while (code > DELTA_BYTE_MASK)
+                {
+                    block.put((byte) ((code & DELTA_BYTE_MASK) | CONTINUATION_BIT));
+                    code >>>= DELTA_BITS_PER_BYTE;
+                }
+                block.put((byte) code);
+            }
+
+            private static long readMessageId(final ByteBuffer block, final long previousId)
+            {
+                int next = Byte.toUnsignedInt(block.get());
+                if (next == 0)
+                {
+                    return block.getLong();
+                }
+                long code = next & DELTA_BYTE_MASK;
+                for (int shift = DELTA_BITS_PER_BYTE; next >= CONTINUATION_BIT; shift += DELTA_BITS_PER_BYTE)
+                {
+                    next = Byte.toUnsignedInt(block.get());
+                    code |= (long) (next & DELTA_BYTE_MASK) << shift;
+                }
+                return previousId + (code - 1);
+            }
+
+            private void finishRun()
+            {
+                _block.putInt(_runCountOffset, _runCount);
+            }
+
+            private void finishBlock()
+            {
+                if (_block != null)
+                {
+                    finishRun();
+                    _block.flip();
+                }
             }
 
             private boolean visit(final QueueEntryBinding.OrderedDecoder decoder, final MessageInstanceHandler handler)
             {
-                if (_block != null)
+                finishBlock();
+                for (final ByteBuffer block : _blocks)
                 {
-                    _block[0] = _position;
-                }
-                for (final long[] block : _blocks)
-                {
-                    final int size = (int) block[0];
-                    int index = BLOCK_HEADER_WORDS;
-                    while (index < size)
+                    while (block.hasRemaining())
                     {
-                        final long mostSignificantBits = block[index++];
-                        final long leastSignificantBits = block[index++];
-                        final UUID queueId = decoder.readQueueId(mostSignificantBits, leastSignificantBits);
-                        final int count = (int) block[index++];
-                        final int end = index + count;
-                        while (index < end)
+                        final UUID queueId = decoder.readQueueId(block.getLong(), block.getLong());
+                        long messageId = block.getLong();
+                        final int count = block.getInt();
+                        if (!handler.handle(new BDBEnqueueRecord(queueId, messageId)))
                         {
-                            if (!handler.handle(new BDBEnqueueRecord(queueId, block[index++])))
+                            return false;
+                        }
+                        for (int index = 1; index < count; index++)
+                        {
+                            messageId = readMessageId(block, messageId);
+                            if (!handler.handle(new BDBEnqueueRecord(queueId, messageId)))
                             {
                                 return false;
                             }
