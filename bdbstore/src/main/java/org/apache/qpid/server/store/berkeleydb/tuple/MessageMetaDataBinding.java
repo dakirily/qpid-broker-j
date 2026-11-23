@@ -127,14 +127,11 @@ public class MessageMetaDataBinding implements EntryBinding<StorableMessageMetaD
         entry.setPartial(0, 0, false);
         // A serializer can skip reserved bytes that would be zero in a fresh entry.
         Arrays.fill(data, offset + HEADER_SIZE, offset + size, (byte) 0);
-        if (writeToBuffer(metaData, data, offset, size) != size - HEADER_SIZE)
-        {
-            throw new StoreException("Message metadata serializer did not write its declared size");
-        }
+        writeToBuffer(metaData, data, offset, size);
     }
 
-    private static int writeToBuffer(final StorableMessageMetaData metaData, final byte[] data,
-                                     final int offset, final int size)
+    private static void writeToBuffer(final StorableMessageMetaData metaData, final byte[] data,
+                                      final int offset, final int size)
     {
         final ByteBuffer value = ByteBuffer.wrap(data, offset, size);
         value.putInt((size - Integer.BYTES) ^ Integer.MIN_VALUE);
@@ -143,7 +140,6 @@ public class MessageMetaDataBinding implements EntryBinding<StorableMessageMetaD
         try (final QpidByteBuffer payload = QpidByteBuffer.wrap(value.slice()))
         {
             metaData.writeToBuffer(payload);
-            return payload.position();
         }
     }
 }

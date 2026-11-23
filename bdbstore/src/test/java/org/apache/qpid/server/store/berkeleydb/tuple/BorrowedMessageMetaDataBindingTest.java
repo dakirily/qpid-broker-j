@@ -57,17 +57,6 @@ class BorrowedMessageMetaDataBindingTest extends UnitTestBase
     }
 
     @Test
-    void testUnderwriteCannotPersistStalePayload()
-    {
-        final StorableMessageMetaData metadata = metadata(4, buffer -> buffer.put((byte) 1));
-        final byte[] scratch = new byte[100];
-        Arrays.fill(scratch, (byte) 42);
-        final DatabaseEntry borrowed = new DatabaseEntry(scratch, 10, 9);
-
-        assertThrows(StoreException.class, () -> BINDING.writeToEntry(metadata, borrowed));
-    }
-
-    @Test
     void testSerializerCannotExpandIntoOtherScratchBytes()
     {
         final byte[] scratch = new byte[100];
@@ -110,14 +99,18 @@ class BorrowedMessageMetaDataBindingTest extends UnitTestBase
         assertFalse(borrowed.getPartial());
     }
 
-    @Test
-    void testBorrowedEntryClearsReservedBytes()
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void testBorrowedEntryClearsReservedBytes(final boolean writeAfterPadding)
     {
         final StorableMessageMetaData metadata = metadata(4, buffer ->
         {
             buffer.put((byte) 1);
-            buffer.position(2);
-            buffer.putShort((short) 0x0203);
+            if (writeAfterPadding)
+            {
+                buffer.position(2);
+                buffer.putShort((short) 0x0203);
+            }
         });
         final byte[] scratch = new byte[30];
         Arrays.fill(scratch, (byte) 42);

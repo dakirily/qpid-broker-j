@@ -71,6 +71,7 @@ import org.apache.qpid.server.message.internal.InternalMessage;
 import org.apache.qpid.server.message.internal.InternalMessageMetaData;
 import org.apache.qpid.server.model.ConfiguredObject;
 import org.apache.qpid.server.model.VirtualHost;
+import org.apache.qpid.server.protocol.v0_8.AMQMessage;
 import org.apache.qpid.server.protocol.v0_8.AMQShortString;
 import org.apache.qpid.server.protocol.v0_8.FieldTableFactory;
 import org.apache.qpid.server.protocol.v0_8.MessageMetaData;
@@ -195,6 +196,60 @@ public class BDBMessageStoreTest extends MessageStoreTestCase
         catch (StoreException se)
         {
             // PASS
+        }
+    }
+
+    @Test
+    void testMetadataWrittenThroughDuplicateSurvivesReopen()
+    {
+        final MessagePublishInfo publishInfo = createPublishInfoBody_0_8();
+        final ContentHeaderBody header = createContentHeaderBody_0_8(createContentHeaderProperties_0_8(),
+                                                                    CONTENT_BYTES.length);
+        final MessageMetaData metadata = new MessageMetaData(publishInfo, header)
+        {
+            @Override
+            public void writeToBuffer(final QpidByteBuffer destination)
+            {
+                try (final QpidByteBuffer duplicate = destination.duplicate())
+                {
+                    super.writeToBuffer(duplicate);
+                }
+            }
+        };
+        final MessageHandle<MessageMetaData> handle = getStore().addMessage(metadata);
+        try (final QpidByteBuffer content = QpidByteBuffer.wrap(CONTENT_BYTES))
+        {
+            handle.addContent(content);
+        }
+        final AMQMessage message = new AMQMessage(handle.allContentAdded());
+        final Transaction transaction = getStore().newTransaction();
+        try
+        {
+            transaction.enqueueMessage(createQueue(new UUID(0L, 1L)), message);
+            transaction.commitTran();
+        }
+        catch (final StoreException e)
+        {
+            transaction.abortTran();
+            throw e;
+        }
+
+        reopenStore();
+
+        final MessageStore.MessageStoreReader reader = getStore().newMessageStoreReader();
+        try
+        {
+            final StoredMessage<?> recovered = reader.getMessage(message.getMessageNumber());
+            assertArrayEquals(CONTENT_BYTES, copyContent(recovered));
+            final MessageMetaData recoveredMetadata = (MessageMetaData) recovered.getMetaData();
+            assertEquals(publishInfo.getRoutingKey(), recoveredMetadata.getMessagePublishInfo().getRoutingKey());
+            assertEquals("text/html",
+                         recoveredMetadata.getContentHeaderBody().getProperties().getContentTypeAsString());
+            assertTrue(recoveredMetadata.isPersistent());
+        }
+        finally
+        {
+            reader.close();
         }
     }
 
