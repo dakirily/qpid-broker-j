@@ -34,6 +34,7 @@ import static org.mockito.AdditionalAnswers.delegatesTo;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -59,7 +60,14 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 import org.apache.qpid.server.bytebuffer.QpidByteBuffer;
 import org.apache.qpid.server.message.EnqueueableMessage;
+import org.apache.qpid.server.protocol.v0_10.MessageMetaData_0_10;
+import org.apache.qpid.server.protocol.v0_10.MessageTransferMessage;
+import org.apache.qpid.server.protocol.v0_10.transport.DeliveryProperties;
+import org.apache.qpid.server.protocol.v0_10.transport.Header;
+import org.apache.qpid.server.protocol.v0_10.transport.MessageDeliveryMode;
+import org.apache.qpid.server.protocol.v0_10.transport.MessageProperties;
 import org.apache.qpid.server.store.MessageEnqueueRecord;
+import org.apache.qpid.server.store.MessageHandle;
 import org.apache.qpid.server.store.MessageStore.MessageDeleteListener;
 import org.apache.qpid.server.store.MessageStore.MessageStoreReader;
 import org.apache.qpid.server.store.StoreException;
@@ -219,6 +227,48 @@ class StoredBDBMessageTest extends UnitTestBase
         assertTrue(message.flowToDisk());
         assertArrayEquals(new byte[0], readContent(message, 0));
         assertEquals(0L, _store.getInMemorySize());
+    }
+
+    @Test
+    void testExplicitlyEmptyBodyStaysResidentAfterCommit()
+    {
+        _store.closeMessageStore();
+        _store = spy(new BDBMessageStore());
+        _store.openMessageStore(_virtualHost);
+        final DeliveryProperties deliveryProperties = new DeliveryProperties();
+        deliveryProperties.setDeliveryMode(MessageDeliveryMode.PERSISTENT);
+        final Header header = new Header(deliveryProperties, new MessageProperties());
+        final MessageMetaData_0_10 metadata = new MessageMetaData_0_10(header, 0, 1L);
+        final MessageHandle<MessageMetaData_0_10> handle = _store.addMessage(metadata);
+        final int buffersBefore = QpidByteBuffer.getNumberOfBuffersInUse();
+        try (final QpidByteBuffer src = QpidByteBuffer.allocateDirect(POOL_BUFFER_SIZE))
+        {
+            src.position(src.limit());
+            handle.addContent(src);
+        }
+        assertEquals(buffersBefore, QpidByteBuffer.getNumberOfBuffersInUse());
+        final StoredBDBMessage<MessageMetaData_0_10> stored =
+                (StoredBDBMessage<MessageMetaData_0_10>) handle.allContentAdded();
+        stored.flushToStore();
+        final MessageTransferMessage message = new MessageTransferMessage(stored, null);
+        assertTrue(message.isPersistent());
+
+        try (final QpidByteBuffer first = message.getBody();
+             final QpidByteBuffer second = message.getBody())
+        {
+            assertFalse(first.hasRemaining());
+            assertFalse(second.hasRemaining());
+        }
+        verify(_store, never()).getAllContent(stored.getMessageNumber());
+        assertSame(metadata, stored.getMetaData());
+        verify(_store, never()).getMessageMetaData(stored.getMessageNumber());
+        assertTrue(stored.isInContentInMemory());
+        assertEquals(stored.getMetadataSize(), _store.getInMemorySize());
+
+        assertTrue(stored.flowToDisk());
+        assertFalse(stored.isInContentInMemory());
+        assertArrayEquals(new byte[0], readContent(stored, 0));
+        verify(_store).getAllContent(stored.getMessageNumber());
     }
 
     @ParameterizedTest

@@ -1022,8 +1022,17 @@ public abstract class AbstractBDBMessageStore implements MessageStore
         @Override
         public synchronized void addContent(final QpidByteBuffer src)
         {
-            if (_removed || !src.hasRemaining())
+            if (_removed)
             {
+                return;
+            }
+            if (!src.hasRemaining())
+            {
+                if (!_stored && _contentSize == 0 && _data == null && _contentFragments == null)
+                {
+                    // An explicitly empty body is resident until it is evicted.
+                    _data = QpidByteBuffer.emptyQpidByteBuffer();
+                }
                 return;
             }
 
